@@ -24,3 +24,6 @@ idna_adapter = "1.2"
 thiserror = "2"
 serde_json = "1"
 minijinja = "2"
+
+[dev-dependencies]
+lazy_static = "1"
