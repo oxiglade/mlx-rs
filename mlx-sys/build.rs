@@ -44,6 +44,15 @@ fn find_clang_rt_path() -> Option<String> {
     None
 }
 
+/// Resolve the macOS deployment target.
+///
+/// Uses `MACOSX_DEPLOYMENT_TARGET` env var if set, otherwise defaults to 14.0
+/// (MLX's minimum supported version for Metal).
+#[cfg(target_os = "macos")]
+fn resolve_deployment_target() -> String {
+    env::var("MACOSX_DEPLOYMENT_TARGET").unwrap_or_else(|_| "14.0".to_string())
+}
+
 fn build_and_link_mlx_c() {
     let mut config = Config::new("src/mlx-c");
     config.very_verbose(true);
@@ -52,6 +61,19 @@ fn build_and_link_mlx_c() {
     // Use Xcode's clang to ensure compatibility with the macOS SDK
     config.define("CMAKE_C_COMPILER", "/usr/bin/cc");
     config.define("CMAKE_CXX_COMPILER", "/usr/bin/c++");
+
+    // Set macOS deployment target for Metal/MLX compatibility
+    // This avoids linking errors with ___isPlatformVersionAtLeast
+    // See: https://github.com/ml-explore/mlx/issues/1602
+    #[cfg(target_os = "macos")]
+    {
+        let deployment_target = resolve_deployment_target();
+        config.define("CMAKE_OSX_DEPLOYMENT_TARGET", &deployment_target);
+        // Ensure environment is set for compiler-rt symbols
+        // SAFETY: build scripts are single-threaded
+        unsafe { std::env::set_var("MACOSX_DEPLOYMENT_TARGET", &deployment_target) };
+        println!("cargo:rerun-if-env-changed=MACOSX_DEPLOYMENT_TARGET");
+    }
 
     #[cfg(debug_assertions)]
     {
@@ -95,6 +117,17 @@ fn build_and_link_mlx_c() {
     #[cfg(feature = "accelerate")]
     {
         println!("cargo:rustc-link-lib=framework=Accelerate");
+    }
+
+    // Set minimum macOS version for linker to match compiled objects
+    // Must match CMAKE_OSX_DEPLOYMENT_TARGET to avoid ___isPlatformVersionAtLeast errors
+    #[cfg(target_os = "macos")]
+    {
+        let deployment_target = resolve_deployment_target();
+        println!(
+            "cargo:rustc-link-arg=-mmacosx-version-min={}",
+            deployment_target
+        );
     }
 
     // Link against Xcode's clang runtime for ___isPlatformVersionAtLeast symbol
