@@ -51,7 +51,7 @@ num_enum = "0.7"
 num-traits = "0.2"
 paste = "1"
 smallvec = "1"
-strum = { version = "0.27", features = ["derive"] }
+strum = { version = "0.28", features = ["derive"] }
 libc = "0.2"
 parking_lot = "0.12"
 tempfile = "3"
