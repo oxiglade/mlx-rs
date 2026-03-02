@@ -24,7 +24,6 @@ members = [
     "mlx-lm",
     "mlx-lm-utils",
     "mlx-tests",
-    "examples/*",
     "xtask",
 ]
 
