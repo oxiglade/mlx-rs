@@ -92,6 +92,14 @@ pub enum AsSliceError {
         found: Dtype,
     },
 
+    /// The array is not contiguous in memory.
+    ///
+    /// This can happen after operations like `index()` or `transpose_axes()` which
+    /// create strided views. Use `contiguous()` or reshape to make the array contiguous
+    /// before calling `as_slice()`.
+    #[error("Array is not contiguous in memory. Operations like index() and transpose_axes() create strided views. Call contiguous() or reshape the array first.")]
+    NotContiguous,
+
     /// Exception
     #[error(transparent)]
     Exception(#[from] Exception),

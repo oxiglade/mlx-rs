@@ -119,9 +119,10 @@ where
 
     fn forward(&mut self, input: Input) -> Result<Self::Output, Self::Error> {
         let RopeInput { x, offset } = input.into();
-        let shape = x.shape();
-        let x = x.reshape(&[-1, x.dim(-2), x.dim(-1)])?;
-        let x = crate::fast::rope(
+        // Note: Do NOT reshape the input. The underlying fast::rope kernel
+        // expects the input shape to be preserved. Reshaping [B, H, L, D] to
+        // [B*H, L, D] causes incorrect behavior for multi-head attention.
+        crate::fast::rope(
             x,
             self.dimensions,
             self.traditional,
@@ -129,8 +130,7 @@ where
             self.scale,
             offset,
             None,
-        )?;
-        x.reshape(shape)
+        )
     }
 
     fn training_mode(&mut self, _mode: bool) {}

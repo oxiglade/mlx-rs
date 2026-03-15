@@ -247,6 +247,59 @@ impl Array {
         }
     }
 
+    /// Check if the array is contiguous in memory (row-major/C-style).
+    ///
+    /// An array is contiguous if it can be accessed as a flat slice without gaps
+    /// or out-of-order elements. Operations like `index()` and `transpose_axes()`
+    /// create strided views that are NOT contiguous.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use mlx_rs::Array;
+    /// use mlx_rs::ops::indexing::IndexOp;
+    ///
+    /// let arr = Array::from_slice(&[1i32, 2, 3, 4, 5, 6], &[2, 3]);
+    /// assert!(arr.is_contiguous());
+    ///
+    /// // Indexing creates a strided view
+    /// let sliced = arr.index((.., ..2));  // First 2 columns
+    /// // Note: may or may not be contiguous depending on the operation
+    /// ```
+    pub fn is_contiguous(&self) -> bool {
+        let shape = self.shape();
+        let strides = self.strides();
+        let ndim = self.ndim();
+
+        if ndim == 0 {
+            return true;
+        }
+
+        // For row-major (C-style) contiguous arrays:
+        // stride[n-1] should be 1
+        // stride[i] should be product of shape[i+1..]
+        //
+        // Example: shape [2, 3, 4]
+        // strides should be [12, 4, 1] (i.e., [3*4, 4, 1])
+
+        let mut expected_stride: usize = 1;
+        for i in (0..ndim).rev() {
+            // Handle dimensions of size 0 or 1 (stride doesn't matter)
+            if shape[i] <= 1 {
+                // For size 0 or 1 dimensions, any stride is valid
+                expected_stride *= shape[i].max(1) as usize;
+                continue;
+            }
+
+            if strides[i] != expected_stride {
+                return false;
+            }
+            expected_stride *= shape[i] as usize;
+        }
+
+        true
+    }
+
     /// The number of bytes in the array.
     pub fn nbytes(&self) -> usize {
         unsafe { mlx_sys::mlx_array_nbytes(self.as_ptr()) }
@@ -315,9 +368,7 @@ impl Array {
     ///
     /// _Note: This will evaluate the array._
     pub fn try_item<T: ArrayElement>(&self) -> crate::error::Result<T> {
-        self.eval()?;
-
-        // Evaluate the array, so we have content to work with in the conversion
+        // Evaluate the array so we have content to work with
         self.eval()?;
 
         // Though `mlx_array_item_<dtype>` returns a status code, it doesn't
@@ -369,6 +420,13 @@ impl Array {
     }
 
     /// Returns a slice of the array data returning an error if the dtype does not match the actual dtype.
+    ///
+    /// # Safety note
+    ///
+    /// For non-contiguous arrays (e.g., after `index()` or `transpose_axes()`), the returned
+    /// slice contains the raw underlying data which may not match the logical array layout.
+    /// Use [`is_contiguous()`](Array::is_contiguous) to check, and [`contiguous()`](crate::ops::contiguous)
+    /// to obtain a contiguous copy if needed.
     ///
     /// # Example
     ///

@@ -84,6 +84,12 @@ impl Array {
         at_least_3d_device(self, stream)
     }
 
+    /// See [`contiguous`]
+    #[default_device]
+    pub fn contiguous_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+        contiguous_device(self, stream)
+    }
+
     /// See [`move_axis`]
     #[default_device]
     pub fn move_axis_device(
@@ -976,6 +982,45 @@ pub fn transpose_device(
     })
 }
 
+/// Returns a contiguous array with the same data as the input.
+///
+/// If the array is already contiguous, it is returned as-is. Otherwise,
+/// a new contiguous array is created with the data copied.
+///
+/// This is useful when you need to call `as_slice()` on an array that may
+/// have non-contiguous strides (e.g., after `index()` or `transpose_axes()`).
+///
+/// # Params
+///
+/// - `a`: The input array.
+///
+/// # Example
+///
+/// ```rust
+/// use mlx_rs::{Array, ops::*};
+/// use mlx_rs::ops::indexing::IndexOp;
+///
+/// let x = Array::from_slice(&[1i32, 2, 3, 4, 5, 6], &[2, 3]);
+/// let sliced = x.index((.., ..2));  // May be non-contiguous
+/// let c = contiguous(&sliced).unwrap();
+/// // Now c is guaranteed to be contiguous and safe to use with as_slice()
+/// ```
+#[generate_macro]
+#[default_device]
+pub fn contiguous_device(
+    a: impl AsRef<Array>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    Array::try_from_op(|res| unsafe {
+        mlx_sys::mlx_contiguous(
+            res,
+            a.as_ref().as_ptr(),
+            false, // allow_col_major
+            stream.as_ref().as_ptr(),
+        )
+    })
+}
+
 // The unit tests below are adapted from
 // https://github.com/ml-explore/mlx/blob/main/tests/ops_tests.cpp
 #[cfg(test)]
@@ -1459,5 +1504,52 @@ mod tests {
         x = transpose_axes(&x, &[2, 1, 0, 3][..]).unwrap();
         x.eval().unwrap();
         // assert!(x.flags().row_contiguous);
+    }
+
+    #[test]
+    fn test_contiguous() {
+        // A freshly created array should be contiguous
+        let x = Array::from_slice(&[1i32, 2, 3, 4, 5, 6], &[2, 3]);
+        assert!(x.is_contiguous());
+
+        // After transpose, the array may not be contiguous
+        let t = transpose(&x).unwrap();
+        t.eval().unwrap();
+        // Transposed array is typically not contiguous (strides are swapped)
+        assert!(!t.is_contiguous());
+
+        // contiguous() should make it contiguous again
+        let c = contiguous(&t).unwrap();
+        c.eval().unwrap();
+        assert!(c.is_contiguous());
+
+        // The values should be the same (but in contiguous memory order)
+        assert_eq!(c.shape(), &[3, 2]);
+        let data: Vec<i32> = c.try_as_slice().unwrap().to_vec();
+        assert_eq!(data, vec![1, 4, 2, 5, 3, 6]);
+    }
+
+    #[test]
+    fn test_is_contiguous_and_contiguous() {
+        let x = Array::from_slice(&[1i32, 2, 3, 4, 5, 6], &[2, 3]);
+
+        // Contiguous array: is_contiguous() returns true
+        assert!(x.is_contiguous());
+        let slice = x.try_as_slice::<i32>();
+        assert!(slice.is_ok());
+        assert_eq!(slice.unwrap(), &[1, 2, 3, 4, 5, 6]);
+
+        // Transposed array: is_contiguous() returns false
+        let t = transpose(&x).unwrap();
+        t.eval().unwrap();
+        assert!(!t.is_contiguous());
+
+        // After contiguous(), is_contiguous() returns true and data is correct
+        let c = contiguous(&t).unwrap();
+        c.eval().unwrap();
+        assert!(c.is_contiguous());
+        let slice = c.try_as_slice::<i32>();
+        assert!(slice.is_ok());
+        assert_eq!(slice.unwrap(), &[1, 4, 2, 5, 3, 6]);
     }
 }
