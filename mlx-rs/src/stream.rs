@@ -74,13 +74,14 @@ impl StreamOrDevice {
 }
 
 impl Default for StreamOrDevice {
-    /// The default stream on the default device.
+    /// The default stream on the default device, or the task-local stream if set.
     ///
-    /// This will be [Device::gpu()] unless [Device::set_default()]
-    /// sets it otherwise.
+    /// If a task-local stream has been set via [`with_new_default_stream`], that stream
+    /// will be used. Otherwise, this will be the default stream on [Device::gpu()]
+    /// unless [Device::set_default()] sets it otherwise.
     fn default() -> Self {
         Self {
-            stream: Stream::new(),
+            stream: Stream::task_local_or_default(),
         }
     }
 }
