@@ -94,6 +94,10 @@ impl<'a> TryFrom<&'a Array> for TensorView<'a> {
                     let bits: &[u16] = transmute(data);
                     cast_slice(bits)
                 },
+                Dtype::Float64 => {
+                    let data = value.as_slice::<f64>();
+                    cast_slice(data)
+                },
                 Dtype::Complex64 => return Err(ConversionError::MlxDtype(Dtype::Complex64)),
             }
         };
