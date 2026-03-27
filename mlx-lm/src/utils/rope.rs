@@ -173,31 +173,59 @@ pub enum RopeVariant {
 // TODO: support derive ModuleParameters for enum
 impl mlx_rs::module::ModuleParameters for RopeVariant {
     fn num_parameters(&self) -> usize {
-        0
+        match self {
+            RopeVariant::Default(rope) => rope.num_parameters(),
+            RopeVariant::Llama3(rope) => rope.num_parameters(),
+        }
     }
 
-    fn freeze_parameters(&mut self, _recursive: bool) {}
+    fn freeze_parameters(&mut self, _recursive: bool) {
+        match self {
+            RopeVariant::Default(rope) => rope.freeze_parameters(_recursive),
+            RopeVariant::Llama3(rope) => rope.freeze_parameters(_recursive),
+        }
+    }
 
-    fn unfreeze_parameters(&mut self, _recursive: bool) {}
+    fn unfreeze_parameters(&mut self, _recursive: bool) {
+        match self {
+            RopeVariant::Default(rope) => rope.unfreeze_parameters(_recursive),
+            RopeVariant::Llama3(rope) => rope.unfreeze_parameters(_recursive),
+        }
+    }
 
     fn parameters(&self) -> mlx_rs::module::ModuleParamRef<'_> {
-        mlx_rs::nested::NestedHashMap::new()
+        match self {
+            RopeVariant::Default(rope) => rope.parameters(),
+            RopeVariant::Llama3(rope) => rope.parameters(),
+        }
     }
 
     fn parameters_mut(&mut self) -> mlx_rs::module::ModuleParamMut<'_> {
-        mlx_rs::nested::NestedHashMap::new()
+        match self {
+            RopeVariant::Default(rope) => rope.parameters_mut(),
+            RopeVariant::Llama3(rope) => rope.parameters_mut(),
+        }
     }
 
     fn trainable_parameters(&self) -> mlx_rs::module::ModuleParamRef<'_> {
-        mlx_rs::nested::NestedHashMap::new()
+        match self {
+            RopeVariant::Default(rope) => rope.trainable_parameters(),
+            RopeVariant::Llama3(rope) => rope.trainable_parameters(),
+        }
     }
 
     fn all_frozen(&self) -> Option<bool> {
-        None
+        match self {
+            RopeVariant::Default(rope) => rope.all_frozen(),
+            RopeVariant::Llama3(rope) => rope.all_frozen(),
+        }
     }
 
     fn any_frozen(&self) -> Option<bool> {
-        None
+        match self {
+            RopeVariant::Default(rope) => rope.any_frozen(),
+            RopeVariant::Llama3(rope) => rope.any_frozen(),
+        }
     }
 }
 
