@@ -13,6 +13,7 @@ description = "Rust implementation of mlx-lm"
 [dependencies]
 # Local dependencies
 mlx-rs.workspace = true
+mlx-macros.workspace = true
 mlx-lm-utils.workspace = true
 
 # External dependencies
@@ -24,3 +25,6 @@ idna_adapter = "1.2"
 thiserror = "2"
 serde_json = "1"
 minijinja = "2"
+
+[dev-dependencies]
+lazy_static = "1"
