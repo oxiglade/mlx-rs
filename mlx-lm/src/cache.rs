@@ -1,6 +1,10 @@
 use mlx_rs::{
     error::Exception,
-    ops::{concatenate_axis, indexing::IndexOp},
+    ops::{
+        concatenate_axis,
+        indexing::{IndexOp, TryIndexMutOp},
+        zeros_dtype,
+    },
     transforms::eval,
     Array,
 };
@@ -67,6 +71,21 @@ pub struct ConcatKeyValueCache {
     keys: Option<Array>,
     values: Option<Array>,
     offset: i32,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct KVCache {
+    keys: Option<Array>,
+    values: Option<Array>,
+    offset: i32,
+}
+
+impl KVCache {
+    const STEP: i32 = 256;
+
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 
 impl ConcatKeyValueCache {
@@ -153,12 +172,95 @@ impl KeyValueCache for ConcatKeyValueCache {
     }
 }
 
+impl KeyValueCache for KVCache {
+    fn offset(&self) -> i32 {
+        self.offset
+    }
+
+    fn max_size(&self) -> Option<i32> {
+        None
+    }
+
+    fn update_and_fetch(
+        &mut self,
+        keys: Array,
+        values: Array,
+    ) -> Result<(Array, Array), Exception> {
+        let prev = self.offset;
+        let seq_len = keys.shape()[2];
+
+        let needs_resize = self
+            .keys
+            .as_ref()
+            .map(|cached| (prev + seq_len) > cached.shape()[2])
+            .unwrap_or(true);
+
+        if needs_resize {
+            let key_shape = keys.shape();
+            let value_shape = values.shape();
+            let expand_steps = ((Self::STEP + seq_len - 1) / Self::STEP) * Self::STEP;
+            let new_keys = zeros_dtype(
+                &[key_shape[0], key_shape[1], expand_steps, key_shape[3]],
+                keys.dtype(),
+            )?;
+            let new_values = zeros_dtype(
+                &[value_shape[0], value_shape[1], expand_steps, value_shape[3]],
+                values.dtype(),
+            )?;
+
+            match (self.keys.take(), self.values.take()) {
+                (Some(existing_keys), Some(existing_values)) => {
+                    let existing_keys = if prev < existing_keys.shape()[2] {
+                        existing_keys.index((.., .., ..prev, ..))
+                    } else {
+                        existing_keys
+                    };
+                    let existing_values = if prev < existing_values.shape()[2] {
+                        existing_values.index((.., .., ..prev, ..))
+                    } else {
+                        existing_values
+                    };
+                    self.keys = Some(concatenate_axis(&[existing_keys, new_keys], -2)?);
+                    self.values = Some(concatenate_axis(&[existing_values, new_values], -2)?);
+                }
+                _ => {
+                    self.keys = Some(new_keys);
+                    self.values = Some(new_values);
+                }
+            }
+        }
+
+        self.offset += seq_len;
+        let end = self.offset;
+        self.keys
+            .as_mut()
+            .expect("keys cache missing")
+            .try_index_mut((.., .., prev..end, ..), &keys)?;
+        self.values
+            .as_mut()
+            .expect("values cache missing")
+            .try_index_mut((.., .., prev..end, ..), &values)?;
+
+        let keys = self
+            .keys
+            .as_ref()
+            .expect("keys cache missing")
+            .index((.., .., ..end, ..));
+        let values = self
+            .values
+            .as_ref()
+            .expect("values cache missing")
+            .index((.., .., ..end, ..));
+        Ok((keys, values))
+    }
+}
+
 /// TODO: A generic KV Cache
 pub struct DefaultKeyValueCache {}
 
 #[cfg(test)]
 mod tests {
-    use super::{ConcatKeyValueCache, KeyValueCache};
+    use super::{ConcatKeyValueCache, KVCache, KeyValueCache};
     use mlx_rs::Array;
     use std::sync::{Mutex, MutexGuard, OnceLock};
 
@@ -230,7 +332,33 @@ mod tests {
             .update_and_fetch(append_keys, append_values)
             .expect("append trimmed");
 
-        assert_eq!(original_keys.as_slice::<f32>(), &[1., 2., 3., 4., 5., 6., 13., 14.]);
+        assert_eq!(
+            original_keys.as_slice::<f32>(),
+            &[1., 2., 3., 4., 5., 6., 13., 14.]
+        );
         assert_eq!(trimmed_keys.as_slice::<f32>(), &[1., 2., 3., 4., 13., 14.]);
+    }
+
+    #[test]
+    fn kv_cache_appends_with_preallocated_capacity() {
+        let _guard = test_guard();
+        let mut cache = KVCache::new();
+        let keys = Array::from_slice(&[1f32, 2., 3., 4.], &[1, 1, 2, 2]);
+        let values = Array::from_slice(&[5f32, 6., 7., 8.], &[1, 1, 2, 2]);
+        let (keys, values) = cache.update_and_fetch(keys, values).expect("seed cache");
+        assert_eq!(cache.offset(), 2);
+        assert_eq!(keys.shape(), &[1, 1, 2, 2]);
+        assert_eq!(values.shape(), &[1, 1, 2, 2]);
+
+        let append_keys = Array::from_slice(&[9f32, 10.], &[1, 1, 1, 2]);
+        let append_values = Array::from_slice(&[11f32, 12.], &[1, 1, 1, 2]);
+        let (keys, values) = cache
+            .update_and_fetch(append_keys, append_values)
+            .expect("append cache");
+        assert_eq!(cache.offset(), 3);
+        assert_eq!(keys.shape(), &[1, 1, 3, 2]);
+        assert_eq!(values.shape(), &[1, 1, 3, 2]);
+        assert_eq!(keys.as_slice::<f32>(), &[1., 2., 3., 4., 9., 10.]);
+        assert_eq!(values.as_slice::<f32>(), &[5., 6., 7., 8., 11., 12.]);
     }
 }

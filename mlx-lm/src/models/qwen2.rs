@@ -622,7 +622,7 @@ mod tests {
     };
 
     use crate::{
-        cache::ConcatKeyValueCache,
+        cache::{ConcatKeyValueCache, KVCache},
         models::qwen2::{load_qwen2_model, load_qwen2_tokenizer},
     };
 
@@ -660,6 +660,33 @@ mod tests {
             0.0,
             &prompt_tokens,
         );
+        for (token, ntoks) in generate.zip(0..10) {
+            let token = token.unwrap();
+            tokens.push(token.clone());
+
+            if ntoks == 0 {
+                eval(&tokens).unwrap();
+            }
+        }
+
+        eval(&tokens).unwrap();
+        let slice: Vec<u32> = tokens.drain(..).map(|t| t.item::<u32>()).collect();
+        let s = tokenizer.decode(&slice, true).unwrap();
+        assert!(!s.is_empty());
+    }
+
+    #[test]
+    #[ignore = "requires local model files"]
+    fn test_load_and_run_qwen2_with_kv_cache() {
+        let tokenizer = load_qwen2_tokenizer(CACHED_TEST_MODEL_DIR).unwrap();
+        let mut model = load_qwen2_model(CACHED_TEST_MODEL_DIR).unwrap();
+
+        let encoding = tokenizer.encode("hello", true).unwrap();
+        let prompt_tokens = Array::from(encoding.get_ids()).index(NewAxis);
+        let mut cache = Vec::new();
+
+        let mut tokens = Vec::new();
+        let generate = super::Generate::<KVCache>::new(&mut model, &mut cache, 0.0, &prompt_tokens);
         for (token, ntoks) in generate.zip(0..10) {
             let token = token.unwrap();
             tokens.push(token.clone());
