@@ -256,7 +256,7 @@ impl KeyValueCache for KVCache {
             .expect("values cache missing")
             .index((.., .., ..end, ..));
         eval([&keys, &values])?;
-        Ok((keys, values))
+        Ok((keys.deep_clone(), values.deep_clone()))
     }
 }
 
