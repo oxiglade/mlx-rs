@@ -386,7 +386,7 @@ where
 
         let mask = match mask {
             Some(mask) => Some(mask.clone()),
-            None => match create_attention_mask(&h, cache, Some(true))? {
+            None => match create_attention_mask(&h, cache, None)? {
                 Some(AttentionMask::Array(a)) => Some(a),
                 Some(AttentionMask::Causal) => None,
                 None => None,
