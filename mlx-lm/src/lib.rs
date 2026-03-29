@@ -7,7 +7,7 @@ pub mod utils;
 
 use mlx_rs::Array;
 
-use crate::models::qwen3;
+use crate::models::{qwen2, qwen3};
 
 pub struct ModelInputBuilder<'a, C, T> {
     pub y: &'a Array,
@@ -20,6 +20,18 @@ pub trait ModelInput<'a, C, T> {
 }
 
 impl<'a, C> ModelInput<'a, C, Option<Array>> for qwen3::ModelInput<'a, C> {
+    fn from_model_input_builder(builder: ModelInputBuilder<'a, C, Option<Array>>) -> Self {
+        let ModelInputBuilder { y, cache, state } = builder;
+
+        Self {
+            inputs: y,
+            mask: state.as_ref(),
+            cache,
+        }
+    }
+}
+
+impl<'a, C> ModelInput<'a, C, Option<Array>> for qwen2::ModelInput<'a, C> {
     fn from_model_input_builder(builder: ModelInputBuilder<'a, C, Option<Array>>) -> Self {
         let ModelInputBuilder { y, cache, state } = builder;
 
