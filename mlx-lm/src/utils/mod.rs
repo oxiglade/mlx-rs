@@ -252,7 +252,7 @@ where
 }
 
 #[derive(Debug, Clone)]
-pub(crate) enum AttentionMask {
+pub enum AttentionMask {
     Array(Array),
     Causal,
 }
