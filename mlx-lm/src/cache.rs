@@ -240,6 +240,10 @@ impl KeyValueCache for KVCache {
             .as_mut()
             .expect("values cache missing")
             .try_index_mut((.., .., prev..end, ..), &values)?;
+        eval([
+            self.keys.as_ref().expect("keys cache missing"),
+            self.values.as_ref().expect("values cache missing"),
+        ])?;
 
         let keys = self
             .keys
@@ -251,6 +255,7 @@ impl KeyValueCache for KVCache {
             .as_ref()
             .expect("values cache missing")
             .index((.., .., ..end, ..));
+        eval([&keys, &values])?;
         Ok((keys, values))
     }
 }
