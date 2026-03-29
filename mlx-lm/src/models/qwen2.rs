@@ -8,7 +8,7 @@ use mlx_rs::{
     builder::Builder,
     categorical,
     error::Exception,
-    fast::ScaledDotProductAttentionMask,
+    fast::{rope_dynamic, ScaledDotProductAttentionMask},
     macros::{ModuleParameters, Quantizable},
     module::{Module, ModuleParametersExt},
     nn,
@@ -129,6 +129,38 @@ impl Attention {
     }
 }
 
+fn apply_cached_rope(rope: &mut RopeVariant, x: &Array, offset: i32) -> Result<Array, Exception> {
+    let seq_len = x.shape()[x.shape().len() - 2];
+
+    if seq_len != 1 {
+        let rope_input = nn::RopeInputBuilder::new(x).offset(offset).build()?;
+        return rope.forward(rope_input);
+    }
+
+    let position_array = Array::from_int(offset);
+
+    match rope {
+        RopeVariant::Default(rope) => rope_dynamic(
+            x,
+            rope.dimensions,
+            rope.traditional,
+            Some(rope.base),
+            rope.scale,
+            &position_array,
+            None::<&Array>,
+        ),
+        RopeVariant::Llama3(rope) => rope_dynamic(
+            x,
+            rope.dimensions,
+            rope.traditional,
+            None::<f32>,
+            rope.scale,
+            &position_array,
+            Some(&rope.freqs),
+        ),
+    }
+}
+
 pub struct AttentionInput<'a, C> {
     pub x: &'a Array,
     pub mask: Option<&'a AttentionMask>,
@@ -165,14 +197,8 @@ where
             .transpose_axes(&[0, 2, 1, 3])?;
 
         if let Some(cache) = cache.as_mut() {
-            let q_input = nn::RopeInputBuilder::new(&queries)
-                .offset(cache.offset())
-                .build()?;
-            queries = self.rope.forward(q_input)?;
-            let k_input = nn::RopeInputBuilder::new(&keys)
-                .offset(cache.offset())
-                .build()?;
-            keys = self.rope.forward(k_input)?;
+            queries = apply_cached_rope(&mut self.rope, &queries, cache.offset())?;
+            keys = apply_cached_rope(&mut self.rope, &keys, cache.offset())?;
 
             (keys, values) = cache.update_and_fetch(keys, values)?;
         } else {
@@ -633,14 +659,19 @@ where
 #[cfg(test)]
 mod tests {
     use mlx_rs::{
+        builder::Builder,
+        fast::rope_dynamic,
+        nn::RopeInputBuilder,
+        module::Module,
         ops::indexing::{IndexOp, NewAxis},
         transforms::eval,
         Array,
     };
 
     use crate::{
-        cache::{ConcatKeyValueCache, KVCache},
+        cache::{ConcatKeyValueCache, KVCache, KeyValueCache},
         models::qwen2::{load_qwen2_model, load_qwen2_tokenizer},
+        utils::{create_causal_mask, AttentionMask},
     };
 
     const CACHED_TEST_MODEL_DIR: &str =
@@ -717,5 +748,818 @@ mod tests {
         let slice: Vec<u32> = tokens.drain(..).map(|t| t.item::<u32>()).collect();
         let s = tokenizer.decode(&slice, true).unwrap();
         assert!(!s.is_empty());
+    }
+
+    #[test]
+    #[ignore = "requires local model files"]
+    fn test_qwen2_concat_cache_benchmark_prompt_trace() {
+        let tokenizer = load_qwen2_tokenizer(CACHED_TEST_MODEL_DIR).unwrap();
+        let mut model = load_qwen2_model(CACHED_TEST_MODEL_DIR).unwrap();
+
+        let prompt = "<|im_start|>system\nYou are a concise assistant.<|im_end|>\n<|im_start|>user\nContext: The native MLX path supports streaming, but some families behave inconsistently.\nTask: Give three short bullets on what is working, what is not, and the next fix.<|im_end|>\n<|im_start|>assistant\n";
+        let encoding = tokenizer.encode(prompt, false).unwrap();
+        let prompt_tokens = Array::from(encoding.get_ids()).index(NewAxis);
+        let mut cache = Vec::new();
+
+        let mut tokens = Vec::new();
+        let generate = super::Generate::<ConcatKeyValueCache>::new(
+            &mut model,
+            &mut cache,
+            0.0,
+            &prompt_tokens,
+        );
+        for token in generate.take(32) {
+            tokens.push(token.unwrap());
+        }
+
+        eval(&tokens).unwrap();
+        let ids: Vec<u32> = tokens.iter().map(|t| t.item::<u32>()).collect();
+        let text = tokenizer.decode(&ids, true).unwrap();
+        eprintln!("qwen2-concat-trace ids={ids:?} text={text:?}");
+        assert!(!text.is_empty());
+    }
+
+    #[test]
+    #[ignore = "requires local model files"]
+    fn test_qwen2_kv_cache_benchmark_prompt_trace() {
+        let tokenizer = load_qwen2_tokenizer(CACHED_TEST_MODEL_DIR).unwrap();
+        let mut model = load_qwen2_model(CACHED_TEST_MODEL_DIR).unwrap();
+
+        let prompt = "<|im_start|>system\nYou are a concise assistant.<|im_end|>\n<|im_start|>user\nContext: The native MLX path supports streaming, but some families behave inconsistently.\nTask: Give three short bullets on what is working, what is not, and the next fix.<|im_end|>\n<|im_start|>assistant\n";
+        let encoding = tokenizer.encode(prompt, false).unwrap();
+        let prompt_tokens = Array::from(encoding.get_ids()).index(NewAxis);
+        let mut cache = Vec::new();
+
+        let mut tokens = Vec::new();
+        let generate =
+            super::Generate::<KVCache>::new(&mut model, &mut cache, 0.0, &prompt_tokens);
+        for token in generate.take(32) {
+            tokens.push(token.unwrap());
+        }
+
+        eval(&tokens).unwrap();
+        let ids: Vec<u32> = tokens.iter().map(|t| t.item::<u32>()).collect();
+        let text = tokenizer.decode(&ids, true).unwrap();
+        eprintln!("qwen2-kv-trace ids={ids:?} text={text:?}");
+        assert!(!text.is_empty());
+    }
+
+    #[test]
+    #[ignore = "requires local model files"]
+    fn test_qwen2_concat_cache_step6_topk() {
+        let tokenizer = load_qwen2_tokenizer(CACHED_TEST_MODEL_DIR).unwrap();
+        let mut model = load_qwen2_model(CACHED_TEST_MODEL_DIR).unwrap();
+
+        let prompt = "<|im_start|>system\nYou are a concise assistant.<|im_end|>\n<|im_start|>user\nContext: The native MLX path supports streaming, but some families behave inconsistently.\nTask: Give three short bullets on what is working, what is not, and the next fix.<|im_end|>\n<|im_start|>assistant\n";
+        let encoding = tokenizer.encode(prompt, false).unwrap();
+        let prompt_tokens = Array::from(encoding.get_ids()).index(NewAxis);
+        let mut cache = Vec::<Option<ConcatKeyValueCache>>::new();
+
+        let input = super::ModelInput {
+            inputs: &prompt_tokens,
+            mask: None,
+            cache: &mut cache,
+        };
+        let logits = model.forward(input).unwrap();
+        let mut step_logits = logits.index((.., -1, ..));
+        eval([&step_logits]).unwrap();
+
+        let mut ids = Vec::new();
+        for step in 0..8 {
+            let step_logits_f32 = step_logits.as_type::<f32>().unwrap();
+            let flat = step_logits_f32.as_slice::<f32>();
+            let mut ranked: Vec<(usize, f32)> = flat.iter().copied().enumerate().collect();
+            ranked.sort_by(|a, b| b.1.total_cmp(&a.1));
+            if step == 5 {
+                let top: Vec<(usize, f32)> = ranked.into_iter().take(10).collect();
+                eprintln!("qwen2-step6-topk {top:?}");
+            }
+
+            let y = super::sample(&step_logits, 0.0).unwrap();
+            let token_id = y.item::<u32>();
+            ids.push(token_id);
+            let inputs = y.index((.., NewAxis));
+            let input = super::ModelInput {
+                inputs: &inputs,
+                mask: None,
+                cache: &mut cache,
+            };
+            let logits = model.forward(input).unwrap();
+            step_logits = logits.index((.., -1, ..));
+            eval([&step_logits]).unwrap();
+        }
+
+        let text = tokenizer.decode(&ids, true).unwrap();
+        eprintln!("qwen2-step6-trace ids={ids:?} text={text:?}");
+        assert!(!ids.is_empty());
+    }
+
+    #[test]
+    #[ignore = "requires local model files"]
+    fn test_qwen2_full_prefill_vs_incremental_trace() {
+        let tokenizer = load_qwen2_tokenizer(CACHED_TEST_MODEL_DIR).unwrap();
+        let mut model = load_qwen2_model(CACHED_TEST_MODEL_DIR).unwrap();
+
+        let prompt = "<|im_start|>system\nYou are a concise assistant.<|im_end|>\n<|im_start|>user\nContext: The native MLX path supports streaming, but some families behave inconsistently.\nTask: Give three short bullets on what is working, what is not, and the next fix.<|im_end|>\n<|im_start|>assistant\n";
+        let encoding = tokenizer.encode(prompt, false).unwrap();
+        let prompt_ids = encoding.get_ids().to_vec();
+
+        let mut incremental_ids = Vec::new();
+        let mut cache = Vec::<Option<ConcatKeyValueCache>>::new();
+        let prompt_tokens = Array::from(prompt_ids.as_slice()).index(NewAxis);
+        let input = super::ModelInput {
+            inputs: &prompt_tokens,
+            mask: None,
+            cache: &mut cache,
+        };
+        let logits = model.forward(input).unwrap();
+        let mut step_logits = logits.index((.., -1, ..));
+        eval([&step_logits]).unwrap();
+        for _ in 0..12 {
+            let y = super::sample(&step_logits, 0.0).unwrap();
+            let token_id = y.item::<u32>();
+            incremental_ids.push(token_id);
+            let inputs = y.index((.., NewAxis));
+            let input = super::ModelInput {
+                inputs: &inputs,
+                mask: None,
+                cache: &mut cache,
+            };
+            let logits = model.forward(input).unwrap();
+            step_logits = logits.index((.., -1, ..));
+            eval([&step_logits]).unwrap();
+        }
+
+        let mut full_prefill_ids = Vec::new();
+        for _ in 0..12 {
+            let all_ids: Vec<u32> = prompt_ids
+                .iter()
+                .copied()
+                .chain(full_prefill_ids.iter().copied())
+                .collect();
+            let tokens = Array::from(all_ids.as_slice()).index(NewAxis);
+            let mut fresh_cache = Vec::<Option<ConcatKeyValueCache>>::new();
+            let input = super::ModelInput {
+                inputs: &tokens,
+                mask: None,
+                cache: &mut fresh_cache,
+            };
+            let logits = model.forward(input).unwrap();
+            let step_logits = logits.index((.., -1, ..));
+            eval([&step_logits]).unwrap();
+            let y = super::sample(&step_logits, 0.0).unwrap();
+            full_prefill_ids.push(y.item::<u32>());
+        }
+
+        let incremental_text = tokenizer.decode(&incremental_ids, true).unwrap();
+        let full_prefill_text = tokenizer.decode(&full_prefill_ids, true).unwrap();
+        eprintln!("qwen2-incremental ids={incremental_ids:?} text={incremental_text:?}");
+        eprintln!("qwen2-full-prefill ids={full_prefill_ids:?} text={full_prefill_text:?}");
+        assert!(!incremental_ids.is_empty());
+        assert!(!full_prefill_ids.is_empty());
+    }
+
+    #[test]
+    #[ignore = "requires local model files"]
+    fn test_qwen2_incremental_with_forced_causal_mask_trace() {
+        let tokenizer = load_qwen2_tokenizer(CACHED_TEST_MODEL_DIR).unwrap();
+        let mut model = load_qwen2_model(CACHED_TEST_MODEL_DIR).unwrap();
+
+        let prompt = "<|im_start|>system\nYou are a concise assistant.<|im_end|>\n<|im_start|>user\nContext: The native MLX path supports streaming, but some families behave inconsistently.\nTask: Give three short bullets on what is working, what is not, and the next fix.<|im_end|>\n<|im_start|>assistant\n";
+        let encoding = tokenizer.encode(prompt, false).unwrap();
+        let prompt_tokens = Array::from(encoding.get_ids()).index(NewAxis);
+        let mut cache = Vec::<Option<ConcatKeyValueCache>>::new();
+
+        let input = super::ModelInput {
+            inputs: &prompt_tokens,
+            mask: None,
+            cache: &mut cache,
+        };
+        let logits = model.forward(input).unwrap();
+        let mut step_logits = logits.index((.., -1, ..));
+        eval([&step_logits]).unwrap();
+
+        let mut ids = Vec::new();
+        let causal = AttentionMask::Causal;
+        for _ in 0..12 {
+            let y = super::sample(&step_logits, 0.0).unwrap();
+            let token_id = y.item::<u32>();
+            ids.push(token_id);
+            let inputs = y.index((.., NewAxis));
+            let input = super::ModelInput {
+                inputs: &inputs,
+                mask: Some(&causal),
+                cache: &mut cache,
+            };
+            let logits = model.forward(input).unwrap();
+            step_logits = logits.index((.., -1, ..));
+            eval([&step_logits]).unwrap();
+        }
+
+        let text = tokenizer.decode(&ids, true).unwrap();
+        eprintln!("qwen2-forced-causal ids={ids:?} text={text:?}");
+        assert!(!ids.is_empty());
+    }
+
+    #[test]
+    #[ignore = "requires local model files"]
+    fn test_qwen2_incremental_vs_full_prefill_next_token_logits() {
+        let tokenizer = load_qwen2_tokenizer(CACHED_TEST_MODEL_DIR).unwrap();
+        let mut model = load_qwen2_model(CACHED_TEST_MODEL_DIR).unwrap();
+
+        let prompt = "<|im_start|>system\nYou are a concise assistant.<|im_end|>\n<|im_start|>user\nContext: The native MLX path supports streaming, but some families behave inconsistently.\nTask: Give three short bullets on what is working, what is not, and the next fix.<|im_end|>\n<|im_start|>assistant\n";
+        let encoding = tokenizer.encode(prompt, false).unwrap();
+        let prompt_ids = encoding.get_ids().to_vec();
+        let agreed_prefix = vec![12u32, 576, 9867, 19614, 55];
+
+        let prompt_tokens = Array::from(prompt_ids.as_slice()).index(NewAxis);
+        let mut cache = Vec::<Option<ConcatKeyValueCache>>::new();
+        let input = super::ModelInput {
+            inputs: &prompt_tokens,
+            mask: None,
+            cache: &mut cache,
+        };
+        let logits = model.forward(input).unwrap();
+        let mut incremental_logits = logits.index((.., -1, ..));
+        eval([&incremental_logits]).unwrap();
+        for token_id in &agreed_prefix {
+            let y = Array::from_slice(&[*token_id], &[1]);
+            let inputs = y.index((.., NewAxis));
+            let input = super::ModelInput {
+                inputs: &inputs,
+                mask: None,
+                cache: &mut cache,
+            };
+            let logits = model.forward(input).unwrap();
+            incremental_logits = logits.index((.., -1, ..));
+            eval([&incremental_logits]).unwrap();
+        }
+
+        let all_ids: Vec<u32> = prompt_ids
+            .iter()
+            .copied()
+            .chain(agreed_prefix.iter().copied())
+            .collect();
+        let all_tokens = Array::from(all_ids.as_slice()).index(NewAxis);
+        let mut fresh_cache = Vec::<Option<ConcatKeyValueCache>>::new();
+        let input = super::ModelInput {
+            inputs: &all_tokens,
+            mask: None,
+            cache: &mut fresh_cache,
+        };
+        let logits = model.forward(input).unwrap();
+        let full_prefill_logits = logits.index((.., -1, ..));
+        eval([&full_prefill_logits]).unwrap();
+
+        let inc_f32 = incremental_logits.as_type::<f32>().unwrap();
+        let full_f32 = full_prefill_logits.as_type::<f32>().unwrap();
+        let inc = inc_f32.as_slice::<f32>();
+        let full = full_f32.as_slice::<f32>();
+
+        let mut inc_ranked: Vec<(usize, f32)> = inc.iter().copied().enumerate().collect();
+        let mut full_ranked: Vec<(usize, f32)> = full.iter().copied().enumerate().collect();
+        inc_ranked.sort_by(|a, b| b.1.total_cmp(&a.1));
+        full_ranked.sort_by(|a, b| b.1.total_cmp(&a.1));
+
+        let inc_top: Vec<(usize, f32)> = inc_ranked.into_iter().take(10).collect();
+        let full_top: Vec<(usize, f32)> = full_ranked.into_iter().take(10).collect();
+        eprintln!("qwen2-incremental-top {inc_top:?}");
+        eprintln!("qwen2-full-prefill-top {full_top:?}");
+
+        let inc_best = Array::from_slice(&[inc_top[0].0 as u32], &[1]);
+        let full_best = Array::from_slice(&[full_top[0].0 as u32], &[1]);
+        let inc_best_text = tokenizer.decode(&[inc_top[0].0 as u32], true).unwrap();
+        let full_best_text = tokenizer.decode(&[full_top[0].0 as u32], true).unwrap();
+        eprintln!("qwen2-incremental-best {:?} {:?}", inc_best.item::<u32>(), inc_best_text);
+        eprintln!("qwen2-full-prefill-best {:?} {:?}", full_best.item::<u32>(), full_best_text);
+
+        assert_eq!(inc_top[0].0, full_top[0].0);
+    }
+
+    #[test]
+    #[ignore = "requires local model files"]
+    fn test_qwen2_chunk_prefill_then_single_step_vs_incremental_next_token_logits() {
+        let tokenizer = load_qwen2_tokenizer(CACHED_TEST_MODEL_DIR).unwrap();
+        let mut model = load_qwen2_model(CACHED_TEST_MODEL_DIR).unwrap();
+
+        let prompt = "<|im_start|>system\nYou are a concise assistant.<|im_end|>\n<|im_start|>user\nContext: The native MLX path supports streaming, but some families behave inconsistently.\nTask: Give three short bullets on what is working, what is not, and the next fix.<|im_end|>\n<|im_start|>assistant\n";
+        let encoding = tokenizer.encode(prompt, false).unwrap();
+        let prompt_ids = encoding.get_ids().to_vec();
+        let agreed_prefix = vec![12u32, 576, 9867, 19614, 55];
+
+        let prompt_tokens = Array::from(prompt_ids.as_slice()).index(NewAxis);
+        let mut incremental_cache = Vec::<Option<ConcatKeyValueCache>>::new();
+        let input = super::ModelInput {
+            inputs: &prompt_tokens,
+            mask: None,
+            cache: &mut incremental_cache,
+        };
+        let logits = model.forward(input).unwrap();
+        let mut incremental_logits = logits.index((.., -1, ..));
+        eval([&incremental_logits]).unwrap();
+        for token_id in &agreed_prefix {
+            let y = Array::from_slice(&[*token_id], &[1]);
+            let inputs = y.index((.., NewAxis));
+            let input = super::ModelInput {
+                inputs: &inputs,
+                mask: None,
+                cache: &mut incremental_cache,
+            };
+            let logits = model.forward(input).unwrap();
+            incremental_logits = logits.index((.., -1, ..));
+            eval([&incremental_logits]).unwrap();
+        }
+
+        let prefixed_ids: Vec<u32> = prompt_ids
+            .iter()
+            .copied()
+            .chain(agreed_prefix[..agreed_prefix.len() - 1].iter().copied())
+            .collect();
+        let prefixed_tokens = Array::from(prefixed_ids.as_slice()).index(NewAxis);
+        let mut chunked_cache = Vec::<Option<ConcatKeyValueCache>>::new();
+        let input = super::ModelInput {
+            inputs: &prefixed_tokens,
+            mask: None,
+            cache: &mut chunked_cache,
+        };
+        let _ = model.forward(input).unwrap();
+
+        let last_prefix_token =
+            Array::from_slice(&[agreed_prefix[agreed_prefix.len() - 1]], &[1]).index(NewAxis);
+        let input = super::ModelInput {
+            inputs: &last_prefix_token,
+            mask: None,
+            cache: &mut chunked_cache,
+        };
+        let logits = model.forward(input).unwrap();
+        let chunked_logits = logits.index((.., -1, ..));
+        eval([&chunked_logits]).unwrap();
+
+        let all_ids: Vec<u32> = prompt_ids
+            .iter()
+            .copied()
+            .chain(agreed_prefix.iter().copied())
+            .collect();
+        let all_tokens = Array::from(all_ids.as_slice()).index(NewAxis);
+        let mut full_prefill_cache = Vec::<Option<ConcatKeyValueCache>>::new();
+        let input = super::ModelInput {
+            inputs: &all_tokens,
+            mask: None,
+            cache: &mut full_prefill_cache,
+        };
+        let logits = model.forward(input).unwrap();
+        let full_prefill_logits = logits.index((.., -1, ..));
+        eval([&full_prefill_logits]).unwrap();
+
+        let collect_top = |logits: &Array| -> Vec<(usize, f32)> {
+            let logits_f32 = logits.as_type::<f32>().unwrap();
+            let flat = logits_f32.as_slice::<f32>();
+            let mut ranked: Vec<(usize, f32)> = flat.iter().copied().enumerate().collect();
+            ranked.sort_by(|a, b| b.1.total_cmp(&a.1));
+            ranked.into_iter().take(10).collect()
+        };
+
+        let incremental_top = collect_top(&incremental_logits);
+        let chunked_top = collect_top(&chunked_logits);
+        let full_prefill_top = collect_top(&full_prefill_logits);
+
+        eprintln!("qwen2-incremental-after-prefix-top {incremental_top:?}");
+        eprintln!("qwen2-chunked-after-prefix-top {chunked_top:?}");
+        eprintln!("qwen2-full-prefill-after-prefix-top {full_prefill_top:?}");
+
+        let decode_best = |token_id: usize| -> String {
+            tokenizer.decode(&[token_id as u32], true).unwrap()
+        };
+
+        eprintln!(
+            "qwen2-best incremental={:?} chunked={:?} full_prefill={:?}",
+            (incremental_top[0].0, decode_best(incremental_top[0].0)),
+            (chunked_top[0].0, decode_best(chunked_top[0].0)),
+            (full_prefill_top[0].0, decode_best(full_prefill_top[0].0)),
+        );
+
+        assert_eq!(chunked_top[0].0, full_prefill_top[0].0);
+        assert_eq!(incremental_top[0].0, full_prefill_top[0].0);
+    }
+
+    #[test]
+    #[ignore = "requires local model files"]
+    fn test_qwen2_chunk_prefill_single_step_with_explicit_array_mask() {
+        let tokenizer = load_qwen2_tokenizer(CACHED_TEST_MODEL_DIR).unwrap();
+        let mut model = load_qwen2_model(CACHED_TEST_MODEL_DIR).unwrap();
+
+        let prompt = "<|im_start|>system\nYou are a concise assistant.<|im_end|>\n<|im_start|>user\nContext: The native MLX path supports streaming, but some families behave inconsistently.\nTask: Give three short bullets on what is working, what is not, and the next fix.<|im_end|>\n<|im_start|>assistant\n";
+        let encoding = tokenizer.encode(prompt, false).unwrap();
+        let prompt_ids = encoding.get_ids().to_vec();
+        let agreed_prefix = vec![12u32, 576, 9867, 19614, 55];
+
+        let prefixed_ids: Vec<u32> = prompt_ids
+            .iter()
+            .copied()
+            .chain(agreed_prefix[..agreed_prefix.len() - 1].iter().copied())
+            .collect();
+        let prefixed_tokens = Array::from(prefixed_ids.as_slice()).index(NewAxis);
+        let mut chunked_cache = Vec::<Option<ConcatKeyValueCache>>::new();
+        let input = super::ModelInput {
+            inputs: &prefixed_tokens,
+            mask: None,
+            cache: &mut chunked_cache,
+        };
+        let _ = model.forward(input).unwrap();
+
+        let offset = chunked_cache[0].as_ref().unwrap().offset();
+        let explicit_mask = create_causal_mask(1, Some(offset), None, None).unwrap();
+        let explicit_mask = AttentionMask::Array(explicit_mask);
+
+        let last_prefix_token =
+            Array::from_slice(&[agreed_prefix[agreed_prefix.len() - 1]], &[1]).index(NewAxis);
+        let input = super::ModelInput {
+            inputs: &last_prefix_token,
+            mask: Some(&explicit_mask),
+            cache: &mut chunked_cache,
+        };
+        let logits = model.forward(input).unwrap();
+        let masked_logits = logits.index((.., -1, ..));
+        eval([&masked_logits]).unwrap();
+
+        let all_ids: Vec<u32> = prompt_ids
+            .iter()
+            .copied()
+            .chain(agreed_prefix.iter().copied())
+            .collect();
+        let all_tokens = Array::from(all_ids.as_slice()).index(NewAxis);
+        let mut full_prefill_cache = Vec::<Option<ConcatKeyValueCache>>::new();
+        let input = super::ModelInput {
+            inputs: &all_tokens,
+            mask: None,
+            cache: &mut full_prefill_cache,
+        };
+        let logits = model.forward(input).unwrap();
+        let full_prefill_logits = logits.index((.., -1, ..));
+        eval([&full_prefill_logits]).unwrap();
+
+        let collect_top = |logits: &Array| -> Vec<(usize, f32)> {
+            let logits_f32 = logits.as_type::<f32>().unwrap();
+            let flat = logits_f32.as_slice::<f32>();
+            let mut ranked: Vec<(usize, f32)> = flat.iter().copied().enumerate().collect();
+            ranked.sort_by(|a, b| b.1.total_cmp(&a.1));
+            ranked.into_iter().take(10).collect()
+        };
+
+        let masked_top = collect_top(&masked_logits);
+        let full_prefill_top = collect_top(&full_prefill_logits);
+        eprintln!("qwen2-explicit-array-mask-top {masked_top:?}");
+        eprintln!("qwen2-full-prefill-after-prefix-top {full_prefill_top:?}");
+        eprintln!(
+            "qwen2-best masked={:?} full_prefill={:?}",
+            (masked_top[0].0, tokenizer.decode(&[masked_top[0].0 as u32], true).unwrap()),
+            (
+                full_prefill_top[0].0,
+                tokenizer
+                    .decode(&[full_prefill_top[0].0 as u32], true)
+                    .unwrap()
+            ),
+        );
+
+        assert_eq!(masked_top[0].0, full_prefill_top[0].0);
+    }
+
+    #[test]
+    #[ignore = "requires local model files"]
+    fn test_qwen2_chunk_prefill_cache_state_vs_full_prefill_cache_state() {
+        let mut model = load_qwen2_model(CACHED_TEST_MODEL_DIR).unwrap();
+
+        let tokenizer = load_qwen2_tokenizer(CACHED_TEST_MODEL_DIR).unwrap();
+        let prompt = "<|im_start|>system\nYou are a concise assistant.<|im_end|>\n<|im_start|>user\nContext: The native MLX path supports streaming, but some families behave inconsistently.\nTask: Give three short bullets on what is working, what is not, and the next fix.<|im_end|>\n<|im_start|>assistant\n";
+        let encoding = tokenizer.encode(prompt, false).unwrap();
+        let prompt_ids = encoding.get_ids().to_vec();
+        let agreed_prefix = vec![12u32, 576, 9867, 19614, 55];
+
+        let prefixed_ids: Vec<u32> = prompt_ids
+            .iter()
+            .copied()
+            .chain(agreed_prefix[..agreed_prefix.len() - 1].iter().copied())
+            .collect();
+        let prefixed_tokens = Array::from(prefixed_ids.as_slice()).index(NewAxis);
+        let mut chunked_cache = Vec::<Option<ConcatKeyValueCache>>::new();
+        let input = super::ModelInput {
+            inputs: &prefixed_tokens,
+            mask: None,
+            cache: &mut chunked_cache,
+        };
+        let _ = model.forward(input).unwrap();
+        let last_prefix_token =
+            Array::from_slice(&[agreed_prefix[agreed_prefix.len() - 1]], &[1]).index(NewAxis);
+        let input = super::ModelInput {
+            inputs: &last_prefix_token,
+            mask: None,
+            cache: &mut chunked_cache,
+        };
+        let _ = model.forward(input).unwrap();
+
+        let all_ids: Vec<u32> = prompt_ids
+            .iter()
+            .copied()
+            .chain(agreed_prefix.iter().copied())
+            .collect();
+        let all_tokens = Array::from(all_ids.as_slice()).index(NewAxis);
+        let mut full_prefill_cache = Vec::<Option<ConcatKeyValueCache>>::new();
+        let input = super::ModelInput {
+            inputs: &all_tokens,
+            mask: None,
+            cache: &mut full_prefill_cache,
+        };
+        let _ = model.forward(input).unwrap();
+
+        let chunked_first = chunked_cache[0].as_ref().unwrap();
+        let full_first = full_prefill_cache[0].as_ref().unwrap();
+        let (chunked_keys, chunked_values) = chunked_first.arrays();
+        let (full_keys, full_values) = full_first.arrays();
+        let chunked_keys = chunked_keys.unwrap();
+        let chunked_values = chunked_values.unwrap();
+        let full_keys = full_keys.unwrap();
+        let full_values = full_values.unwrap();
+
+        let chunked_last_key = chunked_keys.index((.., .., -1.., ..));
+        let full_last_key = full_keys.index((.., .., -1.., ..));
+        let chunked_last_value = chunked_values.index((.., .., -1.., ..));
+        let full_last_value = full_values.index((.., .., -1.., ..));
+        eval([
+            &chunked_last_key,
+            &full_last_key,
+            &chunked_last_value,
+            &full_last_value,
+        ])
+        .unwrap();
+
+        let max_abs_diff = |a: &Array, b: &Array| -> f32 {
+            let a = a.as_type::<f32>().unwrap();
+            let b = b.as_type::<f32>().unwrap();
+            a.subtract(&b)
+                .unwrap()
+                .abs()
+                .unwrap()
+                .max(false)
+                .unwrap()
+                .item::<f32>()
+        };
+
+        let key_diff = max_abs_diff(&chunked_last_key, &full_last_key);
+        let value_diff = max_abs_diff(&chunked_last_value, &full_last_value);
+        eprintln!("qwen2-first-layer-last-key-diff {key_diff}");
+        eprintln!("qwen2-first-layer-last-value-diff {value_diff}");
+
+        assert!(key_diff < 0.1, "first-layer key mismatch: {key_diff}");
+        assert!(value_diff < 1e-3, "first-layer value mismatch: {value_diff}");
+    }
+
+    #[test]
+    #[ignore = "requires local model files"]
+    fn test_qwen2_first_layer_key_matches_full_prefill_only_for_correct_rope_offset() {
+        let mut model = load_qwen2_model(CACHED_TEST_MODEL_DIR).unwrap();
+        let tokenizer = load_qwen2_tokenizer(CACHED_TEST_MODEL_DIR).unwrap();
+
+        let prompt = "<|im_start|>system\nYou are a concise assistant.<|im_end|>\n<|im_start|>user\nContext: The native MLX path supports streaming, but some families behave inconsistently.\nTask: Give three short bullets on what is working, what is not, and the next fix.<|im_end|>\n<|im_start|>assistant\n";
+        let encoding = tokenizer.encode(prompt, false).unwrap();
+        let prompt_ids = encoding.get_ids().to_vec();
+        let agreed_prefix = vec![12u32, 576, 9867, 19614, 55];
+
+        let all_ids: Vec<u32> = prompt_ids
+            .iter()
+            .copied()
+            .chain(agreed_prefix.iter().copied())
+            .collect();
+        let all_tokens = Array::from(all_ids.as_slice()).index(NewAxis);
+        let mut full_prefill_cache = Vec::<Option<ConcatKeyValueCache>>::new();
+        let input = super::ModelInput {
+            inputs: &all_tokens,
+            mask: None,
+            cache: &mut full_prefill_cache,
+        };
+        let _ = model.forward(input).unwrap();
+
+        let full_first = full_prefill_cache[0].as_ref().unwrap();
+        let (full_keys, _) = full_first.arrays();
+        let full_last_key = full_keys.unwrap().index((.., .., -1.., ..));
+        eval([&full_last_key]).unwrap();
+
+        let offset = (prompt_ids.len() + agreed_prefix.len() - 1) as i32;
+        let last_prefix_token =
+            Array::from_slice(&[agreed_prefix[agreed_prefix.len() - 1]], &[1]).index(NewAxis);
+        let embedded = model.model.embed_tokens.forward(&last_prefix_token).unwrap();
+        let normalized = model.model.layers[0]
+            .input_layernorm
+            .forward(&embedded)
+            .unwrap();
+        let raw_keys = model.model.layers[0].self_attn.k_proj.forward(&normalized).unwrap();
+        let shaped_keys = raw_keys
+            .reshape(&[1, 1, model.model.layers[0].self_attn.n_kv_heads, -1])
+            .unwrap()
+            .transpose_axes(&[0, 2, 1, 3])
+            .unwrap();
+
+        let max_abs_diff = |a: &Array, b: &Array| -> f32 {
+            let a = a.as_type::<f32>().unwrap();
+            let b = b.as_type::<f32>().unwrap();
+            a.subtract(&b)
+                .unwrap()
+                .abs()
+                .unwrap()
+                .max(false)
+                .unwrap()
+                .item::<f32>()
+        };
+
+        for candidate in [offset - 2, offset - 1, offset, offset + 1, offset + 2] {
+            let rope_input = RopeInputBuilder::new(&shaped_keys)
+                .offset(candidate)
+                .build()
+                .unwrap();
+            let rotated = model.model.layers[0]
+                .self_attn
+                .rope
+                .forward(rope_input)
+                .unwrap();
+            eval([&rotated]).unwrap();
+            let diff = max_abs_diff(&rotated, &full_last_key);
+            eprintln!("qwen2-first-layer-key-offset candidate={candidate} diff={diff}");
+        }
+
+        assert!(offset >= 0);
+    }
+
+    #[test]
+    #[ignore = "requires local model files"]
+    fn test_qwen2_first_layer_rope_sequence_vs_single_token_offset() {
+        let mut model = load_qwen2_model(CACHED_TEST_MODEL_DIR).unwrap();
+        let tokenizer = load_qwen2_tokenizer(CACHED_TEST_MODEL_DIR).unwrap();
+
+        let prompt = "<|im_start|>system\nYou are a concise assistant.<|im_end|>\n<|im_start|>user\nContext: The native MLX path supports streaming, but some families behave inconsistently.\nTask: Give three short bullets on what is working, what is not, and the next fix.<|im_end|>\n<|im_start|>assistant\n";
+        let encoding = tokenizer.encode(prompt, false).unwrap();
+        let prompt_ids = encoding.get_ids().to_vec();
+        let agreed_prefix = vec![12u32, 576, 9867, 19614, 55];
+        let offset = prompt_ids.len() as i32;
+
+        let prefix_tokens = Array::from(agreed_prefix.as_slice()).index(NewAxis);
+        let embedded_prefix = model.model.embed_tokens.forward(&prefix_tokens).unwrap();
+        let normalized_prefix = model.model.layers[0]
+            .input_layernorm
+            .forward(&embedded_prefix)
+            .unwrap();
+        let raw_prefix_keys = model.model.layers[0]
+            .self_attn
+            .k_proj
+            .forward(&normalized_prefix)
+            .unwrap()
+            .reshape(&[1, agreed_prefix.len() as i32, model.model.layers[0].self_attn.n_kv_heads, -1])
+            .unwrap()
+            .transpose_axes(&[0, 2, 1, 3])
+            .unwrap();
+
+        let seq_rope_input = RopeInputBuilder::new(&raw_prefix_keys)
+            .offset(offset)
+            .build()
+            .unwrap();
+        let seq_rotated = model.model.layers[0]
+            .self_attn
+            .rope
+            .forward(seq_rope_input)
+            .unwrap();
+        let seq_last = seq_rotated.index((.., .., -1.., ..));
+        eval([&seq_last]).unwrap();
+
+        let last_token = Array::from_slice(&[agreed_prefix[agreed_prefix.len() - 1]], &[1]).index(NewAxis);
+        let embedded_last = model.model.embed_tokens.forward(&last_token).unwrap();
+        let normalized_last = model.model.layers[0]
+            .input_layernorm
+            .forward(&embedded_last)
+            .unwrap();
+        let raw_last_key = model.model.layers[0]
+            .self_attn
+            .k_proj
+            .forward(&normalized_last)
+            .unwrap()
+            .reshape(&[1, 1, model.model.layers[0].self_attn.n_kv_heads, -1])
+            .unwrap()
+            .transpose_axes(&[0, 2, 1, 3])
+            .unwrap();
+
+        let single_rope_input = RopeInputBuilder::new(&raw_last_key)
+            .offset(offset + agreed_prefix.len() as i32 - 1)
+            .build()
+            .unwrap();
+        let single_rotated = model.model.layers[0]
+            .self_attn
+            .rope
+            .forward(single_rope_input)
+            .unwrap();
+        eval([&single_rotated]).unwrap();
+
+        let max_abs_diff = |a: &Array, b: &Array| -> f32 {
+            let a = a.as_type::<f32>().unwrap();
+            let b = b.as_type::<f32>().unwrap();
+            a.subtract(&b)
+                .unwrap()
+                .abs()
+                .unwrap()
+                .max(false)
+                .unwrap()
+                .item::<f32>()
+        };
+
+        let diff = max_abs_diff(&seq_last, &single_rotated);
+        eprintln!("qwen2-first-layer-rope-seq-vs-single diff={diff}");
+        assert!(diff > 1.0, "expected scalar-offset rope path to diverge, got {diff}");
+    }
+
+    #[test]
+    #[ignore = "requires local model files"]
+    fn test_qwen2_first_layer_rope_dynamic_single_token_offset() {
+        let mut model = load_qwen2_model(CACHED_TEST_MODEL_DIR).unwrap();
+        let tokenizer = load_qwen2_tokenizer(CACHED_TEST_MODEL_DIR).unwrap();
+
+        let prompt = "<|im_start|>system\nYou are a concise assistant.<|im_end|>\n<|im_start|>user\nContext: The native MLX path supports streaming, but some families behave inconsistently.\nTask: Give three short bullets on what is working, what is not, and the next fix.<|im_end|>\n<|im_start|>assistant\n";
+        let encoding = tokenizer.encode(prompt, false).unwrap();
+        let prompt_ids = encoding.get_ids().to_vec();
+        let agreed_prefix = vec![12u32, 576, 9867, 19614, 55];
+        let offset = prompt_ids.len() as i32;
+
+        let prefix_tokens = Array::from(agreed_prefix.as_slice()).index(NewAxis);
+        let embedded_prefix = model.model.embed_tokens.forward(&prefix_tokens).unwrap();
+        let normalized_prefix = model.model.layers[0]
+            .input_layernorm
+            .forward(&embedded_prefix)
+            .unwrap();
+        let raw_prefix_keys = model.model.layers[0]
+            .self_attn
+            .k_proj
+            .forward(&normalized_prefix)
+            .unwrap()
+            .reshape(&[1, agreed_prefix.len() as i32, model.model.layers[0].self_attn.n_kv_heads, -1])
+            .unwrap()
+            .transpose_axes(&[0, 2, 1, 3])
+            .unwrap();
+
+        let seq_rope_input = RopeInputBuilder::new(&raw_prefix_keys)
+            .offset(offset)
+            .build()
+            .unwrap();
+        let seq_rotated = model.model.layers[0]
+            .self_attn
+            .rope
+            .forward(seq_rope_input)
+            .unwrap();
+        let seq_last = seq_rotated.index((.., .., -1.., ..));
+        eval([&seq_last]).unwrap();
+
+        let last_token = Array::from_slice(&[agreed_prefix[agreed_prefix.len() - 1]], &[1]).index(NewAxis);
+        let embedded_last = model.model.embed_tokens.forward(&last_token).unwrap();
+        let normalized_last = model.model.layers[0]
+            .input_layernorm
+            .forward(&embedded_last)
+            .unwrap();
+        let raw_last_key = model.model.layers[0]
+            .self_attn
+            .k_proj
+            .forward(&normalized_last)
+            .unwrap()
+            .reshape(&[1, 1, model.model.layers[0].self_attn.n_kv_heads, -1])
+            .unwrap()
+            .transpose_axes(&[0, 2, 1, 3])
+            .unwrap();
+
+        let dynamic_rotated = match &model.model.layers[0].self_attn.rope {
+            crate::utils::rope::RopeVariant::Default(rope) => {
+                let dynamic_offset = Array::from_int(offset + agreed_prefix.len() as i32 - 1);
+                rope_dynamic(
+                    &raw_last_key,
+                    rope.dimensions,
+                    rope.traditional,
+                    Some(rope.base),
+                    rope.scale,
+                    &dynamic_offset,
+                    None::<&Array>,
+                )
+                .unwrap()
+            }
+            _ => panic!("expected default rope variant for qwen2"),
+        };
+        eval([&dynamic_rotated]).unwrap();
+
+        let max_abs_diff = |a: &Array, b: &Array| -> f32 {
+            let a = a.as_type::<f32>().unwrap();
+            let b = b.as_type::<f32>().unwrap();
+            a.subtract(&b)
+                .unwrap()
+                .abs()
+                .unwrap()
+                .max(false)
+                .unwrap()
+                .item::<f32>()
+        };
+
+        let diff = max_abs_diff(&seq_last, &dynamic_rotated);
+        eprintln!("qwen2-first-layer-rope-seq-vs-dynamic-single diff={diff}");
+        assert!(diff < 0.1, "rope seq vs dynamic single mismatch: {diff}");
     }
 }

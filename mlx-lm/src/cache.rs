@@ -93,6 +93,10 @@ impl ConcatKeyValueCache {
         Self::default()
     }
 
+    pub(crate) fn arrays(&self) -> (Option<&Array>, Option<&Array>) {
+        (self.keys.as_ref(), self.values.as_ref())
+    }
+
     pub fn trim_to(&mut self, token_count: i32) -> Result<(), Exception> {
         let token_count = token_count.max(0);
         match (&self.keys, &self.values) {
@@ -164,7 +168,6 @@ impl KeyValueCache for ConcatKeyValueCache {
         }
         let shape = self.keys.as_ref().expect("Keys cannot be None").shape();
         self.offset = shape[shape.len() - 2];
-
         Ok((
             self.keys.clone().expect("Keys cannot be None"),
             self.values.clone().expect("Values cannot be None"),
