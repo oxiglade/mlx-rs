@@ -8,6 +8,7 @@ use mlx_rs::{
     builder::Builder,
     categorical,
     error::Exception,
+    fast::ScaledDotProductAttentionMask,
     macros::{ModuleParameters, Quantizable},
     module::{Module, ModuleParametersExt},
     nn,
@@ -130,7 +131,7 @@ impl Attention {
 
 pub struct AttentionInput<'a, C> {
     pub x: &'a Array,
-    pub mask: Option<&'a Array>,
+    pub mask: Option<&'a AttentionMask>,
     pub cache: Option<&'a mut C>,
 }
 
@@ -179,9 +180,29 @@ where
             keys = self.rope.forward(nn::RopeInput::new(&keys))?;
         }
 
-        let output = crate::utils::scaled_dot_product_attention(
-            queries, keys, values, cache, self.scale, mask,
-        )?
+        let output = match mask {
+            Some(AttentionMask::Array(mask)) => {
+                crate::utils::scaled_dot_product_attention(
+                    queries,
+                    keys,
+                    values,
+                    cache,
+                    self.scale,
+                    Some(mask),
+                )?
+            }
+            Some(AttentionMask::Causal) => mlx_rs::fast::scaled_dot_product_attention(
+                queries,
+                keys,
+                values,
+                self.scale,
+                Some(ScaledDotProductAttentionMask::Causal),
+                None,
+            )?,
+            None => crate::utils::scaled_dot_product_attention(
+                queries, keys, values, cache, self.scale, None,
+            )?,
+        }
         .transpose_axes(&[0, 2, 1, 3])?
         .reshape(&[B, L, -1])?;
 
@@ -364,7 +385,7 @@ impl Qwen2Model {
 
 pub struct ModelInput<'a, C> {
     pub inputs: &'a Array,
-    pub mask: Option<&'a Array>,
+    pub mask: Option<&'a AttentionMask>,
     pub cache: &'a mut Vec<Option<C>>,
 }
 
@@ -386,11 +407,7 @@ where
 
         let mask = match mask {
             Some(mask) => Some(mask.clone()),
-            None => match create_attention_mask(&h, cache, None)? {
-                Some(AttentionMask::Array(a)) => Some(a),
-                Some(AttentionMask::Causal) => None,
-                None => None,
-            },
+            None => create_attention_mask(&h, cache, None)?,
         };
 
         if cache.is_empty() {
