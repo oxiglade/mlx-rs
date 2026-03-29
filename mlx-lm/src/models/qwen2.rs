@@ -370,7 +370,7 @@ pub struct ModelInput<'a, C> {
 
 impl<C> Module<ModelInput<'_, C>> for Qwen2Model
 where
-    C: KeyValueCache,
+    C: KeyValueCache + Default,
 {
     type Output = Array;
     type Error = Exception;
@@ -394,7 +394,7 @@ where
         };
 
         if cache.is_empty() {
-            *cache = (0..self.layers.len()).map(|_| None).collect();
+            *cache = (0..self.layers.len()).map(|_| Some(C::default())).collect();
         }
 
         for (layer, c) in self.layers.iter_mut().zip(cache.iter_mut()) {
@@ -458,7 +458,7 @@ impl Model {
 
 impl<C> Module<ModelInput<'_, C>> for Model
 where
-    C: KeyValueCache,
+    C: KeyValueCache + Default,
 {
     type Output = Array;
     type Error = Exception;
@@ -544,7 +544,7 @@ pub struct Generate<'a, C> {
 
 impl<'a, C> Generate<'a, C>
 where
-    C: KeyValueCache,
+    C: KeyValueCache + Default,
 {
     pub fn new(
         model: &'a mut Model,
@@ -577,7 +577,7 @@ macro_rules! tri {
 
 impl<'a, C> Iterator for Generate<'a, C>
 where
-    C: KeyValueCache,
+    C: KeyValueCache + Default,
 {
     type Item = Result<Array, Exception>;
 
