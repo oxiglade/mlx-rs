@@ -129,7 +129,12 @@ impl Attention {
     }
 }
 
-fn apply_cached_rope(rope: &mut RopeVariant, x: &Array, offset: i32) -> Result<Array, Exception> {
+fn apply_cached_rope(
+    rope: &mut RopeVariant,
+    x: &Array,
+    offset: i32,
+    offset_array: Option<&Array>,
+) -> Result<Array, Exception> {
     let seq_len = x.shape()[x.shape().len() - 2];
 
     if seq_len != 1 {
@@ -137,7 +142,14 @@ fn apply_cached_rope(rope: &mut RopeVariant, x: &Array, offset: i32) -> Result<A
         return rope.forward(rope_input);
     }
 
-    let position_array = Array::from_int(offset);
+    let owned_offset;
+    let position_array = match offset_array {
+        Some(offset_array) => offset_array,
+        None => {
+            owned_offset = Array::from_int(offset);
+            &owned_offset
+        }
+    };
 
     match rope {
         RopeVariant::Default(rope) => rope_dynamic(
@@ -165,6 +177,7 @@ pub struct AttentionInput<'a, C> {
     pub x: &'a Array,
     pub mask: Option<&'a AttentionMask>,
     pub cache: Option<&'a mut C>,
+    pub rope_offset_array: Option<&'a Array>,
 }
 
 impl<C> Module<AttentionInput<'_, C>> for Attention
@@ -176,7 +189,12 @@ where
 
     #[allow(non_snake_case)]
     fn forward(&mut self, input: AttentionInput<'_, C>) -> Result<Self::Output, Self::Error> {
-        let AttentionInput { x, mask, mut cache } = input;
+        let AttentionInput {
+            x,
+            mask,
+            mut cache,
+            rope_offset_array,
+        } = input;
 
         let shape = x.shape();
         let B = shape[0];
@@ -197,8 +215,8 @@ where
             .transpose_axes(&[0, 2, 1, 3])?;
 
         if let Some(cache) = cache.as_mut() {
-            queries = apply_cached_rope(&mut self.rope, &queries, cache.offset())?;
-            keys = apply_cached_rope(&mut self.rope, &keys, cache.offset())?;
+            queries = apply_cached_rope(&mut self.rope, &queries, cache.offset(), rope_offset_array)?;
+            keys = apply_cached_rope(&mut self.rope, &keys, cache.offset(), rope_offset_array)?;
 
             (keys, values) = cache.update_and_fetch(keys, values)?;
         } else {
@@ -346,12 +364,18 @@ where
     type Error = Exception;
 
     fn forward(&mut self, input: AttentionInput<'_, C>) -> Result<Self::Output, Self::Error> {
-        let AttentionInput { x, mask, cache } = input;
+        let AttentionInput {
+            x,
+            mask,
+            cache,
+            rope_offset_array,
+        } = input;
 
         let self_attn_input = AttentionInput {
             x: &self.input_layernorm.forward(x)?,
             mask,
             cache,
+            rope_offset_array,
         };
         let r = self.self_attn.forward(self_attn_input)?;
         let h = x.add(r)?;
@@ -430,6 +454,16 @@ where
         } = input;
 
         let mut h = self.embed_tokens.forward(inputs)?;
+        let rope_offset_array = if inputs.shape()[1] == 1 {
+            let offset = cache
+                .first()
+                .and_then(|c| c.as_ref())
+                .map(|c| c.offset())
+                .unwrap_or(0);
+            Some(Array::from_int(offset))
+        } else {
+            None
+        };
 
         let mask = match mask {
             Some(mask) => Some(mask.clone()),
@@ -445,6 +479,7 @@ where
                 x: &h,
                 mask: mask.as_ref(),
                 cache: c.as_mut(),
+                rope_offset_array: rope_offset_array.as_ref(),
             };
             h = layer.forward(layer_input)?;
         }
