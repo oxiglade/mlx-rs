@@ -13,7 +13,7 @@ jobs:
   checks:
     runs-on: blaze/macos-15
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           submodules: true
       - run: sudo xcodes select 16.4
@@ -31,7 +31,7 @@ jobs:
         runner: [macos-15]
         rust: [1.85.0, stable]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           submodules: true
       - run: sudo xcodes select 16.4
