@@ -668,6 +668,81 @@ impl Array {
             mlx_sys::mlx_imag(res, self.as_ptr(), stream.as_ref().as_ptr())
         })
     }
+
+    /// Element-wise left shift returning an error if arrays are not broadcastable.
+    ///
+    /// Shifts the bits of the first input to the left by the second with
+    /// [broadcasting](https://swiftpackageindex.com/ml-explore/mlx-swift/main/documentation/mlx/broadcasting).
+    /// Both inputs must be of integer dtype.
+    ///
+    /// # Params
+    ///
+    /// - other: number of bits to shift, must broadcast with `self`
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use mlx_rs::Array;
+    /// let a = Array::from_slice(&[1i32, 2, 4, 8], &[4]);
+    /// let b = Array::from_slice(&[1i32, 1, 2, 3], &[4]);
+    /// let c = a.left_shift(&b).unwrap();
+    ///
+    /// let c_data: &[i32] = c.as_slice();
+    /// // c_data == [2, 4, 16, 64]
+    /// ```
+    #[default_device]
+    pub fn left_shift_device(
+        &self,
+        other: impl AsRef<Array>,
+        stream: impl AsRef<Stream>,
+    ) -> Result<Array> {
+        Array::try_from_op(|res| unsafe {
+            mlx_sys::mlx_left_shift(
+                res,
+                self.as_ptr(),
+                other.as_ref().as_ptr(),
+                stream.as_ref().as_ptr(),
+            )
+        })
+    }
+
+    /// Element-wise right shift returning an error if arrays are not broadcastable.
+    ///
+    /// Shifts the bits of the first input to the right by the second with
+    /// [broadcasting](https://swiftpackageindex.com/ml-explore/mlx-swift/main/documentation/mlx/broadcasting).
+    /// Both inputs must be of integer dtype. Right shift on signed integers is
+    /// arithmetic (sign-preserving), matching the behaviour of MLX upstream.
+    ///
+    /// # Params
+    ///
+    /// - other: number of bits to shift, must broadcast with `self`
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use mlx_rs::Array;
+    /// let a = Array::from_slice(&[16i32, 32, 64, 128], &[4]);
+    /// let b = Array::from_slice(&[1i32, 2, 3, 4], &[4]);
+    /// let c = a.right_shift(&b).unwrap();
+    ///
+    /// let c_data: &[i32] = c.as_slice();
+    /// // c_data == [8, 8, 8, 8]
+    /// ```
+    #[default_device]
+    pub fn right_shift_device(
+        &self,
+        other: impl AsRef<Array>,
+        stream: impl AsRef<Stream>,
+    ) -> Result<Array> {
+        Array::try_from_op(|res| unsafe {
+            mlx_sys::mlx_right_shift(
+                res,
+                self.as_ptr(),
+                other.as_ref().as_ptr(),
+                stream.as_ref().as_ptr(),
+            )
+        })
+    }
 }
 
 /// Element-wise absolute value.
@@ -1011,6 +1086,17 @@ pub fn floor_divide_device(
     a.as_ref().floor_divide_device(other, stream)
 }
 
+/// See [`Array::left_shift`].
+#[generate_macro]
+#[default_device]
+pub fn left_shift_device(
+    lhs: impl AsRef<Array>,
+    rhs: impl AsRef<Array>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    lhs.as_ref().left_shift_device(rhs, stream)
+}
+
 /// See [`Array::log`].
 #[generate_macro]
 #[default_device]
@@ -1220,6 +1306,17 @@ pub fn remainder_device(
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
     a.as_ref().remainder_device(b, stream)
+}
+
+/// See [`Array::right_shift`].
+#[generate_macro]
+#[default_device]
+pub fn right_shift_device(
+    lhs: impl AsRef<Array>,
+    rhs: impl AsRef<Array>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    lhs.as_ref().right_shift_device(rhs, stream)
 }
 
 /// See [`Array::round`].
@@ -3235,5 +3332,77 @@ mod tests {
             c1.all_close(&c2, 1e-4, 1e-4, None).unwrap().item::<bool>(),
             "gather_mm_sorted failed"
         );
+    }
+
+    #[test]
+    fn test_left_shift() {
+        let a = Array::from_slice(&[1i32, 2, 4, 8], &[4]);
+        let b = Array::from_slice(&[1i32, 1, 2, 3], &[4]);
+
+        let c = a.left_shift(&b).unwrap();
+
+        let c_data: &[i32] = c.as_slice();
+        assert_eq!(c_data, &[2, 4, 16, 64]);
+
+        // inputs should not be modified
+        let a_data: &[i32] = a.as_slice();
+        assert_eq!(a_data, &[1, 2, 4, 8]);
+        let b_data: &[i32] = b.as_slice();
+        assert_eq!(b_data, &[1, 1, 2, 3]);
+    }
+
+    #[test]
+    fn test_left_shift_broadcast() {
+        // shift everything by the same scalar
+        let a = Array::from_slice(&[1i32, 2, 3, 4], &[4]);
+        let b = Array::from_int(2);
+
+        let c = crate::ops::left_shift(&a, &b).unwrap();
+
+        let c_data: &[i32] = c.as_slice();
+        assert_eq!(c_data, &[4, 8, 12, 16]);
+    }
+
+    #[test]
+    fn test_left_shift_invalid_broadcast() {
+        let a = Array::from_slice(&[1i32, 2, 3], &[3]);
+        let b = Array::from_slice(&[1i32, 2], &[2]);
+
+        let c = a.left_shift(&b);
+        assert!(c.is_err());
+    }
+
+    #[test]
+    fn test_right_shift() {
+        let a = Array::from_slice(&[16i32, 32, 64, 128], &[4]);
+        let b = Array::from_slice(&[1i32, 2, 3, 4], &[4]);
+
+        let c = a.right_shift(&b).unwrap();
+
+        let c_data: &[i32] = c.as_slice();
+        assert_eq!(c_data, &[8, 8, 8, 8]);
+    }
+
+    #[test]
+    fn test_right_shift_arithmetic_for_signed() {
+        // Right shift of a negative signed integer is arithmetic
+        // (sign-extending) in MLX, matching numpy and the underlying C
+        // semantics. -8 >> 1 == -4, not (huge unsigned).
+        let a = Array::from_slice(&[-8i32, -16, -32], &[3]);
+        let b = Array::from_int(1);
+
+        let c = crate::ops::right_shift(&a, &b).unwrap();
+
+        let c_data: &[i32] = c.as_slice();
+        assert_eq!(c_data, &[-4, -8, -16]);
+    }
+
+    #[test]
+    fn test_right_shift_invalid_broadcast() {
+        let a = Array::from_slice(&[16i32, 32, 64], &[3]);
+        let b = Array::from_slice(&[1i32, 2], &[2]);
+
+        let c = a.right_shift(&b);
+        assert!(c.is_err());
     }
 }
