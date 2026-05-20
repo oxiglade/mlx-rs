@@ -132,7 +132,7 @@ mlx-rs is currently in active development and can be used to run MLX models in R
 
 ## MSRV
 
-The minimum supported Rust version is 1.83.0.
+The minimum supported Rust version is 1.85.0.
 
 The MSRV is the minimum Rust version that can be used to compile each crate.
 
