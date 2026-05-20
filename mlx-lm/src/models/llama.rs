@@ -16,12 +16,12 @@ use mlx_rs::{
     Array,
 };
 use serde::Deserialize;
-use serde_json::Value;
 use tokenizers::Tokenizer;
 
 use crate::{
     cache::KeyValueCache,
     error::Error,
+    loader::WeightMap,
     utils::rope::{initialize_rope, FloatOrString, RopeVariant},
 };
 
@@ -497,12 +497,6 @@ pub fn get_llama_model_args(model_dir: impl AsRef<Path>) -> Result<ModelArgs, Er
     let model_args: ModelArgs = serde_json::from_reader(file)?;
 
     Ok(model_args)
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct WeightMap {
-    pub metadata: HashMap<String, Value>,
-    pub weight_map: HashMap<String, String>,
 }
 
 pub fn load_llama_model(model_dir: impl AsRef<Path>) -> Result<Model, Error> {
