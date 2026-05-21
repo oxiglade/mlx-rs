@@ -52,7 +52,7 @@
 //!
 //! ## Function and Graph Transformations
 //!
-//! TODO: https://github.com/oxideai/mlx-rs/issues/214
+//! TODO: https://github.com/oxiglade/mlx-rs/issues/214
 //!
 //! TODO: also document that all `Array` in the args for function
 //!       transformations

@@ -23,7 +23,7 @@
 //! argument to compute the gradient with respect to, use
 //! [`grad_with_argnums()`] or [`value_and_grad_with_argnums()`].
 //!
-//! TODO: update the example once https://github.com/oxideai/mlx-rs/pull/218 is merged
+//! TODO: update the example once https://github.com/oxiglade/mlx-rs/pull/218 is merged
 //!
 //! ```rust,ignore
 //! use mlx_rs::{Array, error::Result, transforms::grad};
