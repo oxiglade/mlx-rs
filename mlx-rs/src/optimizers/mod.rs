@@ -209,7 +209,8 @@ pub trait Optimizer: Updatable {
     {
         let mut parameters = model.parameters_mut().flatten();
 
-        for (key, gradient) in gradients.borrow().iter() {
+        let gradients = gradients.borrow();
+        for (key, gradient) in gradients {
             if let Some(parameter) = parameters.get_mut(key) {
                 self.update_single(key, gradient, parameter)?;
             }
@@ -271,7 +272,7 @@ mod tests {
         let max_norm = 10.0;
 
         let (clipped_grads, _) = clip_grad_norm(&small_grads, max_norm).unwrap();
-        for (key, value) in small_grads.iter() {
+        for (key, value) in &small_grads {
             assert_eq!(&*clipped_grads[key], value);
         }
 
@@ -300,7 +301,7 @@ mod tests {
             .iter()
             .map(|(key, value)| (key.clone(), value * scale))
             .collect();
-        for (key, value) in expected_grads.iter() {
+        for (key, value) in &expected_grads {
             assert_eq!(&*clipped_grads[key], value);
         }
     }

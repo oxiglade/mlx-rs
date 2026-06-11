@@ -19,12 +19,40 @@ mlx-lm-utils.workspace = true
 # External dependencies
 serde = { version = "1", features = ["derive"] }
 anyhow = "1"
-tokenizers = { version = "0.22.0", features = ["http"] } 
+log = { workspace = true }
+tokenizers = { version = "0.22.0", features = ["http"] }
 clap = { version = "4", features = ["derive"] }
-idna_adapter = "1.2" 
+idna_adapter = "1.2"
 thiserror = "2"
 serde_json = "1"
 minijinja = "2"
+minijinja-contrib = { version = "2", features = ["pycompat"] }
+image = { version = "0.25", default-features = false, features = [
+    "png",
+    "jpeg",
+    "bmp",
+    "tiff",
+    "webp",
+    "gif",
+], optional = true }
+
+[features]
+default = ["image"]
+# Vision (VLM) support: pulls the `image` decode crate + compiles the
+# qwen3.5 image subtree, the `Image`/`ProcessedImage` input surface, and
+# the VLM dispatch path. Off = text-only build, no codec dependency.
+image = ["dep:image"]
+# Audio (gemma4 USM Conformer) support: compiles the gemma4 audio subtree
+# + the audio input surface. Opt-in; off = audio keys dropped at load so
+# e2b/e4b still load text+vision. Implies `image`: gemma4 audio checkpoints
+# are multimodal (vision + audio) and the VLM loader/adapter live in the
+# image subtree, reusing its masked-scatter stitch.
+audio = ["image"]
 
 [dev-dependencies]
 lazy_static = "1"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "lm_decode"
+harness = false

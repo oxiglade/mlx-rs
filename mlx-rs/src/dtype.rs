@@ -92,8 +92,7 @@ impl Dtype {
     pub fn finfo_min(&self) -> Result<f64, InexactDtypeError> {
         match self {
             Dtype::Float16 => Ok(f16::MIN.to_f64_const()),
-            Dtype::Float32 => Ok(f32::MIN as f64),
-            Dtype::Complex64 => Ok(f32::MIN as f64),
+            Dtype::Float32 | Dtype::Complex64 => Ok(f32::MIN as f64),
             Dtype::Bfloat16 => Ok(bf16::MIN.to_f64_const()),
             _ => Err(InexactDtypeError(*self)),
         }
@@ -104,8 +103,7 @@ impl Dtype {
     pub fn finfo_max(&self) -> Result<f64, InexactDtypeError> {
         match self {
             Dtype::Float16 => Ok(f16::MAX.to_f64_const()),
-            Dtype::Float32 => Ok(f32::MAX as f64),
-            Dtype::Complex64 => Ok(f32::MAX as f64),
+            Dtype::Float32 | Dtype::Complex64 => Ok(f32::MAX as f64),
             Dtype::Bfloat16 => Ok(bf16::MAX.to_f64_const()),
             _ => Err(InexactDtypeError(*self)),
         }
@@ -117,6 +115,10 @@ pub(crate) trait TypePromotion {
 }
 
 impl TypePromotion for Dtype {
+    #[allow(
+        clippy::match_same_arms,
+        reason = "explicit pairwise promotion table mirroring Python; merging arms would obscure the lookup semantics"
+    )]
     fn promote_with(self, other: Self) -> Self {
         use crate::dtype::Dtype::*;
         match (self, other) {

@@ -44,6 +44,11 @@ bytemuck = { workspace = true, optional = true, features = ["extern_crate_std"] 
 pretty_assertions.workspace = true
 float_eq.workspace = true
 tempfile.workspace = true
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "compile_overhead"
+harness = false
 
 [features]
 default = ["accelerate", "metal"]

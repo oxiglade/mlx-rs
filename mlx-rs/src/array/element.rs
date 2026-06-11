@@ -42,7 +42,7 @@ macro_rules! impl_array_element {
                 }
 
                 fn array_data(array: &Array) -> *const Self {
-                    unsafe { mlx_sys::[<mlx_array_data_ $ctype >](array.as_ptr()) as *const Self }
+                    unsafe { mlx_sys::[<mlx_array_data_ $ctype >](array.as_ptr()).cast::<Self>() }
                 }
 
             }

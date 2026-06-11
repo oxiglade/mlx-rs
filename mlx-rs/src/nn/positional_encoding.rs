@@ -119,9 +119,9 @@ where
 
     fn forward(&mut self, input: Input) -> Result<Self::Output, Self::Error> {
         let RopeInput { x, offset } = input.into();
-        let shape = x.shape();
-        let x = x.reshape(&[-1, x.dim(-2), x.dim(-1)])?;
-        let x = crate::fast::rope(
+        // 4-D `[B, N, T, D]` passed direct; reshape to 3-D zeroed all
+        // but head-0 on decode (T=1).
+        crate::fast::rope(
             x,
             self.dimensions,
             self.traditional,
@@ -129,8 +129,7 @@ where
             self.scale,
             offset,
             None,
-        )?;
-        x.reshape(shape)
+        )
     }
 
     fn training_mode(&mut self, _mode: bool) {}
@@ -270,14 +269,15 @@ struct AlibiKey {
     dtype: Dtype,
 }
 
-thread_local! {
-    static ALIBI_CACHE: RefCell<HashMap<AlibiKey, Array>> = RefCell::new(HashMap::new());
-}
-
-/// Attention with Linear Biases
-#[derive(Debug, Clone, ModuleParameters)]
+/// Attention with Linear Biases.
+///
+/// Bias-matrix cache is a field, not a thread_local: v0.31 SIGSEGVs
+/// when an `Array` cache destructor races the GPU stream at thread exit.
+#[derive(Debug, Clone, Default, ModuleParameters)]
 #[module(root = crate)]
-pub struct Alibi;
+pub struct Alibi {
+    cache: RefCell<HashMap<AlibiKey, Array>>,
+}
 
 impl Alibi {
     fn slope(num_heads: i32) -> Result<Array, Exception> {
@@ -287,8 +287,8 @@ impl Alibi {
             .expand_dims_axes(&[-1, -2])
     }
 
-    fn matrix(key: AlibiKey) -> Result<Array, Exception> {
-        if let Some(value) = ALIBI_CACHE.with(|cache| cache.borrow().get(&key).cloned()) {
+    fn matrix(&self, key: AlibiKey) -> Result<Array, Exception> {
+        if let Some(value) = self.cache.borrow().get(&key).cloned() {
             return Ok(value);
         }
 
@@ -304,10 +304,7 @@ impl Alibi {
         let slope = Self::slope(key.num_heads)?;
         let mask = distance_matrix.multiply(&slope)?.as_dtype(key.dtype)?;
 
-        ALIBI_CACHE.with(|cache| {
-            cache.borrow_mut().insert(key, mask.clone());
-        });
-
+        self.cache.borrow_mut().insert(key, mask.clone());
         Ok(mask)
     }
 }
@@ -408,7 +405,7 @@ where
             dtype: attention_scores.dtype(),
         };
 
-        let mut alibi_mask = Self::matrix(key)?;
+        let mut alibi_mask = self.matrix(key)?;
         if let Some(mask) = mask {
             alibi_mask = alibi_mask.add(mask)?;
         }
@@ -501,7 +498,7 @@ mod tests {
     // mlx/python/tests/test_nn.py
     #[test]
     fn test_alibi() {
-        let mut alibi = crate::nn::Alibi;
+        let mut alibi = crate::nn::Alibi::default();
         let shape = [1, 8, 20, 20];
         let x = uniform::<_, f32>(0, 1, &shape, None).unwrap();
         let input = AlibiInput::from(&x);

@@ -43,6 +43,10 @@ generate_builder! {
     }
 }
 
+#[allow(
+    clippy::unnecessary_wraps,
+    reason = "Builder trait requires Result<Self, Self::Error>"
+)]
 fn build_adamax(builder: AdamaxBuilder) -> Result<Adamax, Infallible> {
     let lr = builder.lr;
     let betas = builder.betas;

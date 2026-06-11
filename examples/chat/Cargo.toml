@@ -1,0 +1,25 @@
+[package]
+name = "chat"
+edition.workspace = true
+version = "0.0.1"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "chat"
+path = "src/bin/chat.rs"
+
+[features]
+# Audio one-shot (`--audio`): pulls mlx-lm's audio tower + a WAV decoder.
+audio = ["mlx-lm/audio", "dep:hound"]
+
+[dependencies]
+mlx-lm.workspace = true
+anyhow = "1"
+argh = "0.1"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+hound = { version = "3", optional = true }
+rustyline = { version = "18", default-features = false }
+serde_json = { version = "1", default-features = false, features = ["std"] }

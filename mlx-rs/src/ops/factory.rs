@@ -1,6 +1,6 @@
 use crate::array::Array;
 use crate::array::ArrayElement;
-use crate::error::Result;
+use crate::error::{Exception, Result};
 use crate::utils::guard::Guarded;
 use crate::{Dtype, Stream};
 use mlx_internal_macros::{default_device, generate_macro};
@@ -168,7 +168,8 @@ impl Array {
         T: ArrayElement,
     {
         let start: f64 = start.into().and_then(NumCast::from).unwrap_or(0.0);
-        let stop: f64 = NumCast::from(stop).unwrap();
+        let stop: f64 = NumCast::from(stop)
+            .ok_or_else(|| Exception::custom("arange: stop value not representable as f64"))?;
         let step: f64 = step.into().and_then(NumCast::from).unwrap_or(1.0);
 
         Array::try_from_op(|res| unsafe {
@@ -210,8 +211,10 @@ impl Array {
         T: ArrayElement,
     {
         let count = count.into().unwrap_or(50);
-        let start_f32 = NumCast::from(start).unwrap();
-        let stop_f32 = NumCast::from(stop).unwrap();
+        let start_f32: f64 = NumCast::from(start)
+            .ok_or_else(|| Exception::custom("linspace: start value not representable as f64"))?;
+        let stop_f32: f64 = NumCast::from(stop)
+            .ok_or_else(|| Exception::custom("linspace: stop value not representable as f64"))?;
 
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_linspace(

@@ -318,7 +318,7 @@ fn build_transformer_encoder_layer(
     let linear2 = Linear::new(mlp_dimensions, dimensions)?;
     let dropout1 = DropoutBuilder::new().p(dropout).build()?;
     let dropout2 = DropoutBuilder::new().p(dropout).build()?;
-    let activation = builder.activation.unwrap_or(Box::new(Relu));
+    let activation = builder.activation.unwrap_or_else(|| Box::new(Relu));
     let norm_first = builder.norm_first;
 
     Ok(TransformerEncoderLayer {
@@ -516,7 +516,7 @@ fn build_transformer_encoder(
     let dimensions = builder.dimensions;
     let num_heads = builder.num_heads;
     let norm_first = builder.norm_first;
-    let activation = builder.activation.unwrap_or(Box::new(Relu));
+    let activation = builder.activation.unwrap_or_else(|| Box::new(Relu));
 
     let layers = (0..layer_count)
         .map(|_| {
@@ -633,7 +633,7 @@ fn build_transformer_decoder_layer(
     let dropout1 = DropoutBuilder::new().p(dropout).build()?;
     let dropout2 = DropoutBuilder::new().p(dropout).build()?;
     let dropout3 = DropoutBuilder::new().p(dropout).build()?;
-    let activation = builder.activation.unwrap_or(Box::new(Relu));
+    let activation = builder.activation.unwrap_or_else(|| Box::new(Relu));
     let norm_first = builder.norm_first;
 
     Ok(TransformerDecoderLayer {
@@ -876,7 +876,7 @@ fn build_transformer_decoder(
     let num_heads = builder.num_heads;
     let norm_first = builder.norm_first;
 
-    let activation = builder.activation.unwrap_or(Box::new(Relu));
+    let activation = builder.activation.unwrap_or_else(|| Box::new(Relu));
 
     let layers = (0..layer_count)
         .map(|_| {
@@ -1008,7 +1008,7 @@ fn build_transformer(builder: TransformerBuilder) -> Result<Transformer, Transfo
     let decoder_layer_count = builder.decoder_layer_count;
     let mlp_dimensions = builder.mlp_dimensions;
     let dropout = builder.dropout;
-    let activation = builder.activation.unwrap_or(Box::new(Relu));
+    let activation = builder.activation.unwrap_or_else(|| Box::new(Relu));
     let norm_first = builder.norm_first;
 
     let encoder =

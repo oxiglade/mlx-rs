@@ -54,6 +54,10 @@ generate_builder! {
 }
 
 /// Builds a new [`AdamW`] optimizer.
+#[allow(
+    clippy::unnecessary_wraps,
+    reason = "Builder trait requires Result<Self, Self::Error>"
+)]
 fn build_adamw(builder: AdamWBuilder) -> Result<AdamW, Infallible> {
     let lr = builder.lr;
     let betas = builder.betas;

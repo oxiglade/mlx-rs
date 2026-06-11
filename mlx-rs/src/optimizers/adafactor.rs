@@ -142,15 +142,15 @@ impl AdafactorState {
         let mut exp_avg_sq = None;
         let mut exp_avg = None;
 
-        if parameter.ndim() >= 2 {
-            let shape = parameter.shape();
+        if let [head @ .., second_last, last] = parameter.shape() {
             let dtype = parameter.dtype();
 
-            let row_shape = &shape[..shape.len() - 1];
-            exp_avg_sq_row = Some(zeros_dtype(row_shape, dtype)?);
+            let mut row_shape = head.to_vec();
+            row_shape.push(*second_last);
+            exp_avg_sq_row = Some(zeros_dtype(&row_shape, dtype)?);
 
-            let mut col_shape = shape[..shape.len() - 2].to_vec();
-            col_shape.push(*shape.last().unwrap());
+            let mut col_shape = head.to_vec();
+            col_shape.push(*last);
             exp_avg_sq_col = Some(zeros_dtype(&col_shape, dtype)?);
         } else {
             exp_avg_sq = Some(zeros_like(parameter)?);
@@ -307,11 +307,11 @@ fn get_mut_or_insert_with<'a, T, E>(
     key: &Rc<str>,
     f: impl FnOnce() -> Result<T, E>,
 ) -> Result<&'a mut T, E> {
-    if !map.contains_key(key) {
-        map.insert(key.clone(), f()?);
+    use std::collections::hash_map::Entry;
+    match map.entry(key.clone()) {
+        Entry::Occupied(o) => Ok(o.into_mut()),
+        Entry::Vacant(v) => Ok(v.insert(f()?)),
     }
-
-    Ok(map.get_mut(key).unwrap())
 }
 
 fn compute_lr(
@@ -389,9 +389,14 @@ impl Optimizer for Adafactor {
 
         let one_minus_beta2 = array!(1.0).subtract(&beta2)?;
         if factored {
-            // SAFETY: These fields are created in the `new` when ndim >= 2 and won't panic.
-            let exp_avg_sq_row = state.exp_avg_sq_row.as_mut().unwrap();
-            let exp_avg_sq_col = state.exp_avg_sq_col.as_mut().unwrap();
+            let exp_avg_sq_row = state
+                .exp_avg_sq_row
+                .as_mut()
+                .expect("Adafactor: exp_avg_sq_row populated by new() when ndim >= 2");
+            let exp_avg_sq_col = state
+                .exp_avg_sq_col
+                .as_mut()
+                .expect("Adafactor: exp_avg_sq_col populated by new() when ndim >= 2");
 
             *exp_avg_sq_row = beta2
                 .multiply(&*exp_avg_sq_row)?
@@ -406,8 +411,10 @@ impl Optimizer for Adafactor {
             )?);
             update = Cow::Owned(update.multiply(gradient)?);
         } else {
-            // SAFETY: This field is created in the `new` when ndim < 2 and won't panic.
-            let exp_avg_sq = state.exp_avg_sq.as_mut().unwrap();
+            let exp_avg_sq = state
+                .exp_avg_sq
+                .as_mut()
+                .expect("Adafactor: exp_avg_sq populated by new() when ndim < 2");
 
             *exp_avg_sq = beta2
                 .multiply(&*exp_avg_sq)?
@@ -421,8 +428,10 @@ impl Optimizer for Adafactor {
         update = Cow::Owned(lr.multiply(update)?);
 
         if let Some(beta1) = &self.beta1 {
-            // SAFETY: This field is created in the `new` when beta1 is set and won't panic.
-            let exp_avg = state.exp_avg.as_mut().unwrap();
+            let exp_avg = state
+                .exp_avg
+                .as_mut()
+                .expect("Adafactor: exp_avg populated by new() when beta1 is set");
             let one_minus_beta1 = array!(1.0).subtract(beta1)?;
             *exp_avg = beta1
                 .multiply(&*exp_avg)?

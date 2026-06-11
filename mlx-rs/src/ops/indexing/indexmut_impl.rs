@@ -161,7 +161,7 @@ fn remove_leading_singleton_dimensions(
     stream: impl AsRef<Stream>,
 ) -> Result<Cow<'_, Array>> {
     let shape = a.shape();
-    let mut new_shape: Vec<_> = shape.iter().skip_while(|&&dim| dim == 1).cloned().collect();
+    let mut new_shape: Vec<_> = shape.iter().skip_while(|&&dim| dim == 1).copied().collect();
     if shape != new_shape {
         if new_shape.is_empty() {
             new_shape = vec![1];
@@ -250,7 +250,7 @@ fn scatter_args_array<'a>(
         .shape()
         .iter()
         .chain(src.shape().iter().skip(1))
-        .cloned()
+        .copied()
         .collect();
     let update = broadcast_to_device(&update, &update_shape, &stream)?;
 
@@ -294,7 +294,7 @@ fn scatter_args_slice<'a>(
 
         // Broadcast update to slice size
         let update_broadcast_shape: SmallVec<[i32; DEFAULT_STACK_VEC_LEN]> = (1..end - start)
-            .chain(src.shape().iter().skip(1).cloned())
+            .chain(src.shape().iter().skip(1).copied())
             .collect();
         let update = broadcast_to_device(&update, &update_broadcast_shape, &stream)?;
 
@@ -504,7 +504,7 @@ fn scatter_args_nd<'a>(
         .iter()
         .chain(slice_shapes.iter())
         .chain(src.shape().iter().skip(non_new_axis_operation_count))
-        .cloned()
+        .copied()
         .collect();
     let update = broadcast_to_device(&update, &update_shape_broadcast, &stream)?;
 
@@ -514,7 +514,7 @@ fn scatter_args_nd<'a>(
         .iter()
         .chain(update_shape.iter())
         .chain(src.shape().iter().skip(non_new_axis_operation_count))
-        .cloned()
+        .copied()
         .collect();
 
     let update = update.reshape_device(&update_reshape, &stream)?;

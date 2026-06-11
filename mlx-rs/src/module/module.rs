@@ -219,20 +219,20 @@ where
     }
 
     fn freeze_parameters(&mut self, recursive: bool) {
-        self.iter_mut().for_each(|module| {
+        for module in self.iter_mut() {
             module.freeze_parameters(recursive);
-        });
+        }
     }
 
     fn unfreeze_parameters(&mut self, recursive: bool) {
-        self.iter_mut().for_each(|module| {
+        for module in self.iter_mut() {
             module.unfreeze_parameters(recursive);
-        });
+        }
     }
 
     fn all_frozen(&self) -> Option<bool> {
         let mut result = None;
-        for module in self.iter() {
+        for module in self {
             match module.all_frozen() {
                 Some(true) => result = Some(true),
                 Some(false) => return Some(false),
@@ -244,7 +244,7 @@ where
 
     fn any_frozen(&self) -> Option<bool> {
         let mut result = None;
-        for module in self.iter() {
+        for module in self {
             match module.any_frozen() {
                 Some(true) => return Some(true),
                 Some(false) => result = Some(false),

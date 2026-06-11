@@ -1,10 +1,6 @@
 //! Compilation of functions with state.
 //!
-//! # Unit tests
-//!
 //! See `mlx-rs/mlx-tests/tests/test_compile.rs` for unit tests.
-
-// TODO: there's plenty boilerplate code here but it's not clear how to reduce it
 
 use std::{
     cell::{Cell, RefCell},
@@ -14,51 +10,47 @@ use std::{
 
 use crate::{
     error::Exception,
-    transforms::compile::{type_id_to_usize, CompiledState},
+    transforms::compile::{next_compile_id, shape, CompiledState},
     utils::Updatable,
     Array,
 };
 
 use super::{update_by_replace_with_ref_to_new_array, Closure, Compiled, Guarded, VectorArray};
 
-/// Similar to [`crate::transforms::compile`] but allows for functions that take
-/// a mutable reference to a state `U`.
+/// Moves the lone output Array out of the Vec without cloning.
+#[inline]
+fn take_one_output(mut outputs: Vec<Array>) -> Result<Array, Exception> {
+    if outputs.len() != 1 {
+        return Err(Exception::custom(format!(
+            "compile_with_state: traced single-output function returned {} arrays",
+            outputs.len()
+        )));
+    }
+    Ok(outputs.swap_remove(0))
+}
+
+/// Like [`crate::transforms::compile`] but takes a mutable state `U`.
+#[allow(clippy::type_complexity)]
 pub fn compile_with_state<F, U, A, O, E>(
     f: F,
     shapeless: impl Into<Option<bool>>,
-) -> impl for<'a> FnMut(&mut U, F::Args<'a>) -> Result<O, Exception>
+) -> impl for<'a> FnMut(&mut U, <F::Output as CallMutWithState<U, O, E>>::Args<'a>) -> Result<O, Exception>
 where
-    F: CompileWithState<U, A, O, E> + Copy + 'static,
+    F: CompileWithState<U, A, O, E> + 'static,
+    F::Output: CallMutWithState<U, O, E>,
     U: Updatable,
 {
     let shapeless = shapeless.into().unwrap_or(false);
-    move |state, args| {
-        let mut compiled = f.compile(shapeless);
-        compiled.call_mut(state, args)
-    }
+    let mut compiled = f.compile(shapeless);
+    move |state, args| compiled.call_mut(state, args)
 }
 
-/// A trait for functions that can be compiled with state.
-///
-/// This trait is used to compile a function that takes a mutable reference to a state
-/// and some arguments and returns a result.
-///
-/// # Generic parameters
-///
-/// - `U`: The type of the state.
-/// - `A`: The type of the arguments.
-/// - `O`: The type of the output.
-/// - `E`: The type of the exception.
-pub trait CompileWithState<U, A, O, E> {
-    /// The type of the arguments that the returned closure takes.
-    ///
-    /// This is needed to relax the lifetime requirements of the returned
-    /// closure. Otherwise, the arguments to the returned closure would have to
-    /// live longer than the closure itself.
-    type Args<'a>;
-
+/// Compile a function that mutates state `U`.
+pub trait CompileWithState<U, A, O, E>: Sized {
+    /// Concrete [`Compiled`] produced by [`Self::compile`].
+    type Output: CallMutWithState<U, O, E>;
     /// Compile the function.
-    fn compile<'args>(self, shapeless: bool) -> impl CallMutWithState<U, Self::Args<'args>, O, E>;
+    fn compile(self, shapeless: bool) -> Self::Output;
 }
 
 impl<F, U> CompileWithState<U, &[Array], Vec<Array>, ()> for F
@@ -66,45 +58,53 @@ where
     F: FnMut(&mut U, &[Array]) -> Vec<Array> + 'static,
     U: Updatable,
 {
-    type Args<'a> = &'a [Array];
+    type Output = Compiled<F, F, shape::ArraySlice>;
 
-    fn compile<'args>(
-        self,
-        shapeless: bool,
-    ) -> impl CallMutWithState<U, Self::Args<'args>, Vec<Array>, ()> {
-        let id = type_id_to_usize(&self);
-        let state = CompiledState {
-            f: self,
-            shapeless,
-            id,
-        };
+    fn compile(self, shapeless: bool) -> Self::Output {
+        let id = next_compile_id();
         Compiled {
-            f_marker: PhantomData::<F>,
-            state,
+            shape: PhantomData,
+            f_marker: PhantomData,
+            state: CompiledState {
+                f: self,
+                shapeless,
+                id,
+                cached_compiled: None,
+                cached_num_outputs: std::cell::Cell::new(None),
+            },
         }
     }
 }
+
+/// Boxed adapter from a single-output `(U, &Array)` user closure to the
+/// slice-based one MLX invokes internally.
+pub type StateBoxedSliceFn<U> = Box<dyn FnMut(&mut U, &[Array]) -> Vec<Array> + 'static>;
+
+/// Fallible variant of [`StateBoxedSliceFn`].
+pub type StateBoxedSliceTryFn<U> =
+    Box<dyn FnMut(&mut U, &[Array]) -> Result<Vec<Array>, Exception> + 'static>;
 
 impl<F, U> CompileWithState<U, &Array, Array, ()> for F
 where
     F: FnMut(&mut U, &Array) -> Array + 'static,
     U: Updatable,
 {
-    type Args<'a> = &'a Array;
+    type Output = Compiled<F, StateBoxedSliceFn<U>, shape::OneArg>;
 
-    fn compile<'args>(
-        mut self,
-        shapeless: bool,
-    ) -> impl CallMutWithState<U, Self::Args<'args>, Array, ()> {
-        let id = type_id_to_usize(&self);
-        let f = move |state: &mut U, args: &[Array]| -> Vec<Array> {
-            let result = (self)(state, &args[0]);
-            vec![result]
-        };
-        let state = CompiledState { f, shapeless, id };
+    fn compile(mut self, shapeless: bool) -> Self::Output {
+        let id = next_compile_id();
+        let f: StateBoxedSliceFn<U> =
+            Box::new(move |state: &mut U, args: &[Array]| vec![(self)(state, &args[0])]);
         Compiled {
-            f_marker: PhantomData::<F>,
-            state,
+            shape: PhantomData,
+            f_marker: PhantomData,
+            state: CompiledState {
+                f,
+                shapeless,
+                id,
+                cached_compiled: None,
+                cached_num_outputs: std::cell::Cell::new(None),
+            },
         }
     }
 }
@@ -114,21 +114,23 @@ where
     F: FnMut(&mut U, (&Array, &Array)) -> Array + 'static,
     U: Updatable,
 {
-    type Args<'a> = (&'a Array, &'a Array);
+    type Output = Compiled<F, StateBoxedSliceFn<U>, shape::TwoArgs>;
 
-    fn compile<'args>(
-        mut self,
-        shapeless: bool,
-    ) -> impl CallMutWithState<U, Self::Args<'args>, Array, ()> {
-        let id = type_id_to_usize(&self);
-        let f = move |state: &mut U, args: &[Array]| -> Vec<Array> {
-            let result = (self)(state, (&args[0], &args[1]));
-            vec![result]
-        };
-        let state = CompiledState { f, shapeless, id };
+    fn compile(mut self, shapeless: bool) -> Self::Output {
+        let id = next_compile_id();
+        let f: StateBoxedSliceFn<U> = Box::new(move |state: &mut U, args: &[Array]| {
+            vec![(self)(state, (&args[0], &args[1]))]
+        });
         Compiled {
-            f_marker: PhantomData::<F>,
-            state,
+            shape: PhantomData,
+            f_marker: PhantomData,
+            state: CompiledState {
+                f,
+                shapeless,
+                id,
+                cached_compiled: None,
+                cached_num_outputs: std::cell::Cell::new(None),
+            },
         }
     }
 }
@@ -138,21 +140,23 @@ where
     F: FnMut(&mut U, (&Array, &Array, &Array)) -> Array + 'static,
     U: Updatable,
 {
-    type Args<'a> = (&'a Array, &'a Array, &'a Array);
+    type Output = Compiled<F, StateBoxedSliceFn<U>, shape::ThreeArgs>;
 
-    fn compile<'args>(
-        mut self,
-        shapeless: bool,
-    ) -> impl CallMutWithState<U, Self::Args<'args>, Array, ()> {
-        let id = type_id_to_usize(&self);
-        let f = move |state: &mut U, args: &[Array]| -> Vec<Array> {
-            let result = (self)(state, (&args[0], &args[1], &args[2]));
-            vec![result]
-        };
-        let state = CompiledState { f, shapeless, id };
+    fn compile(mut self, shapeless: bool) -> Self::Output {
+        let id = next_compile_id();
+        let f: StateBoxedSliceFn<U> = Box::new(move |state: &mut U, args: &[Array]| {
+            vec![(self)(state, (&args[0], &args[1], &args[2]))]
+        });
         Compiled {
-            f_marker: PhantomData::<F>,
-            state,
+            shape: PhantomData,
+            f_marker: PhantomData,
+            state: CompiledState {
+                f,
+                shapeless,
+                id,
+                cached_compiled: None,
+                cached_num_outputs: std::cell::Cell::new(None),
+            },
         }
     }
 }
@@ -162,21 +166,20 @@ where
     F: FnMut(&mut U, &[Array]) -> Result<Vec<Array>, Exception> + 'static,
     U: Updatable,
 {
-    type Args<'a> = &'a [Array];
+    type Output = Compiled<F, F, shape::ArraySlice>;
 
-    fn compile<'args>(
-        self,
-        shapeless: bool,
-    ) -> impl CallMutWithState<U, Self::Args<'args>, Vec<Array>, Exception> {
-        let id = type_id_to_usize(&self);
-        let state = CompiledState {
-            f: self,
-            shapeless,
-            id,
-        };
+    fn compile(self, shapeless: bool) -> Self::Output {
+        let id = next_compile_id();
         Compiled {
-            f_marker: PhantomData::<F>,
-            state,
+            shape: PhantomData,
+            f_marker: PhantomData,
+            state: CompiledState {
+                f: self,
+                shapeless,
+                id,
+                cached_compiled: None,
+                cached_num_outputs: std::cell::Cell::new(None),
+            },
         }
     }
 }
@@ -186,21 +189,22 @@ where
     F: FnMut(&mut U, &Array) -> Result<Array, Exception> + 'static,
     U: Updatable,
 {
-    type Args<'a> = &'a Array;
+    type Output = Compiled<F, StateBoxedSliceTryFn<U>, shape::OneArg>;
 
-    fn compile<'args>(
-        mut self,
-        shapeless: bool,
-    ) -> impl CallMutWithState<U, Self::Args<'args>, Array, Exception> {
-        let id = type_id_to_usize(&self);
-        let f = move |state: &mut U, args: &[Array]| -> Result<Vec<Array>, Exception> {
-            let result = (self)(state, &args[0])?;
-            Ok(vec![result])
-        };
-        let state = CompiledState { f, shapeless, id };
+    fn compile(mut self, shapeless: bool) -> Self::Output {
+        let id = next_compile_id();
+        let f: StateBoxedSliceTryFn<U> =
+            Box::new(move |state: &mut U, args: &[Array]| Ok(vec![(self)(state, &args[0])?]));
         Compiled {
-            f_marker: PhantomData::<F>,
-            state,
+            shape: PhantomData,
+            f_marker: PhantomData,
+            state: CompiledState {
+                f,
+                shapeless,
+                id,
+                cached_compiled: None,
+                cached_num_outputs: std::cell::Cell::new(None),
+            },
         }
     }
 }
@@ -210,21 +214,23 @@ where
     F: FnMut(&mut U, (&Array, &Array)) -> Result<Array, Exception> + 'static,
     U: Updatable,
 {
-    type Args<'a> = (&'a Array, &'a Array);
+    type Output = Compiled<F, StateBoxedSliceTryFn<U>, shape::TwoArgs>;
 
-    fn compile<'args>(
-        mut self,
-        shapeless: bool,
-    ) -> impl CallMutWithState<U, Self::Args<'args>, Array, Exception> {
-        let id = type_id_to_usize(&self);
-        let f = move |state: &mut U, args: &[Array]| -> Result<Vec<Array>, Exception> {
-            let result = (self)(state, (&args[0], &args[1]))?;
-            Ok(vec![result])
-        };
-        let state = CompiledState { f, shapeless, id };
+    fn compile(mut self, shapeless: bool) -> Self::Output {
+        let id = next_compile_id();
+        let f: StateBoxedSliceTryFn<U> = Box::new(move |state: &mut U, args: &[Array]| {
+            Ok(vec![(self)(state, (&args[0], &args[1]))?])
+        });
         Compiled {
-            f_marker: PhantomData::<F>,
-            state,
+            shape: PhantomData,
+            f_marker: PhantomData,
+            state: CompiledState {
+                f,
+                shapeless,
+                id,
+                cached_compiled: None,
+                cached_num_outputs: std::cell::Cell::new(None),
+            },
         }
     }
 }
@@ -234,153 +240,168 @@ where
     F: FnMut(&mut U, (&Array, &Array, &Array)) -> Result<Array, Exception> + 'static,
     U: Updatable,
 {
-    type Args<'a> = (&'a Array, &'a Array, &'a Array);
+    type Output = Compiled<F, StateBoxedSliceTryFn<U>, shape::ThreeArgs>;
 
-    fn compile<'args>(
-        mut self,
-        shapeless: bool,
-    ) -> impl CallMutWithState<U, Self::Args<'args>, Array, Exception> {
-        let id = type_id_to_usize(&self);
-        let f = move |state: &mut U, args: &[Array]| -> Result<Vec<Array>, Exception> {
-            let result = (self)(state, (&args[0], &args[1], &args[2]))?;
-            Ok(vec![result])
-        };
-        let state = CompiledState { f, shapeless, id };
+    fn compile(mut self, shapeless: bool) -> Self::Output {
+        let id = next_compile_id();
+        let f: StateBoxedSliceTryFn<U> = Box::new(move |state: &mut U, args: &[Array]| {
+            Ok(vec![(self)(state, (&args[0], &args[1], &args[2]))?])
+        });
         Compiled {
-            f_marker: PhantomData::<F>,
-            state,
+            shape: PhantomData,
+            f_marker: PhantomData,
+            state: CompiledState {
+                f,
+                shapeless,
+                id,
+                cached_compiled: None,
+                cached_num_outputs: std::cell::Cell::new(None),
+            },
         }
     }
 }
 
-/// A trait for functions that can be called with state.
-pub trait CallMutWithState<U, A, O, E> {
-    /// Call the function with the given state and arguments.
-    fn call_mut(&mut self, state: &mut U, args: A) -> Result<O, Exception>;
+/// Call a compiled stateful function. GAT on `Args<'a>` lets one
+/// long-lived [`Compiled`] accept borrows of any lifetime.
+pub trait CallMutWithState<U, O, E> {
+    /// Input argument type, parameterised by borrow lifetime.
+    type Args<'a>;
+    /// Invoke with mutable state and args.
+    fn call_mut<'a>(&mut self, state: &mut U, args: Self::Args<'a>) -> Result<O, Exception>;
 }
 
-impl<U, F, G> CallMutWithState<U, &[Array], Vec<Array>, ()> for Compiled<F, G>
+impl<U, F, G> CallMutWithState<U, Vec<Array>, ()> for Compiled<F, G, shape::ArraySlice>
 where
-    F: FnMut(&mut U, &[Array]) -> Vec<Array>,
     G: FnMut(&mut U, &[Array]) -> Vec<Array>,
     U: Updatable,
 {
-    fn call_mut(&mut self, state: &mut U, args: &[Array]) -> Result<Vec<Array>, Exception> {
-        self.state.retry_call_mut_with_state(state, args)
-    }
-}
+    type Args<'a> = &'a [Array];
 
-impl<U, F, G> CallMutWithState<U, &Array, Array, ()> for Compiled<F, G>
-where
-    F: FnMut(&mut U, &Array) -> Array,
-    G: FnMut(&mut U, &[Array]) -> Vec<Array>,
-    U: Updatable,
-{
-    fn call_mut(&mut self, state: &mut U, args: &Array) -> Result<Array, Exception> {
-        let args = std::slice::from_ref(args);
-        let result = self.state.retry_call_mut_with_state(state, args)?;
-        Ok(result.into_iter().next().unwrap())
-    }
-}
-
-impl<U, F, G> CallMutWithState<U, (&Array, &Array), Array, ()> for Compiled<F, G>
-where
-    F: FnMut(&mut U, (&Array, &Array)) -> Array,
-    G: FnMut(&mut U, &[Array]) -> Vec<Array>,
-    U: Updatable,
-{
-    fn call_mut(&mut self, state: &mut U, args: (&Array, &Array)) -> Result<Array, Exception> {
-        let args = &[args.0, args.1];
-        let result = self.state.retry_call_mut_with_state(state, args)?;
-        Ok(result.into_iter().next().unwrap())
-    }
-}
-
-impl<U, F, G> CallMutWithState<U, (&Array, &Array, &Array), Array, ()> for Compiled<F, G>
-where
-    F: FnMut(&mut U, (&Array, &Array, &Array)) -> Array,
-    G: FnMut(&mut U, &[Array]) -> Vec<Array>,
-    U: Updatable,
-{
-    fn call_mut(
+    fn call_mut<'a>(
         &mut self,
         state: &mut U,
-        args: (&Array, &Array, &Array),
-    ) -> Result<Array, Exception> {
-        let args = &[args.0, args.1, args.2];
-        let result = self.state.retry_call_mut_with_state(state, args)?;
-        Ok(result.into_iter().next().unwrap())
+        args: Self::Args<'a>,
+    ) -> Result<Vec<Array>, Exception> {
+        self.state.retry_call_mut_with_state(state, args, Ok)
     }
 }
 
-impl<U, F, G> CallMutWithState<U, &[Array], Vec<Array>, Exception> for Compiled<F, G>
+impl<U, F, G> CallMutWithState<U, Array, ()> for Compiled<F, G, shape::OneArg>
 where
-    F: FnMut(&mut U, &[Array]) -> Result<Vec<Array>, Exception>,
-    G: FnMut(&mut U, &[Array]) -> Result<Vec<Array>, Exception>,
+    G: FnMut(&mut U, &[Array]) -> Vec<Array>,
     U: Updatable,
 {
-    fn call_mut(&mut self, state: &mut U, args: &[Array]) -> Result<Vec<Array>, Exception> {
-        self.state.retry_fallible_call_mut_with_state(state, args)
+    type Args<'a> = &'a Array;
+
+    fn call_mut<'a>(&mut self, state: &mut U, args: Self::Args<'a>) -> Result<Array, Exception> {
+        self.state
+            .retry_call_mut_with_state(state, std::slice::from_ref(args), take_one_output)
     }
 }
 
-impl<U, F, G> CallMutWithState<U, &Array, Array, Exception> for Compiled<F, G>
+impl<U, F, G> CallMutWithState<U, Array, ()> for Compiled<F, G, shape::TwoArgs>
 where
-    F: FnMut(&mut U, &Array) -> Result<Array, Exception>,
-    G: FnMut(&mut U, &[Array]) -> Result<Vec<Array>, Exception>,
+    G: FnMut(&mut U, &[Array]) -> Vec<Array>,
     U: Updatable,
 {
-    fn call_mut(&mut self, state: &mut U, args: &Array) -> Result<Array, Exception> {
-        let args = std::slice::from_ref(args);
-        let result = self.state.retry_fallible_call_mut_with_state(state, args)?;
-        Ok(result.into_iter().next().unwrap())
+    type Args<'a> = (&'a Array, &'a Array);
+
+    fn call_mut<'a>(&mut self, state: &mut U, args: Self::Args<'a>) -> Result<Array, Exception> {
+        self.state
+            .retry_call_mut_with_state(state, &[args.0, args.1], take_one_output)
     }
 }
 
-impl<U, F, G> CallMutWithState<U, (&Array, &Array), Array, Exception> for Compiled<F, G>
+impl<U, F, G> CallMutWithState<U, Array, ()> for Compiled<F, G, shape::ThreeArgs>
 where
-    F: FnMut(&mut U, (&Array, &Array)) -> Result<Array, Exception>,
-    G: FnMut(&mut U, &[Array]) -> Result<Vec<Array>, Exception>,
+    G: FnMut(&mut U, &[Array]) -> Vec<Array>,
     U: Updatable,
 {
-    fn call_mut(&mut self, state: &mut U, args: (&Array, &Array)) -> Result<Array, Exception> {
-        let args = &[args.0, args.1];
-        let result = self.state.retry_fallible_call_mut_with_state(state, args)?;
-        Ok(result.into_iter().next().unwrap())
+    type Args<'a> = (&'a Array, &'a Array, &'a Array);
+
+    fn call_mut<'a>(&mut self, state: &mut U, args: Self::Args<'a>) -> Result<Array, Exception> {
+        self.state
+            .retry_call_mut_with_state(state, &[args.0, args.1, args.2], take_one_output)
     }
 }
 
-impl<U, F, G> CallMutWithState<U, (&Array, &Array, &Array), Array, Exception> for Compiled<F, G>
+impl<U, F, G> CallMutWithState<U, Vec<Array>, Exception> for Compiled<F, G, shape::ArraySlice>
 where
-    F: FnMut(&mut U, (&Array, &Array, &Array)) -> Result<Array, Exception>,
     G: FnMut(&mut U, &[Array]) -> Result<Vec<Array>, Exception>,
     U: Updatable,
 {
-    fn call_mut(
+    type Args<'a> = &'a [Array];
+
+    fn call_mut<'a>(
         &mut self,
         state: &mut U,
-        args: (&Array, &Array, &Array),
-    ) -> Result<Array, Exception> {
-        let args = &[args.0, args.1, args.2];
-        let result = self.state.retry_fallible_call_mut_with_state(state, args)?;
-        Ok(result.into_iter().next().unwrap())
+        args: Self::Args<'a>,
+    ) -> Result<Vec<Array>, Exception> {
+        self.state
+            .retry_fallible_call_mut_with_state(state, args, Ok)
     }
 }
 
+impl<U, F, G> CallMutWithState<U, Array, Exception> for Compiled<F, G, shape::OneArg>
+where
+    G: FnMut(&mut U, &[Array]) -> Result<Vec<Array>, Exception>,
+    U: Updatable,
+{
+    type Args<'a> = &'a Array;
+
+    fn call_mut<'a>(&mut self, state: &mut U, args: Self::Args<'a>) -> Result<Array, Exception> {
+        self.state.retry_fallible_call_mut_with_state(
+            state,
+            std::slice::from_ref(args),
+            take_one_output,
+        )
+    }
+}
+
+impl<U, F, G> CallMutWithState<U, Array, Exception> for Compiled<F, G, shape::TwoArgs>
+where
+    G: FnMut(&mut U, &[Array]) -> Result<Vec<Array>, Exception>,
+    U: Updatable,
+{
+    type Args<'a> = (&'a Array, &'a Array);
+
+    fn call_mut<'a>(&mut self, state: &mut U, args: Self::Args<'a>) -> Result<Array, Exception> {
+        self.state
+            .retry_fallible_call_mut_with_state(state, &[args.0, args.1], take_one_output)
+    }
+}
+
+impl<U, F, G> CallMutWithState<U, Array, Exception> for Compiled<F, G, shape::ThreeArgs>
+where
+    G: FnMut(&mut U, &[Array]) -> Result<Vec<Array>, Exception>,
+    U: Updatable,
+{
+    type Args<'a> = (&'a Array, &'a Array, &'a Array);
+
+    fn call_mut<'a>(&mut self, state: &mut U, args: Self::Args<'a>) -> Result<Array, Exception> {
+        self.state.retry_fallible_call_mut_with_state(
+            state,
+            &[args.0, args.1, args.2],
+            take_one_output,
+        )
+    }
+}
+
+/// `extract` receives the owned `Vec<Array>` of function outputs so it
+/// can move elements out without cloning.
 #[inline]
-fn call_mut_with_state_inner<U>(
+fn call_mut_with_state_inner<U, R>(
     inner_closure: Closure,
     fun_id: usize,
     shapeless: bool,
     state: Rc<RefCell<&mut U>>,
     args: &[impl AsRef<Array>],
     num_function_outputs: Rc<Cell<Option<usize>>>,
-) -> crate::error::Result<Vec<Array>>
+    extract: impl FnOnce(Vec<Array>) -> Result<R, Exception>,
+) -> Result<R, Exception>
 where
     U: Updatable,
 {
-    // note: this will use the cached compile (via the id)
-    // but will be able to re-evaluate with fresh state if needed
     let compiled = Closure::try_from_op(|res| unsafe {
         let constants = &[];
         mlx_sys::mlx_detail_compile(
@@ -402,80 +423,61 @@ where
         )?
     };
 
-    // will compile the function (if needed) and evaluate the
-    // compiled graph
     let result_vector = VectorArray::try_from_op(|res| unsafe {
         mlx_sys::mlx_closure_apply(res, compiled.as_ptr(), inner_inputs_vector.as_ptr())
     })?;
 
     let result_plus_state_output: Vec<Array> = result_vector.try_into_values()?;
 
-    // The combined output layout is: [function_outputs..., state_arrays...]
-    // We captured the function output count during tracing to know where to split.
     let num_fn_outputs = num_function_outputs.get().ok_or_else(|| {
         Exception::custom(
-            "compile_with_state: internal error - function output count not captured during tracing"
+            "compile_with_state: internal error - function output count not captured during tracing",
         )
     })?;
 
     if num_fn_outputs > result_plus_state_output.len() {
         return Err(Exception::custom(format!(
-            "compile_with_state: invalid output count - expected {} function outputs \
+            "compile_with_state: invalid output count - expected {num_fn_outputs} function outputs \
              but only got {} total outputs. This indicates an internal compilation error.",
-            num_fn_outputs,
             result_plus_state_output.len()
         )));
     }
 
-    let function_results = &result_plus_state_output[..num_fn_outputs];
-    let state_outputs = &result_plus_state_output[num_fn_outputs..];
-
-    // Update state arrays. MLX's compiler may prune unchanged arrays from output,
-    // so zip() handles cases where fewer state arrays are returned than expected.
-    for (s, new_values) in state
-        .borrow_mut()
-        .updatable_states_mut()
-        .into_iter()
-        .zip(state_outputs.iter())
+    // Update state arrays from the tail of the C-vector first (borrows
+    // the slice), then truncate to leave only function outputs for
+    // `extract` to consume.
     {
-        update_by_replace_with_ref_to_new_array(s, new_values);
+        let state_outputs = &result_plus_state_output[num_fn_outputs..];
+        // MLX's compiler may prune unchanged arrays from output, so
+        // zip() handles cases where fewer state arrays are returned
+        // than expected.
+        for (s, new_values) in state
+            .borrow_mut()
+            .updatable_states_mut()
+            .into_iter()
+            .zip(state_outputs.iter())
+        {
+            update_by_replace_with_ref_to_new_array(s, new_values);
+        }
     }
 
-    // Return only the function results (not the state arrays)
-    Ok(function_results.to_vec())
+    let mut function_outputs = result_plus_state_output;
+    function_outputs.truncate(num_fn_outputs);
+    extract(function_outputs)
 }
 
 impl<F> CompiledState<F> {
-    fn retry_call_mut_with_state<U>(
+    fn retry_call_mut_with_state<U, R>(
         &mut self,
         state: &mut U,
         args: &[impl AsRef<Array>],
-    ) -> Result<Vec<Array>, Exception>
+        extract: impl Fn(Vec<Array>) -> Result<R, Exception> + Copy,
+    ) -> Result<R, Exception>
     where
         F: FnMut(&mut U, &[Array]) -> Vec<Array>,
         U: Updatable,
     {
-        self.call_mut_with_state(state, args).or_else(|_e| {
-            // Somehow the mlx_closure_apply may fail on the first call for
-            // certain types of state with the error message:
-            // "unordered_map::at: key not found", so we just try again.
-            //
-            // One type that is known to cause this is a tuple of
-            // `Module` and `Optimizer` eg. `(<Module>, <Optimizer>)`
-            self.call_mut_with_state(state, args)
-        })
-    }
-
-    fn retry_fallible_call_mut_with_state<U>(
-        &mut self,
-        state: &mut U,
-        args: &[impl AsRef<Array>],
-    ) -> Result<Vec<Array>, Exception>
-    where
-        F: FnMut(&mut U, &[Array]) -> Result<Vec<Array>, Exception>,
-        U: Updatable,
-    {
-        self.fallible_call_mut_with_state(state, args)
+        self.call_mut_with_state(state, args, extract)
             .or_else(|_e| {
                 // Somehow the mlx_closure_apply may fail on the first call for
                 // certain types of state with the error message:
@@ -483,15 +485,38 @@ impl<F> CompiledState<F> {
                 //
                 // One type that is known to cause this is a tuple of
                 // `Module` and `Optimizer` eg. `(<Module>, <Optimizer>)`
-                self.fallible_call_mut_with_state(state, args)
+                self.call_mut_with_state(state, args, extract)
             })
     }
 
-    fn call_mut_with_state<U>(
+    fn retry_fallible_call_mut_with_state<U, R>(
         &mut self,
         state: &mut U,
         args: &[impl AsRef<Array>],
-    ) -> Result<Vec<Array>, Exception>
+        extract: impl Fn(Vec<Array>) -> Result<R, Exception> + Copy,
+    ) -> Result<R, Exception>
+    where
+        F: FnMut(&mut U, &[Array]) -> Result<Vec<Array>, Exception>,
+        U: Updatable,
+    {
+        self.fallible_call_mut_with_state(state, args, extract)
+            .or_else(|_e| {
+                // Somehow the mlx_closure_apply may fail on the first call for
+                // certain types of state with the error message:
+                // "unordered_map::at: key not found", so we just try again.
+                //
+                // One type that is known to cause this is a tuple of
+                // `Module` and `Optimizer` eg. `(<Module>, <Optimizer>)`
+                self.fallible_call_mut_with_state(state, args, extract)
+            })
+    }
+
+    fn call_mut_with_state<U, R>(
+        &mut self,
+        state: &mut U,
+        args: &[impl AsRef<Array>],
+        extract: impl FnOnce(Vec<Array>) -> Result<R, Exception>,
+    ) -> Result<R, Exception>
     where
         F: FnMut(&mut U, &[Array]) -> Vec<Array>,
         U: Updatable,
@@ -500,8 +525,10 @@ impl<F> CompiledState<F> {
         let state = Rc::new(RefCell::new(state));
         let f = &mut self.f;
 
-        // Cell to capture the number of function outputs during tracing
-        let num_function_outputs = Rc::new(Cell::new(None));
+        // Seed per-call cell from the persistent field. mlx-c caches the
+        // compiled graph by `id`; on cache hit `inner` doesn't re-trace,
+        // so we need the prior count to survive across calls.
+        let num_function_outputs = Rc::new(Cell::new(self.cached_num_outputs.get()));
         let num_fn_outputs_clone = Rc::clone(&num_function_outputs);
 
         let state_clone = Rc::clone(&state);
@@ -561,21 +588,27 @@ impl<F> CompiledState<F> {
         };
 
         let inner_closure = Closure::new(inner);
-        call_mut_with_state_inner(
+        let result = call_mut_with_state_inner(
             inner_closure,
             self.id,
             self.shapeless,
             state,
             args,
-            num_function_outputs,
-        )
+            Rc::clone(&num_function_outputs),
+            extract,
+        );
+        if let Some(n) = num_function_outputs.get() {
+            self.cached_num_outputs.set(Some(n));
+        }
+        result
     }
 
-    fn fallible_call_mut_with_state<U>(
+    fn fallible_call_mut_with_state<U, R>(
         &mut self,
         state: &mut U,
         args: &[impl AsRef<Array>],
-    ) -> Result<Vec<Array>, Exception>
+        extract: impl FnOnce(Vec<Array>) -> Result<R, Exception>,
+    ) -> Result<R, Exception>
     where
         F: FnMut(&mut U, &[Array]) -> Result<Vec<Array>, Exception>,
         U: Updatable,
@@ -584,8 +617,10 @@ impl<F> CompiledState<F> {
         let state = Rc::new(RefCell::new(state));
         let f = &mut self.f;
 
-        // Cell to capture the number of function outputs during tracing
-        let num_function_outputs = Rc::new(Cell::new(None));
+        // Seed per-call cell from the persistent field. mlx-c caches the
+        // compiled graph by `id`; on cache hit `inner` doesn't re-trace,
+        // so we need the prior count to survive across calls.
+        let num_function_outputs = Rc::new(Cell::new(self.cached_num_outputs.get()));
         let num_fn_outputs_clone = Rc::clone(&num_function_outputs);
 
         let state_clone = Rc::clone(&state);
@@ -645,13 +680,18 @@ impl<F> CompiledState<F> {
         };
 
         let inner_closure = Closure::new_fallible(inner);
-        call_mut_with_state_inner(
+        let result = call_mut_with_state_inner(
             inner_closure,
             self.id,
             self.shapeless,
             state,
             args,
-            num_function_outputs,
-        )
+            Rc::clone(&num_function_outputs),
+            extract,
+        );
+        if let Some(n) = num_function_outputs.get() {
+            self.cached_num_outputs.set(Some(n));
+        }
+        result
     }
 }

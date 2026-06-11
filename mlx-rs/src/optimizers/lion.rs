@@ -43,6 +43,10 @@ generate_builder! {
     }
 }
 
+#[allow(
+    clippy::unnecessary_wraps,
+    reason = "Builder trait requires Result<Self, Self::Error>"
+)]
 fn build_lion(builder: LionBuilder) -> Result<Lion, std::convert::Infallible> {
     let lr = builder.lr;
     let betas = builder.betas;

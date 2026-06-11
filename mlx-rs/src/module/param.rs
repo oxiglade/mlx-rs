@@ -113,9 +113,10 @@ impl Parameter for Param<Array> {
     }
 
     fn as_trainable_nested_value<'a>(&self) -> Option<NestedValue<Rc<str>, &Array>> {
-        match self.is_frozen {
-            true => None,
-            false => Some(NestedValue::Value(&self.value)),
+        if self.is_frozen {
+            None
+        } else {
+            Some(NestedValue::Value(&self.value))
         }
     }
 }
@@ -154,9 +155,10 @@ impl Parameter for Param<Option<Array>> {
     }
 
     fn as_trainable_nested_value(&self) -> Option<NestedValue<Rc<str>, &Array>> {
-        match self.is_frozen {
-            true => None,
-            false => self.value.as_ref().map(NestedValue::Value),
+        if self.is_frozen {
+            None
+        } else {
+            self.value.as_ref().map(NestedValue::Value)
         }
     }
 }

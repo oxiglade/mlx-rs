@@ -80,6 +80,59 @@ impl VectorArray {
                 .collect::<Result<T, Exception>>()
         }
     }
+
+    /// Drain a single-element vector into one Array. Errors if length != 1.
+    /// Allocation-free: no Vec is built, the C-vector is read directly.
+    pub(crate) fn try_into_one(self) -> Result<Array, Exception> {
+        let size = unsafe { mlx_sys::mlx_vector_array_size(self.c_vec) };
+        if size != 1 {
+            return Err(Exception::custom(format!(
+                "try_into_one: expected 1 array, got {size}"
+            )));
+        }
+        Array::try_from_op(|res| unsafe { mlx_sys::mlx_vector_array_get(res, self.c_vec, 0) })
+    }
+
+    /// Drain the vector into a fixed-size array. Returns an error if the
+    /// underlying mlx vector length does not equal `N`.
+    ///
+    /// Allocation-free on the happy path: each element is read directly
+    /// into the stack-allocated array slot, no intermediate `Vec`.
+    pub(crate) fn try_into_array<const N: usize>(self) -> Result<[Array; N], Exception> {
+        use std::mem::MaybeUninit;
+
+        let size = unsafe { mlx_sys::mlx_vector_array_size(self.c_vec) };
+        if size != N {
+            return Err(Exception::custom(format!(
+                "try_into_array: expected {N} arrays, got {size}"
+            )));
+        }
+
+        // SAFETY: An array of `MaybeUninit<T>` is itself valid uninitialised.
+        let mut out: [MaybeUninit<Array>; N] = unsafe { MaybeUninit::uninit().assume_init() };
+
+        for (i, slot) in out.iter_mut().enumerate() {
+            match Array::try_from_op(|res| unsafe {
+                mlx_sys::mlx_vector_array_get(res, self.c_vec, i)
+            }) {
+                Ok(arr) => {
+                    slot.write(arr);
+                }
+                Err(e) => {
+                    // Drop the elements we successfully initialised.
+                    for slot in out[..i].iter_mut() {
+                        // SAFETY: indices [0..i) were written above.
+                        unsafe { slot.assume_init_drop() };
+                    }
+                    return Err(e);
+                }
+            }
+        }
+
+        // SAFETY: every slot was written exactly once in the loop above.
+        // `[MaybeUninit<T>; N]` and `[T; N]` have identical layout.
+        Ok(out.map(|slot| unsafe { slot.assume_init() }))
+    }
 }
 
 impl Drop for VectorArray {
@@ -204,6 +257,13 @@ pub(crate) struct Closure<'a> {
     lt_marker: PhantomData<&'a ()>,
 }
 
+// Closure is NOT Send by default — the raw `*mut c_void` payload in
+// `mlx_closure_` could point to a Rust closure with non-Send captures.
+// The compile-specific path opts in via `unsafe impl<F: Send> Send for
+// CompiledState<F>` in `transforms/compile/mod.rs`, where the
+// payload-bound user closure is constrained to `Send` via
+// `BoxedSliceFn`/`BoxedSliceTryFn`.
+
 impl<'a> Closure<'a> {
     pub(crate) fn as_ptr(&self) -> mlx_sys::mlx_closure {
         self.c_closure
@@ -312,12 +372,9 @@ where
         let raw_closure: *mut F = payload as *mut _;
         // Let the box take care of freeing the closure
         let mut closure = Box::from_raw(raw_closure);
-        let arrays = match mlx_vector_array_values(vector_array) {
-            Ok(arrays) => arrays,
-            Err(_) => {
-                let _ = Box::into_raw(closure); // prevent premature drop
-                return FAILURE;
-            }
+        let Ok(arrays) = mlx_vector_array_values(vector_array) else {
+            let _ = Box::into_raw(closure); // prevent premature drop
+            return FAILURE;
         };
         let result = closure(&arrays);
         let _ = Box::into_raw(closure); // prevent premature drop
@@ -381,11 +438,7 @@ pub(crate) fn get_mut_or_insert_with<'a, T>(
     key: &Rc<str>,
     f: impl FnOnce() -> T,
 ) -> &'a mut T {
-    if !map.contains_key(key) {
-        map.insert(key.clone(), f());
-    }
-
-    map.get_mut(key).unwrap()
+    map.entry(key.clone()).or_insert_with(f)
 }
 
 /// Helper trait for compiling a function that takes a Module and/or an Optimizer.

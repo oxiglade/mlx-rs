@@ -74,7 +74,7 @@ fn index_out_of_bound_exception() -> Exception {
 
 #[allow(non_snake_case)]
 pub(crate) fn quantized_scaled_dot_product_attention(
-    queries: Array,
+    queries: &Array,
     mut q_keys: QuantizedKeys,
     mut q_values: QuantizedValues,
     scale: f32,
@@ -92,7 +92,9 @@ pub(crate) fn quantized_scaled_dot_product_attention(
     let n_kv_heads = q_keys_shape[q_keys_shape.len() - 3];
     let n_repeats = n_q_heads / n_kv_heads;
 
-    let mut queries = queries * scale;
+    // f32 scale would promote bf16/fp16 queries; stage it into q dtype.
+    let scale = Array::from_f32(scale).as_dtype(queries.dtype())?;
+    let mut queries = queries.multiply(&scale)?;
 
     if n_repeats > 1 {
         queries = reshape(&queries, &[B, n_kv_heads, n_repeats, L, D])?;
@@ -120,8 +122,10 @@ pub(crate) fn quantized_scaled_dot_product_attention(
         // TODO: handle str type mask
 
         if mask.dtype() == Dtype::Bool {
-            let finfo_min = scores.dtype().finfo_min()?;
-            scores = mlx_rs::ops::r#where(mask, scores, Array::from_f64(finfo_min))?;
+            // f32 sentinel cast to scores dtype; Metal rejects f64.
+            let finfo_min = scores.dtype().finfo_min()? as f32;
+            let sentinel = Array::from_f32(finfo_min).as_dtype(scores.dtype())?;
+            scores = mlx_rs::ops::r#where(mask, scores, sentinel)?;
         } else {
             scores += mask;
         }
@@ -213,32 +217,26 @@ where
                 .bits()
                 .ok_or_else(|| Exception::custom("Cache is quantized but bits are not set"))?;
 
-            let (keys, values) = match (keys, values) {
-                (MaybeQuantizedKeys::Quantized(keys), MaybeQuantizedValues::Quantized(values)) => {
-                    (keys, values)
-                }
-                _ => {
-                    return Err(Exception::custom(
-                        "Both keys and values must be quantized when KV cache is quantized",
-                    ));
-                }
+            let (MaybeQuantizedKeys::Quantized(keys), MaybeQuantizedValues::Quantized(values)) =
+                (keys, values)
+            else {
+                return Err(Exception::custom(
+                    "Both keys and values must be quantized when KV cache is quantized",
+                ));
             };
 
             return quantized_scaled_dot_product_attention(
-                queries, keys, values, scale, mask, group_size, bits,
+                &queries, keys, values, scale, mask, group_size, bits,
             );
         }
     }
 
-    let (keys, values) = match (keys, values) {
-        (MaybeQuantizedKeys::Original(keys), MaybeQuantizedValues::Original(values)) => {
-            (keys, values)
-        }
-        _ => {
-            return Err(Exception::custom(
-                "Both keys and values must NOT be quantized when KV cache is NOT quantized",
-            ));
-        }
+    let (MaybeQuantizedKeys::Original(keys), MaybeQuantizedValues::Original(values)) =
+        (keys, values)
+    else {
+        return Err(Exception::custom(
+            "Both keys and values must NOT be quantized when KV cache is NOT quantized",
+        ));
     };
 
     mlx_rs::fast::scaled_dot_product_attention(

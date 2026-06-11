@@ -5,7 +5,6 @@ use crate::utils::guard::Guarded;
 use crate::utils::{IntoOption, VectorArray};
 use crate::{Array, Stream};
 use mlx_internal_macros::{default_device, generate_macro};
-use smallvec::SmallVec;
 use std::f64;
 use std::ffi::CString;
 
@@ -337,12 +336,7 @@ pub fn svd_device(
         mlx_sys::mlx_linalg_svd(res, array.as_ref().as_ptr(), true, stream.as_ref().as_ptr())
     })?;
 
-    let vals: SmallVec<[Array; 3]> = v.try_into_values()?;
-    let mut iter = vals.into_iter();
-    let u = iter.next().unwrap();
-    let s = iter.next().unwrap();
-    let vt = iter.next().unwrap();
-
+    let [u, s, vt] = v.try_into_array::<3>()?;
     Ok((u, s, vt))
 }
 

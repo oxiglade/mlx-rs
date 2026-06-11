@@ -9,6 +9,11 @@ use crate::{
 
 use super::utils::{resolve_size_and_axis_unchecked, resolve_sizes_and_axes_unchecked};
 
+/// `MLX_FFT_NORM_BACKWARD` from `mlx_fft_norm` — the historical default
+/// for `mlx_fft_*` (mlx ≤ 0.30 had no `norm` arg). Keeps Rust API
+/// surface stable across the mlx 0.31 binding bump.
+const DEFAULT_NORM: u32 = mlx_sys::mlx_fft_norm__MLX_FFT_NORM_BACKWARD;
+
 /// One dimensional discrete Fourier Transform.
 ///
 /// # Params
@@ -28,7 +33,14 @@ pub fn fft_device(
     let a = a.as_ref();
     let (n, axis) = resolve_size_and_axis_unchecked(a, n.into(), axis.into());
     Array::try_from_op(|res| unsafe {
-        mlx_sys::mlx_fft_fft(res, a.as_ptr(), n, axis, stream.as_ref().as_ptr())
+        mlx_sys::mlx_fft_fft(
+            res,
+            a.as_ptr(),
+            n,
+            axis,
+            DEFAULT_NORM,
+            stream.as_ref().as_ptr(),
+        )
     })
 }
 
@@ -66,6 +78,7 @@ pub fn fft2_device<'a>(
             num_s,
             axes_ptr,
             num_axes,
+            DEFAULT_NORM,
             stream.as_ref().as_ptr(),
         )
     })
@@ -105,6 +118,7 @@ pub fn fftn_device<'a>(
             num_s,
             axes_ptr,
             num_axes,
+            DEFAULT_NORM,
             stream.as_ref().as_ptr(),
         )
     })
@@ -130,7 +144,14 @@ pub fn ifft_device(
     let (n, axis) = resolve_size_and_axis_unchecked(a, n.into(), axis.into());
 
     Array::try_from_op(|res| unsafe {
-        mlx_sys::mlx_fft_ifft(res, a.as_ptr(), n, axis, stream.as_ref().as_ptr())
+        mlx_sys::mlx_fft_ifft(
+            res,
+            a.as_ptr(),
+            n,
+            axis,
+            DEFAULT_NORM,
+            stream.as_ref().as_ptr(),
+        )
     })
 }
 
@@ -168,6 +189,7 @@ pub fn ifft2_device<'a>(
             num_s,
             axes_ptr,
             num_axes,
+            DEFAULT_NORM,
             stream.as_ref().as_ptr(),
         )
     })
@@ -207,6 +229,7 @@ pub fn ifftn_device<'a>(
             num_s,
             axes_ptr,
             num_axes,
+            DEFAULT_NORM,
             stream.as_ref().as_ptr(),
         )
     })

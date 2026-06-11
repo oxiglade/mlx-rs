@@ -268,7 +268,7 @@ impl Module<&Array> for RmsNorm {
     fn forward(&mut self, x: &Array) -> Result<Array, Self::Error> {
         let weight = self.weight.as_ref();
         let eps = self.eps;
-        crate::fast::rms_norm(x, weight, eps)
+        crate::fast::rms_norm(x, Some(weight), eps)
     }
 
     fn training_mode(&mut self, _mode: bool) {}

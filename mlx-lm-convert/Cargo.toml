@@ -1,0 +1,27 @@
+[package]
+name = "mlx-lm-convert"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[[bin]]
+name = "mlx-lm-convert"
+path = "src/bin/mlx-lm-convert.rs"
+
+[dependencies]
+# Only needs `ops::quantize` + `Array` from the tensor core; no layers
+# or higher-level libs.
+mlx-rs = { workspace = true, features = ["metal"] }
+mlx-lm = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+log = { workspace = true }
+anyhow = { workspace = true }
+argh = { workspace = true }
+env_logger = { workspace = true }

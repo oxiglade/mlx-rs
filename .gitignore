@@ -19,6 +19,8 @@ settings.json
 
 # Local cache
 cache/
+# ...but the KV-cache source module is a real source dir, not a runtime cache.
+!mlx-lm/src/cache/
 
 # Inspiration
 inspiration/

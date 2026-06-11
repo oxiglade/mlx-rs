@@ -198,7 +198,7 @@ impl Module<&Array> for Bilinear {
         y = y.squeeze_axes(&[1])?;
 
         // reset the shape
-        let new_shape = x_shape.iter().cloned().chain(once(out)).collect::<Vec<_>>();
+        let new_shape = x_shape.iter().copied().chain(once(out)).collect::<Vec<_>>();
         y = y.reshape(&new_shape)?;
 
         if let Some(bias) = &self.bias.value {

@@ -984,17 +984,24 @@ fn get_item_nd(
         }
     }
 
-    let array_count = operations.iter().filter(|op| op.is_array()).count();
-    let have_array = array_count > 0;
+    // Single-pass scan: track whether any `.array` op exists and the
+    // index of the last `.array`-or-`.index` op. `is_array` implies
+    // `is_array_or_index`, so `have_array` ⟹ `last_array_or_index.is_some()`.
+    let mut have_array = false;
+    let mut last_array_or_index: Option<usize> = None;
+    for (i, op) in operations.iter().enumerate() {
+        if op.is_array() {
+            have_array = true;
+        }
+        if op.is_array_or_index() {
+            last_array_or_index = Some(i);
+        }
+    }
 
     let mut remaining_indices: Vec<ArrayIndexOp> = Vec::new();
-    if have_array {
+    if let (true, Some(last_array_or_index)) = (have_array, last_array_or_index) {
         // apply all the operations (except for .newAxis) up to and including the
         // final .array operation (array operations are implemented via gather)
-        let last_array_or_index = operations
-            .iter()
-            .rposition(|op| op.is_array_or_index())
-            .unwrap(); // safe because we know there is at least one array operation
         let gather_indices = operations[..=last_array_or_index]
             .iter()
             .filter(|op| !matches!(op, Ellipsis | ExpandDims));
@@ -1108,7 +1115,7 @@ fn get_item_nd(
                 }
             }
         }
-        new_shape.extend(src.shape()[(axis_ as usize)..].iter().cloned());
+        new_shape.extend(src.shape()[(axis_ as usize)..].iter().copied());
 
         src = Cow::Owned(src.reshape(&new_shape)?);
     }

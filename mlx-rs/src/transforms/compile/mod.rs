@@ -142,9 +142,6 @@
 //! See mlx-rs/mlx-tests/tests/test_compile_with_state.rs for more examples.
 //!
 
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
-
 use super::{Closure, Guarded, VectorArray};
 use crate::Array;
 
@@ -180,38 +177,68 @@ pub fn clear_cache() {
     }
 }
 
-/// A compiled function that can be called.
-#[derive(Debug, Clone)]
-pub struct Compiled<F, G> {
+/// `Shape` (see [`compile::shape`]) selects the per-arity [`CallMut`] /
+/// [`compile_with_state::CallMutWithState`] impl. Defaults to `()` for
+/// source-compatibility with older `Compiled<F, G>` callers.
+#[derive(Debug)]
+pub struct Compiled<F, G, Shape = ()> {
+    shape: std::marker::PhantomData<Shape>,
     f_marker: std::marker::PhantomData<F>,
     state: CompiledState<G>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct CompiledState<F> {
     f: F,
     shapeless: bool,
     id: usize,
+    /// Built on first call, reused on subsequent ones. Saves the per-call
+    /// `Box<dyn FnMut>` + `mlx_detail_compile` round-trip (~18 µs/call on
+    /// small clusters, Apple Silicon).
+    cached_compiled: Option<Closure<'static>>,
+    /// `compile_with_state` only: number of function outputs captured
+    /// during first-call tracing. mlx-c caches the compiled graph by
+    /// `id`, so subsequent calls hit the cache and `inner` doesn't
+    /// re-trace; the count must persist across calls.
+    cached_num_outputs: std::cell::Cell<Option<usize>>,
 }
+
+// SAFETY: the inner `*mut c_void` payload is always a `BoxedSliceFn` /
+// `BoxedSliceTryFn` (both `+ Send`); the mlx-c handle is function
+// pointers + that payload.
+unsafe impl<F: Send> Send for CompiledState<F> {}
 
 impl<F> Drop for CompiledState<F> {
     fn drop(&mut self) {
         unsafe {
-            // remove the compiled structure from the back end
             mlx_sys::mlx_detail_compile_erase(self.id);
         }
     }
 }
 
-fn type_id_to_usize<T>(_val: &T) -> usize
-where
-    T: 'static,
-{
-    // hash type id to usize
-    let type_id = std::any::TypeId::of::<T>();
-    let mut hasher = DefaultHasher::new();
-    type_id.hash(&mut hasher);
-    hasher.finish() as usize
+/// Allocate a unique id for a freshly-built [`Compiled`] state.
+///
+/// **Why this is not derived from `TypeId::of::<T>()`**: two distinct
+/// `fn` pointers cast to the same concrete signature share one `TypeId`.
+/// Keying `mlx_detail_compile` on the type id makes the second
+/// `compile()` call silently reuse the first function's compiled graph —
+/// e.g. a `swiglu` warming the slot then an `attention_gate` of the same
+/// `(&Array, &Array)` signature returning `sigmoid(output) * gate`
+/// instead of `sigmoid(gate) * output`. Process-wide monotonic ids give
+/// one compiled-graph slot per call regardless of source type.
+fn next_compile_id() -> usize {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    static COUNTER: AtomicUsize = AtomicUsize::new(1);
+    COUNTER.fetch_add(1, Ordering::Relaxed)
+}
+
+/// Bump the global compile-id counter once and reuse the returned id, so
+/// many callers of the same logical operation share one compiled-graph
+/// slot in MLX's `compiler_cache` instead of each burning a fresh JIT
+/// compile. Stash it in a `OnceLock<usize>` keyed to the operation and
+/// pass it to [`compile::Compile::compile_with_id`] from every cache init.
+pub fn allocate_compile_id() -> usize {
+    next_compile_id()
 }
 
 fn update_by_replace_with_ref_to_new_array(src: &mut Array, new_array: &Array) {

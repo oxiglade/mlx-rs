@@ -143,7 +143,7 @@ impl Array {
 
         let metadata = unsafe {
             let data = mlx_sys::mlx_map_string_to_string_new();
-            for (key, value) in metadata_ref.iter() {
+            for (key, value) in metadata_ref {
                 let key = CString::new(key.as_str())?;
                 let value = CString::new(value.as_str())?;
 

@@ -197,6 +197,15 @@ impl Stream {
         i32::try_from_op(|res| unsafe { mlx_sys::mlx_stream_get_index(res, self.c_stream) })
     }
 
+    /// Block until all pending GPU work on this stream has completed.
+    ///
+    /// Cheaper than [`crate::transforms::eval`]: this flushes commands that
+    /// have already been scheduled on the stream without walking the lazy
+    /// computation graph.
+    pub fn synchronize(&self) -> Result<()> {
+        <() as Guarded>::try_from_op(|_| unsafe { mlx_sys::mlx_synchronize(self.c_stream) })
+    }
+
     fn describe(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         unsafe {
             let mut mlx_str = mlx_sys::mlx_string_new();
@@ -269,6 +278,13 @@ mod tests {
         let stream = Stream::new();
         let cloned_stream = stream.clone();
         assert_eq!(stream, cloned_stream);
+    }
+
+    #[test]
+    fn synchronize_default_stream_succeeds() {
+        Stream::default()
+            .synchronize()
+            .expect("synchronize default stream");
     }
 
     #[test]

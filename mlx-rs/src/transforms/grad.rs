@@ -6,6 +6,19 @@ use crate::{
 
 use super::{value_and_gradient, ClosureValueAndGrad};
 
+/// Move the lone gradient out of a Vec returned by build_gradient when
+/// the caller knows exactly one gradient was requested (argnums.len() == 1).
+#[inline]
+fn take_one_grad(mut grads: Vec<Array>) -> Result<Array> {
+    if grads.len() != 1 {
+        return Err(Exception::custom(format!(
+            "grad: expected 1 gradient (argnums=[0]), got {}",
+            grads.len()
+        )));
+    }
+    Ok(grads.swap_remove(0))
+}
+
 #[inline]
 fn build_gradient_inner<'a>(
     closure: Closure<'a>,
@@ -96,8 +109,7 @@ where
         let mut g = build_gradient(f, argnums);
         move |args: &Array| -> Result<Array> {
             let args_clone = std::slice::from_ref(args);
-            let result = g(args_clone)?;
-            Ok(result.into_iter().next().unwrap())
+            take_one_grad(g(args_clone)?)
         }
     }
 }
@@ -116,8 +128,7 @@ where
         let mut g = build_fallible_gradient(f, argnums);
         move |args: &Array| -> Result<Array> {
             let args_clone = std::slice::from_ref(args);
-            let result = g(args_clone)?;
-            Ok(result.into_iter().next().unwrap())
+            take_one_grad(g(args_clone)?)
         }
     }
 }
@@ -134,10 +145,7 @@ where
         let f = move |args: &[Array]| -> Vec<Array> { vec![self(args)] };
         let argnums = argnums.into_option().unwrap_or(&[0]);
         let mut g = build_gradient(f, argnums);
-        move |args: &[Array]| -> Result<Array> {
-            let result = g(args)?;
-            Ok(result.into_iter().next().unwrap())
-        }
+        move |args: &[Array]| -> Result<Array> { take_one_grad(g(args)?) }
     }
 }
 
@@ -153,10 +161,7 @@ where
         let f = move |args: &[Array]| -> Result<Vec<Array>> { self(args).map(|res| vec![res]) };
         let argnums = argnums.into_option().unwrap_or(&[0]);
         let mut g = build_fallible_gradient(f, argnums);
-        move |args: &[Array]| -> Result<Array> {
-            let result = g(args)?;
-            Ok(result.into_iter().next().unwrap())
-        }
+        move |args: &[Array]| -> Result<Array> { take_one_grad(g(args)?) }
     }
 }
 

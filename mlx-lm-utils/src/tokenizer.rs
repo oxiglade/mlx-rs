@@ -648,6 +648,6 @@ mod tests {
         let encodings = tokenizer
             .apply_chat_template_and_encode(model_chat_template, args)
             .unwrap();
-        println!("{:?}", encodings.iter().map(|e| e.get_ids()).flatten());
+        println!("{:?}", encodings.iter().flat_map(|e| e.get_ids()));
     }
 }

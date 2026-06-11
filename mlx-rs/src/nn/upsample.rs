@@ -324,17 +324,14 @@ fn scaled_indices(
 ) -> Result<Array, Exception> {
     let M = (scale * N as f32) as i32;
 
-    let indices = match align_corners {
-        true => {
-            // SAFETY: arith ops on with scalars won't panic
-            Array::from_iter(0..M, &[M]).as_type::<f32>()? * ((N as f32 - 1.0) / (M as f32 - 1.0))
-        }
-        false => {
-            let step = 1.0 / scale;
-            let start = ((M as f32 - 1.0) * step - N as f32 + 1.0) / 2.0;
-            // SAFETY: arith ops with scalars won't panic
-            Array::from_iter(0..M, &[M]).as_type::<f32>()? * step - start
-        }
+    let indices = if align_corners {
+        // SAFETY: arith ops on with scalars won't panic
+        Array::from_iter(0..M, &[M]).as_type::<f32>()? * ((N as f32 - 1.0) / (M as f32 - 1.0))
+    } else {
+        let step = 1.0 / scale;
+        let start = ((M as f32 - 1.0) * step - N as f32 + 1.0) / 2.0;
+        // SAFETY: arith ops with scalars won't panic
+        Array::from_iter(0..M, &[M]).as_type::<f32>()? * step - start
     };
 
     let mut shape = vec![1; ndim];

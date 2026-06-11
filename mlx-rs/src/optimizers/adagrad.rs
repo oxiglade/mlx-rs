@@ -37,6 +37,10 @@ generate_builder! {
 }
 
 /// Builds a new [`AdaGrad`].
+#[allow(
+    clippy::unnecessary_wraps,
+    reason = "Builder trait requires Result<Self, Self::Error>"
+)]
 fn build_adagrad(builder: AdaGradBuilder) -> Result<AdaGrad, Infallible> {
     let eps = array!(builder.eps);
 

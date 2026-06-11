@@ -6,7 +6,6 @@ use crate::utils::guard::Guarded;
 use crate::utils::{IntoOption, ScalarOrArray, VectorArray};
 use crate::Stream;
 use mlx_internal_macros::{default_device, generate_macro};
-use smallvec::SmallVec;
 
 impl Array {
     /// Element-wise absolute value.
@@ -948,11 +947,7 @@ pub fn divmod_device(
         mlx_sys::mlx_divmod(res, a_ptr, b_ptr, stream.as_ref().as_ptr())
     })?;
 
-    let vals: SmallVec<[_; 2]> = vec.try_into_values()?;
-    let mut iter = vals.into_iter();
-    let quotient = iter.next().unwrap();
-    let remainder = iter.next().unwrap();
-
+    let [quotient, remainder] = vec.try_into_array::<2>()?;
     Ok((quotient, remainder))
 }
 
@@ -1426,15 +1421,15 @@ pub fn block_masked_mm_device<'mo, 'lhs, 'rhs>(
         let mask_out_ptr = mask_out
             .into()
             .map(|m| m.as_ptr())
-            .unwrap_or(mlx_sys::mlx_array_new());
+            .unwrap_or_else(|| mlx_sys::mlx_array_new());
         let mask_lhs_ptr = mask_lhs
             .into()
             .map(|m| m.as_ptr())
-            .unwrap_or(mlx_sys::mlx_array_new());
+            .unwrap_or_else(|| mlx_sys::mlx_array_new());
         let mask_rhs_ptr = mask_rhs
             .into()
             .map(|m| m.as_ptr())
-            .unwrap_or(mlx_sys::mlx_array_new());
+            .unwrap_or_else(|| mlx_sys::mlx_array_new());
 
         Array::try_from_op(|res| {
             mlx_sys::mlx_block_masked_mm(
@@ -1611,11 +1606,11 @@ pub fn gather_mm_device<'lhs, 'rhs>(
         let lhs_ptr = lhs_indices
             .into()
             .map(|i| i.as_ptr())
-            .unwrap_or(mlx_sys::mlx_array_new());
+            .unwrap_or_else(|| mlx_sys::mlx_array_new());
         let rhs_ptr = rhs_indices
             .into()
             .map(|i| i.as_ptr())
-            .unwrap_or(mlx_sys::mlx_array_new());
+            .unwrap_or_else(|| mlx_sys::mlx_array_new());
 
         Array::try_from_op(|res| {
             mlx_sys::mlx_gather_mm(
@@ -3227,7 +3222,7 @@ mod tests {
 
         let a = random::normal::<f32>(&[100, 1, 100], None, None, None).unwrap();
         let b = random::normal::<f32>(&[8, 100, 100], None, None, None).unwrap();
-        let rhs = sort(&random::randint::<_, i32>(0, 8, &[100], None).unwrap()).unwrap();
+        let rhs = sort(random::randint::<_, i32>(0, 8, &[100], None).unwrap()).unwrap();
 
         let c1 = gather_mm_ref(&a, &b, &rhs);
         let c2 = gather_mm(&a, &b, None::<&Array>, &rhs, true).unwrap();

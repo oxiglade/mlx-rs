@@ -142,7 +142,7 @@ impl Array {
 
     /// [`transpose_axes`] and unwrap the result.
     pub fn t(&self) -> Array {
-        self.transpose().unwrap()
+        self.transpose().expect("Array::t: transpose failed")
     }
 }
 
@@ -205,7 +205,7 @@ pub fn as_strided_device<'a>(
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
     let a = a.as_ref();
-    let shape = shape.into_option().unwrap_or(a.shape());
+    let shape = shape.into_option().unwrap_or_else(|| a.shape());
     let resolved_strides = resolve_strides(shape, strides.into_option());
     let offset = offset.into().unwrap_or(0);
 
@@ -594,6 +594,27 @@ pub fn move_axis_device(
 ) -> Result<Array> {
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_moveaxis(res, a.as_ref().as_ptr(), src, dst, stream.as_ref().as_ptr())
+    })
+}
+
+/// Return a row-major (C-contiguous) copy of `a` if it isn't already.
+/// Equivalent to Python `mx.contiguous`. When `allow_col_major` is
+/// `true`, column-major arrays pass through unchanged.
+#[generate_macro]
+#[default_device]
+pub fn contiguous_device(
+    a: impl AsRef<Array>,
+    #[optional] allow_col_major: impl Into<Option<bool>>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    let allow_col_major = allow_col_major.into().unwrap_or(false);
+    Array::try_from_op(|res| unsafe {
+        mlx_sys::mlx_contiguous(
+            res,
+            a.as_ref().as_ptr(),
+            allow_col_major,
+            stream.as_ref().as_ptr(),
+        )
     })
 }
 
@@ -1188,6 +1209,20 @@ mod tests {
         assert_eq!(move_axis(&a, 0, 1).unwrap().shape(), &[3, 2, 4]);
         assert_eq!(move_axis(&a, 0, -1).unwrap().shape(), &[3, 4, 2]);
         assert_eq!(move_axis(&a, -2, 2).unwrap().shape(), &[2, 4, 3]);
+    }
+
+    #[test]
+    fn test_contiguous() {
+        // Non-contiguous: transposed view → contiguous() yields a row-major copy.
+        let a = Array::from_iter(0..12, &[3, 4]);
+        let t = a.transpose_axes(&[1, 0]).unwrap();
+        let c = contiguous(&t, None).unwrap();
+        assert_eq!(c.shape(), &[4, 3]);
+        assert_eq!(c.dtype(), a.dtype());
+        // Values match the transposed view element-by-element.
+        crate::transforms::eval([&c]).unwrap();
+        let expected: Vec<i32> = vec![0, 4, 8, 1, 5, 9, 2, 6, 10, 3, 7, 11];
+        assert_eq!(c.as_slice::<i32>(), &expected[..]);
     }
 
     #[test]

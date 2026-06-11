@@ -46,6 +46,10 @@ generate_builder! {
 }
 
 /// Builds a new [`Adam`].
+#[allow(
+    clippy::unnecessary_wraps,
+    reason = "Builder trait requires Result<Self, Self::Error>"
+)]
 fn build_adam(builder: AdamBuilder) -> Result<Adam, Infallible> {
     let lr = array!(builder.lr);
     let betas = builder.betas;

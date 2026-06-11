@@ -82,7 +82,9 @@ impl PartialEq for Array {
     ///
     /// If you're looking for element-wise equality, use the [Array::eq()] method.
     fn eq(&self, other: &Self) -> bool {
-        self.array_eq(other, None).unwrap().item()
+        self.array_eq(other, None)
+            .expect("PartialEq::eq: array_eq must succeed for same-dtype arrays")
+            .item()
     }
 }
 
@@ -282,7 +284,9 @@ impl Array {
     /// - Panics if the dimension is out of bounds.
     pub fn dim(&self, dim: i32) -> i32 {
         let dim = if dim.is_negative() {
-            (self.ndim() as i32).checked_add(dim).unwrap()
+            (self.ndim() as i32)
+                .checked_add(dim)
+                .expect("dim + ndim overflow")
         } else {
             dim
         };
@@ -294,7 +298,7 @@ impl Array {
     /// The array element type.
     pub fn dtype(&self) -> Dtype {
         let dtype = unsafe { mlx_sys::mlx_array_dtype(self.as_ptr()) };
-        Dtype::try_from(dtype).unwrap()
+        Dtype::try_from(dtype).expect("mlx_array_dtype returned a tag not in Dtype")
     }
 
     /// Evaluate the array.
@@ -302,12 +306,26 @@ impl Array {
         <() as Guarded>::try_from_op(|_| unsafe { mlx_sys::mlx_array_eval(self.as_ptr()) })
     }
 
+    /// Block this thread until this array's backing buffer is ready.
+    ///
+    /// Unlike [`Array::eval`], this does not traverse the lazy graph — it
+    /// only waits for work that has already been scheduled for this array.
+    pub fn wait(&self) -> crate::error::Result<()> {
+        <() as Guarded>::try_from_op(|_| unsafe { mlx_sys::_mlx_array_wait(self.as_ptr()) })
+    }
+
+    /// Returns `true` if this array's backing buffer is ready without blocking.
+    pub fn is_available(&self) -> crate::error::Result<bool> {
+        bool::try_from_op(|res| unsafe { mlx_sys::_mlx_array_is_available(res, self.as_ptr()) })
+    }
+
     /// Access the value of a scalar array.
     /// If `T` does not match the array's `dtype` this will convert the type first.
     ///
     /// _Note: This will evaluate the array._
     pub fn item<T: ArrayElement>(&self) -> T {
-        self.try_item().unwrap()
+        self.try_item()
+            .expect("Array::item: T does not match the array's dtype")
     }
 
     /// Access the value of a scalar array returning an error if the array is not a scalar.
@@ -315,9 +333,7 @@ impl Array {
     ///
     /// _Note: This will evaluate the array._
     pub fn try_item<T: ArrayElement>(&self) -> crate::error::Result<T> {
-        self.eval()?;
-
-        // Evaluate the array, so we have content to work with in the conversion
+        // Evaluate the array, so we have content to work with in the conversion.
         self.eval()?;
 
         // Though `mlx_array_item_<dtype>` returns a status code, it doesn't
@@ -359,7 +375,8 @@ impl Array {
     /// }
     /// ```
     pub unsafe fn as_slice_unchecked<T: ArrayElement>(&self) -> &[T] {
-        self.eval().unwrap();
+        self.eval()
+            .expect("Array::as_slice_unchecked: eval() failed");
 
         unsafe {
             let data = T::array_data(self);
@@ -421,7 +438,8 @@ impl Array {
     /// assert_eq!(slice, &data[..]);
     /// ```
     pub fn as_slice<T: ArrayElement>(&self) -> &[T] {
-        self.try_as_slice().unwrap()
+        self.try_as_slice()
+            .expect("Array::as_slice: T does not match the array's dtype")
     }
 
     /// Clone the array by copying the data.
@@ -468,7 +486,10 @@ impl Clone for Array {
 
 impl Sum for Array {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        iter.fold(Array::from_int(0), |acc, x| acc.add(&x).unwrap())
+        iter.fold(Self::from_int(0), |acc, x| {
+            acc.add(&x)
+                .expect("Sum::sum: Array::add failed (shape or dtype mismatch)")
+        })
     }
 }
 
@@ -1076,5 +1097,15 @@ mod tests {
         assert_eq!(array.item::<u8>(), 1);
 
         assert_eq!(array.as_slice::<f32>(), &[1.0]);
+    }
+
+    #[test]
+    fn wait_then_is_available_after_eval() {
+        let a = Array::from_slice(&[1.0_f32, 2.0, 3.0], &[3]);
+        let b = Array::from_slice(&[4.0_f32, 5.0, 6.0], &[3]);
+        let c = crate::ops::add(&a, &b).unwrap();
+        c.eval().unwrap();
+        c.wait().unwrap();
+        assert!(c.is_available().unwrap());
     }
 }

@@ -8,6 +8,9 @@ use crate::{
 
 use super::utils::{resolve_size_and_axis_unchecked, resolve_sizes_and_axes_unchecked};
 
+/// `MLX_FFT_NORM_BACKWARD` — historical default of `mlx_fft_*`.
+const DEFAULT_NORM: u32 = mlx_sys::mlx_fft_norm__MLX_FFT_NORM_BACKWARD;
+
 /// One dimensional discrete Fourier Transform on a real input.
 ///
 /// The output has the same shape as the input except along `axis` in which case it has size `n // 2
@@ -30,7 +33,14 @@ pub fn rfft_device(
     let a = a.as_ref();
     let (n, axis) = resolve_size_and_axis_unchecked(a, n.into(), axis.into());
     Array::try_from_op(|res| unsafe {
-        mlx_sys::mlx_fft_rfft(res, a.as_ptr(), n, axis, stream.as_ref().as_ptr())
+        mlx_sys::mlx_fft_rfft(
+            res,
+            a.as_ptr(),
+            n,
+            axis,
+            DEFAULT_NORM,
+            stream.as_ref().as_ptr(),
+        )
     })
 }
 
@@ -72,6 +82,7 @@ pub fn rfft2_device<'a>(
             num_s,
             axes_ptr,
             num_axes,
+            DEFAULT_NORM,
             stream.as_ref().as_ptr(),
         )
     })
@@ -115,6 +126,7 @@ pub fn rfftn_device<'a>(
             num_s,
             axes_ptr,
             num_axes,
+            DEFAULT_NORM,
             stream.as_ref().as_ptr(),
         )
     })
@@ -148,7 +160,14 @@ pub fn irfft_device(
     }
 
     Array::try_from_op(|res| unsafe {
-        mlx_sys::mlx_fft_irfft(res, a.as_ptr(), n, axis, stream.as_ref().as_ptr())
+        mlx_sys::mlx_fft_irfft(
+            res,
+            a.as_ptr(),
+            n,
+            axis,
+            DEFAULT_NORM,
+            stream.as_ref().as_ptr(),
+        )
     })
 }
 
@@ -198,6 +217,7 @@ pub fn irfft2_device<'a>(
             num_s,
             axes_ptr,
             num_axes,
+            DEFAULT_NORM,
             stream.as_ref().as_ptr(),
         )
     })
@@ -250,6 +270,7 @@ pub fn irfftn_device<'a>(
             num_s,
             axes_ptr,
             num_axes,
+            DEFAULT_NORM,
             stream.as_ref().as_ptr(),
         )
     })
