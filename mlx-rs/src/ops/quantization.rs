@@ -174,10 +174,12 @@ pub fn dequantize_device<'a>(
 /// - `group_size`: The quantization group size (default: 64)
 /// - `bits`: The number of bits per element (default: 4)
 /// - `sorted_indices`: If true, indicates the indices are sorted (default: false)
+/// - `mode`: Quantization mode - `"affine"` (scales + biases) or a microscaling
+///   format such as `"mxfp4"` (scales only, no biases) (default: `"affine"`)
 #[allow(clippy::too_many_arguments)]
 #[generate_macro]
 #[default_device]
-pub fn gather_qmm_device<'b, 'lhs, 'rhs>(
+pub fn gather_qmm_device<'a, 'b, 'lhs, 'rhs>(
     x: impl AsRef<Array>,
     w: impl AsRef<Array>,
     scales: impl AsRef<Array>,
@@ -188,12 +190,19 @@ pub fn gather_qmm_device<'b, 'lhs, 'rhs>(
     #[optional] group_size: impl Into<Option<i32>>,
     #[optional] bits: impl Into<Option<i32>>,
     #[optional] sorted_indices: impl Into<Option<bool>>,
+    #[optional] mode: impl Into<Option<&'a str>>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
     let transpose = transpose.into().unwrap_or(true);
     let group_size = optional_int(group_size.into(), DEFAULT_GROUP_SIZE);
     let bits = optional_int(bits.into(), DEFAULT_BITS);
     let sorted = sorted_indices.into().unwrap_or(false);
+    // `mode` selects the quantization scheme: `"affine"` (scales + biases) or a
+    // microscaling format such as `"mxfp4"` (scales only, no zero-point biases),
+    // matching `mx.gather_qmm(..., mode=...)`. Threaded through instead of
+    // hardcoding `DEFAULT_MODE` so MoE experts stored in mxfp4 work.
+    let mode_str = mode.into().unwrap_or("affine");
+    let mode_cstr = std::ffi::CString::new(mode_str).expect("Invalid mode string");
 
     unsafe {
         let biases_ptr = biases
@@ -221,7 +230,7 @@ pub fn gather_qmm_device<'b, 'lhs, 'rhs>(
                 transpose,
                 group_size,
                 bits,
-                DEFAULT_MODE.as_ptr(),
+                mode_cstr.as_ptr(),
                 sorted,
                 stream.as_ref().as_ptr(),
             )
@@ -391,6 +400,8 @@ mod tests {
             group_size,
             bits,
             None,
+            // mode: default "affine" (scales + biases)
+            None,
         )
         .unwrap();
         assert!(
@@ -413,6 +424,8 @@ mod tests {
             true,
             group_size,
             bits,
+            None,
+            // mode: default "affine" (scales + biases)
             None,
         )
         .unwrap();
