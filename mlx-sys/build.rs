@@ -171,7 +171,7 @@ fn prepare_mlx_c_source() -> PathBuf {
         std::fs::read_to_string(&cmake_path).expect("Failed to read CMakeLists.txt");
     let patched = cmake_content.replace(
         "GIT_TAG v0.30.6)",
-        "GIT_TAG v0.32.0\n    PATCH_COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/patches/metallib-search-path.patch\n    COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/patches/expert-aligned-gather.patch)",
+        "GIT_TAG v0.32.0\n    PATCH_COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/patches/metallib-search-path.patch || true\n    COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/patches/expert-aligned-gather.patch)",
     );
     std::fs::write(&cmake_path, patched).expect("Failed to write patched CMakeLists.txt");
 
