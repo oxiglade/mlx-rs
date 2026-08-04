@@ -159,6 +159,11 @@ fn prepare_mlx_c_source() -> PathBuf {
         patches_dir.join("metallib-search-path.patch"),
     )
     .expect("Failed to copy metallib patch");
+    std::fs::copy(
+        "patches/expert-aligned-gather.patch",
+        patches_dir.join("expert-aligned-gather.patch"),
+    )
+    .expect("Failed to copy expert-aligned gather patch");
 
     // Inject PATCH_COMMAND into the FetchContent_Declare for MLX
     let cmake_path = staged.join("CMakeLists.txt");
@@ -166,12 +171,13 @@ fn prepare_mlx_c_source() -> PathBuf {
         std::fs::read_to_string(&cmake_path).expect("Failed to read CMakeLists.txt");
     let patched = cmake_content.replace(
         "GIT_TAG v0.30.6)",
-        "GIT_TAG v0.32.0\n    PATCH_COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/patches/metallib-search-path.patch || true)",
+        "GIT_TAG v0.32.0\n    PATCH_COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/patches/metallib-search-path.patch || true\n    COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/patches/expert-aligned-gather.patch || true)",
     );
     std::fs::write(&cmake_path, patched).expect("Failed to write patched CMakeLists.txt");
 
     // Tell cargo to rerun if the patch changes
     println!("cargo:rerun-if-changed=patches/metallib-search-path.patch");
+    println!("cargo:rerun-if-changed=patches/expert-aligned-gather.patch");
 
     staged
 }

@@ -1,0 +1,259 @@
+diff --git a/mlx/backend/metal/jit_kernels.cpp b/mlx/backend/metal/jit_kernels.cpp
+index 9ed9ce4..f315643 100644
+--- a/mlx/backend/metal/jit_kernels.cpp
++++ b/mlx/backend/metal/jit_kernels.cpp
+@@ -1159,7 +1159,11 @@ MTL::ComputePipelineState* get_gather_qmm_nax_kernel(
+         is_affine ? metal::quantized_nax() : metal::fp_quantized_nax(),
+         get_template_definition(
+             lib_name,
+-            (is_affine ? "affine" : "fp") + std::string("_gather_qmm_rhs_nax"),
++            (is_affine ? "affine" : "fp") +
++                std::string(
++                    kernel_name.find("_expert_") != std::string::npos
++                        ? "_gather_qmm_rhs_expert_nax"
++                        : "_gather_qmm_rhs_nax"),
+             get_type_string(x.dtype()),
+             group_size,
+             bits,
+diff --git a/mlx/backend/metal/kernels/fp_quantized_nax.h b/mlx/backend/metal/kernels/fp_quantized_nax.h
+index 0ea6af1..67c7892 100644
+--- a/mlx/backend/metal/kernels/fp_quantized_nax.h
++++ b/mlx/backend/metal/kernels/fp_quantized_nax.h
+@@ -1016,3 +1016,171 @@ template <
+     });
+   }
+ }
++
++METAL_FUNC int expert_sorted_lower_bound(
++    const device uint32_t* indices,
++    const int count,
++    const uint32_t value) {
++  int lo = 0;
++  int hi = count;
++  while (lo < hi) {
++    const int mid = lo + (hi - lo) / 2;
++    if (indices[mid] < value) {
++      lo = mid + 1;
++    } else {
++      hi = mid;
++    }
++  }
++  return lo;
++}
++
++// Expert-sorted Laguna prefill assigns four expert ids to each threadgroup.
++// This avoids reloading an expert's weight tile when its run crosses a fixed
++// row-tile boundary while preserving the stock NAX arithmetic and BF16 weight
++// staging boundary.
++template <
++    typename T,
++    int group_size,
++    const int bits,
++    int BM,
++    int BN,
++    int BK,
++    int WM,
++    int WN,
++    bool transpose,
++    typename Wtype = bfloat>
++[[kernel]] void fp_gather_qmm_rhs_expert_nax(
++    const device T* x,
++    const device uint32_t* w,
++    const device uint8_t* scales,
++    const device uint32_t* indices,
++    device T* y,
++    const constant int& M,
++    const constant int& N,
++    const constant int& K,
++    uint3 tid [[threadgroup_position_in_grid]],
++    uint lid [[thread_index_in_threadgroup]],
++    uint simd_group_id [[simdgroup_index_in_threadgroup]],
++    uint simd_lane_id [[thread_index_in_simdgroup]]) {
++  static_assert(transpose, "expert-aligned QMM requires NT weights");
++  static_assert(group_size == 16, "expert-aligned QMM requires gs16");
++  static_assert(bits == 4, "expert-aligned QMM requires NVFP4");
++
++  constexpr int pack_factor = get_pack_factor<8, bits>();
++  constexpr int bytes_per_pack = get_bytes_per_pack();
++  constexpr int BK_padded = BK + 16 / sizeof(Wtype);
++  constexpr int expert_groups = 64;
++  constexpr int experts = 256;
++
++  using loader_w_t = QuantizedBlockLoader<
++      Wtype,
++      BN,
++      BK,
++      BK_padded,
++      true,
++      WM * WN * SIMD_SIZE,
++      group_size,
++      bits>;
++
++  threadgroup Wtype Ws[BN * BK_padded];
++  threadgroup int bounds[2];
++
++  const int K_w = K * bytes_per_pack / pack_factor;
++  const int K_g = K / group_size;
++  const int K_it = K / BK;
++  const size_t stride_w = size_t(N) * K_w;
++  const size_t stride_s = size_t(N) * K_g;
++  const int y_col = tid.x * BN;
++
++  auto wl = (const device uint8_t*)w + size_t(y_col) * K_w;
++  const device uint8_t* scale_base = scales + size_t(y_col) * K_g;
++
++  constexpr short SM = BM / WM;
++  constexpr short SN = BN / WN;
++  constexpr short SK = 32;
++  constexpr short TM = SM / 16;
++  constexpr short TN = SN / 16;
++  constexpr short TK = SK / 16;
++
++  const short tm = SM * (simd_group_id / WN);
++  const short tn = SN * (simd_group_id % WN);
++
++  for (int expert_slot = 0; expert_slot < experts / expert_groups;
++       ++expert_slot) {
++    const uint32_t expert =
++        static_cast<uint32_t>(tid.y + expert_slot * expert_groups);
++
++    threadgroup_barrier(mem_flags::mem_threadgroup);
++    if (lid == 0) {
++      bounds[0] = expert_sorted_lower_bound(indices, M, expert);
++      bounds[1] = expert_sorted_lower_bound(indices, M, expert + 1);
++    }
++    threadgroup_barrier(mem_flags::mem_threadgroup);
++
++    const int run_start = bounds[0];
++    const int run_end = bounds[1];
++    for (int chunk_start = run_start; chunk_start < run_end;
++         chunk_start += BM) {
++      const short chunk_rows = short(min(BM, run_end - chunk_start));
++      const short sgp_sm = min(int(SM), max(0, int(chunk_rows) - int(tm)));
++      const bool sg_active = sgp_sm > 0;
++
++      NAXTile<float, TM, TN> Dtile;
++      Dtile.clear();
++
++      const device T* xn = x + size_t(chunk_start + tm) * K;
++      thread loader_w_t loader_w(
++          wl + size_t(expert) * stride_w,
++          scale_base + size_t(expert) * stride_s,
++          K,
++          Ws,
++          simd_group_id,
++          simd_lane_id);
++
++      for (int k = 0; k < K_it; ++k) {
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        loader_w.load_unsafe();
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++
++        if (sg_active) {
++          STEEL_PRAGMA_NO_UNROLL
++          for (int kk1 = 0; kk1 < BK; kk1 += SK) {
++            NAXTile<T, TM, TK> Atile;
++            NAXTile<Wtype, TN, TK> Btile;
++            volatile int compiler_barrier;
++
++            if (sgp_sm == SM) {
++              Atile.load(xn + kk1, K);
++            } else {
++              Atile.load_safe(xn + kk1, K, short2(SK, sgp_sm));
++            }
++            Btile.template load<Wtype, BK_padded, 1>(
++                Ws + tn * BK_padded + kk1);
++
++            tile_matmad_nax(
++                Dtile,
++                Atile,
++                metal::bool_constant<false>{},
++                Btile,
++                metal::bool_constant<true>{});
++            (void)compiler_barrier;
++          }
++        }
++
++        xn += BK;
++        loader_w.next();
++      }
++
++      threadgroup_barrier(mem_flags::mem_threadgroup);
++      if (sg_active) {
++        device T* yn = y + size_t(chunk_start + tm) * N + y_col + tn;
++        if (sgp_sm == SM) {
++          Dtile.store(yn, N);
++        } else {
++          Dtile.store_slice(
++              yn, N, short2(0, 0), short2(SN, sgp_sm));
++        }
++      }
++    }
++  }
++}
+diff --git a/mlx/backend/metal/quantized.cpp b/mlx/backend/metal/quantized.cpp
+index 62d4871..6ba4a2e 100644
+--- a/mlx/backend/metal/quantized.cpp
++++ b/mlx/backend/metal/quantized.cpp
+@@ -1218,6 +1218,17 @@ void gather_qmm_rhs_nax(
+   int bm = 64, bn = 64, bk = 64;
+   int wm = 2, wn = 2;
+ 
++  const bool laguna_moe_shape =
++      (K == 2048 && N == 1024) || (K == 512 && N == 2048);
++  const bool expert_aligned =
++      env::get_var("MLX_EXPERT_ALIGNED_GATHER", 0) != 0 && mode != "affine" &&
++      transpose && group_size == 16 && bits == 4 && laguna_moe_shape &&
++      M >= 64;
++  if (expert_aligned) {
++    wm = 4;
++    wn = 1;
++  }
++
+   const bool align_M = (M % bm) == 0;
+   const bool align_N = (N % bn) == 0;
+   const bool align_K = (K % bk) == 0;
+@@ -1229,7 +1240,10 @@ void gather_qmm_rhs_nax(
+   concatenate(
+       kname,
+       mode +
+-          (transpose ? "_gather_qmm_rhs_nax_nt_" : "_gather_qmm_rhs_nax_nn_"),
++          (expert_aligned
++               ? "_gather_qmm_rhs_expert_nax_nt_"
++               : (transpose ? "_gather_qmm_rhs_nax_nt_"
++                            : "_gather_qmm_rhs_nax_nn_")),
+       type_string,
+       "_gs_",
+       group_size,
+@@ -1246,11 +1260,14 @@ void gather_qmm_rhs_nax(
+       "_wn_",
+       wn);
+ 
+-  metal::MTLFCList func_consts = {
+-      {&align_M, MTL::DataType::DataTypeBool, 200},
+-      {&align_N, MTL::DataType::DataTypeBool, 201},
+-      {&align_K, MTL::DataType::DataTypeBool, 202},
+-  };
++  metal::MTLFCList func_consts;
++  if (!expert_aligned) {
++    func_consts = {
++        {&align_M, MTL::DataType::DataTypeBool, 200},
++        {&align_N, MTL::DataType::DataTypeBool, 201},
++        {&align_K, MTL::DataType::DataTypeBool, 202},
++    };
++  }
+ 
+   // And the kernel hash that includes the function constants
+   std::string hash_name;
+@@ -1285,7 +1302,10 @@ void gather_qmm_rhs_nax(
+   compute_encoder.set_compute_pipeline_state(kernel);
+ 
+   MTL::Size group_dims(32, wn, wm);
+-  MTL::Size grid_dims((N + bn - 1) / bn, (M + bm - 1) / bm, 1);
++  MTL::Size grid_dims(
++      (N + bn - 1) / bn,
++      expert_aligned ? 64 : (M + bm - 1) / bm,
++      1);
+ 
+   int c = 0;
+   compute_encoder.set_input_array(x, c++);
