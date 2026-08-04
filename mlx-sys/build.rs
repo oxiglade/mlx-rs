@@ -64,9 +64,81 @@ fn resolve_deployment_target() -> String {
     format!("{}.{}", MLX_MIN_MACOS.0, MLX_MIN_MACOS.1)
 }
 
-/// Copy src/mlx-c to a staging directory and inject the metallib search-path
-/// patch into the CMakeLists.txt. This avoids modifying the mlx-c git submodule
-/// while ensuring the patch is applied when MLX is fetched via FetchContent.
+fn replace_once(contents: &mut String, from: &str, to: &str, context: &str) {
+    let matches = contents.matches(from).count();
+    assert_eq!(
+        matches, 1,
+        "expected exactly one {context} compatibility site, found {matches}"
+    );
+    *contents = contents.replacen(from, to, 1);
+}
+
+fn add_quant_global_scales(contents: &mut String, function: &str, arguments: &str) {
+    let start = contents
+        .find(function)
+        .unwrap_or_else(|| panic!("missing mlx-c function {function}"));
+    let end = contents[start + function.len()..]
+        .find("\nextern \"C\"")
+        .map(|offset| start + function.len() + offset)
+        .unwrap_or(contents.len());
+    let mut body = contents[start..end].to_owned();
+    replace_once(
+        &mut body,
+        "            std::string(mode),\n",
+        &format!("            std::string(mode),\n{arguments}"),
+        function,
+    );
+    contents.replace_range(start..end, &body);
+}
+
+/// Keep mlx-c 0.5's C ABI while supplying arguments added to MLX 0.32's C++
+/// API. This lets existing Rust callers move forward without an unrelated C
+/// API migration.
+fn patch_mlx_c_for_032(staged: &std::path::Path) {
+    let fft_path = staged.join("mlx/c/fft.cpp");
+    let mut fft = std::fs::read_to_string(&fft_path).expect("Failed to read mlx-c fft.cpp");
+    for op in ["fft", "ifft", "irfft", "rfft"] {
+        let from = format!("mlx::core::fft::{op}(mlx_array_get_(a), n, axis, mlx_stream_get_(s))");
+        let to = format!(
+            "mlx::core::fft::{op}(\n            mlx_array_get_(a),\n            n,\n            axis,\n            mlx::core::fft::FFTNorm::Backward,\n            mlx_stream_get_(s))"
+        );
+        replace_once(&mut fft, &from, &to, op);
+    }
+    for op in [
+        "fft2", "fftn", "ifft2", "ifftn", "irfft2", "irfftn", "rfft2", "rfftn",
+    ] {
+        let from = format!(
+            "mlx::core::fft::{op}(\n            mlx_array_get_(a),\n            mlx::core::Shape(n, n + n_num),\n            std::vector<int>(axes, axes + axes_num),\n            mlx_stream_get_(s))"
+        );
+        let to = format!(
+            "mlx::core::fft::{op}(\n            mlx_array_get_(a),\n            mlx::core::Shape(n, n + n_num),\n            std::vector<int>(axes, axes + axes_num),\n            mlx::core::fft::FFTNorm::Backward,\n            mlx_stream_get_(s))"
+        );
+        replace_once(&mut fft, &from, &to, op);
+    }
+    std::fs::write(&fft_path, fft).expect("Failed to patch mlx-c fft.cpp");
+
+    let ops_path = staged.join("mlx/c/ops.cpp");
+    let mut ops = std::fs::read_to_string(&ops_path).expect("Failed to read mlx-c ops.cpp");
+    add_quant_global_scales(
+        &mut ops,
+        "extern \"C\" int mlx_dequantize(",
+        "            std::nullopt,\n",
+    );
+    add_quant_global_scales(
+        &mut ops,
+        "extern \"C\" int mlx_qqmm(",
+        "            std::nullopt,\n            std::nullopt,\n",
+    );
+    add_quant_global_scales(
+        &mut ops,
+        "extern \"C\" int mlx_quantize(",
+        "            std::nullopt,\n",
+    );
+    std::fs::write(&ops_path, ops).expect("Failed to patch mlx-c ops.cpp");
+}
+
+/// Copy src/mlx-c to a staging directory, adapt its stable ABI to MLX 0.32,
+/// and inject the metallib search-path patch into the CMake project.
 fn prepare_mlx_c_source() -> PathBuf {
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let staged = out_dir.join("mlx-c-staged");
@@ -77,6 +149,7 @@ fn prepare_mlx_c_source() -> PathBuf {
         std::fs::remove_dir_all(&staged).expect("Failed to clean staged mlx-c");
     }
     copy_dir_recursive(&src, &staged).expect("Failed to copy mlx-c to staging");
+    patch_mlx_c_for_032(&staged);
 
     // Copy our patch file into the staged source
     let patches_dir = staged.join("patches");
@@ -93,7 +166,7 @@ fn prepare_mlx_c_source() -> PathBuf {
         std::fs::read_to_string(&cmake_path).expect("Failed to read CMakeLists.txt");
     let patched = cmake_content.replace(
         "GIT_TAG v0.30.6)",
-        "GIT_TAG v0.30.6\n    PATCH_COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/patches/metallib-search-path.patch || true)",
+        "GIT_TAG v0.32.0\n    PATCH_COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/patches/metallib-search-path.patch || true)",
     );
     std::fs::write(&cmake_path, patched).expect("Failed to write patched CMakeLists.txt");
 
@@ -224,9 +297,10 @@ fn build_and_link_mlx_c() {
                     dest.metadata()
                         .and_then(|d| {
                             metallib.metadata().map(|s| {
-                                s.modified().ok().zip(d.modified().ok()).is_some_and(
-                                    |(src_t, dst_t)| src_t > dst_t,
-                                )
+                                s.modified()
+                                    .ok()
+                                    .zip(d.modified().ok())
+                                    .is_some_and(|(src_t, dst_t)| src_t > dst_t)
                             })
                         })
                         .unwrap_or(false)
@@ -236,14 +310,10 @@ fn build_and_link_mlx_c() {
                 if should_copy {
                     let _ = std::fs::create_dir_all(&cache_dir);
                     match std::fs::copy(&metallib, &dest) {
-                        Ok(_) => println!(
-                            "cargo:warning=Cached mlx.metallib to {}",
-                            dest.display()
-                        ),
-                        Err(e) => println!(
-                            "cargo:warning=Failed to cache mlx.metallib: {}",
-                            e
-                        ),
+                        Ok(_) => {
+                            println!("cargo:warning=Cached mlx.metallib to {}", dest.display())
+                        }
+                        Err(e) => println!("cargo:warning=Failed to cache mlx.metallib: {}", e),
                     }
                 }
             }

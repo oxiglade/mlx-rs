@@ -6,14 +6,14 @@ use crate::utils::IntoOption;
 use crate::{error::Result, Array, ArrayElement, Stream};
 use mach_sys::mach_time;
 use mlx_internal_macros::{default_device, generate_macro};
-use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::cell::RefCell;
-use std::sync::OnceLock;
-
-static GLOBAL_STATE: OnceLock<Mutex<RandomState>> = OnceLock::new();
 
 thread_local! {
+    // MLX 0.32 streams are thread-affine. Keeping the implicit random key in a
+    // process-global mutex lets a key array created on one Rust test/worker
+    // thread leak its stream into another thread's graph.
+    static GLOBAL_STATE: RefCell<RandomState> = RefCell::new(RandomState::new().unwrap());
     static TASK_LOCAL_STATE: RefCell<Option<RandomState>> = const { RefCell::new(None) };
 }
 
@@ -138,10 +138,6 @@ impl crate::utils::Updatable for RandomState {
     }
 }
 
-fn global_state() -> &'static Mutex<RandomState> {
-    GLOBAL_STATE.get_or_init(|| Mutex::new(RandomState::new().unwrap()))
-}
-
 /// Returns a key from the task-local state if it exists, otherwise
 /// returns `None`
 fn resolve_task_local_key() -> Option<Result<Array>> {
@@ -149,8 +145,7 @@ fn resolve_task_local_key() -> Option<Result<Array>> {
 }
 
 fn resolve_global_key() -> Result<Array> {
-    let mut state = global_state().lock();
-    state.next()
+    GLOBAL_STATE.with_borrow_mut(|state| state.next())
 }
 
 /// Use given key or generate a new one if `None`.
@@ -183,8 +178,7 @@ where
 
 /// Seed the random number generator.
 pub fn seed(seed: u64) -> Result<()> {
-    let mut state = global_state().lock();
-    state.seed(seed)
+    GLOBAL_STATE.with_borrow_mut(|state| state.seed(seed))
 }
 
 /// Get a PRNG key from a seed.
@@ -612,6 +606,33 @@ mod tests {
 
         assert_array_eq!(a, x, 0.01);
         assert_array_eq!(b, y, 0.01);
+    }
+
+    #[test]
+    fn test_implicit_rng_state_does_not_cross_thread_streams() {
+        let first = std::thread::spawn(|| {
+            seed(3).unwrap();
+            uniform::<_, f32>(0, 1, None, None)
+                .unwrap()
+                .try_item::<f32>()
+                .unwrap()
+        })
+        .join()
+        .unwrap();
+
+        // MLX 0.32 rejects a lazy key array whose stream was created by the
+        // first thread when it is evaluated on this second thread.
+        let second = std::thread::spawn(|| {
+            uniform::<_, f32>(0, 1, None, None)
+                .unwrap()
+                .try_item::<f32>()
+                .unwrap()
+        })
+        .join()
+        .unwrap();
+
+        assert!(first.is_finite());
+        assert!(second.is_finite());
     }
 
     #[test]
