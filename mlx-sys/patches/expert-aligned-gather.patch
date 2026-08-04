@@ -301,7 +301,7 @@ index 62d4871..6ba4a2e 100644
  
    int c = 0;
    compute_encoder.set_input_array(x, c++);
-@@ -1576,6 +1609,19 @@ void GatherQMM::eval_gpu(const std::vector<array>& inputs, array& out) {
+@@ -1576,6 +1609,20 @@ void GatherQMM::eval_gpu(const std::vector<array>& inputs, array& out) {
    int vector_limit = transpose_ ? get_qmv_batch_limit(K, N, d) : 4;
    auto mode = quantization_mode_to_string(mode_);
  
