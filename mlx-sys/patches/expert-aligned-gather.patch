@@ -19,7 +19,7 @@ diff --git a/mlx/backend/metal/kernels/fp_quantized_nax.h b/mlx/backend/metal/ke
 index 0ea6af1..67c7892 100644
 --- a/mlx/backend/metal/kernels/fp_quantized_nax.h
 +++ b/mlx/backend/metal/kernels/fp_quantized_nax.h
-@@ -1016,3 +1016,171 @@ template <
+@@ -1016,3 +1016,198 @@ template <
      });
    }
  }
@@ -90,6 +90,7 @@ index 0ea6af1..67c7892 100644
 +      bits>;
 +
 +  threadgroup Wtype Ws[BN * BK_padded];
++  threadgroup bfloat* gate_up_stage = (threadgroup bfloat*)Ws;
 +  threadgroup int bounds[2];
 +
 +  const int K_w = K * bytes_per_pack / pack_factor;
@@ -179,7 +180,37 @@ index 0ea6af1..67c7892 100644
 +      }
 +
 +      threadgroup_barrier(mem_flags::mem_threadgroup);
-+      if (sg_active) {
++      if (N == 1024) {
++        // Laguna's fused bank stores each matched [gate32, up32] pair in one
++        // BN=64 column tile. Preserve the stock gather's BF16 output boundary,
++        // then apply SwiGLU in threadgroup memory and pack the 512 activated
++        // columns into the contiguous prefix of the nominal 1024-wide output.
++        if (sg_active) {
++          Dtile.template store<bfloat, BN, 1>(
++              gate_up_stage + tm * BN + tn);
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++        if (sg_active && (simd_group_id % WN) == 0) {
++          constexpr int activated_cols = BN / 2;
++          for (int linear = simd_lane_id;
++               linear < int(sgp_sm) * activated_cols;
++               linear += SIMD_SIZE) {
++            const int row = linear / activated_cols;
++            const int col = linear % activated_cols;
++            const bfloat gate = gate_up_stage[(tm + row) * BN + col];
++            const bfloat up =
++                gate_up_stage[(tm + row) * BN + activated_cols + col];
++            const bfloat exp_abs = metal::exp(metal::abs(gate));
++            const bfloat denominator = bfloat(1) + exp_abs;
++            const bfloat z = bfloat(1) / denominator;
++            const bfloat sigmoid = gate < bfloat(0) ? z : bfloat(1) - z;
++            const bfloat silu = bfloat(gate * sigmoid);
++            y[size_t(chunk_start + tm + row) * (N / 2) +
++              size_t(tid.x) * activated_cols + col] = bfloat(silu * up);
++          }
++        }
++        threadgroup_barrier(mem_flags::mem_threadgroup);
++      } else if (sg_active) {
 +        device T* yn = y + size_t(chunk_start + tm) * N + y_col + tn;
 +        if (sgp_sm == SM) {
 +          Dtile.store(yn, N);
