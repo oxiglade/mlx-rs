@@ -211,6 +211,8 @@ fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -> std::io::
 }
 
 fn build_and_link_mlx_c() {
+    println!("cargo:rerun-if-env-changed=MLX_ENABLE_NAX");
+    println!("cargo:rerun-if-env-changed=MACOSX_DEPLOYMENT_TARGET");
     // MLX requires macOS >= 14.0 for Metal support. Override the deployment
     // target early so the cmake crate (and cc crate) don't inject a lower
     // -mmacosx-version-min flag into CFLAGS/CXXFLAGS. Without this, Cargo's
@@ -225,6 +227,14 @@ fn build_and_link_mlx_c() {
     let mut config = Config::new(&mlx_c_src);
     config.very_verbose(true);
     config.define("CMAKE_INSTALL_PREFIX", ".");
+
+    // MLX's NAX kernels require the macOS 26.2 SDK/deployment contract. Its
+    // expert kernels are runtime-specialized, so use MLX's supported all-JIT
+    // Metal build when callers explicitly opt in instead of compiling the
+    // dynamic expert template into the ahead-of-time metallib.
+    if env::var("MLX_ENABLE_NAX").as_deref() == Ok("1") {
+        config.define("MLX_METAL_JIT", "ON");
+    }
 
     #[cfg(target_os = "macos")]
     {
