@@ -244,13 +244,15 @@ index 62d4871..6ba4a2e 100644
    const bool align_M = (M % bm) == 0;
    const bool align_N = (N % bn) == 0;
    const bool align_K = (K % bk) == 0;
-@@ -1229,7 +1240,10 @@ void gather_qmm_rhs_nax(
+@@ -1229,7 +1240,12 @@ void gather_qmm_rhs_nax(
    concatenate(
        kname,
        mode +
 -          (transpose ? "_gather_qmm_rhs_nax_nt_" : "_gather_qmm_rhs_nax_nn_"),
 +          (expert_aligned
-+               ? "_gather_qmm_rhs_expert_nax_nt_"
++               ? (N == 1024
++                      ? "_gather_qmm_rhs_expert_swiglu_nax_nt_"
++                      : "_gather_qmm_rhs_expert_nax_nt_")
 +               : (transpose ? "_gather_qmm_rhs_nax_nt_"
 +                            : "_gather_qmm_rhs_nax_nn_")),
        type_string,
