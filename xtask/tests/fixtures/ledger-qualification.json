@@ -1,0 +1,162 @@
+{
+  "delta": {
+    "schema_version": 1,
+    "old": {
+      "source_commit": "old",
+      "overall_digest": "sha256:old"
+    },
+    "new": {
+      "source_commit": "new",
+      "overall_digest": "sha256:new"
+    },
+    "counts": {
+      "added": 2,
+      "removed": 1,
+      "changed": 1
+    },
+    "added": [
+      {
+        "kind": "function",
+        "name": "mlx_added",
+        "signature": "fn()->i32"
+      },
+      {
+        "kind": "handle",
+        "name": "mlx_demo_handle",
+        "new": "mlx_demo_handle_new",
+        "free": "mlx_demo_handle_free"
+      }
+    ],
+    "removed": [
+      {
+        "kind": "function",
+        "name": "mlx_removed",
+        "signature": "fn()->i32"
+      }
+    ],
+    "changed": [
+      {
+        "kind": "function",
+        "name": "mlx_changed",
+        "before": {
+          "kind": "function",
+          "name": "mlx_changed",
+          "signature": "fn(i32)->i32"
+        },
+        "after": {
+          "kind": "function",
+          "name": "mlx_changed",
+          "signature": "fn(i64)->i32"
+        }
+      }
+    ]
+  },
+  "classification": {
+    "schema_version": 1,
+    "old_source_commit": "old",
+    "target_source_commit": "new",
+    "entries": [
+      {
+        "change": "added",
+        "kind": "function",
+        "name": "mlx_added",
+        "entry": {
+          "kind": "function",
+          "name": "mlx_added",
+          "signature": "fn()->i32"
+        },
+        "disposition": "wrapped",
+        "rust_path": "demo::added",
+        "evidence": [
+          "api:path:demo::added",
+          "conf:add.basic"
+        ]
+      },
+      {
+        "change": "removed",
+        "kind": "function",
+        "name": "mlx_removed",
+        "entry": {
+          "kind": "function",
+          "name": "mlx_removed",
+          "signature": "fn()->i32"
+        },
+        "disposition": "removed",
+        "rationale": "the old symbol is absent from the target"
+      },
+      {
+        "change": "added",
+        "kind": "handle",
+        "name": "mlx_demo_handle",
+        "entry": {
+          "kind": "handle",
+          "name": "mlx_demo_handle",
+          "new": "mlx_demo_handle_new",
+          "free": "mlx_demo_handle_free"
+        },
+        "disposition": "deferred",
+        "rationale": "the target handle has no Rust owner at the old pin",
+        "risk_class": "ownership",
+        "ownership": {
+          "model": "owned_handle",
+          "constructor": "mlx_demo_handle_new",
+          "destructor": "mlx_demo_handle_free",
+          "rust_status": "deferred"
+        }
+      },
+      {
+        "change": "changed",
+        "kind": "function",
+        "name": "mlx_changed",
+        "before": {
+          "kind": "function",
+          "name": "mlx_changed",
+          "signature": "fn(i32)->i32"
+        },
+        "after": {
+          "kind": "function",
+          "name": "mlx_changed",
+          "signature": "fn(i64)->i32"
+        },
+        "disposition": "deferred",
+        "rationale": "the Rust wrapper does not expose this symbol",
+        "old_pin_affected": false,
+        "bump_impact": "none: no Rust wrapper calls this symbol"
+      }
+    ]
+  },
+  "api_baseline": {
+    "schema_version": 1,
+    "crate_name": "demo",
+    "source_root": "demo/src/lib.rs",
+    "limitations": [],
+    "entries": [
+      {
+        "kind": "function",
+        "path": "demo::added",
+        "signature": "pub fn added()->i32"
+      }
+    ]
+  },
+  "feature_matrix": {
+    "schema_version": 1,
+    "builds": [
+      {
+        "id": "macos-arm64-cpu-only",
+        "target_triple": "aarch64-apple-darwin",
+        "default_features": false,
+        "features": ["accelerate"],
+        "verification": ["build", "test"],
+        "purpose": "CPU-only sandbox build"
+      },
+      {
+        "id": "macos-arm64-default",
+        "target_triple": "aarch64-apple-darwin",
+        "default_features": true,
+        "features": ["accelerate", "metal"],
+        "verification": ["build", "test"],
+        "purpose": "default supported build"
+      }
+    ]
+  }
+}

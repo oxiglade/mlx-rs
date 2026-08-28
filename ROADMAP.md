@@ -201,6 +201,7 @@ The bump must not begin until all eight admission items exist:
    recorded admission procedure.
 5. Strict tensor comparator and removal or reclassification of `lr=0` false claims.
 6. Minimal target ABI-delta ledger, Rust public-API baseline, and supported feature matrix.
+   **Status: complete** — the classified target delta, stable syn-based Rust API baseline, supported build matrix, and qualified `verify-ledger` gate are present.
 7. Qualified stateful optimizer, compile, and transform packs.
 8. Deterministic replay against the exact target Python MLX version.
 
@@ -235,6 +236,12 @@ merely because it shares a wave with one.
 | 3 | Add stateful optimizer, compile-state, and transform packs. | Full parameter and optimizer-slot tensors match independent expectations for two or three nonzero updates; compile-state cases cover frozen, nested, changed/unchanged/pruned state, repeated and fallible calls, duplicate-retry prevention, and error atomicity; nonlinear multi-input/output grad, VJP, and JVP values are checked; the named no-op/stuck-counter/reordered-state/frozen-mutation/output-split/duplicate-retry fault matrix fails as expected. | Put packs in new focused test files. Do not have pack owners append concurrently to `mlx-tests/tests/conformance.rs`. |
 | 4 | Add deterministic target-version replay and aggregate bump admission. | The worker rejects any handshake other than Python MLX `0.32.2`; named corpus and state cases produce structured, reproducible old-versus-target verdicts with reset/isolation checks; legitimate semantic changes retain separate reviewed baselines; the aggregate verdict consumes the Wave 1-4 reports, verifies the recorded tuple and fingerprints, lists waivers, and fails on any unmet admission item. | Wait for the case schema and Wave 3 state recipes to stabilize. One owner integrates the aggregate command in `xtask/src/main.rs`. |
 | 5 | Add scheduled seeded differential breadth and deferred hygiene. | Scheduled cases record reproducible seeds, timeouts and crashes, minimize failures, and promote accepted cases into the committed corpus; genuine Rust doctests compile while formulas remain text; all-target clippy is clean or no-new-warning gated; optional ASan work proceeds only after a spike demonstrates findings distinct from the qualified leak/Guard Malloc gate. | Broad worker changes and wide documentation or lint churn come last. One owner coordinates any workflow changes. |
+
+Wave 2 done criteria:
+
+- [x] Comparisons qualify separate tolerances, dtype, shape, non-finite values, and boundary behavior; tensor equality and optimizer/compile false claims are audited.
+- [x] Canonical fingerprints produce a zero-unclassified target delta with typed, resolvable evidence and real Rust paths for wrapped entries.
+- [x] Rust public-API and supported-feature baselines exist, and synthetic add, remove, signature, evidence, and unclassified mutations fail the ledger gate.
 
 The shared-file conflict list is `mlx-tests/tests/conformance.rs`, `conformance/generate.py`,
 `.github/workflows/validate.yml`, and `xtask/src/main.rs`. Give each shared file one integration

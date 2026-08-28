@@ -236,6 +236,13 @@ pub fn run_delta(args: &[String]) -> i32 {
     }
 }
 
+pub(crate) fn delta_value(old: &Path, new: &Path) -> Result<serde_json::Value, String> {
+    let old = read_fingerprint(old)?;
+    let new = read_fingerprint(new)?;
+    serde_json::to_value(build_delta(&old, &new))
+        .map_err(|error| format!("failed to serialize delta: {error}"))
+}
+
 fn parse_fingerprint_args(args: &[String]) -> Result<(String, Option<PathBuf>), String> {
     let mut reference = None;
     let mut output = None;

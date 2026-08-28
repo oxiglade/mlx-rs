@@ -3,9 +3,11 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+mod api_baseline;
 mod bindgen_config;
 mod fingerprint;
 mod verify_ffi;
+mod verify_ledger;
 mod verify_oracle_boundary;
 
 fn get_repo_root() -> PathBuf {
@@ -454,11 +456,17 @@ fn print_diff(old: &str, new: &str, current_tag: &str, target_tag: &str, root_di
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    if args.get(1).is_some_and(|arg| arg == "api-baseline") {
+        std::process::exit(api_baseline::run(&get_repo_root(), &args[2..]));
+    }
     if args.get(1).is_some_and(|arg| arg == "fingerprint") {
         std::process::exit(fingerprint::run_fingerprint(&get_repo_root(), &args[2..]));
     }
     if args.get(1).is_some_and(|arg| arg == "fingerprint-delta") {
         std::process::exit(fingerprint::run_delta(&args[2..]));
+    }
+    if args.get(1).is_some_and(|arg| arg == "verify-ledger") {
+        std::process::exit(verify_ledger::run(&get_repo_root(), &args[2..]));
     }
     if args.get(1).is_some_and(|arg| arg == "verify-ffi") {
         std::process::exit(verify_ffi::run(&get_repo_root(), &args[2..]));
