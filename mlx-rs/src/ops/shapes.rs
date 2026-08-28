@@ -285,7 +285,7 @@ pub fn concatenate_axis_device(
     })
 }
 
-/// Concatenate the arrays along the first axis. Returns an error if the shapes are invalid.
+/// Flatten the arrays and concatenate them. Use [`concatenate_axis`] to concatenate along an axis.
 #[generate_macro]
 #[default_device]
 pub fn concatenate_device(
