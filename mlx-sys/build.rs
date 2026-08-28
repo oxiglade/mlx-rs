@@ -3,6 +3,9 @@ extern crate cmake;
 use cmake::Config;
 use std::{env, path::PathBuf, process::Command};
 
+#[path = "../xtask/src/bindgen_config.rs"]
+mod bindgen_config;
+
 /// Find the clang runtime library path dynamically using xcrun
 fn find_clang_rt_path() -> Option<String> {
     // Use xcrun to find the active toolchain path
@@ -109,14 +112,18 @@ fn build_and_link_mlx_c() {
 fn main() {
     build_and_link_mlx_c();
 
-    // generate bindings
-    let bindings = bindgen::Builder::default()
-        .rust_target("1.73.0".parse().expect("rust-version"))
-        .header("src/mlx-c/mlx/c/mlx.h")
-        .header("src/mlx-c/mlx/c/linalg.h")
-        .header("src/mlx-c/mlx/c/error.h")
-        .header("src/mlx-c/mlx/c/transforms_impl.h")
-        .clang_arg("-Isrc/mlx-c")
+    let mlx_c_root = PathBuf::from("src/mlx-c");
+    let headers =
+        bindgen_config::discover_headers(&mlx_c_root).expect("Unable to discover headers");
+    for header in &headers {
+        let relative =
+            bindgen_config::relative_header(&mlx_c_root, header).expect("Unable to record header");
+        println!(
+            "cargo:rerun-if-changed={}",
+            mlx_c_root.join(relative).display()
+        );
+    }
+    let bindings = bindgen_config::builder(&mlx_c_root, &headers)
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .generate()
         .expect("Unable to generate bindings");

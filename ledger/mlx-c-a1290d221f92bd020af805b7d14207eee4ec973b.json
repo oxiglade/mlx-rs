@@ -1,0 +1,3808 @@
+{
+  "schema_version": 1,
+  "tool_versions": {
+    "bindgen": "0.72.1",
+    "rustc": "rustc 1.98.0 (88d9e12ae 2026-08-18)"
+  },
+  "source_commit": "a1290d221f92bd020af805b7d14207eee4ec973b",
+  "headers": [
+    "mlx/c/array.h",
+    "mlx/c/closure.h",
+    "mlx/c/compile.h",
+    "mlx/c/cuda.h",
+    "mlx/c/device.h",
+    "mlx/c/distributed.h",
+    "mlx/c/distributed_group.h",
+    "mlx/c/error.h",
+    "mlx/c/export.h",
+    "mlx/c/fast.h",
+    "mlx/c/fft.h",
+    "mlx/c/half.h",
+    "mlx/c/io.h",
+    "mlx/c/io_types.h",
+    "mlx/c/linalg.h",
+    "mlx/c/map.h",
+    "mlx/c/memory.h",
+    "mlx/c/metal.h",
+    "mlx/c/mlx.h",
+    "mlx/c/ops.h",
+    "mlx/c/optional.h",
+    "mlx/c/random.h",
+    "mlx/c/stream.h",
+    "mlx/c/string.h",
+    "mlx/c/transforms.h",
+    "mlx/c/transforms_impl.h",
+    "mlx/c/vector.h",
+    "mlx/c/version.h"
+  ],
+  "entries": [
+    {
+      "kind": "function",
+      "name": "_mlx_array_is_available",
+      "signature": "fn(* mut bool,mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "_mlx_array_is_col_contiguous",
+      "signature": "fn(* mut bool,mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "_mlx_array_is_contiguous",
+      "signature": "fn(* mut bool,mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "_mlx_array_is_row_contiguous",
+      "signature": "fn(* mut bool,mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "_mlx_array_wait",
+      "signature": "fn(mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "_mlx_error",
+      "signature": "fn(* const :: std :: os :: raw :: c_char,:: std :: os :: raw :: c_int,* const :: std :: os :: raw :: c_char,...)->()"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_abs",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_add",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_addmm",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,f32,f32,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_all",
+      "signature": "fn(* mut mlx_array,mlx_array,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_all_axes",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_all_axis",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_allclose",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,f64,f64,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_any",
+      "signature": "fn(* mut mlx_array,mlx_array,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_any_axes",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_any_axis",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_arange",
+      "signature": "fn(* mut mlx_array,f64,f64,f64,mlx_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_arccos",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_arccosh",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_arcsin",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_arcsinh",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_arctan",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_arctan2",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_arctanh",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_argmax",
+      "signature": "fn(* mut mlx_array,mlx_array,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_argmax_axis",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_argmin",
+      "signature": "fn(* mut mlx_array,mlx_array,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_argmin_axis",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_argpartition",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_argpartition_axis",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_argsort",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_argsort_axis",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_data_bfloat16",
+      "signature": "fn(mlx_array)->* const bfloat16_t"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_data_bool",
+      "signature": "fn(mlx_array)->* const bool"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_data_complex64",
+      "signature": "fn(mlx_array)->* const mlx_complex64_t"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_data_float16",
+      "signature": "fn(mlx_array)->* const float16_t"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_data_float32",
+      "signature": "fn(mlx_array)->* const f32"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_data_float64",
+      "signature": "fn(mlx_array)->* const f64"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_data_int16",
+      "signature": "fn(mlx_array)->* const i16"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_data_int32",
+      "signature": "fn(mlx_array)->* const i32"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_data_int64",
+      "signature": "fn(mlx_array)->* const i64"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_data_int8",
+      "signature": "fn(mlx_array)->* const i8"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_data_uint16",
+      "signature": "fn(mlx_array)->* const u16"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_data_uint32",
+      "signature": "fn(mlx_array)->* const u32"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_data_uint64",
+      "signature": "fn(mlx_array)->* const u64"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_data_uint8",
+      "signature": "fn(mlx_array)->* const u8"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_dim",
+      "signature": "fn(mlx_array,:: std :: os :: raw :: c_int)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_dtype",
+      "signature": "fn(mlx_array)->mlx_dtype"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_equal",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_eval",
+      "signature": "fn(mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_free",
+      "signature": "fn(mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_item_bfloat16",
+      "signature": "fn(* mut bfloat16_t,mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_item_bool",
+      "signature": "fn(* mut bool,mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_item_complex64",
+      "signature": "fn(* mut mlx_complex64_t,mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_item_float16",
+      "signature": "fn(* mut float16_t,mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_item_float32",
+      "signature": "fn(* mut f32,mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_item_float64",
+      "signature": "fn(* mut f64,mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_item_int16",
+      "signature": "fn(* mut i16,mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_item_int32",
+      "signature": "fn(* mut i32,mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_item_int64",
+      "signature": "fn(* mut i64,mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_item_int8",
+      "signature": "fn(* mut i8,mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_item_uint16",
+      "signature": "fn(* mut u16,mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_item_uint32",
+      "signature": "fn(* mut u32,mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_item_uint64",
+      "signature": "fn(* mut u64,mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_item_uint8",
+      "signature": "fn(* mut u8,mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_itemsize",
+      "signature": "fn(mlx_array)->usize"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_nbytes",
+      "signature": "fn(mlx_array)->usize"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_ndim",
+      "signature": "fn(mlx_array)->usize"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_new",
+      "signature": "fn()->mlx_array"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_new_bool",
+      "signature": "fn(bool)->mlx_array"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_new_complex",
+      "signature": "fn(f32,f32)->mlx_array"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_new_data",
+      "signature": "fn(* const :: std :: os :: raw :: c_void,* const :: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_dtype)->mlx_array"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_new_data_managed",
+      "signature": "fn(* mut :: std :: os :: raw :: c_void,* const :: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_dtype,:: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void) >)->mlx_array"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_new_data_managed_payload",
+      "signature": "fn(* mut :: std :: os :: raw :: c_void,* const :: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_dtype,* mut :: std :: os :: raw :: c_void,:: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void) >)->mlx_array"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_new_double",
+      "signature": "fn(f64)->mlx_array"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_new_float",
+      "signature": "fn(f32)->mlx_array"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_new_float32",
+      "signature": "fn(f32)->mlx_array"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_new_float64",
+      "signature": "fn(f64)->mlx_array"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_new_int",
+      "signature": "fn(:: std :: os :: raw :: c_int)->mlx_array"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_set",
+      "signature": "fn(* mut mlx_array,mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_set_bool",
+      "signature": "fn(* mut mlx_array,bool)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_set_complex",
+      "signature": "fn(* mut mlx_array,f32,f32)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_set_data",
+      "signature": "fn(* mut mlx_array,* const :: std :: os :: raw :: c_void,* const :: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_dtype)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_set_double",
+      "signature": "fn(* mut mlx_array,f64)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_set_float",
+      "signature": "fn(* mut mlx_array,f32)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_set_float32",
+      "signature": "fn(* mut mlx_array,f32)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_set_float64",
+      "signature": "fn(* mut mlx_array,f64)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_set_int",
+      "signature": "fn(* mut mlx_array,:: std :: os :: raw :: c_int)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_shape",
+      "signature": "fn(mlx_array)->* const :: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_size",
+      "signature": "fn(mlx_array)->usize"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_strides",
+      "signature": "fn(mlx_array)->* const usize"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_array_tostring",
+      "signature": "fn(* mut mlx_string,mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_as_strided",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const i64,usize,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_astype",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_async_eval",
+      "signature": "fn(mlx_vector_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_atleast_1d",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_atleast_2d",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_atleast_3d",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_bitwise_and",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_bitwise_invert",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_bitwise_or",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_bitwise_xor",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_block_masked_mm",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_broadcast_arrays",
+      "signature": "fn(* mut mlx_vector_array,mlx_vector_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_broadcast_to",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_ceil",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_checkpoint",
+      "signature": "fn(* mut mlx_closure,mlx_closure)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_clear_cache",
+      "signature": "fn()->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_clip",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_apply",
+      "signature": "fn(* mut mlx_vector_array,mlx_closure,mlx_vector_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_custom_apply",
+      "signature": "fn(* mut mlx_vector_array,mlx_closure_custom,mlx_vector_array,mlx_vector_array,mlx_vector_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_custom_free",
+      "signature": "fn(mlx_closure_custom)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_custom_jvp_apply",
+      "signature": "fn(* mut mlx_vector_array,mlx_closure_custom_jvp,mlx_vector_array,mlx_vector_array,* const :: std :: os :: raw :: c_int,usize)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_custom_jvp_free",
+      "signature": "fn(mlx_closure_custom_jvp)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_custom_jvp_new",
+      "signature": "fn()->mlx_closure_custom_jvp"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_custom_jvp_new_func",
+      "signature": "fn(:: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut mlx_vector_array , arg2 : mlx_vector_array , arg3 : mlx_vector_array , arg4 : * const :: std :: os :: raw :: c_int , _num : usize ,) -> :: std :: os :: raw :: c_int , >)->mlx_closure_custom_jvp"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_custom_jvp_new_func_payload",
+      "signature": "fn(:: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut mlx_vector_array , arg2 : mlx_vector_array , arg3 : mlx_vector_array , arg4 : * const :: std :: os :: raw :: c_int , _num : usize , arg5 : * mut :: std :: os :: raw :: c_void ,) -> :: std :: os :: raw :: c_int , >,* mut :: std :: os :: raw :: c_void,:: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void) >)->mlx_closure_custom_jvp"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_custom_jvp_set",
+      "signature": "fn(* mut mlx_closure_custom_jvp,mlx_closure_custom_jvp)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_custom_new",
+      "signature": "fn()->mlx_closure_custom"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_custom_new_func",
+      "signature": "fn(:: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut mlx_vector_array , arg2 : mlx_vector_array , arg3 : mlx_vector_array , arg4 : mlx_vector_array ,) -> :: std :: os :: raw :: c_int , >)->mlx_closure_custom"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_custom_new_func_payload",
+      "signature": "fn(:: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut mlx_vector_array , arg2 : mlx_vector_array , arg3 : mlx_vector_array , arg4 : mlx_vector_array , arg5 : * mut :: std :: os :: raw :: c_void ,) -> :: std :: os :: raw :: c_int , >,* mut :: std :: os :: raw :: c_void,:: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void) >)->mlx_closure_custom"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_custom_set",
+      "signature": "fn(* mut mlx_closure_custom,mlx_closure_custom)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_custom_vmap_apply",
+      "signature": "fn(* mut mlx_vector_array,* mut mlx_vector_int,mlx_closure_custom_vmap,mlx_vector_array,* const :: std :: os :: raw :: c_int,usize)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_custom_vmap_free",
+      "signature": "fn(mlx_closure_custom_vmap)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_custom_vmap_new",
+      "signature": "fn()->mlx_closure_custom_vmap"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_custom_vmap_new_func",
+      "signature": "fn(:: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut mlx_vector_array , arg2 : * mut mlx_vector_int , arg3 : mlx_vector_array , arg4 : * const :: std :: os :: raw :: c_int , _num : usize ,) -> :: std :: os :: raw :: c_int , >)->mlx_closure_custom_vmap"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_custom_vmap_new_func_payload",
+      "signature": "fn(:: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut mlx_vector_array , arg2 : * mut mlx_vector_int , arg3 : mlx_vector_array , arg4 : * const :: std :: os :: raw :: c_int , _num : usize , arg5 : * mut :: std :: os :: raw :: c_void ,) -> :: std :: os :: raw :: c_int , >,* mut :: std :: os :: raw :: c_void,:: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void) >)->mlx_closure_custom_vmap"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_custom_vmap_set",
+      "signature": "fn(* mut mlx_closure_custom_vmap,mlx_closure_custom_vmap)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_free",
+      "signature": "fn(mlx_closure)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_kwargs_apply",
+      "signature": "fn(* mut mlx_vector_array,mlx_closure_kwargs,mlx_vector_array,mlx_map_string_to_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_kwargs_free",
+      "signature": "fn(mlx_closure_kwargs)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_kwargs_new",
+      "signature": "fn()->mlx_closure_kwargs"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_kwargs_new_func",
+      "signature": "fn(:: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut mlx_vector_array , arg2 : mlx_vector_array , arg3 : mlx_map_string_to_array ,) -> :: std :: os :: raw :: c_int , >)->mlx_closure_kwargs"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_kwargs_new_func_payload",
+      "signature": "fn(:: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut mlx_vector_array , arg2 : mlx_vector_array , arg3 : mlx_map_string_to_array , arg4 : * mut :: std :: os :: raw :: c_void ,) -> :: std :: os :: raw :: c_int , >,* mut :: std :: os :: raw :: c_void,:: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void) >)->mlx_closure_kwargs"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_kwargs_set",
+      "signature": "fn(* mut mlx_closure_kwargs,mlx_closure_kwargs)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_new",
+      "signature": "fn()->mlx_closure"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_new_func",
+      "signature": "fn(:: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut mlx_vector_array , arg2 : mlx_vector_array ,) -> :: std :: os :: raw :: c_int , >)->mlx_closure"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_new_func_payload",
+      "signature": "fn(:: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut mlx_vector_array , arg2 : mlx_vector_array , arg3 : * mut :: std :: os :: raw :: c_void ,) -> :: std :: os :: raw :: c_int , >,* mut :: std :: os :: raw :: c_void,:: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void) >)->mlx_closure"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_new_unary",
+      "signature": "fn(:: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut mlx_array , arg2 : mlx_array) -> :: std :: os :: raw :: c_int , >)->mlx_closure"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_set",
+      "signature": "fn(* mut mlx_closure,mlx_closure)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_value_and_grad_apply",
+      "signature": "fn(* mut mlx_vector_array,* mut mlx_vector_array,mlx_closure_value_and_grad,mlx_vector_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_value_and_grad_free",
+      "signature": "fn(mlx_closure_value_and_grad)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_value_and_grad_new",
+      "signature": "fn()->mlx_closure_value_and_grad"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_value_and_grad_new_func",
+      "signature": "fn(:: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut mlx_vector_array , arg2 : * mut mlx_vector_array , arg3 : mlx_vector_array ,) -> :: std :: os :: raw :: c_int , >)->mlx_closure_value_and_grad"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_value_and_grad_new_func_payload",
+      "signature": "fn(:: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut mlx_vector_array , arg2 : * mut mlx_vector_array , arg3 : mlx_vector_array , arg4 : * mut :: std :: os :: raw :: c_void ,) -> :: std :: os :: raw :: c_int , >,* mut :: std :: os :: raw :: c_void,:: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void) >)->mlx_closure_value_and_grad"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_closure_value_and_grad_set",
+      "signature": "fn(* mut mlx_closure_value_and_grad,mlx_closure_value_and_grad)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_compile",
+      "signature": "fn(* mut mlx_closure,mlx_closure,bool)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_concatenate",
+      "signature": "fn(* mut mlx_array,mlx_vector_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_concatenate_axis",
+      "signature": "fn(* mut mlx_array,mlx_vector_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_conjugate",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_contiguous",
+      "signature": "fn(* mut mlx_array,mlx_array,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_conv1d",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_conv2d",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_conv3d",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_conv_general",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,:: std :: os :: raw :: c_int,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_conv_transpose1d",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_conv_transpose2d",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_conv_transpose3d",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_copy",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_cos",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_cosh",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_cuda_is_available",
+      "signature": "fn(* mut bool)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_cummax",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_cummin",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_cumprod",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_cumsum",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_custom_function",
+      "signature": "fn(* mut mlx_closure,mlx_closure,mlx_closure_custom,mlx_closure_custom_jvp,mlx_closure_custom_vmap)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_custom_vjp",
+      "signature": "fn(* mut mlx_closure,mlx_closure,mlx_closure_custom)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_default_cpu_stream_new",
+      "signature": "fn()->mlx_stream"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_default_gpu_stream_new",
+      "signature": "fn()->mlx_stream"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_degrees",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_depends",
+      "signature": "fn(* mut mlx_vector_array,mlx_vector_array,mlx_vector_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_dequantize",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,mlx_optional_int,mlx_optional_int,* const :: std :: os :: raw :: c_char,mlx_optional_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_detail_compile",
+      "signature": "fn(* mut mlx_closure,mlx_closure,usize,bool,* const u64,usize)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_detail_compile_clear_cache",
+      "signature": "fn()->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_detail_compile_erase",
+      "signature": "fn(usize)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_detail_vmap_replace",
+      "signature": "fn(* mut mlx_vector_array,mlx_vector_array,mlx_vector_array,mlx_vector_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_detail_vmap_trace",
+      "signature": "fn(* mut mlx_vector_array,* mut mlx_vector_array,mlx_closure,mlx_vector_array,* const :: std :: os :: raw :: c_int,usize)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_device_count",
+      "signature": "fn(* mut :: std :: os :: raw :: c_int,mlx_device_type)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_device_equal",
+      "signature": "fn(mlx_device,mlx_device)->bool"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_device_free",
+      "signature": "fn(mlx_device)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_device_get_index",
+      "signature": "fn(* mut :: std :: os :: raw :: c_int,mlx_device)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_device_get_type",
+      "signature": "fn(* mut mlx_device_type,mlx_device)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_device_info_free",
+      "signature": "fn(mlx_device_info)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_device_info_get",
+      "signature": "fn(* mut mlx_device_info,mlx_device)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_device_info_get_keys",
+      "signature": "fn(* mut mlx_vector_string,mlx_device_info)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_device_info_get_size",
+      "signature": "fn(* mut usize,mlx_device_info,* const :: std :: os :: raw :: c_char)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_device_info_get_string",
+      "signature": "fn(* mut * const :: std :: os :: raw :: c_char,mlx_device_info,* const :: std :: os :: raw :: c_char)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_device_info_has_key",
+      "signature": "fn(* mut bool,mlx_device_info,* const :: std :: os :: raw :: c_char)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_device_info_is_string",
+      "signature": "fn(* mut bool,mlx_device_info,* const :: std :: os :: raw :: c_char)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_device_info_new",
+      "signature": "fn()->mlx_device_info"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_device_is_available",
+      "signature": "fn(* mut bool,mlx_device)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_device_new",
+      "signature": "fn()->mlx_device"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_device_new_type",
+      "signature": "fn(mlx_device_type,:: std :: os :: raw :: c_int)->mlx_device"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_device_set",
+      "signature": "fn(* mut mlx_device,mlx_device)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_device_tostring",
+      "signature": "fn(* mut mlx_string,mlx_device)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_diag",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_diagonal",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_disable_compile",
+      "signature": "fn()->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_distributed_all_gather",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_distributed_group,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_distributed_all_max",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_distributed_group,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_distributed_all_min",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_distributed_group,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_distributed_all_sum",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_distributed_group,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_distributed_group_rank",
+      "signature": "fn(mlx_distributed_group)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_distributed_group_size",
+      "signature": "fn(mlx_distributed_group)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_distributed_group_split",
+      "signature": "fn(mlx_distributed_group,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int)->mlx_distributed_group"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_distributed_init",
+      "signature": "fn(bool)->mlx_distributed_group"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_distributed_is_available",
+      "signature": "fn()->bool"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_distributed_recv",
+      "signature": "fn(* mut mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_dtype,:: std :: os :: raw :: c_int,mlx_distributed_group,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_distributed_recv_like",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_distributed_group,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_distributed_send",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_distributed_group,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_distributed_sum_scatter",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_distributed_group,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_divide",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_divmod",
+      "signature": "fn(* mut mlx_vector_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_dtype_size",
+      "signature": "fn(mlx_dtype)->usize"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_einsum",
+      "signature": "fn(* mut mlx_array,* const :: std :: os :: raw :: c_char,mlx_vector_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_enable_compile",
+      "signature": "fn()->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_equal",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_erf",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_erfinv",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_eval",
+      "signature": "fn(mlx_vector_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_exp",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_expand_dims",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_expand_dims_axes",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_expm1",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_export_function",
+      "signature": "fn(* const :: std :: os :: raw :: c_char,mlx_closure,mlx_vector_array,bool)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_export_function_kwargs",
+      "signature": "fn(* const :: std :: os :: raw :: c_char,mlx_closure_kwargs,mlx_vector_array,mlx_map_string_to_array,bool)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_eye",
+      "signature": "fn(* mut mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_cuda_kernel_apply",
+      "signature": "fn(* mut mlx_vector_array,mlx_fast_cuda_kernel,mlx_vector_array,mlx_fast_cuda_kernel_config,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_cuda_kernel_config_add_output_arg",
+      "signature": "fn(mlx_fast_cuda_kernel_config,* const :: std :: os :: raw :: c_int,usize,mlx_dtype)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_cuda_kernel_config_add_template_arg_bool",
+      "signature": "fn(mlx_fast_cuda_kernel_config,* const :: std :: os :: raw :: c_char,bool)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_cuda_kernel_config_add_template_arg_dtype",
+      "signature": "fn(mlx_fast_cuda_kernel_config,* const :: std :: os :: raw :: c_char,mlx_dtype)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_cuda_kernel_config_add_template_arg_int",
+      "signature": "fn(mlx_fast_cuda_kernel_config,* const :: std :: os :: raw :: c_char,:: std :: os :: raw :: c_int)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_cuda_kernel_config_free",
+      "signature": "fn(mlx_fast_cuda_kernel_config)->()"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_cuda_kernel_config_new",
+      "signature": "fn()->mlx_fast_cuda_kernel_config"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_cuda_kernel_config_set_grid",
+      "signature": "fn(mlx_fast_cuda_kernel_config,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_cuda_kernel_config_set_init_value",
+      "signature": "fn(mlx_fast_cuda_kernel_config,f32)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_cuda_kernel_config_set_thread_group",
+      "signature": "fn(mlx_fast_cuda_kernel_config,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_cuda_kernel_config_set_verbose",
+      "signature": "fn(mlx_fast_cuda_kernel_config,bool)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_cuda_kernel_free",
+      "signature": "fn(mlx_fast_cuda_kernel)->()"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_cuda_kernel_new",
+      "signature": "fn(* const :: std :: os :: raw :: c_char,mlx_vector_string,mlx_vector_string,* const :: std :: os :: raw :: c_char,* const :: std :: os :: raw :: c_char,bool,:: std :: os :: raw :: c_int)->mlx_fast_cuda_kernel"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_layer_norm",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,f32,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_metal_kernel_apply",
+      "signature": "fn(* mut mlx_vector_array,mlx_fast_metal_kernel,mlx_vector_array,mlx_fast_metal_kernel_config,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_metal_kernel_config_add_output_arg",
+      "signature": "fn(mlx_fast_metal_kernel_config,* const :: std :: os :: raw :: c_int,usize,mlx_dtype)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_metal_kernel_config_add_template_arg_bool",
+      "signature": "fn(mlx_fast_metal_kernel_config,* const :: std :: os :: raw :: c_char,bool)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_metal_kernel_config_add_template_arg_dtype",
+      "signature": "fn(mlx_fast_metal_kernel_config,* const :: std :: os :: raw :: c_char,mlx_dtype)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_metal_kernel_config_add_template_arg_int",
+      "signature": "fn(mlx_fast_metal_kernel_config,* const :: std :: os :: raw :: c_char,:: std :: os :: raw :: c_int)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_metal_kernel_config_free",
+      "signature": "fn(mlx_fast_metal_kernel_config)->()"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_metal_kernel_config_new",
+      "signature": "fn()->mlx_fast_metal_kernel_config"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_metal_kernel_config_set_grid",
+      "signature": "fn(mlx_fast_metal_kernel_config,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_metal_kernel_config_set_init_value",
+      "signature": "fn(mlx_fast_metal_kernel_config,f32)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_metal_kernel_config_set_thread_group",
+      "signature": "fn(mlx_fast_metal_kernel_config,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_metal_kernel_config_set_verbose",
+      "signature": "fn(mlx_fast_metal_kernel_config,bool)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_metal_kernel_free",
+      "signature": "fn(mlx_fast_metal_kernel)->()"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_metal_kernel_new",
+      "signature": "fn(* const :: std :: os :: raw :: c_char,mlx_vector_string,mlx_vector_string,* const :: std :: os :: raw :: c_char,* const :: std :: os :: raw :: c_char,bool,bool)->mlx_fast_metal_kernel"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_rms_norm",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,f32,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_rope",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,mlx_optional_float,f32,:: std :: os :: raw :: c_int,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_rope_dynamic",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,mlx_optional_float,f32,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fast_scaled_dot_product_attention",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,f32,* const :: std :: os :: raw :: c_char,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fft_fft",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fft_fft2",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fft_fftn",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fft_fftshift",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fft_ifft",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fft_ifft2",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fft_ifftn",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fft_ifftshift",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fft_irfft",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fft_irfft2",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fft_irfftn",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fft_rfft",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fft_rfft2",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_fft_rfftn",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_flatten",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_floor",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_floor_divide",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_from_fp8",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_full",
+      "signature": "fn(* mut mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_array,mlx_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_full_like",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_function_exporter_apply",
+      "signature": "fn(mlx_function_exporter,mlx_vector_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_function_exporter_apply_kwargs",
+      "signature": "fn(mlx_function_exporter,mlx_vector_array,mlx_map_string_to_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_function_exporter_free",
+      "signature": "fn(mlx_function_exporter)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_function_exporter_new",
+      "signature": "fn(* const :: std :: os :: raw :: c_char,mlx_closure,bool)->mlx_function_exporter"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_gather",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_vector_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_gather_mm",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,mlx_array,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_gather_qmm",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,mlx_array,mlx_array,mlx_array,bool,mlx_optional_int,mlx_optional_int,* const :: std :: os :: raw :: c_char,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_gather_single",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,:: std :: os :: raw :: c_int,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_get_active_memory",
+      "signature": "fn(* mut usize)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_get_cache_memory",
+      "signature": "fn(* mut usize)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_get_default_device",
+      "signature": "fn(* mut mlx_device)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_get_default_stream",
+      "signature": "fn(* mut mlx_stream,mlx_device)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_get_memory_limit",
+      "signature": "fn(* mut usize)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_get_peak_memory",
+      "signature": "fn(* mut usize)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_greater",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_greater_equal",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_hadamard_transform",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_optional_float,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_identity",
+      "signature": "fn(* mut mlx_array,:: std :: os :: raw :: c_int,mlx_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_imag",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_imported_function_apply",
+      "signature": "fn(* mut mlx_vector_array,mlx_imported_function,mlx_vector_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_imported_function_apply_kwargs",
+      "signature": "fn(* mut mlx_vector_array,mlx_imported_function,mlx_vector_array,mlx_map_string_to_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_imported_function_free",
+      "signature": "fn(mlx_imported_function)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_imported_function_new",
+      "signature": "fn(* const :: std :: os :: raw :: c_char)->mlx_imported_function"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_inner",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_io_reader_descriptor",
+      "signature": "fn(* mut * mut :: std :: os :: raw :: c_void,mlx_io_reader)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_io_reader_free",
+      "signature": "fn(mlx_io_reader)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_io_reader_new",
+      "signature": "fn(* mut :: std :: os :: raw :: c_void,mlx_io_vtable)->mlx_io_reader"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_io_reader_tostring",
+      "signature": "fn(* mut mlx_string,mlx_io_reader)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_io_writer_descriptor",
+      "signature": "fn(* mut * mut :: std :: os :: raw :: c_void,mlx_io_writer)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_io_writer_free",
+      "signature": "fn(mlx_io_writer)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_io_writer_new",
+      "signature": "fn(* mut :: std :: os :: raw :: c_void,mlx_io_vtable)->mlx_io_writer"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_io_writer_tostring",
+      "signature": "fn(* mut mlx_string,mlx_io_writer)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_isclose",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,f64,f64,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_isfinite",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_isinf",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_isnan",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_isneginf",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_isposinf",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_jvp",
+      "signature": "fn(* mut mlx_vector_array,* mut mlx_vector_array,mlx_closure,mlx_vector_array,mlx_vector_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_kron",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_left_shift",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_less",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_less_equal",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_linalg_cholesky",
+      "signature": "fn(* mut mlx_array,mlx_array,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_linalg_cholesky_inv",
+      "signature": "fn(* mut mlx_array,mlx_array,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_linalg_cross",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_linalg_eig",
+      "signature": "fn(* mut mlx_array,* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_linalg_eigh",
+      "signature": "fn(* mut mlx_array,* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_char,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_linalg_eigvals",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_linalg_eigvalsh",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_char,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_linalg_inv",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_linalg_lu",
+      "signature": "fn(* mut mlx_vector_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_linalg_lu_factor",
+      "signature": "fn(* mut mlx_array,* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_linalg_norm",
+      "signature": "fn(* mut mlx_array,mlx_array,f64,* const :: std :: os :: raw :: c_int,usize,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_linalg_norm_l2",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_linalg_norm_matrix",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_char,* const :: std :: os :: raw :: c_int,usize,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_linalg_pinv",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_linalg_qr",
+      "signature": "fn(* mut mlx_array,* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_linalg_solve",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_linalg_solve_triangular",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_linalg_svd",
+      "signature": "fn(* mut mlx_vector_array,mlx_array,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_linalg_tri_inv",
+      "signature": "fn(* mut mlx_array,mlx_array,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_linspace",
+      "signature": "fn(* mut mlx_array,f64,f64,:: std :: os :: raw :: c_int,mlx_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_load",
+      "signature": "fn(* mut mlx_array,* const :: std :: os :: raw :: c_char,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_load_reader",
+      "signature": "fn(* mut mlx_array,mlx_io_reader,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_load_safetensors",
+      "signature": "fn(* mut mlx_map_string_to_array,* mut mlx_map_string_to_string,* const :: std :: os :: raw :: c_char,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_load_safetensors_reader",
+      "signature": "fn(* mut mlx_map_string_to_array,* mut mlx_map_string_to_string,mlx_io_reader,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_log",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_log10",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_log1p",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_log2",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_logaddexp",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_logcumsumexp",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_logical_and",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_logical_not",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_logical_or",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_logsumexp",
+      "signature": "fn(* mut mlx_array,mlx_array,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_logsumexp_axes",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_logsumexp_axis",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_map_string_to_array_free",
+      "signature": "fn(mlx_map_string_to_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_map_string_to_array_get",
+      "signature": "fn(* mut mlx_array,mlx_map_string_to_array,* const :: std :: os :: raw :: c_char)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_map_string_to_array_insert",
+      "signature": "fn(mlx_map_string_to_array,* const :: std :: os :: raw :: c_char,mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_map_string_to_array_iterator_free",
+      "signature": "fn(mlx_map_string_to_array_iterator)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_map_string_to_array_iterator_new",
+      "signature": "fn(mlx_map_string_to_array)->mlx_map_string_to_array_iterator"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_map_string_to_array_iterator_next",
+      "signature": "fn(* mut * const :: std :: os :: raw :: c_char,* mut mlx_array,mlx_map_string_to_array_iterator)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_map_string_to_array_new",
+      "signature": "fn()->mlx_map_string_to_array"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_map_string_to_array_set",
+      "signature": "fn(* mut mlx_map_string_to_array,mlx_map_string_to_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_map_string_to_string_free",
+      "signature": "fn(mlx_map_string_to_string)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_map_string_to_string_get",
+      "signature": "fn(* mut * const :: std :: os :: raw :: c_char,mlx_map_string_to_string,* const :: std :: os :: raw :: c_char)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_map_string_to_string_insert",
+      "signature": "fn(mlx_map_string_to_string,* const :: std :: os :: raw :: c_char,* const :: std :: os :: raw :: c_char)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_map_string_to_string_iterator_free",
+      "signature": "fn(mlx_map_string_to_string_iterator)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_map_string_to_string_iterator_new",
+      "signature": "fn(mlx_map_string_to_string)->mlx_map_string_to_string_iterator"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_map_string_to_string_iterator_next",
+      "signature": "fn(* mut * const :: std :: os :: raw :: c_char,* mut * const :: std :: os :: raw :: c_char,mlx_map_string_to_string_iterator)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_map_string_to_string_new",
+      "signature": "fn()->mlx_map_string_to_string"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_map_string_to_string_set",
+      "signature": "fn(* mut mlx_map_string_to_string,mlx_map_string_to_string)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_masked_scatter",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_matmul",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_max",
+      "signature": "fn(* mut mlx_array,mlx_array,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_max_axes",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_max_axis",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_maximum",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_mean",
+      "signature": "fn(* mut mlx_array,mlx_array,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_mean_axes",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_mean_axis",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_median",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_meshgrid",
+      "signature": "fn(* mut mlx_vector_array,mlx_vector_array,bool,* const :: std :: os :: raw :: c_char,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_metal_is_available",
+      "signature": "fn(* mut bool)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_metal_start_capture",
+      "signature": "fn(* const :: std :: os :: raw :: c_char)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_metal_stop_capture",
+      "signature": "fn()->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_min",
+      "signature": "fn(* mut mlx_array,mlx_array,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_min_axes",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_min_axis",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_minimum",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_moveaxis",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_multiply",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_nan_to_num",
+      "signature": "fn(* mut mlx_array,mlx_array,f32,mlx_optional_float,mlx_optional_float,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_negative",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_not_equal",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_number_of_elements",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,bool,mlx_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_ones",
+      "signature": "fn(* mut mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_ones_like",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_outer",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_pad",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_array,* const :: std :: os :: raw :: c_char,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_pad_symmetric",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_array,* const :: std :: os :: raw :: c_char,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_partition",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_partition_axis",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_power",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_prod",
+      "signature": "fn(* mut mlx_array,mlx_array,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_prod_axes",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_prod_axis",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_put_along_axis",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_qqmm",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,mlx_optional_int,mlx_optional_int,* const :: std :: os :: raw :: c_char,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_quantize",
+      "signature": "fn(* mut mlx_vector_array,mlx_array,mlx_optional_int,mlx_optional_int,* const :: std :: os :: raw :: c_char,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_quantized_matmul",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,mlx_array,bool,mlx_optional_int,mlx_optional_int,* const :: std :: os :: raw :: c_char,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_radians",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_random_bernoulli",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_random_bits",
+      "signature": "fn(* mut mlx_array,* const :: std :: os :: raw :: c_int,usize,:: std :: os :: raw :: c_int,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_random_categorical",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_random_categorical_num_samples",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_random_categorical_shape",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,* const :: std :: os :: raw :: c_int,usize,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_random_gumbel",
+      "signature": "fn(* mut mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_dtype,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_random_key",
+      "signature": "fn(* mut mlx_array,u64)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_random_laplace",
+      "signature": "fn(* mut mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_dtype,f32,f32,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_random_multivariate_normal",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_dtype,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_random_normal",
+      "signature": "fn(* mut mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_dtype,f32,f32,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_random_normal_broadcast",
+      "signature": "fn(* mut mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_dtype,mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_random_permutation",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_random_permutation_arange",
+      "signature": "fn(* mut mlx_array,:: std :: os :: raw :: c_int,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_random_randint",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_dtype,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_random_seed",
+      "signature": "fn(u64)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_random_split",
+      "signature": "fn(* mut mlx_array,* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_random_split_num",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_random_truncated_normal",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_dtype,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_random_uniform",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_dtype,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_real",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_reciprocal",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_remainder",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_repeat",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_repeat_axis",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_reset_peak_memory",
+      "signature": "fn()->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_reshape",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_right_shift",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_roll",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_roll_axes",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_roll_axis",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_round",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_rsqrt",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_save",
+      "signature": "fn(* const :: std :: os :: raw :: c_char,mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_save_safetensors",
+      "signature": "fn(* const :: std :: os :: raw :: c_char,mlx_map_string_to_array,mlx_map_string_to_string)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_save_safetensors_writer",
+      "signature": "fn(mlx_io_writer,mlx_map_string_to_array,mlx_map_string_to_string)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_save_writer",
+      "signature": "fn(mlx_io_writer,mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_scatter",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_vector_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_scatter_add",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_vector_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_scatter_add_axis",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_scatter_add_single",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_scatter_max",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_vector_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_scatter_max_single",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_scatter_min",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_vector_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_scatter_min_single",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_scatter_prod",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_vector_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_scatter_prod_single",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_scatter_single",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_segmented_mm",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_set_cache_limit",
+      "signature": "fn(* mut usize,usize)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_set_compile_mode",
+      "signature": "fn(mlx_compile_mode)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_set_default_device",
+      "signature": "fn(mlx_device)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_set_default_stream",
+      "signature": "fn(mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_set_error_handler",
+      "signature": "fn(mlx_error_handler_func,* mut :: std :: os :: raw :: c_void,:: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void) >)->()"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_set_memory_limit",
+      "signature": "fn(* mut usize,usize)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_set_wired_limit",
+      "signature": "fn(* mut usize,usize)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_sigmoid",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_sign",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_sin",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_sinh",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_slice",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_slice_dynamic",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_slice_update",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_slice_update_dynamic",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_softmax",
+      "signature": "fn(* mut mlx_array,mlx_array,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_softmax_axes",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_softmax_axis",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_sort",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_sort_axis",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_split",
+      "signature": "fn(* mut mlx_vector_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_split_sections",
+      "signature": "fn(* mut mlx_vector_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_sqrt",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_square",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_squeeze",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_squeeze_axes",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_squeeze_axis",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_stack",
+      "signature": "fn(* mut mlx_array,mlx_vector_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_stack_axis",
+      "signature": "fn(* mut mlx_array,mlx_vector_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_std",
+      "signature": "fn(* mut mlx_array,mlx_array,bool,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_std_axes",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,bool,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_std_axis",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_stop_gradient",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_stream_equal",
+      "signature": "fn(mlx_stream,mlx_stream)->bool"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_stream_free",
+      "signature": "fn(mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_stream_get_device",
+      "signature": "fn(* mut mlx_device,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_stream_get_index",
+      "signature": "fn(* mut :: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_stream_new",
+      "signature": "fn()->mlx_stream"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_stream_new_device",
+      "signature": "fn(mlx_device)->mlx_stream"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_stream_set",
+      "signature": "fn(* mut mlx_stream,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_stream_tostring",
+      "signature": "fn(* mut mlx_string,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_string_data",
+      "signature": "fn(mlx_string)->* const :: std :: os :: raw :: c_char"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_string_free",
+      "signature": "fn(mlx_string)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_string_new",
+      "signature": "fn()->mlx_string"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_string_new_data",
+      "signature": "fn(* const :: std :: os :: raw :: c_char)->mlx_string"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_string_set",
+      "signature": "fn(* mut mlx_string,mlx_string)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_subtract",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_sum",
+      "signature": "fn(* mut mlx_array,mlx_array,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_sum_axes",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_sum_axis",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_swapaxes",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_synchronize",
+      "signature": "fn(mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_take",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_take_along_axis",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_take_axis",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_tan",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_tanh",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_tensordot",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_tensordot_axis",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_tile",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_to_fp8",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_topk",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_topk_axis",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_trace",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_transpose",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_transpose_axes",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_tri",
+      "signature": "fn(* mut mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_tril",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_triu",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_unflatten",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_value_and_grad",
+      "signature": "fn(* mut mlx_closure_value_and_grad,mlx_closure,* const :: std :: os :: raw :: c_int,usize)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_var",
+      "signature": "fn(* mut mlx_array,mlx_array,bool,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_var_axes",
+      "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,bool,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_var_axis",
+      "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_array_append_data",
+      "signature": "fn(mlx_vector_array,* const mlx_array,usize)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_array_append_value",
+      "signature": "fn(mlx_vector_array,mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_array_free",
+      "signature": "fn(mlx_vector_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_array_get",
+      "signature": "fn(* mut mlx_array,mlx_vector_array,usize)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_array_new",
+      "signature": "fn()->mlx_vector_array"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_array_new_data",
+      "signature": "fn(* const mlx_array,usize)->mlx_vector_array"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_array_new_value",
+      "signature": "fn(mlx_array)->mlx_vector_array"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_array_set",
+      "signature": "fn(* mut mlx_vector_array,mlx_vector_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_array_set_data",
+      "signature": "fn(* mut mlx_vector_array,* const mlx_array,usize)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_array_set_value",
+      "signature": "fn(* mut mlx_vector_array,mlx_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_array_size",
+      "signature": "fn(mlx_vector_array)->usize"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_int_append_data",
+      "signature": "fn(mlx_vector_int,* mut :: std :: os :: raw :: c_int,usize)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_int_append_value",
+      "signature": "fn(mlx_vector_int,:: std :: os :: raw :: c_int)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_int_free",
+      "signature": "fn(mlx_vector_int)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_int_get",
+      "signature": "fn(* mut :: std :: os :: raw :: c_int,mlx_vector_int,usize)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_int_new",
+      "signature": "fn()->mlx_vector_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_int_new_data",
+      "signature": "fn(* mut :: std :: os :: raw :: c_int,usize)->mlx_vector_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_int_new_value",
+      "signature": "fn(:: std :: os :: raw :: c_int)->mlx_vector_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_int_set",
+      "signature": "fn(* mut mlx_vector_int,mlx_vector_int)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_int_set_data",
+      "signature": "fn(* mut mlx_vector_int,* mut :: std :: os :: raw :: c_int,usize)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_int_set_value",
+      "signature": "fn(* mut mlx_vector_int,:: std :: os :: raw :: c_int)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_int_size",
+      "signature": "fn(mlx_vector_int)->usize"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_string_append_data",
+      "signature": "fn(mlx_vector_string,* mut * const :: std :: os :: raw :: c_char,usize)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_string_append_value",
+      "signature": "fn(mlx_vector_string,* const :: std :: os :: raw :: c_char)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_string_free",
+      "signature": "fn(mlx_vector_string)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_string_get",
+      "signature": "fn(* mut * mut :: std :: os :: raw :: c_char,mlx_vector_string,usize)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_string_new",
+      "signature": "fn()->mlx_vector_string"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_string_new_data",
+      "signature": "fn(* mut * const :: std :: os :: raw :: c_char,usize)->mlx_vector_string"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_string_new_value",
+      "signature": "fn(* const :: std :: os :: raw :: c_char)->mlx_vector_string"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_string_set",
+      "signature": "fn(* mut mlx_vector_string,mlx_vector_string)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_string_set_data",
+      "signature": "fn(* mut mlx_vector_string,* mut * const :: std :: os :: raw :: c_char,usize)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_string_set_value",
+      "signature": "fn(* mut mlx_vector_string,* const :: std :: os :: raw :: c_char)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_string_size",
+      "signature": "fn(mlx_vector_string)->usize"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_vector_array_append_data",
+      "signature": "fn(mlx_vector_vector_array,* const mlx_vector_array,usize)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_vector_array_append_value",
+      "signature": "fn(mlx_vector_vector_array,mlx_vector_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_vector_array_free",
+      "signature": "fn(mlx_vector_vector_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_vector_array_get",
+      "signature": "fn(* mut mlx_vector_array,mlx_vector_vector_array,usize)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_vector_array_new",
+      "signature": "fn()->mlx_vector_vector_array"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_vector_array_new_data",
+      "signature": "fn(* const mlx_vector_array,usize)->mlx_vector_vector_array"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_vector_array_new_value",
+      "signature": "fn(mlx_vector_array)->mlx_vector_vector_array"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_vector_array_set",
+      "signature": "fn(* mut mlx_vector_vector_array,mlx_vector_vector_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_vector_array_set_data",
+      "signature": "fn(* mut mlx_vector_vector_array,* const mlx_vector_array,usize)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_vector_array_set_value",
+      "signature": "fn(* mut mlx_vector_vector_array,mlx_vector_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vector_vector_array_size",
+      "signature": "fn(mlx_vector_vector_array)->usize"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_version",
+      "signature": "fn(* mut mlx_string)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_view",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_vjp",
+      "signature": "fn(* mut mlx_vector_array,* mut mlx_vector_array,mlx_closure,mlx_vector_array,mlx_vector_array)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_where",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_zeros",
+      "signature": "fn(* mut mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_zeros_like",
+      "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "type",
+      "name": "bfloat16_t",
+      "definition": "u16"
+    },
+    {
+      "kind": "type",
+      "name": "float16_t",
+      "definition": "__BindgenFloat16"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_array",
+      "definition": "mlx_array_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_closure",
+      "definition": "mlx_closure_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_closure_custom",
+      "definition": "mlx_closure_custom_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_closure_custom_jvp",
+      "definition": "mlx_closure_custom_jvp_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_closure_custom_vmap",
+      "definition": "mlx_closure_custom_vmap_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_closure_kwargs",
+      "definition": "mlx_closure_kwargs_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_closure_value_and_grad",
+      "definition": "mlx_closure_value_and_grad_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_compile_mode",
+      "definition": "mlx_compile_mode_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_compile_mode_",
+      "definition": ":: std :: os :: raw :: c_uint"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_complex64_t",
+      "definition": "__BindgenComplex < f32 >"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_device",
+      "definition": "mlx_device_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_device_info",
+      "definition": "mlx_device_info_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_device_type",
+      "definition": "mlx_device_type_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_device_type_",
+      "definition": ":: std :: os :: raw :: c_uint"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_distributed_group",
+      "definition": "mlx_distributed_group_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_dtype",
+      "definition": "mlx_dtype_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_dtype_",
+      "definition": ":: std :: os :: raw :: c_uint"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_error_handler_func",
+      "definition": ":: std :: option :: Option < unsafe extern \"C\" fn (msg : * const :: std :: os :: raw :: c_char , data : * mut :: std :: os :: raw :: c_void) , >"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_fast_cuda_kernel",
+      "definition": "mlx_fast_cuda_kernel_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_fast_cuda_kernel_config",
+      "definition": "mlx_fast_cuda_kernel_config_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_fast_metal_kernel",
+      "definition": "mlx_fast_metal_kernel_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_fast_metal_kernel_config",
+      "definition": "mlx_fast_metal_kernel_config_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_function_exporter",
+      "definition": "mlx_function_exporter_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_imported_function",
+      "definition": "mlx_imported_function_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_io_reader",
+      "definition": "mlx_io_reader_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_io_vtable",
+      "definition": "mlx_io_vtable_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_io_writer",
+      "definition": "mlx_io_writer_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_map_string_to_array",
+      "definition": "mlx_map_string_to_array_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_map_string_to_array_iterator",
+      "definition": "mlx_map_string_to_array_iterator_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_map_string_to_string",
+      "definition": "mlx_map_string_to_string_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_map_string_to_string_iterator",
+      "definition": "mlx_map_string_to_string_iterator_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_optional_dtype",
+      "definition": "mlx_optional_dtype_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_optional_float",
+      "definition": "mlx_optional_float_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_optional_int",
+      "definition": "mlx_optional_int_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_stream",
+      "definition": "mlx_stream_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_string",
+      "definition": "mlx_string_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_vector_array",
+      "definition": "mlx_vector_array_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_vector_int",
+      "definition": "mlx_vector_int_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_vector_string",
+      "definition": "mlx_vector_string_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_vector_vector_array",
+      "definition": "mlx_vector_vector_array_"
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_array_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_closure_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_closure_custom_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_closure_custom_jvp_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_closure_custom_vmap_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_closure_kwargs_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_closure_value_and_grad_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_device_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_device_info_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_distributed_group_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_fast_cuda_kernel_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_fast_cuda_kernel_config_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_fast_metal_kernel_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_fast_metal_kernel_config_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_function_exporter_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_imported_function_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_io_reader_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_io_vtable_",
+      "fields": [
+        {
+          "name": "is_open",
+          "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void) -> bool >"
+        },
+        {
+          "name": "good",
+          "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void) -> bool >"
+        },
+        {
+          "name": "tell",
+          "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void) -> usize >"
+        },
+        {
+          "name": "seek",
+          "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void , off : i64 , whence : :: std :: os :: raw :: c_int ,) , >"
+        },
+        {
+          "name": "read",
+          "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void , data : * mut :: std :: os :: raw :: c_char , n : usize ,) , >"
+        },
+        {
+          "name": "read_at_offset",
+          "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void , data : * mut :: std :: os :: raw :: c_char , n : usize , off : usize ,) , >"
+        },
+        {
+          "name": "write",
+          "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void , data : * const :: std :: os :: raw :: c_char , n : usize ,) , >"
+        },
+        {
+          "name": "label",
+          "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void) -> * const :: std :: os :: raw :: c_char , >"
+        },
+        {
+          "name": "free",
+          "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void) >"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_io_writer_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_map_string_to_array_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_map_string_to_array_iterator_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        },
+        {
+          "name": "map_ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_map_string_to_string_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_map_string_to_string_iterator_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        },
+        {
+          "name": "map_ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_optional_dtype_",
+      "fields": [
+        {
+          "name": "value",
+          "type": "mlx_dtype"
+        },
+        {
+          "name": "has_value",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_optional_float_",
+      "fields": [
+        {
+          "name": "value",
+          "type": "f32"
+        },
+        {
+          "name": "has_value",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_optional_int_",
+      "fields": [
+        {
+          "name": "value",
+          "type": ":: std :: os :: raw :: c_int"
+        },
+        {
+          "name": "has_value",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_stream_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_string_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_vector_array_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_vector_int_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_vector_string_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_vector_vector_array_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "mlx_compile_mode",
+      "repr": "mlx_compile_mode_",
+      "variants": [
+        {
+          "name": "MLX_COMPILE_MODE_DISABLED",
+          "value": "0"
+        },
+        {
+          "name": "MLX_COMPILE_MODE_NO_SIMPLIFY",
+          "value": "1"
+        },
+        {
+          "name": "MLX_COMPILE_MODE_NO_FUSE",
+          "value": "2"
+        },
+        {
+          "name": "MLX_COMPILE_MODE_ENABLED",
+          "value": "3"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "mlx_device_type",
+      "repr": "mlx_device_type_",
+      "variants": [
+        {
+          "name": "MLX_CPU",
+          "value": "0"
+        },
+        {
+          "name": "MLX_GPU",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "mlx_dtype",
+      "repr": "mlx_dtype_",
+      "variants": [
+        {
+          "name": "MLX_BOOL",
+          "value": "0"
+        },
+        {
+          "name": "MLX_UINT8",
+          "value": "1"
+        },
+        {
+          "name": "MLX_UINT16",
+          "value": "2"
+        },
+        {
+          "name": "MLX_UINT32",
+          "value": "3"
+        },
+        {
+          "name": "MLX_UINT64",
+          "value": "4"
+        },
+        {
+          "name": "MLX_INT8",
+          "value": "5"
+        },
+        {
+          "name": "MLX_INT16",
+          "value": "6"
+        },
+        {
+          "name": "MLX_INT32",
+          "value": "7"
+        },
+        {
+          "name": "MLX_INT64",
+          "value": "8"
+        },
+        {
+          "name": "MLX_FLOAT16",
+          "value": "9"
+        },
+        {
+          "name": "MLX_FLOAT32",
+          "value": "10"
+        },
+        {
+          "name": "MLX_FLOAT64",
+          "value": "11"
+        },
+        {
+          "name": "MLX_BFLOAT16",
+          "value": "12"
+        },
+        {
+          "name": "MLX_COMPLEX64",
+          "value": "13"
+        }
+      ]
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_array",
+      "new": "mlx_array_new",
+      "free": "mlx_array_free"
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_closure",
+      "new": "mlx_closure_new",
+      "free": "mlx_closure_free"
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_closure_custom",
+      "new": "mlx_closure_custom_new",
+      "free": "mlx_closure_custom_free"
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_closure_custom_jvp",
+      "new": "mlx_closure_custom_jvp_new",
+      "free": "mlx_closure_custom_jvp_free"
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_closure_custom_vmap",
+      "new": "mlx_closure_custom_vmap_new",
+      "free": "mlx_closure_custom_vmap_free"
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_closure_kwargs",
+      "new": "mlx_closure_kwargs_new",
+      "free": "mlx_closure_kwargs_free"
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_closure_value_and_grad",
+      "new": "mlx_closure_value_and_grad_new",
+      "free": "mlx_closure_value_and_grad_free"
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_device",
+      "new": "mlx_device_new",
+      "free": "mlx_device_free"
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_device_info",
+      "new": "mlx_device_info_new",
+      "free": "mlx_device_info_free"
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_distributed_group"
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_fast_cuda_kernel",
+      "new": "mlx_fast_cuda_kernel_new",
+      "free": "mlx_fast_cuda_kernel_free"
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_fast_cuda_kernel_config",
+      "new": "mlx_fast_cuda_kernel_config_new",
+      "free": "mlx_fast_cuda_kernel_config_free"
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_fast_metal_kernel",
+      "new": "mlx_fast_metal_kernel_new",
+      "free": "mlx_fast_metal_kernel_free"
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_fast_metal_kernel_config",
+      "new": "mlx_fast_metal_kernel_config_new",
+      "free": "mlx_fast_metal_kernel_config_free"
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_function_exporter",
+      "new": "mlx_function_exporter_new",
+      "free": "mlx_function_exporter_free"
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_imported_function",
+      "new": "mlx_imported_function_new",
+      "free": "mlx_imported_function_free"
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_io_reader",
+      "new": "mlx_io_reader_new",
+      "free": "mlx_io_reader_free"
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_io_writer",
+      "new": "mlx_io_writer_new",
+      "free": "mlx_io_writer_free"
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_map_string_to_array",
+      "new": "mlx_map_string_to_array_new",
+      "free": "mlx_map_string_to_array_free"
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_map_string_to_string",
+      "new": "mlx_map_string_to_string_new",
+      "free": "mlx_map_string_to_string_free"
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_stream",
+      "new": "mlx_stream_new",
+      "free": "mlx_stream_free"
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_string",
+      "new": "mlx_string_new",
+      "free": "mlx_string_free"
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_vector_array",
+      "new": "mlx_vector_array_new",
+      "free": "mlx_vector_array_free"
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_vector_int",
+      "new": "mlx_vector_int_new",
+      "free": "mlx_vector_int_free"
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_vector_string",
+      "new": "mlx_vector_string_new",
+      "free": "mlx_vector_string_free"
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_vector_vector_array",
+      "new": "mlx_vector_vector_array_new",
+      "free": "mlx_vector_vector_array_free"
+    }
+  ],
+  "overall_digest": "sha256:fea80712a4b1af8dc4ca40d2ca4d57a5b74c66121f10206ba87ad7e9992d139d"
+}
