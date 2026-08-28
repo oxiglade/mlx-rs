@@ -27,3 +27,4 @@ inspiration/
 .devenv*
 devenv.local.nix
 .direnv
+conformance/.venv/

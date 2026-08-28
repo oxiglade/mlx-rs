@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "mutations": [
+    {
+      "id": "dtype_changed_values_equal",
+      "base_case_id": "arithmetic.001",
+      "kind": "dtype_changed_values_equal",
+      "expected_class": "dtype"
+    },
+    {
+      "id": "shape_changed_same_count",
+      "base_case_id": "arithmetic.001",
+      "kind": "shape_changed_same_count",
+      "expected_class": "shape"
+    },
+    {
+      "id": "output_removed",
+      "base_case_id": "arithmetic.011",
+      "kind": "output_removed",
+      "expected_class": "output_count"
+    },
+    {
+      "id": "output_added",
+      "base_case_id": "arithmetic.001",
+      "kind": "output_added",
+      "expected_class": "output_count"
+    },
+    {
+      "id": "output_reordered",
+      "base_case_id": "arithmetic.011",
+      "kind": "output_reordered",
+      "expected_class": "output_order"
+    },
+    {
+      "id": "beyond_absolute",
+      "base_case_id": "arithmetic.001",
+      "kind": "beyond_absolute",
+      "expected_class": "value_absolute"
+    },
+    {
+      "id": "beyond_relative",
+      "base_case_id": "arithmetic.001",
+      "kind": "beyond_relative",
+      "expected_class": "value_relative"
+    },
+    {
+      "id": "nan_vs_finite",
+      "base_case_id": "arithmetic.019",
+      "kind": "nan_vs_finite",
+      "expected_class": "nan"
+    },
+    {
+      "id": "positive_inf_vs_negative_inf",
+      "base_case_id": "arithmetic.019",
+      "kind": "positive_inf_vs_negative_inf",
+      "expected_class": "infinity_sign"
+    },
+    {
+      "id": "swapped_subtraction",
+      "base_case_id": "arithmetic.004",
+      "kind": "swapped_subtraction",
+      "expected_class": "value"
+    },
+    {
+      "id": "wrong_axis",
+      "base_case_id": "reductions.003",
+      "kind": "wrong_axis",
+      "expected_class": "shape"
+    },
+    {
+      "id": "error_to_valid",
+      "base_case_id": "errors.001",
+      "kind": "error_to_valid",
+      "expected_class": "expected_error"
+    },
+    {
+      "id": "f16_decoder",
+      "base_case_id": "dtypes.010",
+      "kind": "f16_decoder",
+      "expected_class": "decoder_f16"
+    },
+    {
+      "id": "bf16_decoder",
+      "base_case_id": "dtypes.011",
+      "kind": "bf16_decoder",
+      "expected_class": "decoder_bf16"
+    },
+    {
+      "id": "empty_tensor",
+      "base_case_id": "arithmetic.021",
+      "kind": "empty_tensor",
+      "expected_class": "empty"
+    },
+    {
+      "id": "endianness",
+      "base_case_id": "dtypes.008",
+      "kind": "endianness",
+      "expected_class": "endianness"
+    }
+  ]
+}

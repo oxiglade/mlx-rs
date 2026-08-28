@@ -1,0 +1,925 @@
+{
+  "schema_version": 1,
+  "name": "arithmetic",
+  "fixture": "fixtures/arithmetic.safetensors",
+  "cases": [
+    {
+      "id": "arithmetic.001",
+      "semantic_op": "add",
+      "recipe": "add",
+      "rust_call": "ops.add.array_array",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "arithmetic.001.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "arithmetic.001.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "arithmetic.001.output.0",
+            "dtype": "F32",
+            "shape": [
+              5
+            ],
+            "policy": "elementwise_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arithmetic.002",
+      "semantic_op": "add",
+      "recipe": "add",
+      "rust_call": "array.add.array",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "arithmetic.002.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "arithmetic.002.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "arithmetic.002.output.0",
+            "dtype": "I32",
+            "shape": [],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arithmetic.003",
+      "semantic_op": "add",
+      "recipe": "add",
+      "rust_call": "operator.add.array",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "arithmetic.003.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "arithmetic.003.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "arithmetic.003.output.0",
+            "dtype": "I16",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arithmetic.004",
+      "semantic_op": "subtract",
+      "recipe": "subtract",
+      "rust_call": "ops.subtract.array_array",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "arithmetic.004.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "arithmetic.004.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "arithmetic.004.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "elementwise_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arithmetic.005",
+      "semantic_op": "multiply",
+      "recipe": "multiply",
+      "rust_call": "array.multiply.array",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "arithmetic.005.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "arithmetic.005.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "arithmetic.005.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "elementwise_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arithmetic.006",
+      "semantic_op": "divide",
+      "recipe": "divide",
+      "rust_call": "operator.divide.array",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "arithmetic.006.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "arithmetic.006.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "arithmetic.006.output.0",
+            "dtype": "F32",
+            "shape": [
+              4
+            ],
+            "policy": "elementwise_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arithmetic.007",
+      "semantic_op": "negative",
+      "recipe": "negative",
+      "rust_call": "operator.neg.array",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "arithmetic.007.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "arithmetic.007.output.0",
+            "dtype": "I64",
+            "shape": [
+              4
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arithmetic.008",
+      "semantic_op": "abs",
+      "recipe": "abs",
+      "rust_call": "array.abs",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "arithmetic.008.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "arithmetic.008.output.0",
+            "dtype": "F32",
+            "shape": [
+              5
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arithmetic.009",
+      "semantic_op": "exp",
+      "recipe": "exp",
+      "rust_call": "ops.exp.array",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "arithmetic.009.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "arithmetic.009.output.0",
+            "dtype": "F32",
+            "shape": [
+              4
+            ],
+            "policy": "elementwise_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arithmetic.010",
+      "semantic_op": "where",
+      "recipe": "where",
+      "rust_call": "ops.where.ternary",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "arithmetic.010.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "arithmetic.010.input.1"
+        },
+        {
+          "name": "input2",
+          "kind": "tensor",
+          "ref": "arithmetic.010.input.2"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "arithmetic.010.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              2
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arithmetic.011",
+      "semantic_op": "divmod",
+      "recipe": "divmod",
+      "rust_call": "ops.divmod.array_array",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "arithmetic.011.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "arithmetic.011.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "arithmetic.011.output.0",
+            "dtype": "I32",
+            "shape": [
+              5
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output1",
+            "ref": "arithmetic.011.output.1",
+            "dtype": "I32",
+            "shape": [
+              5
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arithmetic.012",
+      "semantic_op": "add_scalar",
+      "recipe": "add_scalar",
+      "rust_call": "operator.add.bool_rhs",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "arithmetic.012.input.0"
+        },
+        {
+          "name": "rhs",
+          "kind": "scalar",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "arithmetic.012.output.0",
+            "dtype": "BOOL",
+            "shape": [
+              4
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arithmetic.013",
+      "semantic_op": "add_scalar",
+      "recipe": "add_scalar",
+      "rust_call": "operator.add.i32_rhs",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "arithmetic.013.input.0"
+        },
+        {
+          "name": "rhs",
+          "kind": "scalar",
+          "type": "i32",
+          "value": -7
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "arithmetic.013.output.0",
+            "dtype": "I32",
+            "shape": [
+              4
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arithmetic.014",
+      "semantic_op": "add_scalar",
+      "recipe": "add_scalar",
+      "rust_call": "operator.add.f32_rhs",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "arithmetic.014.input.0"
+        },
+        {
+          "name": "rhs",
+          "kind": "scalar",
+          "type": "f32",
+          "bits": "0x3f400000"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "arithmetic.014.output.0",
+            "dtype": "F32",
+            "shape": [
+              4
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arithmetic.015",
+      "semantic_op": "add_scalar",
+      "recipe": "add_scalar",
+      "rust_call": "operator.add.complex64_rhs",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "arithmetic.015.input.0.real",
+          "encoding": "complex64_split",
+          "imag_ref": "arithmetic.015.input.0.imag"
+        },
+        {
+          "name": "rhs",
+          "kind": "scalar",
+          "type": "complex64",
+          "real_bits": "0x3f000000",
+          "imag_bits": "0xbf800000"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "arithmetic.015.output.0.real",
+            "dtype": "C64",
+            "shape": [
+              3
+            ],
+            "policy": "elementwise_float",
+            "encoding": "complex64_split",
+            "imag_ref": "arithmetic.015.output.0.imag"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arithmetic.016",
+      "semantic_op": "add",
+      "recipe": "add",
+      "rust_call": "ops.add.explicit_cpu",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "arithmetic.016.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "arithmetic.016.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "arithmetic.016.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "elementwise_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arithmetic.017",
+      "semantic_op": "maximum",
+      "recipe": "maximum",
+      "rust_call": "ops.maximum.array_array",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "arithmetic.017.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "arithmetic.017.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "arithmetic.017.output.0",
+            "dtype": "F32",
+            "shape": [
+              5
+            ],
+            "policy": "elementwise_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arithmetic.018",
+      "semantic_op": "power",
+      "recipe": "power",
+      "rust_call": "ops.power.array_array",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "arithmetic.018.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "arithmetic.018.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "arithmetic.018.output.0",
+            "dtype": "F32",
+            "shape": [
+              4
+            ],
+            "policy": "elementwise_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arithmetic.019",
+      "semantic_op": "add",
+      "recipe": "add",
+      "rust_call": "ops.add.array_array",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "arithmetic.019.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "arithmetic.019.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "arithmetic.019.output.0",
+            "dtype": "F32",
+            "shape": [
+              5
+            ],
+            "policy": "elementwise_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arithmetic.020",
+      "semantic_op": "negative",
+      "recipe": "negative",
+      "rust_call": "operator.neg.array",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "arithmetic.020.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "arithmetic.020.output.0",
+            "dtype": "F32",
+            "shape": [
+              2
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arithmetic.021",
+      "semantic_op": "add",
+      "recipe": "add",
+      "rust_call": "ops.add.array_array",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "arithmetic.021.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "arithmetic.021.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "arithmetic.021.output.0",
+            "dtype": "F32",
+            "shape": [
+              0
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arithmetic.022",
+      "semantic_op": "add",
+      "recipe": "add",
+      "rust_call": "array.add.array",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "arithmetic.022.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "arithmetic.022.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "arithmetic.022.output.0",
+            "dtype": "U64",
+            "shape": [],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arithmetic.023",
+      "semantic_op": "subtract",
+      "recipe": "subtract",
+      "rust_call": "ops.subtract.array_array",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "arithmetic.023.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "arithmetic.023.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "arithmetic.023.output.0",
+            "dtype": "I32",
+            "shape": [
+              3,
+              5
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arithmetic.024",
+      "semantic_op": "multiply",
+      "recipe": "multiply",
+      "rust_call": "array.multiply.array",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "arithmetic.024.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "arithmetic.024.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "arithmetic.024.output.0",
+            "dtype": "F64",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "elementwise_float"
+          }
+        ]
+      }
+    }
+  ]
+}

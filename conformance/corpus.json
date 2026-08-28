@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "corpus_seed": "mlx-rs-committed-cpu-ops-v1",
+  "rng": {
+    "algorithm": "numpy.PCG64",
+    "case_seed_hash": "sha256(corpus_seed || NUL || case_id)",
+    "seed_bytes": 16,
+    "byte_order": "little"
+  },
+  "canonical_device": "cpu",
+  "generator_digest": "sha256:b8ef29783fcb69eb2fded923a7ff9fef9a9f410d95c24fe78597494463712aab",
+  "environment": {
+    "python": "3.12.14",
+    "architecture": "arm64",
+    "mlx_package": "0.30.6",
+    "mlx_metal_package": "0.30.6",
+    "mlx_runtime": "0.30.6",
+    "numpy": "2.2.6"
+  },
+  "tolerance_policies": {
+    "exact_bits": {
+      "kind": "float",
+      "atol": 0.0,
+      "rtol": 0.0,
+      "nan_equal": true,
+      "infinity_sign": true,
+      "signed_zero": true,
+      "complex": "componentwise"
+    },
+    "exact_numeric": {
+      "kind": "exact_numeric"
+    },
+    "elementwise_float": {
+      "kind": "float",
+      "atol": 1e-06,
+      "rtol": 1e-05,
+      "nan_equal": true,
+      "infinity_sign": true,
+      "signed_zero": false,
+      "complex": "componentwise"
+    },
+    "low_precision_float": {
+      "kind": "float",
+      "atol": 0.008,
+      "rtol": 0.008,
+      "nan_equal": true,
+      "infinity_sign": true,
+      "signed_zero": false,
+      "complex": "componentwise"
+    },
+    "reduction_float": {
+      "kind": "float",
+      "atol": 2e-05,
+      "rtol": 2e-05,
+      "nan_equal": true,
+      "infinity_sign": true,
+      "signed_zero": false,
+      "complex": "componentwise"
+    }
+  },
+  "suites": [
+    "suites/arithmetic.json",
+    "suites/dtypes.json",
+    "suites/errors.json",
+    "suites/execution.json",
+    "suites/reductions.json",
+    "suites/shapes.json"
+  ]
+}
