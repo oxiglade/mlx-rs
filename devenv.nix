@@ -80,15 +80,17 @@ SHIM
     # reports success and the build then dies inside cmake with a grep error
     # that names no cause.
     if ! echo "__METAL_VERSION__" | xcrun -sdk macosx metal -E -x metal -P - >/dev/null 2>&1; then
-      echo "warning: the Metal compiler is unavailable, so MLX will not build."
-      echo "  Xcode 16+ ships it as a separately downloaded component:"
-      echo "    xcodebuild -downloadComponent MetalToolchain"
+      echo "warning: the Metal compiler is unavailable, so MLX will not build." >&2
+      echo "  Xcode 16+ ships it as a separately downloaded component:" >&2
+      echo "    xcodebuild -downloadComponent MetalToolchain" >&2
     fi
 
-    echo "mlx-rs — Rust bindings for MLX"
-    echo "  validate        fmt + clippy + full test suite (matches CI)"
-    echo "  validate-fast   the same without doctests"
-    echo "  cargo build --workspace       builds mlx-c + MLX (slow the first time)"
-    echo "  cargo run -p xtask [tag]      diff mlx-c bindings against a newer tag"
+    # To stderr, not stdout: `xtask verify-ffi` writes JSON to stdout and a
+    # banner in front of it makes the output unparseable.
+    echo "mlx-rs — Rust bindings for MLX" >&2
+    echo "  validate        fmt + clippy + full test suite (matches CI)" >&2
+    echo "  validate-fast   the same without doctests" >&2
+    echo "  cargo build --workspace       builds mlx-c + MLX (slow the first time)" >&2
+    echo "  cargo run -p xtask [tag]      diff mlx-c bindings against a newer tag" >&2
   '';
 }
