@@ -22,3 +22,8 @@ cache/
 
 # Inspiration
 inspiration/
+
+# devenv / direnv
+.devenv*
+devenv.local.nix
+.direnv
