@@ -23,6 +23,14 @@ jobs:
       - run: cargo --version
       - run: cargo fmt -- --check
       - run: cargo clippy -- -D warnings
+      # Oracle trust boundary: implementation changes may not alter goldens,
+      # policies, or comparator logic in the same change set (ROADMAP.md,
+      # "Anti-self-oracle rules"). Working-tree integrity always; range check
+      # on PRs.
+      - run: cargo run -p xtask -- verify-oracle-boundary
+        if: github.event_name != 'pull_request'
+      - run: cargo run -p xtask -- verify-oracle-boundary --base ${{ github.event.pull_request.base.sha }}
+        if: github.event_name == 'pull_request'
 
   tests:
     runs-on: blaze/${{ matrix.runner }}
