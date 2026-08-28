@@ -86,9 +86,28 @@ These exist to stop generated tests from asserting whatever the implementation c
 - `test_scoped_default_stream_restored_after_panic` exercises the generic `with_scoped_value`
   helper on an `i32` rather than `with_new_default_stream` itself. A refactor that stopped using
   the guard would not be caught.
-- `Array` is `Send` while CI serializes tests because "MLX is not thread safe". That is not a
-  coherent public contract. Upstream now distinguishes ordinary, thread-local and
-  user-synchronised streams, so the question is answerable — decide and document it.
+- **The threading contract is undocumented, and `--test-threads=1` is load-bearing.** Running
+  `mlx-rs`'s lib tests with default parallelism aborts with SIGABRT:
+
+      -[AGXG13GFamilyCommandBuffer tryCoalescingPreviousComputeCommandEncoderWithConfig:...]:1090:
+      failed assertion `A command encoder is already encoding to this command buffer'
+
+  That is the Metal driver catching two threads encoding to one command buffer, because MLX
+  v0.30.6 has no per-thread stream concept at all — it exposes only `default_stream`,
+  `set_default_stream` and `new_stream`. Upstream main added the entire model afterwards
+  (`new_thread_unsafe_stream`, `new_thread_local_stream`, `clear_streams`, and a `default_stream`
+  documented as per-thread), so this is not fixable at our pin.
+
+  Note the abort comes from concurrent *operations* on a shared stream, not from moving an `Array`
+  across threads. So `unsafe impl Send for Array` (`array/mod.rs:74`) is defensible under the
+  contract *arrays may move between threads; MLX operations must be externally serialised* — but
+  that contract is written nowhere, the `unsafe impl` carries no safety comment, and
+  `--test-threads=1` sits in CI as folklore. Document it; the bump later relaxes it.
+
+  A second, independent race exists by inspection and is *not* what aborts here: `mlx-rs`
+  registers the error handler from a thread-local `Once` (`error.rs:229`) into mlx-c's file-static
+  globals (`mlx-c/mlx/c/error.cpp:17`), so each thread races on an unsynchronised `shared_ptr`
+  assignment.
 - `mlx-sys` is versioned `0.2.0` while its own manifest says it follows mlx-c, which is pinned at
   `v0.5.0`. Either enforce that policy or replace it with an explicit version-tuple policy.
 
@@ -97,6 +116,12 @@ These exist to stop generated tests from asserting whatever the implementation c
 Pinned at mlx-c `v0.5.0` (MLX `v0.30.6`); upstream main builds MLX `v0.32.2` and adds 86 exported
 symbols — gguf I/O, graph export, a compile cache, `slice_update_*`, `searchsorted`, `unstack`,
 `vecdot`, `diff`, `flip`, `median`, window functions, `fftfreq`, `linalg_det`/`slogdet`.
+
+Do not bump before the conformance runner exists. The corpus's purpose is to separate "MLX
+legitimately changed this result" from "we broke it", and that needs a *before* picture; bumping
+first makes every later difference unattributable. The concurrency win is not a reason to reorder:
+196s of the ~220s suite is doctests, which run in a separate rustdoc process, so serialisation
+costs about 25s.
 
 Gate on zero *unclassified* changes rather than a raw symbol-count ratio: a ratio target rewards
 adding shallow wrappers. Each new API lands vertically — parity mapping, independently sourced
