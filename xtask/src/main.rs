@@ -3,6 +3,8 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+mod verify_ffi;
+
 fn get_repo_root() -> PathBuf {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     PathBuf::from(manifest_dir).parent().unwrap().to_path_buf()
@@ -449,6 +451,9 @@ fn print_diff(old: &str, new: &str, current_tag: &str, target_tag: &str, root_di
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    if args.get(1).is_some_and(|arg| arg == "verify-ffi") {
+        std::process::exit(verify_ffi::run(&get_repo_root(), &args[2..]));
+    }
     let target_tag = args.get(1).cloned();
 
     let root_dir = get_repo_root();
