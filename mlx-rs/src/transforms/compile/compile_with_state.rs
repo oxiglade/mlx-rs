@@ -445,6 +445,20 @@ where
     Ok(function_results.to_vec())
 }
 
+fn state_snapshot(state: &impl Updatable) -> Vec<Array> {
+    state
+        .updatable_states()
+        .into_iter()
+        .map(Clone::clone)
+        .collect()
+}
+
+fn restore_state(state: &mut impl Updatable, snapshot: &[Array]) {
+    for (array, saved) in state.updatable_states_mut().into_iter().zip(snapshot) {
+        update_by_replace_with_ref_to_new_array(array, saved);
+    }
+}
+
 impl<F> CompiledState<F> {
     fn retry_call_mut_with_state<U>(
         &mut self,
@@ -497,6 +511,7 @@ impl<F> CompiledState<F> {
         U: Updatable,
     {
         let args_len = args.len();
+        let saved_state = state_snapshot(state);
         let state = Rc::new(RefCell::new(state));
         let f = &mut self.f;
 
@@ -561,14 +576,18 @@ impl<F> CompiledState<F> {
         };
 
         let inner_closure = Closure::new(inner);
-        call_mut_with_state_inner(
+        let result = call_mut_with_state_inner(
             inner_closure,
             self.id,
             self.shapeless,
-            state,
+            Rc::clone(&state),
             args,
             num_function_outputs,
-        )
+        );
+        if result.is_err() {
+            restore_state(*state.borrow_mut(), &saved_state);
+        }
+        result
     }
 
     fn fallible_call_mut_with_state<U>(
@@ -581,6 +600,7 @@ impl<F> CompiledState<F> {
         U: Updatable,
     {
         let args_len = args.len();
+        let saved_state = state_snapshot(state);
         let state = Rc::new(RefCell::new(state));
         let f = &mut self.f;
 
@@ -645,13 +665,17 @@ impl<F> CompiledState<F> {
         };
 
         let inner_closure = Closure::new_fallible(inner);
-        call_mut_with_state_inner(
+        let result = call_mut_with_state_inner(
             inner_closure,
             self.id,
             self.shapeless,
-            state,
+            Rc::clone(&state),
             args,
             num_function_outputs,
-        )
+        );
+        if result.is_err() {
+            restore_state(*state.borrow_mut(), &saved_state);
+        }
+        result
     }
 }

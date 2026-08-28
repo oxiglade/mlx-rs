@@ -384,7 +384,9 @@ impl Array {
         }
     }
 
-    /// Returns a slice of the array data returning an error if the dtype does not match the actual dtype.
+    /// Returns a slice of contiguous row-major array data.
+    ///
+    /// Returns an error if the dtype does not match or the array is a non-contiguous view.
     ///
     /// # Example
     ///
@@ -407,6 +409,13 @@ impl Array {
 
         self.eval()?;
 
+        let row_contiguous = bool::try_from_op(|res| unsafe {
+            mlx_sys::_mlx_array_is_row_contiguous(res, self.as_ptr())
+        })?;
+        if !row_contiguous {
+            return Err(AsSliceError::NotContiguous);
+        }
+
         unsafe {
             let size = self.size();
             let data = T::array_data(self);
@@ -418,12 +427,12 @@ impl Array {
         }
     }
 
-    /// Returns a slice of the array data.
-    /// This method requires a mutable reference (`&self`) because it evaluates the array.
+    /// Returns a slice of contiguous row-major array data.
     ///
     /// # Panics
     ///
-    /// Panics if the array is not evaluated or if the desired dtype does not match the actual dtype
+    /// Panics if evaluation fails, the desired dtype does not match the actual dtype, or the array
+    /// is not contiguous row-major. Materialize non-contiguous views with an MLX operation first.
     ///
     /// # Example
     ///
@@ -918,6 +927,17 @@ impl<T: FromSliceElement + Copy, const N: usize, const M: usize, const O: usize>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{array, ops::broadcast_to};
+
+    #[test]
+    fn broadcast_view_cannot_be_borrowed_as_slice() {
+        let broadcast = broadcast_to(&array!([1, 2]), &[3, 2]).unwrap();
+
+        assert_eq!(
+            broadcast.try_as_slice::<i32>(),
+            Err(AsSliceError::NotContiguous)
+        );
+    }
 
     #[test]
     fn new_scalar_array_from_bool() {

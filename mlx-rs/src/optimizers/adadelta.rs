@@ -13,7 +13,9 @@ use crate::error::AdaDeltaBuildError;
 use super::*;
 
 generate_builder! {
-    /// The AdaDelta optimizer with a learning rate
+    /// The AdaDelta optimizer with a learning rate.
+    ///
+    /// The default `rho` is `0.9`, matching Python MLX. Earlier mlx-rs releases used `0.99`.
     ///
     /// Please refer to the original paper for more details:
     ///
@@ -30,8 +32,8 @@ generate_builder! {
         #[builder(ty_override = f32)]
         pub lr: Array,
 
-        /// The coefficient used for computing a running average of squared gradients. Default to
-        /// [`AdaDelta::DEFAULT_RHO`].
+        /// The coefficient used for computing a running average of squared gradients. Defaults to
+        /// [`AdaDelta::DEFAULT_RHO`] (`0.9`, matching Python MLX).
         #[builder(optional, ty_override = f32, default = AdaDelta::DEFAULT_RHO)]
         pub rho: Array,
 
@@ -68,8 +70,8 @@ fn build_adadelta(builder: AdaDeltaBuilder) -> Result<AdaDelta, AdaDeltaBuildErr
 }
 
 impl AdaDelta {
-    /// Default value for `rho`
-    pub const DEFAULT_RHO: f32 = 0.99;
+    /// Default value for `rho`, matching Python MLX.
+    pub const DEFAULT_RHO: f32 = 0.9;
 
     /// Default value for `eps`
     pub const DEFAULT_EPS: f32 = 1e-6;
@@ -142,3 +144,15 @@ impl Updatable for AdaDelta {
 }
 
 impl_updatable_for_mut_optimizer!(AdaDelta);
+
+#[cfg(test)]
+mod tests {
+    use super::AdaDelta;
+
+    #[test]
+    fn default_rho_matches_python_mlx() {
+        let optimizer = AdaDelta::new(0.1_f32).unwrap();
+
+        assert_eq!(optimizer.rho.item::<f32>(), 0.9);
+    }
+}

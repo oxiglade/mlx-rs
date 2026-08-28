@@ -240,8 +240,6 @@ fn test_compile_module_with_error() {
 }
 
 #[test]
-#[ignore = "confirmed defect: a failed compiled call leaves model/optimizer state holding \
-tracer arrays without primitives (state corruption on error); un-ignore when fixed"]
 fn test_compile_module_and_optimizer_with_error() {
     let initial_state = (
         LinearFunctionModel {
@@ -299,5 +297,20 @@ fn test_compile_module_and_optimizer_with_error() {
         &compiled_before_error,
         tolerances::EXACT.rtol,
         tolerances::EXACT.atol,
+    );
+
+    let expected = step(&mut eager_state, &x_ok).unwrap();
+    let got = compiled(&mut compiled_state, &x_ok).unwrap();
+    assert_arrays_eq(
+        &got,
+        &expected,
+        tolerances::STANDARD.rtol,
+        tolerances::STANDARD.atol,
+    );
+    assert_optimizer_states_eq(
+        &compiled_state,
+        &eager_state,
+        tolerances::STANDARD.rtol,
+        tolerances::STANDARD.atol,
     );
 }

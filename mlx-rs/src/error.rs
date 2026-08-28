@@ -77,6 +77,12 @@ impl From<RawException> for IoError {
 /// Error associated with `Array::try_as_slice()`
 #[derive(Debug, PartialEq, Error)]
 pub enum AsSliceError {
+    /// The array data is not contiguous in row-major order.
+    #[error(
+        "array data is not contiguous row-major; materialize a row-major copy with an MLX operation before borrowing it as a slice"
+    )]
+    NotContiguous,
+
     /// The underlying data pointer is null.
     ///
     /// This is likely because the array has not been evaluated yet.
@@ -129,10 +135,13 @@ impl From<Infallible> for OptimizerStateLoadError {
 }
 
 cfg_safetensors! {
-    /// Error associated with conversion between `safetensors::tensor::TensorView` and `Array`
-    /// when the data type is not supported.
+    /// Error associated with conversion between `safetensors::tensor::TensorView` and `Array`.
     #[derive(Debug, Error)]
     pub enum ConversionError {
+        /// The array cannot be borrowed as a contiguous slice.
+        #[error(transparent)]
+        ArraySlice(#[from] AsSliceError),
+
         /// The safetensors data type that is not supported.
         ///
         /// This is the error type for conversions from `safetensors::tensor::TensorView` to `Array`.
