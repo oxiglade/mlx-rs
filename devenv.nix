@@ -15,6 +15,10 @@
     # xtask regenerates mlx-sys bindings with bindgen, which needs libclang.
     libclang.lib
     git
+    # Oracle side of the conformance corpus: generate.py runs under a venv
+    # pinned by conformance/requirements.lock (mlx==0.30.6 — the same MLX the
+    # bindings link — plus numpy).
+    python312
   ];
 
   env = {
