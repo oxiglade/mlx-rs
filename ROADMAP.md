@@ -110,6 +110,11 @@ These exist to stop generated tests from asserting whatever the implementation c
   detector regardless of toolchain, and only the UAF lane is upgradeable. Full value needs MLX
   itself rebuilt with `-fsanitize=address` through the cmake crate, which is the real work.
   It is a backend swap behind the existing gate architecture, so nothing already built is wasted.
+- **`parse_root_leak` also matches `STACK OF … 'ROOT LEAK: …'` header lines**, which carry no
+  `[bytes]` suffix. In `named_sites` this inflates the real site's count by one and leaves a
+  phantom entry for the baseline site with `bytes: 0`. The verdict is unaffected —
+  `regression_count`/`regression_bytes` come from the summary line — but the diagnostics misreport.
+  Skip stack-header lines in the parser.
 - **The gate runs each binary twice** (once for test status, once under `leaks`; three times with
   `--guard-malloc`). `leaks` already passes the child's stdout through, so the test result line
   could be parsed from the run already being done.
