@@ -236,7 +236,9 @@ impl<'a> Closure<'a> {
 impl Drop for Closure<'_> {
     fn drop(&mut self) {
         let status = unsafe { mlx_sys::mlx_closure_free(self.c_closure) };
-        crate::error::resume_closure_panic();
+        if !std::thread::panicking() {
+            crate::error::resume_closure_panic();
+        }
         debug_assert_eq!(status, SUCCESS);
     }
 }
@@ -627,6 +629,7 @@ mod tests {
     use std::process::Command;
 
     const PANIC_CHILD: &str = "MLX_RS_TRAMPOLINE_PANIC_CHILD";
+    const DROP_DURING_UNWIND_CHILD: &str = "MLX_RS_DROP_DURING_UNWIND_CHILD";
 
     #[test]
     fn closure_trampoline_panics_resume_in_rust() {
@@ -653,6 +656,44 @@ mod tests {
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr)
         );
+    }
+
+    #[test]
+    fn closure_drop_during_unwind_preserves_pending_panic() {
+        if std::env::var_os(DROP_DURING_UNWIND_CHILD).is_some() {
+            run_drop_during_unwind_child();
+            return;
+        }
+
+        let output = Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "utils::tests::closure_drop_during_unwind_preserves_pending_panic",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env(DROP_DURING_UNWIND_CHILD, "1")
+            .output()
+            .unwrap();
+
+        assert!(
+            output.status.success(),
+            "child status: {:?}\nstdout:\n{}\nstderr:\n{}",
+            output.status,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    fn run_drop_during_unwind_child() {
+        let payload = catch_unwind(AssertUnwindSafe(|| {
+            let _closure = Closure::new(|_| Vec::new());
+            set_closure_panic(Box::new("pending closure panic"));
+            panic!("unrelated unwind");
+        }))
+        .expect_err("the unrelated panic should remain catchable");
+        assert_eq!(panic_message(payload).as_deref(), Some("unrelated unwind"));
+        assert_captured_panic("pending closure panic");
     }
 
     fn run_trampoline_panic_child() {

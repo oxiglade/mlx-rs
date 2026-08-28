@@ -1,11 +1,13 @@
 use mlx_rs::{
     transforms::{fallible_jvp, jvp},
-    Array, Dtype,
+    Array, Device, Dtype,
 };
 use std::any::Any;
 use std::collections::HashMap;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::process::Command;
+use std::sync::{Arc, Barrier, Mutex};
+use std::thread;
 
 const PANIC_CHILD: &str = "MLX_RS_FFI_PANIC_CHILD";
 
@@ -97,4 +99,38 @@ fn panic_message(payload: Box<dyn Any + Send>) -> Option<String> {
 fn float64_is_float_and_inexact() {
     assert!(Dtype::Float64.is_float());
     assert!(Dtype::Float64.is_inexact());
+}
+
+#[test]
+#[ignore = "MLX v0.30.6 has no thread-local streams; concurrent GPU operations abort"]
+fn concurrent_gpu_operations_abort_without_thread_local_streams() {
+    const WORKERS: usize = 8;
+    const OPERATIONS: usize = 100;
+
+    Device::set_default(&Device::gpu());
+    let barrier = Arc::new(Barrier::new(WORKERS));
+    // Serial setup isolates the shared-stream abort from mlx-c's global error-handler race.
+    let initialization = Arc::new(Mutex::new(()));
+    let handles = (0..WORKERS)
+        .map(|_| {
+            let barrier = Arc::clone(&barrier);
+            let initialization = Arc::clone(&initialization);
+            thread::spawn(move || {
+                let input = {
+                    let _guard = initialization.lock().unwrap();
+                    let input = Array::from_slice(&[1.0_f32; 4096], &[64, 64]);
+                    (&input + 1.0).eval().unwrap();
+                    input
+                };
+                for _ in 0..OPERATIONS {
+                    barrier.wait();
+                    (&input + 1.0).eval().unwrap();
+                }
+            })
+        })
+        .collect::<Vec<_>>();
+
+    for handle in handles {
+        handle.join().unwrap();
+    }
 }

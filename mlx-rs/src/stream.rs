@@ -283,20 +283,18 @@ mod tests {
 
     #[test]
     fn test_scoped_default_stream_restored_after_panic() {
-        thread_local! {
-            static VALUE: RefCell<Option<i32>> = const { RefCell::new(None) };
-        }
-
-        with_scoped_value(&VALUE, 1, || {
+        let cpu = Device::cpu();
+        let outer_stream = Stream::new_with_device(&cpu);
+        with_new_default_stream(outer_stream.clone(), || {
             let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                with_scoped_value(&VALUE, 2, || panic!("stream panic"));
+                with_new_default_stream(Stream::new_with_device(&cpu), || panic!("stream panic"));
             }));
 
             assert!(panic.is_err());
-            assert_eq!(VALUE.with_borrow(|value| *value), Some(1));
+            assert_eq!(task_local_default_stream(), Some(outer_stream.clone()));
         });
 
-        assert!(VALUE.with_borrow(Option::is_none));
+        assert!(task_local_default_stream().is_none());
     }
 
     #[test]

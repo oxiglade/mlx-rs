@@ -9,6 +9,16 @@
 //! - [Indexing Arrays](#indexing-arrays)
 //! - [Saving and Loading](#saving-and-loading)
 //!
+//! # Threading
+//!
+//! [`Array`] values may move between threads, but MLX operations must be externally serialized.
+//! The pinned MLX v0.30.6 runtime shares streams across threads, so concurrent operations can
+//! abort inside Metal even when each thread owns its arrays. This is why the test suite runs with
+//! `--test-threads=1`.
+//!
+//! A future mlx-c update can relax this contract after exposing upstream's thread-local stream
+//! APIs (`new_thread_local_stream` and `clear_streams`).
+//!
 //! # Quick Start
 //!
 //! See also [MLX python
