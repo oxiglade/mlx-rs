@@ -148,46 +148,8 @@ pub(crate) fn run(root_dir: &Path, args: &[String]) -> i32 {
 }
 
 fn verify(root_dir: &Path, options: Options) -> VerifyFfiReport {
-    eprintln!("discovering workspace test executables");
-    let discovery = Command::new("cargo")
-        .args(["test", "--workspace", "--no-run", "--message-format=json"])
-        .current_dir(root_dir)
-        .output();
-    let discovery = match discovery {
-        Ok(output) => output,
-        Err(error) => {
-            return failed_report(
-                options.guard_malloc,
-                format!("failed to run cargo test discovery: {error}"),
-            );
-        }
-    };
-    if !discovery.stderr.is_empty() {
-        eprint!("{}", String::from_utf8_lossy(&discovery.stderr));
-    }
-    if !discovery.status.success() {
-        return failed_report(
-            options.guard_malloc,
-            format!("cargo test discovery exited with {}", discovery.status),
-        );
-    }
-    let messages = match String::from_utf8(discovery.stdout) {
-        Ok(messages) => messages,
-        Err(error) => {
-            return failed_report(
-                options.guard_malloc,
-                format!("cargo test discovery emitted non-UTF-8 JSON: {error}"),
-            );
-        }
-    };
-    let binaries = match parse_test_binaries(&messages) {
-        Ok(binaries) if !binaries.is_empty() => binaries,
-        Ok(_) => {
-            return failed_report(
-                options.guard_malloc,
-                "cargo test discovery found no test executables".to_owned(),
-            );
-        }
+    let binaries = match discover_test_binaries(root_dir) {
+        Ok(binaries) => binaries,
         Err(error) => return failed_report(options.guard_malloc, error),
     };
 
@@ -195,109 +157,13 @@ fn verify(root_dir: &Path, options: Options) -> VerifyFfiReport {
     let mut covered_leaks = Vec::new();
     let mut covered_guard_malloc = Vec::new();
     for binary in binaries {
-        let path = binary.path.display().to_string();
-        eprintln!("running tests for {} ({path})", binary.target);
-        let test_output = Command::new(&binary.path).arg("--test-threads=1").output();
-        let test = match test_output {
-            Ok(output) => {
-                let text = combined_output(&output.stdout, &output.stderr);
-                let status = classify_test_status(&text, &output.status);
-                if status != TestStatus::Passed {
-                    eprintln!("tests failed for {path}:\n{text}");
-                }
-                status
-            }
-            Err(error) => {
-                eprintln!("failed to run tests for {path}: {error}");
-                TestStatus::Abnormal
-            }
-        };
-
-        let leaks = if binary.leaks_applicable() {
-            eprintln!("running leaks for {} ({path})", binary.target);
-            let leak_output = Command::new("leaks")
-                .args(["--atExit", "--"])
-                .arg(&binary.path)
-                .arg("--test-threads=1")
-                .output();
-            match leak_output {
-                Ok(output) => {
-                    covered_leaks.push(path.clone());
-                    let text = combined_output(&output.stdout, &output.stderr);
-                    let tool_status = Some(process_exit(&output.status));
-                    match parse_leaks_report(&text) {
-                        Ok(result) => {
-                            let status =
-                                if result.regression_count == 0 && result.regression_bytes == 0 {
-                                    LeakStatus::Pass
-                                } else {
-                                    LeakStatus::Fail
-                                };
-                            LeakCheck {
-                                status,
-                                result: Some(result),
-                                tool_status,
-                                error: None,
-                            }
-                        }
-                        Err(error) => {
-                            eprintln!("leaks report for {path} could not be parsed: {error}");
-                            LeakCheck {
-                                status: LeakStatus::Error,
-                                result: None,
-                                tool_status,
-                                error: Some(error),
-                            }
-                        }
-                    }
-                }
-                Err(error) => LeakCheck {
-                    status: LeakStatus::Error,
-                    result: None,
-                    tool_status: None,
-                    error: Some(format!("failed to run leaks: {error}")),
-                },
-            }
-        } else {
-            LeakCheck {
-                status: LeakStatus::NotApplicable,
-                result: None,
-                tool_status: None,
-                error: None,
-            }
-        };
-
+        let test = run_tests(&binary);
+        let (leaks, covered_path) = run_leaks(&binary);
+        covered_leaks.extend(covered_path);
         let guard_malloc = options.guard_malloc.then(|| {
-            eprintln!("running guard malloc for {} ({path})", binary.target);
-            match Command::new(&binary.path)
-                .arg("--test-threads=1")
-                .env("DYLD_INSERT_LIBRARIES", "/usr/lib/libgmalloc.dylib")
-                .output()
-            {
-                Ok(output) => {
-                    covered_guard_malloc.push(path.clone());
-                    if !output.status.success() {
-                        eprintln!(
-                            "guard malloc failed for {path}:\n{}",
-                            combined_output(&output.stdout, &output.stderr)
-                        );
-                    }
-                    GuardMallocCheck {
-                        status: if output.status.success() {
-                            Verdict::Pass
-                        } else {
-                            Verdict::Fail
-                        },
-                        process_status: Some(process_exit(&output.status)),
-                        error: None,
-                    }
-                }
-                Err(error) => GuardMallocCheck {
-                    status: Verdict::Error,
-                    process_status: None,
-                    error: Some(format!("failed to run guard malloc pass: {error}")),
-                },
-            }
+            let (check, covered_path) = run_guard_malloc(&binary);
+            covered_guard_malloc.extend(covered_path);
+            check
         });
 
         reports.push(BinaryReport {
@@ -323,6 +189,158 @@ fn verify(root_dir: &Path, options: Options) -> VerifyFfiReport {
         },
         verdict: if passed { Verdict::Pass } else { Verdict::Fail },
     }
+}
+
+fn discover_test_binaries(root_dir: &Path) -> Result<Vec<TestBinary>, String> {
+    eprintln!("discovering workspace test executables");
+    let discovery = Command::new("cargo")
+        .args(["test", "--workspace", "--no-run", "--message-format=json"])
+        .current_dir(root_dir)
+        .output()
+        .map_err(|error| format!("failed to run cargo test discovery: {error}"))?;
+    if !discovery.stderr.is_empty() {
+        eprint!("{}", String::from_utf8_lossy(&discovery.stderr));
+    }
+    if !discovery.status.success() {
+        return Err(format!(
+            "cargo test discovery exited with {}",
+            discovery.status
+        ));
+    }
+    let messages = String::from_utf8(discovery.stdout)
+        .map_err(|error| format!("cargo test discovery emitted non-UTF-8 JSON: {error}"))?;
+    let binaries = parse_test_binaries(&messages)?;
+    if binaries.is_empty() {
+        return Err("cargo test discovery found no test executables".to_owned());
+    }
+    Ok(binaries)
+}
+
+fn run_tests(binary: &TestBinary) -> TestStatus {
+    let path = binary.path.display();
+    eprintln!("running tests for {} ({path})", binary.target);
+    let output = match Command::new(&binary.path).arg("--test-threads=1").output() {
+        Ok(output) => output,
+        Err(error) => {
+            eprintln!("failed to run tests for {path}: {error}");
+            return TestStatus::Abnormal;
+        }
+    };
+    let text = combined_output(&output.stdout, &output.stderr);
+    let status = classify_test_status(&text, &output.status);
+    if status != TestStatus::Passed {
+        eprintln!("tests failed for {path}:\n{text}");
+    }
+    status
+}
+
+fn run_leaks(binary: &TestBinary) -> (LeakCheck, Option<String>) {
+    if !binary.leaks_applicable() {
+        return (
+            LeakCheck {
+                status: LeakStatus::NotApplicable,
+                result: None,
+                tool_status: None,
+                error: None,
+            },
+            None,
+        );
+    }
+
+    let path = binary.path.display().to_string();
+    eprintln!("running leaks for {} ({path})", binary.target);
+    let output = match Command::new("leaks")
+        .args(["--atExit", "--"])
+        .arg(&binary.path)
+        .arg("--test-threads=1")
+        .output()
+    {
+        Ok(output) => output,
+        Err(error) => {
+            return (
+                LeakCheck {
+                    status: LeakStatus::Error,
+                    result: None,
+                    tool_status: None,
+                    error: Some(format!("failed to run leaks: {error}")),
+                },
+                None,
+            );
+        }
+    };
+
+    let text = combined_output(&output.stdout, &output.stderr);
+    let tool_status = Some(process_exit(&output.status));
+    let result = match parse_leaks_report(&text) {
+        Ok(result) => result,
+        Err(error) => {
+            eprintln!("leaks report for {path} could not be parsed: {error}");
+            return (
+                LeakCheck {
+                    status: LeakStatus::Error,
+                    result: None,
+                    tool_status,
+                    error: Some(error),
+                },
+                Some(path),
+            );
+        }
+    };
+    let status = if result.regression_count == 0 && result.regression_bytes == 0 {
+        LeakStatus::Pass
+    } else {
+        LeakStatus::Fail
+    };
+    (
+        LeakCheck {
+            status,
+            result: Some(result),
+            tool_status,
+            error: None,
+        },
+        Some(path),
+    )
+}
+
+fn run_guard_malloc(binary: &TestBinary) -> (GuardMallocCheck, Option<String>) {
+    let path = binary.path.display().to_string();
+    eprintln!("running guard malloc for {} ({path})", binary.target);
+    let output = match Command::new(&binary.path)
+        .arg("--test-threads=1")
+        .env("DYLD_INSERT_LIBRARIES", "/usr/lib/libgmalloc.dylib")
+        .output()
+    {
+        Ok(output) => output,
+        Err(error) => {
+            return (
+                GuardMallocCheck {
+                    status: Verdict::Error,
+                    process_status: None,
+                    error: Some(format!("failed to run guard malloc pass: {error}")),
+                },
+                None,
+            );
+        }
+    };
+    let success = output.status.success();
+    if !success {
+        eprintln!(
+            "guard malloc failed for {path}:\n{}",
+            combined_output(&output.stdout, &output.stderr)
+        );
+    }
+    (
+        GuardMallocCheck {
+            status: if success {
+                Verdict::Pass
+            } else {
+                Verdict::Fail
+            },
+            process_status: Some(process_exit(&output.status)),
+            error: None,
+        },
+        Some(path),
+    )
 }
 
 fn binary_passes(report: &BinaryReport) -> bool {
