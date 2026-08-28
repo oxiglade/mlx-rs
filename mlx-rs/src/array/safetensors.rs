@@ -107,7 +107,11 @@ impl<'a> TryFrom<&'a Array> for TensorView<'a> {
 mod tests {
     use safetensors::tensor::TensorView;
 
-    use crate::{array, complex64, Array};
+    use crate::{
+        array, complex64,
+        test_utils::{assert_array_eq, tolerances},
+        Array,
+    };
 
     // Helper macro to test conversion between Array and TensorView
     macro_rules! assert_conversion {
@@ -116,7 +120,7 @@ mod tests {
             let tensor = TensorView::try_from(&arr).unwrap();
             let arr2 = Array::try_from(tensor).unwrap();
 
-            assert_eq!(arr, arr2);
+            assert_array_eq(arr, arr2, tolerances::EXACT.rtol, tolerances::EXACT.atol);
         };
     }
 

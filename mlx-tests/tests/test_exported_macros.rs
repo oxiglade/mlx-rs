@@ -6,6 +6,7 @@ use mlx_rs::{
     array, complex64,
     error::Exception,
     ops::{arange, reshape},
+    test_utils::{assert_array_eq, tolerances},
     Array, Dtype, StreamOrDevice,
 };
 
@@ -48,14 +49,16 @@ fn test_ops_arithmetic_tensordot() {
     let axes_y = [0, 1];
     let z = mlx_rs::tensordot_axes!(&x, &y, &axes_x, &axes_y).unwrap();
     let expected = Array::from_slice(
-        &[4400, 4730, 4532, 4874, 4664, 5018, 4796, 5162, 4928, 5306],
+        &[
+            4400.0f32, 4730.0, 4532.0, 4874.0, 4664.0, 5018.0, 4796.0, 5162.0, 4928.0, 5306.0,
+        ],
         &[5, 2],
     );
-    assert_eq!(z, expected);
+    assert_array_eq(z, &expected, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
     let stream = StreamOrDevice::cpu();
     let z = mlx_rs::tensordot_axes!(&x, &y, &axes_x, &axes_y, stream = stream).unwrap();
-    assert_eq!(z, expected);
+    assert_array_eq(z, expected, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 }
 
 // Test functions defined in `mlx_rs::ops` module.
@@ -82,7 +85,12 @@ fn test_ops_convolution_conv1d() {
     .unwrap();
 
     let expected = array!([12.0, 8.0, 17.0, 13.0, 22.0, 18.0], shape = [1, 3, 2]);
-    assert_eq!(result, expected);
+    assert_array_eq(
+        result,
+        expected,
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
 }
 
 #[test]

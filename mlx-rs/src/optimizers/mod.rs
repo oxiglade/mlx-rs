@@ -256,7 +256,12 @@ pub fn clip_grad_norm(
 mod tests {
     use std::collections::HashMap;
 
-    use crate::{array, module::FlattenedModuleParam, Array};
+    use crate::{
+        array,
+        module::FlattenedModuleParam,
+        test_utils::{assert_array_eq, tolerances},
+        Array,
+    };
 
     use super::clip_grad_norm;
 
@@ -272,7 +277,12 @@ mod tests {
 
         let (clipped_grads, _) = clip_grad_norm(&small_grads, max_norm).unwrap();
         for (key, value) in small_grads.iter() {
-            assert_eq!(&*clipped_grads[key], value);
+            assert_array_eq(
+                &*clipped_grads[key],
+                value,
+                tolerances::EXACT.rtol,
+                tolerances::EXACT.atol,
+            );
         }
 
         // Test with large gradients that require clipping
@@ -301,7 +311,12 @@ mod tests {
             .map(|(key, value)| (key.clone(), value * scale))
             .collect();
         for (key, value) in expected_grads.iter() {
-            assert_eq!(&*clipped_grads[key], value);
+            assert_array_eq(
+                &*clipped_grads[key],
+                value,
+                tolerances::EXACT.rtol,
+                tolerances::EXACT.atol,
+            );
         }
     }
 }

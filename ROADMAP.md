@@ -57,6 +57,16 @@ Recorded because none of it shows up in a test count, and all of it survives add
   safe-looking API. Also note MLX reshape/flatten may legally return a strided view rather than a
   copy, so no op-level materialization guarantees contiguity; the conformance runner extracts
   stride-aware on the host instead.
+- mlx-rs `diagonal` returns `Float32` for an `Int32` input; Python MLX returns `int32`. The strict
+  comparator migration found the mismatch, confirmed against the pinned oracle.
+- mlx-rs `einsum` returns `Int32` for float32 inputs on `"i,i->"`; Python MLX returns `float32`.
+  The strict comparator migration found the mismatch, confirmed against the pinned oracle.
+- `compile_with_state`: a failed compiled call leaves caller state holding tracer arrays
+  without primitives — a failed training step corrupts model/optimizer state
+  (`[eval] Attempting to eval an array without a primitive`). Found by the Wave 2a
+  error-atomicity trajectory test; the tracing placeholder swap has no error-path restore.
+- mlx-rs `AdaDelta` defaults `rho` to 0.99; Python MLX defaults it to 0.9, causing divergent
+  training behavior for users of the defaults.
 
 ## Tranche 2 — leak and use-after-free gate (done)
 
@@ -123,6 +133,10 @@ oracle; NumPy corroborates only where generation-time agreement held (recorded p
   quantized paths are not expected to be bitwise equal across the two.
 - Qualify the harness with deliberate faults — wrong axis, swapped operands, wrong dtype, a no-op
   optimizer — before trusting a single green result from it.
+- Sandboxed agent builds must never reuse the shared `target/` with modified feature flags. Three
+  corruption incidents on 2026-08-28 produced the Metal JIT symptom
+  `unknown type name 'bfloat16_t'`; use a scratch `CARGO_TARGET_DIR`.
+- Multiple full MLX debug builds fill the disk; prune stale `target/` directories.
 
 ### Anti-self-oracle rules
 

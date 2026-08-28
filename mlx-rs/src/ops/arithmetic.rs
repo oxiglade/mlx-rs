@@ -1639,6 +1639,7 @@ mod tests {
     use crate::{
         array, complex64,
         ops::{all_close, arange, broadcast_to, eye, full, linspace, ones, reshape, split},
+        test_utils::{assert_array_eq, tolerances},
         transforms::eval,
         Dtype, StreamOrDevice,
     };
@@ -2172,7 +2173,12 @@ mod tests {
         assert_eq!((-x).item::<f32>(), -1.0);
 
         // works on empty array
-        assert_eq!(-array!(), array!());
+        assert_array_eq(
+            -array!(),
+            array!(),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         // Throws on bool
         let x = array!(true);
@@ -2182,43 +2188,93 @@ mod tests {
     #[test]
     fn test_unary_abs() {
         let x = array!([-1.0, 0.0, 1.0]);
-        assert_eq!(abs(&x).unwrap(), array!([1.0, 0.0, 1.0]));
+        assert_array_eq(
+            abs(&x).unwrap(),
+            array!([1.0, 0.0, 1.0]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         // works on empty array
-        assert_eq!(abs(array!()).unwrap(), array!());
+        assert_array_eq(
+            abs(array!()).unwrap(),
+            array!(),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         // int32
         let x = array!([-1, 0, 1]);
-        assert_eq!(abs(&x).unwrap(), array!([1, 0, 1]));
+        assert_array_eq(
+            abs(&x).unwrap(),
+            array!([1, 0, 1]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         // uint32
         let x = array!([1u32, 0, 1]);
-        assert_eq!(abs(&x).unwrap(), array!([1u32, 0, 1]));
+        assert_array_eq(
+            abs(&x).unwrap(),
+            array!([1u32, 0, 1]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         // bool
         let x = array!([false, true]);
-        assert_eq!(abs(&x).unwrap(), array!([false, true]));
+        assert_array_eq(
+            abs(&x).unwrap(),
+            array!([false, true]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]
     fn test_unary_sign() {
         let x = array!([-1.0, 0.0, 1.0]);
-        assert_eq!(sign(&x).unwrap(), x);
+        assert_array_eq(
+            sign(&x).unwrap(),
+            x,
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         // works on empty array
-        assert_eq!(sign(array!()).unwrap(), array!());
+        assert_array_eq(
+            sign(array!()).unwrap(),
+            array!(),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         // int32
         let x = array!([-1, 0, 1]);
-        assert_eq!(sign(&x).unwrap(), x);
+        assert_array_eq(
+            sign(&x).unwrap(),
+            x,
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         // uint32
         let x = array!([1u32, 0, 1]);
-        assert_eq!(sign(&x).unwrap(), x);
+        assert_array_eq(
+            sign(&x).unwrap(),
+            x,
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         // bool
         let x = array!([false, true]);
-        assert_eq!(sign(&x).unwrap(), x);
+        assert_array_eq(
+            sign(&x).unwrap(),
+            x,
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     const NEG_INF: f32 = f32::NEG_INFINITY;
@@ -2249,10 +2305,20 @@ mod tests {
     #[test]
     fn test_unary_round() {
         let x = array!([0.5, -0.5, 1.5, -1.5, 2.3, 2.6]);
-        assert_eq!(round(&x, None).unwrap(), array!([0, 0, 2, -2, 2, 3]));
+        assert_array_eq(
+            round(&x, None).unwrap(),
+            array!([0.0_f32, 0.0, 2.0, -2.0, 2.0, 3.0]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         let x = array!([11, 222, 32]);
-        assert_eq!(round(&x, -1).unwrap(), array!([10, 220, 30]));
+        assert_array_eq(
+            round(&x, -1).unwrap(),
+            array!([10, 220, 30]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]
@@ -2267,7 +2333,12 @@ mod tests {
             abs <= 1e-5
         };
 
-        assert_eq!(exp(array!()).unwrap(), array!());
+        assert_array_eq(
+            exp(array!()).unwrap(),
+            array!(),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         let x = array![NEG_INF];
         assert_eq!(exp(&x).unwrap().item::<f32>(), 0.0);
@@ -2335,7 +2406,12 @@ mod tests {
             abs <= 1e-5
         };
 
-        assert_eq!(sin(array!()).unwrap(), array!());
+        assert_array_eq(
+            sin(array!()).unwrap(),
+            array!(),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         // Integer input type
         let x = array![0];
@@ -2378,7 +2454,12 @@ mod tests {
             abs <= 1e-5
         };
 
-        assert_eq!(cos(array!()).unwrap(), array!());
+        assert_array_eq(
+            cos(array!()).unwrap(),
+            array!(),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         // Integer input type
         let x = array![0];
@@ -2413,7 +2494,12 @@ mod tests {
         let x = array![std::f32::consts::PI / 2.0];
         assert_eq!(degrees(&x).unwrap().item::<f32>(), 90.0);
 
-        assert_eq!(degrees(array!()).unwrap(), array!());
+        assert_array_eq(
+            degrees(array!()).unwrap(),
+            array!(),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         // Integer input type
         let x = array![0];
@@ -2449,7 +2535,12 @@ mod tests {
             std::f32::consts::PI / 2.0
         );
 
-        assert_eq!(radians(array!()).unwrap(), array!());
+        assert_array_eq(
+            radians(array!()).unwrap(),
+            array!(),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         // Integer input type
         let x = array![90];
@@ -2666,8 +2757,18 @@ mod tests {
     #[test]
     fn test_unary_real_imag() {
         let x = Array::from_complex(complex64::new(0.0, 1.0));
-        assert_eq!(real(&x).unwrap(), Array::from_f32(0.0));
-        assert_eq!(imag(&x).unwrap(), Array::from_f32(1.0));
+        assert_array_eq(
+            real(&x).unwrap(),
+            Array::from_f32(0.0),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
+        assert_array_eq(
+            imag(&x).unwrap(),
+            Array::from_f32(1.0),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]
@@ -2695,16 +2796,31 @@ mod tests {
         let y = array!([1.0, 2.0, 3.0]);
         let z = add(&x, &y).unwrap();
         assert_eq!(z.shape(), &[3]);
-        assert_eq!(z, array!([2.0, 4.0, 6.0]));
+        assert_array_eq(
+            z,
+            array!([2.0, 4.0, 6.0]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         // Works with scalars
         let x = array!([1.0, 2.0, 3.0]);
         let y = &x + 2.0;
         assert_eq!(y.dtype(), Dtype::Float32);
-        assert_eq!(y, array!([3.0, 4.0, 5.0]));
+        assert_array_eq(
+            y,
+            array!([3.0, 4.0, 5.0]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
         let y = &x + 2.0;
         assert_eq!(y.dtype(), Dtype::Float32);
-        assert_eq!(y, array!([3.0, 4.0, 5.0]));
+        assert_array_eq(
+            y,
+            array!([3.0, 4.0, 5.0]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         // Check type promotion
         let y = x + 2;
@@ -2713,25 +2829,40 @@ mod tests {
         let y = array!([1, 2, 3]) + 2.0;
         assert_eq!(y.dtype(), Dtype::Float32);
         // assert!(array_equal(&y, &array![3.0, 4.0, 5.0]).item::<bool>());
-        assert_eq!(y, array!([3.0, 4.0, 5.0]));
+        assert_array_eq(
+            y,
+            array!([3.0, 4.0, 5.0]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         // Broadcasting works
         let x = broadcast_to(&array!(1.0), &[10]).unwrap();
         let y = broadcast_to(&array!(2.0), &[10]).unwrap();
         let z = add(&x, &y).unwrap();
-        assert_eq!(z, full::<f32>(&[10], array!(3.0)).unwrap());
+        assert_array_eq(
+            z,
+            full::<f32>(&[10], array!(3.0)).unwrap(),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         let x = Array::from_slice(&[1.0, 2.0], &[1, 2]);
         let y = Array::from_slice(&[1.0, 2.0], &[2, 1]);
         let z = add(&x, &y).unwrap();
         assert_eq!(z.shape(), &[2, 2]);
-        assert_eq!(z, Array::from_slice(&[2.0, 3.0, 3.0, 4.0], &[2, 2]));
+        assert_array_eq(
+            z,
+            Array::from_slice(&[2.0, 3.0, 3.0, 4.0], &[2, 2]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         let x = ones::<f32>(&[3, 2, 1]).unwrap();
         let z = x + 2.0;
         assert_eq!(z.shape(), &[3, 2, 1]);
         let expected = Array::from_slice(&[3.0, 3.0, 3.0, 3.0, 3.0, 3.0], &[3, 2, 1]);
-        assert_eq!(z, expected);
+        assert_array_eq(z, expected, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         // Works for empty arrays
         let x = array!();
@@ -2746,14 +2877,24 @@ mod tests {
     fn test_binary_sub() {
         let x = array!([3.0, 2.0, 1.0]);
         let y = array!([1.0, 1.0, 1.0]);
-        assert_eq!(x - y, array!([2.0, 1.0, 0.0]));
+        assert_array_eq(
+            x - y,
+            array!([2.0, 1.0, 0.0]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]
     fn test_binary_mul() {
         let x = array!([1.0, 2.0, 3.0]);
         let y = array!([2.0, 2.0, 2.0]);
-        assert_eq!(x * y, array!([2.0, 4.0, 6.0]));
+        assert_array_eq(
+            x * y,
+            array!([2.0, 4.0, 6.0]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]
@@ -2839,11 +2980,21 @@ mod tests {
         let a = array!([1.0, 4.0, 3.0, 8.0, 5.0]);
         let expected = array!([2.0, 4.0, 3.0, 6.0, 5.0]);
         let clipped = clip(&a, (array!(2.0), array!(6.0))).unwrap();
-        assert_eq!(clipped, expected);
+        assert_array_eq(
+            clipped,
+            &expected,
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         // Test with scalar
         let clipped = clip(&a, (2.0, 6.0)).unwrap();
-        assert_eq!(clipped, expected);
+        assert_array_eq(
+            clipped,
+            &expected,
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]
@@ -2851,11 +3002,21 @@ mod tests {
         let a = array!([-1.0, 1.0, 0.0, 5.0]);
         let expected = array!([0.0, 1.0, 0.0, 5.0]);
         let clipped = clip(&a, (array!(0.0), ())).unwrap();
-        assert_eq!(clipped, expected);
+        assert_array_eq(
+            clipped,
+            &expected,
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         // Test with scalar
         let clipped = clip(&a, (0.0, ())).unwrap();
-        assert_eq!(clipped, expected);
+        assert_array_eq(
+            clipped,
+            expected,
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]
@@ -2863,11 +3024,21 @@ mod tests {
         let a = array!([2.0, 3.0, 4.0, 5.0]);
         let expected = array!([2.0, 3.0, 4.0, 4.0]);
         let clipped = clip(&a, ((), array!(4.0))).unwrap();
-        assert_eq!(clipped, expected);
+        assert_array_eq(
+            clipped,
+            &expected,
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         // Test with scalar
         let clipped = clip(&a, ((), 4.0)).unwrap();
-        assert_eq!(clipped, expected);
+        assert_array_eq(
+            clipped,
+            expected,
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]
@@ -2876,10 +3047,12 @@ mod tests {
         let y = reshape(arange::<_, f32>(None, 24.0, None).unwrap(), &[4, 3, 2]).unwrap();
         let z = tensordot_axes(&x, &y, &[1i32, 0], &[0i32, 1]).unwrap();
         let expected = Array::from_slice(
-            &[4400, 4730, 4532, 4874, 4664, 5018, 4796, 5162, 4928, 5306],
+            &[
+                4400.0_f32, 4730.0, 4532.0, 4874.0, 4664.0, 5018.0, 4796.0, 5162.0, 4928.0, 5306.0,
+            ],
             &[5, 2],
         );
-        assert_eq!(z, expected);
+        assert_array_eq(z, expected, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let x = reshape(arange::<_, f32>(None, 360.0, None).unwrap(), &[3, 4, 5, 6]).unwrap();
         let y = reshape(arange::<_, f32>(None, 360.0, None).unwrap(), &[6, 4, 5, 3]).unwrap();
@@ -2896,7 +3069,7 @@ mod tests {
             ],
             &[3, 6],
         );
-        assert_eq!(z, expected);
+        assert_array_eq(z, expected, tolerances::EXACT.rtol, tolerances::EXACT.atol);
     }
 
     #[test]
@@ -2908,7 +3081,7 @@ mod tests {
             &[1.0, 2.0, 3.0, 2.0, 4.0, 6.0, 3.0, 6.0, 9.0, 4.0, 8.0, 12.0],
             &[4, 3],
         );
-        assert_eq!(z, expected);
+        assert_array_eq(z, expected, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let x = ones::<f32>(&[5]).unwrap();
         let y = linspace::<_, f32>(-2.0, 2.0, 5).unwrap();
@@ -2920,7 +3093,7 @@ mod tests {
             ],
             &[5, 5],
         );
-        assert_eq!(z, expected);
+        assert_array_eq(z, expected, tolerances::EXACT.rtol, tolerances::EXACT.atol);
     }
 
     #[test]
@@ -2938,19 +3111,19 @@ mod tests {
         let y = arange::<_, f32>(None, 4.0, None).unwrap();
         let z = inner(&x, &y).unwrap();
         let expected = Array::from_slice(&[14.0, 38.0, 62.0, 86.0, 110.0, 134.0], &[2, 3]);
-        assert_eq!(z, expected);
+        assert_array_eq(z, expected, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let x = reshape(arange::<_, f32>(None, 2.0, None).unwrap(), &[1, 1, 2]).unwrap();
         let y = reshape(arange::<_, f32>(None, 6.0, None).unwrap(), &[3, 2]).unwrap();
         let z = inner(&x, &y).unwrap();
         let expected = Array::from_slice(&[1.0, 3.0, 5.0], &[1, 1, 3]);
-        assert_eq!(z, expected);
+        assert_array_eq(z, expected, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let x = eye::<f32>(2, None, None).unwrap();
         let y = Array::from_f32(7.0);
         let z = inner(&x, &y).unwrap();
         let expected = Array::from_slice(&[7.0, 0.0, 0.0, 7.0], &[2, 2]);
-        assert_eq!(z, expected);
+        assert_array_eq(z, expected, tolerances::EXACT.rtol, tolerances::EXACT.atol);
     }
 
     #[test]
@@ -2958,20 +3131,50 @@ mod tests {
         let x = array!([1.0, 2.0, 3.0]);
         let y = array!([1.0, 1.0, 1.0]);
         let out = divmod(&x, &y).unwrap();
-        assert_eq!(out.0, array!([1.0, 2.0, 3.0]));
-        assert_eq!(out.1, array!([0.0, 0.0, 0.0]));
+        assert_array_eq(
+            out.0,
+            array!([1.0, 2.0, 3.0]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
+        assert_array_eq(
+            out.1,
+            array!([0.0, 0.0, 0.0]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         let x = array!([5.0, 6.0, 7.0]);
         let y = array!([2.0, 2.0, 2.0]);
         let out = divmod(&x, &y).unwrap();
-        assert_eq!(out.0, array!([2.0, 3.0, 3.0]));
-        assert_eq!(out.1, array!([1.0, 0.0, 1.0]));
+        assert_array_eq(
+            out.0,
+            array!([2.0, 3.0, 3.0]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
+        assert_array_eq(
+            out.1,
+            array!([1.0, 0.0, 1.0]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         let x = array!([5.0, 6.0, 7.0]);
         let y = array!([2.0, 2.0, 2.0]);
         let out = divmod(&x, &y).unwrap();
-        assert_eq!(out.0, array!([2.0, 3.0, 3.0]));
-        assert_eq!(out.1, array!([1.0, 0.0, 1.0]));
+        assert_array_eq(
+            out.0,
+            array!([2.0, 3.0, 3.0]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
+        assert_array_eq(
+            out.1,
+            array!([1.0, 0.0, 1.0]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         let x = array![complex64::new(1.0, 0.0)];
         let y = array![complex64::new(2.0, 0.0)];

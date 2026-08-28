@@ -877,7 +877,12 @@ impl MarginRankingLoss {
 #[cfg(test)]
 #[allow(clippy::approx_constant)]
 mod tests {
-    use crate::{array, assert_array_eq, builder::Builder, ops::is_nan};
+    use crate::{
+        array,
+        builder::Builder,
+        ops::is_nan,
+        test_utils::{assert_array_eq, tolerances},
+    };
     use float_eq::assert_float_eq;
 
     use super::*;
@@ -894,7 +899,12 @@ mod tests {
             .unwrap()
             .apply(&logits, indices)
             .unwrap();
-        assert_array_eq!(loss, expected);
+        assert_array_eq(
+            loss,
+            &expected,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         let probs = array!([[1.0, 0.0], [0.0, 1.0]]);
         let cross_entropy = CrossEntropyBuilder::new()
@@ -915,7 +925,12 @@ mod tests {
             .build()
             .unwrap();
         let loss = cross_entropy.apply(&logits, indices).unwrap();
-        assert_array_eq!(loss, expected);
+        assert_array_eq(
+            loss,
+            &expected,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         let probs = array!([[1.0, 0.0], [0.0, 1.0]]);
         let cross_entropy = CrossEntropyBuilder::new()
@@ -924,7 +939,12 @@ mod tests {
             .build()
             .unwrap();
         let loss = cross_entropy.apply(logits, probs).unwrap();
-        assert_array_eq!(loss, expected);
+        assert_array_eq(
+            loss,
+            &expected,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         // No weights, with label smoothing
         let logits = array!([[2.0, -1.0], [-1.0, 2.0]]);
@@ -936,7 +956,12 @@ mod tests {
             .build()
             .unwrap();
         let loss = cross_entropy.apply(&logits, indices).unwrap();
-        assert_array_eq!(loss, expected);
+        assert_array_eq(
+            loss,
+            &expected,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         let probs = array!([[1.0, 0.0], [0.0, 1.0]]);
         let cross_entropy = CrossEntropyBuilder::new()
@@ -945,7 +970,12 @@ mod tests {
             .build()
             .unwrap();
         let loss = cross_entropy.apply(logits, probs).unwrap();
-        assert_array_eq!(loss, expected);
+        assert_array_eq(
+            loss,
+            expected,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         // With weights and label smoothing
         let logits = array!([[2.0, -1.0], [-1.0, 2.0]]);
@@ -959,7 +989,12 @@ mod tests {
             .build()
             .unwrap();
         let loss = cross_entropy.apply(&logits, indices).unwrap();
-        assert_array_eq!(loss, expected);
+        assert_array_eq(
+            loss,
+            &expected,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         let probs = array!([[1.0, 0.0], [0.0, 1.0]]);
         let cross_entropy = CrossEntropyBuilder::new()
@@ -969,7 +1004,12 @@ mod tests {
             .build()
             .unwrap();
         let loss = cross_entropy.apply(logits, probs).unwrap();
-        assert_array_eq!(loss, expected);
+        assert_array_eq(
+            loss,
+            expected,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
     }
 
     #[test]
@@ -984,7 +1024,12 @@ mod tests {
             .unwrap();
         let loss_none = binary_cross_entropy.apply(&logits, &targets).unwrap();
         let expected_none = array!([0.747215, 0.810930, 0.262365, 0.336472]);
-        assert_array_eq!(loss_none, expected_none);
+        assert_array_eq(
+            loss_none,
+            &expected_none,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         // Test with reduction 'mean'
         let binary_cross_entropy = BinaryCrossEntropyBuilder::new()
@@ -993,7 +1038,12 @@ mod tests {
             .unwrap();
         let loss_mean = binary_cross_entropy.apply(&logits, &targets).unwrap();
         let expected_mean = expected_none.mean(None).unwrap();
-        assert_array_eq!(loss_mean, expected_mean);
+        assert_array_eq(
+            loss_mean,
+            expected_mean,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         // Test with reduction 'sum'
         let binary_cross_entropy = BinaryCrossEntropyBuilder::new()
@@ -1002,7 +1052,12 @@ mod tests {
             .unwrap();
         let loss = binary_cross_entropy.apply(&logits, &targets).unwrap();
         let expected = expected_none.sum(None).unwrap();
-        assert_array_eq!(loss, expected);
+        assert_array_eq(
+            loss,
+            expected,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         // With weights, no label smoothing
         let weights = array!([1.0, 2.0, 1.0, 2.0]);
@@ -1013,7 +1068,12 @@ mod tests {
             .build()
             .unwrap();
         let loss = binary_cross_entropy.apply(&logits, &targets).unwrap();
-        assert_array_eq!(loss, expected);
+        assert_array_eq(
+            loss,
+            expected,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
     }
 
     #[test]
@@ -1029,7 +1089,12 @@ mod tests {
             .unwrap();
         let loss_none = binary_cross_entropy.apply(&probs, &targets).unwrap();
         let expected_none = array!([0.693147, 0.916291, 0.356675, 0.223144]);
-        assert_array_eq!(loss_none, expected_none);
+        assert_array_eq(
+            loss_none,
+            &expected_none,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         // Test with reduction 'mean'
         let binary_cross_entropy = BinaryCrossEntropyBuilder::new()
@@ -1039,7 +1104,12 @@ mod tests {
             .unwrap();
         let loss_mean = binary_cross_entropy.apply(&probs, &targets).unwrap();
         let expected_mean = expected_none.mean(None).unwrap();
-        assert_array_eq!(loss_mean, expected_mean);
+        assert_array_eq(
+            loss_mean,
+            expected_mean,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         // Test with reduction 'sum'
         let binary_cross_entropy = BinaryCrossEntropyBuilder::new()
@@ -1049,7 +1119,12 @@ mod tests {
             .unwrap();
         let loss = binary_cross_entropy.apply(&probs, &targets).unwrap();
         let expected = expected_none.sum(None).unwrap();
-        assert_array_eq!(loss, expected);
+        assert_array_eq(
+            loss,
+            expected,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
     }
 
     #[test]
@@ -1066,7 +1141,12 @@ mod tests {
             .unwrap();
         let loss_none = binary_cross_entropy.apply(&probs, &targets).unwrap();
         let expected_none = array!([0.0, tiny_prob, tiny_prob, 0.0]);
-        assert_array_eq!(loss_none, expected_none);
+        assert_array_eq(
+            loss_none,
+            &expected_none,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         // Test with reduction 'mean'
         let binary_cross_entropy = BinaryCrossEntropyBuilder::new()
@@ -1076,7 +1156,12 @@ mod tests {
             .unwrap();
         let loss_mean = binary_cross_entropy.apply(&probs, &targets).unwrap();
         let expected_mean = expected_none.mean(None).unwrap();
-        assert_array_eq!(loss_mean, expected_mean);
+        assert_array_eq(
+            loss_mean,
+            expected_mean,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         // Test with reduction 'sum'
         let binary_cross_entropy = BinaryCrossEntropyBuilder::new()
@@ -1086,7 +1171,12 @@ mod tests {
             .unwrap();
         let loss = binary_cross_entropy.apply(&probs, &targets).unwrap();
         let expected = expected_none.sum(None).unwrap();
-        assert_array_eq!(loss, expected);
+        assert_array_eq(
+            loss,
+            expected,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
     }
 
     #[test]
@@ -1103,21 +1193,36 @@ mod tests {
             .build()
             .unwrap();
         let loss_none = l1_loss.apply(&predictions, &targets).unwrap();
-        assert_array_eq!(loss_none, expected_none);
+        assert_array_eq(
+            loss_none,
+            &expected_none,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         let l1_loss = L1LossBuilder::new()
             .reduction(LossReduction::Sum)
             .build()
             .unwrap();
         let loss_sum = l1_loss.apply(&predictions, &targets).unwrap();
-        assert_array_eq!(loss_sum, expected_sum);
+        assert_array_eq(
+            loss_sum,
+            expected_sum,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         let l1_loss = L1LossBuilder::new()
             .reduction(LossReduction::Mean)
             .build()
             .unwrap();
         let loss_mean = l1_loss.apply(&predictions, &targets).unwrap();
-        assert_array_eq!(loss_mean, expected_mean);
+        assert_array_eq(
+            loss_mean,
+            expected_mean,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
     }
 
     #[test]
@@ -1134,21 +1239,36 @@ mod tests {
             .build()
             .unwrap();
         let loss_none = mse_loss.apply(&predictions, &targets).unwrap();
-        assert_array_eq!(loss_none, expected_none);
+        assert_array_eq(
+            loss_none,
+            expected_none,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         let mse_loss = MseLossBuilder::new()
             .reduction(LossReduction::Mean)
             .build()
             .unwrap();
         let loss_mean = mse_loss.apply(&predictions, &targets).unwrap();
-        assert_array_eq!(loss_mean, expected_mean);
+        assert_array_eq(
+            loss_mean,
+            expected_mean,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         let mse_loss = MseLossBuilder::new()
             .reduction(LossReduction::Sum)
             .build()
             .unwrap();
         let loss_sum = mse_loss.apply(&predictions, &targets).unwrap();
-        assert_array_eq!(loss_sum, expected_sum);
+        assert_array_eq(
+            loss_sum,
+            expected_sum,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
     }
 
     #[test]
@@ -1167,7 +1287,12 @@ mod tests {
             .build()
             .unwrap();
         let loss_none = smooth_l1_loss.apply(&predictions, &targets).unwrap();
-        assert_array_eq!(loss_none, expected_none);
+        assert_array_eq(
+            loss_none,
+            expected_none,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         let smooth_l1_loss = SmoothL1LossBuilder::new()
             .beta(beta)
@@ -1175,7 +1300,12 @@ mod tests {
             .build()
             .unwrap();
         let loss_sum = smooth_l1_loss.apply(&predictions, &targets).unwrap();
-        assert_array_eq!(loss_sum, expected_sum);
+        assert_array_eq(
+            loss_sum,
+            expected_sum,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         let smooth_l1_loss = SmoothL1LossBuilder::new()
             .beta(beta)
@@ -1183,7 +1313,12 @@ mod tests {
             .build()
             .unwrap();
         let loss_mean = smooth_l1_loss.apply(&predictions, &targets).unwrap();
-        assert_array_eq!(loss_mean, expected_mean);
+        assert_array_eq(
+            loss_mean,
+            expected_mean,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
     }
 
     #[test]
@@ -1195,7 +1330,12 @@ mod tests {
 
         let ab = loss.apply(&a, &b).unwrap();
         let ba = loss.apply(&b, &a).unwrap();
-        assert_array_eq!(ab, ba);
+        assert_array_eq(
+            ab,
+            ba,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
     }
 
     #[test]
@@ -1212,21 +1352,36 @@ mod tests {
             .build()
             .unwrap();
         let loss_none = nll_loss.apply(&logits, &targets).unwrap();
-        assert_array_eq!(loss_none, expected_none);
+        assert_array_eq(
+            loss_none,
+            expected_none,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         let nll_loss = NllLossBuilder::new()
             .reduction(LossReduction::Mean)
             .build()
             .unwrap();
         let loss_mean = nll_loss.apply(&logits, &targets).unwrap();
-        assert_array_eq!(loss_mean, expected_mean);
+        assert_array_eq(
+            loss_mean,
+            expected_mean,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         let nll_loss = NllLossBuilder::new()
             .reduction(LossReduction::Sum)
             .build()
             .unwrap();
         let loss_sum = nll_loss.apply(&logits, &targets).unwrap();
-        assert_array_eq!(loss_sum, expected_sum);
+        assert_array_eq(
+            loss_sum,
+            expected_sum,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
     }
 
     #[test]
@@ -1243,7 +1398,12 @@ mod tests {
             .unwrap();
         let loss_none = gaussian_nll_loss.apply(&inputs, &targets, &vars).unwrap();
         let expected_none = array!([[-1.101293, -0.779719], [-0.535320, -0.408145]]);
-        assert_array_eq!(loss_none, expected_none);
+        assert_array_eq(
+            loss_none,
+            &expected_none,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         // Test with reduction 'mean', full=False
         let gaussian_nll_loss = GaussianNllLossBuilder::new()
@@ -1253,7 +1413,12 @@ mod tests {
             .unwrap();
         let loss_mean = gaussian_nll_loss.apply(&inputs, &targets, &vars).unwrap();
         let expected_mean = expected_none.mean(None).unwrap();
-        assert_array_eq!(loss_mean, expected_mean);
+        assert_array_eq(
+            loss_mean,
+            expected_mean,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         // Test with reduction 'sum', full=False
         let gaussian_nll_loss = GaussianNllLossBuilder::new()
@@ -1263,7 +1428,12 @@ mod tests {
             .unwrap();
         let loss_sum = gaussian_nll_loss.apply(&inputs, &targets, &vars).unwrap();
         let expected_sum = expected_none.sum(None).unwrap();
-        assert_array_eq!(loss_sum, expected_sum);
+        assert_array_eq(
+            loss_sum,
+            expected_sum,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         // Test with reduction='none', full=True
         let gaussian_nll_loss = GaussianNllLossBuilder::new()
@@ -1273,7 +1443,12 @@ mod tests {
             .unwrap();
         let loss_none_full = gaussian_nll_loss.apply(&inputs, &targets, &vars).unwrap();
         let expected_none_full = array!([[-0.182354, 0.139220], [0.383619, 0.510793]]);
-        assert_array_eq!(loss_none_full, expected_none_full);
+        assert_array_eq(
+            loss_none_full,
+            &expected_none_full,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         // Test with reduction='mean', full=True
         let gaussian_nll_loss = GaussianNllLossBuilder::new()
@@ -1283,7 +1458,12 @@ mod tests {
             .unwrap();
         let loss_mean_full = gaussian_nll_loss.apply(&inputs, &targets, &vars).unwrap();
         let expected_mean_full = expected_none_full.mean(None).unwrap();
-        assert_array_eq!(loss_mean_full, expected_mean_full);
+        assert_array_eq(
+            loss_mean_full,
+            expected_mean_full,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         // Test with reduction='sum', full=True
         let gaussian_nll_loss = GaussianNllLossBuilder::new()
@@ -1293,7 +1473,12 @@ mod tests {
             .unwrap();
         let loss_sum_full = gaussian_nll_loss.apply(&inputs, &targets, &vars).unwrap();
         let expected_sum_full = expected_none_full.sum(None).unwrap();
-        assert_array_eq!(loss_sum_full, expected_sum_full);
+        assert_array_eq(
+            loss_sum_full,
+            expected_sum_full,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
     }
 
     #[test]
@@ -1308,7 +1493,12 @@ mod tests {
             .unwrap();
         let loss_none = kl_div_loss.apply(&p_logits, &q_logits).unwrap();
         let expected_none = array!([0.0, 0.831777]);
-        assert_array_eq!(loss_none, expected_none);
+        assert_array_eq(
+            loss_none,
+            &expected_none,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         // Test with reduction 'mean'
         let kl_div_loss = KlDivLossBuilder::new()
@@ -1317,7 +1507,12 @@ mod tests {
             .unwrap();
         let loss_mean = kl_div_loss.apply(&p_logits, &q_logits).unwrap();
         let expected_mean = expected_none.mean(None).unwrap();
-        assert_array_eq!(loss_mean, expected_mean);
+        assert_array_eq(
+            loss_mean,
+            expected_mean,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         // Test with reduction 'sum'
         let kl_div_loss = KlDivLossBuilder::new()
@@ -1326,7 +1521,12 @@ mod tests {
             .unwrap();
         let loss_sum = kl_div_loss.apply(&p_logits, &q_logits).unwrap();
         let expected_sum = expected_none.sum(None).unwrap();
-        assert_array_eq!(loss_sum, expected_sum);
+        assert_array_eq(
+            loss_sum,
+            expected_sum,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
     }
 
     #[test]
@@ -1344,7 +1544,12 @@ mod tests {
             .apply(&anchors, &positives, &negatives)
             .unwrap();
         let expected_none = array!([0.0, 2.31662]);
-        assert_array_eq!(loss_none, expected_none);
+        assert_array_eq(
+            loss_none,
+            &expected_none,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         // Test with reduction 'mean'
         let triplet_loss = TripletLossBuilder::new()
@@ -1355,7 +1560,12 @@ mod tests {
             .apply(&anchors, &positives, &negatives)
             .unwrap();
         let expected_mean = expected_none.mean(None).unwrap();
-        assert_array_eq!(loss_mean, expected_mean);
+        assert_array_eq(
+            loss_mean,
+            expected_mean,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         // Test with reduction 'sum'
         let triplet_loss = TripletLossBuilder::new()
@@ -1366,7 +1576,12 @@ mod tests {
             .apply(&anchors, &positives, &negatives)
             .unwrap();
         let expected_sum = expected_none.sum(None).unwrap();
-        assert_array_eq!(loss_sum, expected_sum);
+        assert_array_eq(
+            loss_sum,
+            expected_sum,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
     }
 
     #[test]
@@ -1419,7 +1634,12 @@ mod tests {
             .apply(&embeddings1, &embeddings2)
             .unwrap();
         let expected_none = array!([0.985344, 0.961074]);
-        assert_array_eq!(loss_none, expected_none);
+        assert_array_eq(
+            loss_none,
+            &expected_none,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         // Test with reduction 'mean'
         let cosine_similarity_loss = CosineSimilarityLossBuilder::new()
@@ -1430,7 +1650,12 @@ mod tests {
             .apply(&embeddings1, &embeddings2)
             .unwrap();
         let expected_mean = expected_none.mean(None).unwrap();
-        assert_array_eq!(loss_mean, expected_mean);
+        assert_array_eq(
+            loss_mean,
+            expected_mean,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         // Test with reduction 'sum'
         let cosine_similarity_loss = CosineSimilarityLossBuilder::new()
@@ -1441,7 +1666,12 @@ mod tests {
             .apply(&embeddings1, &embeddings2)
             .unwrap();
         let expected_sum = expected_none.sum(None).unwrap();
-        assert_array_eq!(loss_sum, expected_sum);
+        assert_array_eq(
+            loss_sum,
+            expected_sum,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
     }
 
     #[test]
@@ -1459,7 +1689,12 @@ mod tests {
             .apply(&inputs1, &inputs2, &targets)
             .unwrap();
         let expected = array!([1.329369, 0.990929, 0.0]);
-        assert_array_eq!(loss, expected);
+        assert_array_eq(
+            loss,
+            expected,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
 
         // Test with margin
         let margin_ranking_loss = MarginRankingLossBuilder::new()
@@ -1471,6 +1706,11 @@ mod tests {
             .apply(&inputs1, &inputs2, &targets)
             .unwrap();
         let expected = array!([1.829369, 1.490929, 0.179205]);
-        assert_array_eq!(loss, expected);
+        assert_array_eq(
+            loss,
+            expected,
+            tolerances::MLX_DEFAULT.rtol,
+            tolerances::MLX_DEFAULT.atol,
+        );
     }
 }

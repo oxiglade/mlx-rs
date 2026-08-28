@@ -313,6 +313,10 @@ mod stream;
 pub mod transforms;
 pub mod utils;
 
+/// Test-only assertion support shared with the workspace integration tests.
+#[doc(hidden)]
+pub mod test_utils;
+
 pub use array::*;
 pub use device::*;
 pub use dtype::*;

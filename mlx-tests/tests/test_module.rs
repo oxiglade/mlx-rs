@@ -1,4 +1,6 @@
-use mlx_rs::{error::Exception, macros::ModuleParameters, module::Module, nn::Linear, Array};
+use mlx_rs::{
+    error::Exception, macros::ModuleParameters, module::Module, nn::Linear, Array, Dtype,
+};
 
 #[derive(Debug, ModuleParameters)]
 struct M {
@@ -30,5 +32,10 @@ fn test_nested_module() {
     let mut m = M::new();
     let x = mlx_rs::random::uniform::<_, f32>(1.0, 2.0, &[1, 5], None).unwrap();
     let y = m.forward(&x).unwrap();
-    assert_ne!(y.sum(None).unwrap(), mlx_rs::array!(0.0));
+    let sum = y.sum(None).unwrap();
+    assert_eq!(sum.dtype(), Dtype::Float32);
+    assert!(sum.shape().is_empty());
+    let sum = sum.item::<f32>();
+    assert!(sum.is_finite());
+    assert_ne!(sum, 0.0);
 }

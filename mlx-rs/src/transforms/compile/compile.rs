@@ -385,6 +385,7 @@ mod tests {
         array,
         error::Exception,
         ops::{multiply, ones},
+        test_utils::{assert_array_eq, tolerances},
         Array,
     };
 
@@ -448,10 +449,10 @@ mod tests {
         // evaluate compiled
         let r2 = compiled(&args).unwrap().drain(0..1).next().unwrap();
 
-        assert_eq!(&r1, &r2);
+        assert_array_eq(&r1, &r2, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let r3 = compiled(&args).unwrap().drain(0..1).next().unwrap();
-        assert_eq!(&r1, &r3);
+        assert_array_eq(&r1, &r3, tolerances::EXACT.rtol, tolerances::EXACT.atol);
     }
 
     #[test]
@@ -472,10 +473,10 @@ mod tests {
         let mut compiled = compile(f, None);
         let r2 = compiled(&args).unwrap().drain(0..1).next().unwrap();
 
-        assert_eq!(&r1, &r2);
+        assert_array_eq(&r1, &r2, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let r3 = compiled(&args).unwrap().drain(0..1).next().unwrap();
-        assert_eq!(&r1, &r3);
+        assert_array_eq(&r1, &r3, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         // Error case
         let a = array!([1.0, 2.0, 3.0]);
@@ -516,10 +517,10 @@ mod tests {
         let mut compiled = compile(f, None);
         let r2 = compiled(&i).unwrap();
 
-        assert_eq!(&r1, &r2);
+        assert_array_eq(&r1, &r2, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let r3 = compiled(&i).unwrap();
-        assert_eq!(&r1, &r3);
+        assert_array_eq(&r1, &r3, tolerances::EXACT.rtol, tolerances::EXACT.atol);
     }
 
     #[test]
@@ -536,10 +537,10 @@ mod tests {
         let mut compiled = compile(f, None);
         let r2 = compiled((&i1, &i2)).unwrap();
 
-        assert_eq!(&r1, &r2);
+        assert_array_eq(&r1, &r2, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let r3 = compiled((&i1, &i2)).unwrap();
-        assert_eq!(&r1, &r3);
+        assert_array_eq(&r1, &r3, tolerances::EXACT.rtol, tolerances::EXACT.atol);
     }
 
     #[test]
@@ -557,9 +558,9 @@ mod tests {
         // evaluate compiled
         let r2 = compiled((&i1, &i2, &i3)).unwrap();
 
-        assert_eq!(&r1, &r2);
+        assert_array_eq(&r1, &r2, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let r3 = compiled((&i1, &i2, &i3)).unwrap();
-        assert_eq!(&r1, &r3);
+        assert_array_eq(&r1, &r3, tolerances::EXACT.rtol, tolerances::EXACT.atol);
     }
 }

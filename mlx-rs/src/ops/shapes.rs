@@ -980,7 +980,11 @@ pub fn transpose_device(
 // https://github.com/ml-explore/mlx/blob/main/tests/ops_tests.cpp
 #[cfg(test)]
 mod tests {
-    use crate::{array, Array, Dtype};
+    use crate::{
+        array,
+        test_utils::{assert_array_eq, tolerances},
+        Array, Dtype,
+    };
 
     use super::*;
 
@@ -1059,7 +1063,7 @@ mod tests {
         let a = array!([1, 2, 3, 4]);
         let b = unflatten(&a, 0, &[2, -1]).unwrap();
         let expected = array!([[1, 2], [3, 4]]);
-        assert_eq!(b, expected);
+        assert_array_eq(b, expected, tolerances::EXACT.rtol, tolerances::EXACT.atol);
     }
 
     #[test]
@@ -1102,17 +1106,17 @@ mod tests {
         let x = Array::from_iter(0..10, &[10]);
         let y = as_strided(&x, &[3, 3][..], &[1, 1][..], 0).unwrap();
         let expected = Array::from_slice(&[0, 1, 2, 1, 2, 3, 2, 3, 4], &[3, 3]);
-        assert_eq!(y, expected);
+        assert_array_eq(y, expected, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let y = as_strided(&x, &[3, 3][..], &[0, 3][..], 0).unwrap();
         let expected = Array::from_slice(&[0, 3, 6, 0, 3, 6, 0, 3, 6], &[3, 3]);
-        assert_eq!(y, expected);
+        assert_array_eq(y, expected, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let x = x.reshape(&[2, 5]).unwrap();
         let x = x.transpose_axes(&[1, 0][..]).unwrap();
         let y = as_strided(&x, &[3, 3][..], &[2, 1][..], 1).unwrap();
         let expected = Array::from_slice(&[5, 1, 6, 6, 2, 7, 7, 3, 8], &[3, 3]);
-        assert_eq!(y, expected);
+        assert_array_eq(y, expected, tolerances::EXACT.rtol, tolerances::EXACT.atol);
     }
 
     #[test]
@@ -1212,13 +1216,38 @@ mod tests {
 
         let x = Array::from_slice(&[0, 1, 2, 3, 4, 5], &[2, 3]);
         let out = split(&x, 2, None).unwrap();
-        assert_eq!(out[0], Array::from_slice(&[0, 1, 2], &[1, 3]));
-        assert_eq!(out[1], Array::from_slice(&[3, 4, 5], &[1, 3]));
+        assert_array_eq(
+            &out[0],
+            Array::from_slice(&[0, 1, 2], &[1, 3]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
+        assert_array_eq(
+            &out[1],
+            Array::from_slice(&[3, 4, 5], &[1, 3]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         let out = split(&x, 3, 1).unwrap();
-        assert_eq!(out[0], Array::from_slice(&[0, 3], &[2, 1]));
-        assert_eq!(out[1], Array::from_slice(&[1, 4], &[2, 1]));
-        assert_eq!(out[2], Array::from_slice(&[2, 5], &[2, 1]));
+        assert_array_eq(
+            &out[0],
+            Array::from_slice(&[0, 3], &[2, 1]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
+        assert_array_eq(
+            &out[1],
+            Array::from_slice(&[1, 4], &[2, 1]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
+        assert_array_eq(
+            &out[2],
+            Array::from_slice(&[2, 5], &[2, 1]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         let x = Array::zeros::<i32>(&[8, 12]).unwrap();
         let out = split(&x, 2, None).unwrap();
@@ -1263,10 +1292,30 @@ mod tests {
 
         let x = Array::from_iter(0i32..5, &[5]);
         let out = split_sections(&x, &[2, 1, 2], None).unwrap();
-        assert_eq!(out[0], Array::from_slice(&[0, 1], &[2]));
-        assert_eq!(out[1], Array::from_slice::<i32>(&[], &[0]));
-        assert_eq!(out[2], Array::from_slice(&[1], &[1]));
-        assert_eq!(out[3], Array::from_slice(&[2, 3, 4], &[3]));
+        assert_array_eq(
+            &out[0],
+            Array::from_slice(&[0, 1], &[2]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
+        assert_array_eq(
+            &out[1],
+            Array::from_slice::<i32>(&[], &[0]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
+        assert_array_eq(
+            &out[2],
+            Array::from_slice(&[1], &[1]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
+        assert_array_eq(
+            &out[3],
+            Array::from_slice(&[2, 3, 4], &[3]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]
@@ -1348,24 +1397,24 @@ mod tests {
         let x = Array::from_slice(&[1, 2, 3], &[3]);
         let y = tile(&x, &[2]).unwrap();
         let expected = Array::from_slice(&[1, 2, 3, 1, 2, 3], &[6]);
-        assert_eq!(y, expected);
+        assert_array_eq(y, expected, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let x = Array::from_slice(&[1, 2, 3, 4], &[2, 2]);
         let y = tile(&x, &[2]).unwrap();
         let expected = Array::from_slice(&[1, 2, 1, 2, 3, 4, 3, 4], &[2, 4]);
-        assert_eq!(y, expected);
+        assert_array_eq(y, expected, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let x = Array::from_slice(&[1, 2, 3, 4], &[2, 2]);
         let y = tile(&x, &[4, 1]).unwrap();
         let expected =
             Array::from_slice(&[1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4], &[8, 2]);
-        assert_eq!(y, expected);
+        assert_array_eq(y, expected, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let x = Array::from_slice(&[1, 2, 3, 4], &[2, 2]);
         let y = tile(&x, &[2, 2]).unwrap();
         let expected =
             Array::from_slice(&[1, 2, 1, 2, 3, 4, 3, 4, 1, 2, 1, 2, 3, 4, 3, 4], &[4, 4]);
-        assert_eq!(y, expected);
+        assert_array_eq(y, expected, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let x = Array::from_slice(&[1, 2, 3], &[3]);
         let y = tile(&x, &[2, 2, 2]).unwrap();
@@ -1375,7 +1424,7 @@ mod tests {
             ],
             &[2, 2, 6],
         );
-        assert_eq!(y, expected);
+        assert_array_eq(y, expected, tolerances::EXACT.rtol, tolerances::EXACT.atol);
     }
 
     #[test]
@@ -1413,15 +1462,20 @@ mod tests {
         y = transpose_axes(&x, &[-1, -2][..]).unwrap();
         assert_eq!(y.shape(), &[3, 2]);
         y.eval().unwrap();
-        assert_eq!(y, Array::from_slice(&[1, 4, 2, 5, 3, 6], &[3, 2]));
+        assert_array_eq(
+            y,
+            Array::from_slice(&[1, 4, 2, 5, 3, 6], &[3, 2]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         let y = transpose_axes(&x, &[0, 1][..]).unwrap();
         assert_eq!(y.shape(), &[2, 3]);
-        assert_eq!(y, x);
+        assert_array_eq(y, &x, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let y = transpose_axes(&x, &[0, -1][..]).unwrap();
         assert_eq!(y.shape(), &[2, 3]);
-        assert_eq!(y, x);
+        assert_array_eq(y, &x, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         assert!(transpose_axes(&x, &[][..]).is_err());
         assert!(transpose_axes(&x, &[0][..]).is_err());
@@ -1433,26 +1487,26 @@ mod tests {
         let y = transpose(&x).unwrap();
         assert_eq!(y.shape(), &[2, 3, 2]);
         let expected = Array::from_slice(&[1, 7, 3, 9, 5, 11, 2, 8, 4, 10, 6, 12], &[2, 3, 2]);
-        assert_eq!(y, expected);
+        assert_array_eq(y, expected, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let y = transpose_axes(&x, &[0, 1, 2][..]).unwrap();
         assert_eq!(y.shape(), &[2, 3, 2]);
-        assert_eq!(y, x);
+        assert_array_eq(y, &x, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let y = transpose_axes(&x, &[1, 0, 2][..]).unwrap();
         assert_eq!(y.shape(), &[3, 2, 2]);
         let expected = Array::from_slice(&[1, 2, 7, 8, 3, 4, 9, 10, 5, 6, 11, 12], &[3, 2, 2]);
-        assert_eq!(y, expected);
+        assert_array_eq(y, expected, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let y = transpose_axes(&x, &[0, 2, 1][..]).unwrap();
         assert_eq!(y.shape(), &[2, 2, 3]);
         let expected = Array::from_slice(&[1, 3, 5, 2, 4, 6, 7, 9, 11, 8, 10, 12], &[2, 2, 3]);
-        assert_eq!(y, expected);
+        assert_array_eq(y, expected, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let mut x = Array::from_slice(&[0, 1, 2, 3, 4, 5, 6, 7], &[4, 2]);
         x = reshape(transpose(&x).unwrap(), &[2, 2, 2]).unwrap();
         let expected = Array::from_slice(&[0, 2, 4, 6, 1, 3, 5, 7], &[2, 2, 2]);
-        assert_eq!(x, expected);
+        assert_array_eq(x, expected, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let mut x = Array::from_slice(&[0, 1, 2, 3, 4, 5, 6, 7], &[1, 4, 1, 2]);
         // assert!(x.flags().row_contiguous);

@@ -597,7 +597,10 @@ pub fn categorical_device<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{array, assert_array_eq};
+    use crate::{
+        array,
+        test_utils::{assert_array_eq, tolerances},
+    };
     use float_eq::{assert_float_eq, float_eq};
 
     #[test]
@@ -610,15 +613,15 @@ mod tests {
         let x = uniform::<_, f32>(0, 1, None, None).unwrap();
         let y = uniform::<_, f32>(0, 1, None, None).unwrap();
 
-        assert_array_eq!(a, x, 0.01);
-        assert_array_eq!(b, y, 0.01);
+        assert_array_eq(a, x, tolerances::EXACT.rtol, tolerances::EXACT.atol);
+        assert_array_eq(b, y, tolerances::EXACT.rtol, tolerances::EXACT.atol);
     }
 
     #[test]
     fn test_key() {
         let k1 = key(0).unwrap();
         let k2 = key(0).unwrap();
-        assert!(k1 == k2);
+        assert_array_eq(&k1, k2, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let k2 = key(1).unwrap();
         assert!(k1 != k2);
@@ -632,8 +635,8 @@ mod tests {
         assert!(k1 != k2);
 
         let (r1, r2) = split(&key, 2).unwrap();
-        assert!(r1 == k1);
-        assert!(r2 == k2);
+        assert_array_eq(r1, k1, tolerances::EXACT.rtol, tolerances::EXACT.atol);
+        assert_array_eq(r2, k2, tolerances::EXACT.rtol, tolerances::EXACT.atol);
     }
 
     #[test]
@@ -655,7 +658,12 @@ mod tests {
         let value = uniform::<_, f32>(0, 10, &[3], Some(&key)).unwrap();
         let expected = Array::from_slice(&[9.65, 3.14, 6.33], &[3]);
 
-        assert_array_eq!(value, expected, 0.01);
+        assert_array_eq(
+            value,
+            expected,
+            tolerances::ROUNDED_TWO_DECIMALS.rtol,
+            tolerances::ROUNDED_TWO_DECIMALS.atol,
+        );
     }
 
     #[test]
@@ -664,7 +672,12 @@ mod tests {
         let value = uniform::<_, f32>(&[0, 10], &[10, 100], &[2], Some(&key)).unwrap();
         let expected = Array::from_slice(&[2.16, 82.37], &[2]);
 
-        assert_array_eq!(value, expected, 0.01);
+        assert_array_eq(
+            value,
+            expected,
+            tolerances::ROUNDED_TWO_DECIMALS.rtol,
+            tolerances::ROUNDED_TWO_DECIMALS.atol,
+        );
     }
 
     #[test]
@@ -712,7 +725,12 @@ mod tests {
             randint::<_, i32>(array!([0, 10]), array!([10, 100]), None, Some(&key)).unwrap();
         let expected = Array::from_slice(&[2, 82], &[2]);
 
-        assert_array_eq!(value, expected, 0.01);
+        assert_array_eq(
+            value,
+            expected,
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]
@@ -735,7 +753,12 @@ mod tests {
         let value = bernoulli(None, &[4], &key).unwrap();
         let expected = Array::from_slice(&[false, true, false, true], &[4]);
 
-        assert_array_eq!(value, expected, 0.01);
+        assert_array_eq(
+            value,
+            expected,
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]
@@ -745,7 +768,12 @@ mod tests {
         let value = bernoulli(&p, &[4], &key).unwrap();
         let expected = Array::from_slice(&[false, true, true, true], &[4]);
 
-        assert_array_eq!(value, expected, 0.01);
+        assert_array_eq(
+            value,
+            expected,
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]
@@ -754,14 +782,24 @@ mod tests {
         let value = bernoulli(&array!([0.1, 0.5, 0.8]), None, &key).unwrap();
         let expected = Array::from_slice(&[false, true, true], &[3]);
 
-        assert_array_eq!(value, expected, 0.01);
+        assert_array_eq(
+            value,
+            expected,
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]
     fn test_truncated_normal_single() {
         let key = key(0).unwrap();
         let value = truncated_normal::<_, f32>(0, 10, None, &key).unwrap();
-        assert_array_eq!(value, Array::from_f32(0.55), 0.01);
+        assert_array_eq(
+            value,
+            Array::from_f32(0.55),
+            tolerances::ROUNDED_TWO_DECIMALS.rtol,
+            tolerances::ROUNDED_TWO_DECIMALS.atol,
+        );
     }
 
     #[test]
@@ -770,7 +808,12 @@ mod tests {
         let value = truncated_normal::<_, f32>(0.0, 0.5, &[3], &key).unwrap();
         let expected = Array::from_slice(&[0.48, 0.15, 0.30], &[3]);
 
-        assert_array_eq!(value, expected, 0.01);
+        assert_array_eq(
+            value,
+            expected,
+            tolerances::ROUNDED_TWO_DECIMALS.rtol,
+            tolerances::ROUNDED_TWO_DECIMALS.atol,
+        );
     }
 
     #[test]
@@ -780,14 +823,24 @@ mod tests {
             truncated_normal::<_, f32>(array!([0.0, 0.5]), array!([0.5, 1.0]), None, &key).unwrap();
         let expected = Array::from_slice(&[0.10, 0.88], &[2]);
 
-        assert_array_eq!(value, expected, 0.01);
+        assert_array_eq(
+            value,
+            expected,
+            tolerances::ROUNDED_TWO_DECIMALS.rtol,
+            tolerances::ROUNDED_TWO_DECIMALS.atol,
+        );
     }
 
     #[test]
     fn test_gumbel() {
         let key = key(0).unwrap();
         let value = gumbel::<f32>(None, &key).unwrap();
-        assert_array_eq!(value, Array::from_f32(0.13), 0.01);
+        assert_array_eq(
+            value,
+            Array::from_f32(0.13),
+            tolerances::ROUNDED_TWO_DECIMALS.rtol,
+            tolerances::ROUNDED_TWO_DECIMALS.atol,
+        );
     }
 
     #[test]
@@ -798,8 +851,13 @@ mod tests {
 
         assert_eq!(result.shape(), [5]);
 
-        let expected = Array::from_slice(&[1, 1, 17, 17, 17], &[5]);
-        assert_array_eq!(result, expected, 0.01);
+        let expected = Array::from_slice(&[1_u32, 1, 17, 17, 17], &[5]);
+        assert_array_eq(
+            result,
+            expected,
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]
@@ -810,8 +868,13 @@ mod tests {
 
         assert_eq!(result.shape(), [5, 2]);
 
-        let expected = Array::from_slice(&[16, 3, 14, 10, 17, 7, 6, 8, 12, 8], &[5, 2]);
-        assert_array_eq!(result, expected, 0.01);
+        let expected = Array::from_slice(&[16_u32, 3, 14, 10, 17, 7, 6, 8, 12, 8], &[5, 2]);
+        assert_array_eq(
+            result,
+            expected,
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]
@@ -824,7 +887,12 @@ mod tests {
     fn test_random_state_with_seed_deterministic() {
         let s1 = RandomState::with_seed(42).unwrap();
         let s2 = RandomState::with_seed(42).unwrap();
-        assert!(s1.as_array() == s2.as_array());
+        assert_array_eq(
+            s1.as_array(),
+            s2.as_array(),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]
@@ -840,7 +908,12 @@ mod tests {
         let original = RandomState::with_seed(99).unwrap();
         let arr = original.as_array().clone();
         let restored = RandomState::from_key(arr);
-        assert!(original.as_array() == restored.as_array());
+        assert_array_eq(
+            original.as_array(),
+            restored.as_array(),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]
