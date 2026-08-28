@@ -176,7 +176,7 @@ mod tests {
     use crate::{
         array,
         ops::{arange, diag, einsum, reshape},
-        test_utils::{assert_array_eq, tolerances},
+        test_utils::{assert_array_eq, assert_array_eq_with_context, tolerances},
         Array,
     };
     use pretty_assertions::assert_eq;
@@ -184,15 +184,15 @@ mod tests {
     use super::diagonal;
 
     #[test]
-    #[ignore = "mlx-rs diagonal changes int32 to float32; confirmed against python mlx 0.30.6 cpu"]
     fn test_diagonal() {
         let x = Array::from_slice(&[0, 1, 2, 3, 4, 5, 6, 7], &[4, 2]);
         let out = diagonal(&x, None, None, None).unwrap();
-        assert_array_eq(
+        assert_array_eq_with_context(
             out,
             array!([0, 3]),
             tolerances::EXACT.rtol,
             tolerances::EXACT.atol,
+            "default 2d diagonal",
         );
 
         assert!(diagonal(&x, 1, 6, 0).is_err());
@@ -200,19 +200,21 @@ mod tests {
 
         let x = Array::from_slice(&[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], &[3, 4]);
         let out = diagonal(&x, 2, 1, 0).unwrap();
-        assert_array_eq(
+        assert_array_eq_with_context(
             out,
             array!([8]),
             tolerances::EXACT.rtol,
             tolerances::EXACT.atol,
+            "positive offset with swapped axes",
         );
 
         let out = diagonal(&x, -1, 0, 1).unwrap();
-        assert_array_eq(
+        assert_array_eq_with_context(
             out,
             array!([4, 9]),
             tolerances::EXACT.rtol,
             tolerances::EXACT.atol,
+            "negative offset",
         );
 
         let out = diagonal(&x, -5, 0, 1).unwrap();
@@ -221,36 +223,40 @@ mod tests {
 
         let x = Array::from_slice(&[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], &[3, 2, 2]);
         let out = diagonal(&x, 1, 0, 1).unwrap();
-        assert_array_eq(
+        assert_array_eq_with_context(
             out,
             array!([[2], [3]]),
             tolerances::EXACT.rtol,
             tolerances::EXACT.atol,
+            "3d positive offset",
         );
 
         let out = diagonal(&x, 0, 2, 0).unwrap();
-        assert_array_eq(
+        assert_array_eq_with_context(
             out,
             array!([[0, 5], [2, 7]]),
             tolerances::EXACT.rtol,
             tolerances::EXACT.atol,
+            "3d axes 2 and 0",
         );
 
         let out = diagonal(&x, 1, -1, 0).unwrap();
-        assert_array_eq(
+        assert_array_eq_with_context(
             out,
             array!([[4, 9], [6, 11]]),
             tolerances::EXACT.rtol,
             tolerances::EXACT.atol,
+            "3d negative axis",
         );
 
         let x = reshape(arange::<_, f32>(None, 16, None).unwrap(), &[2, 2, 2, 2]).unwrap();
         let out = diagonal(&x, 0, 0, 1).unwrap();
-        assert_array_eq(
+        assert_array_eq_with_context(
             out,
-            Array::from_slice(&[0, 12, 1, 13, 2, 14, 3, 15], &[2, 2, 2]),
+            Array::from_slice(&[0.0, 12.0, 1.0, 13.0, 2.0, 14.0, 3.0, 15.0], &[2, 2, 2]),
             tolerances::EXACT.rtol,
             tolerances::EXACT.atol,
+            "float32 diagonal axes",
         );
 
         assert!(diagonal(&x, 0, 1, 1).is_err());
@@ -331,27 +337,28 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "mlx-rs einsum changes float32 to int32; confirmed against python mlx 0.30.6 cpu"]
     fn test_einsum() {
         // Test dot product (vector-vector)
         let a = array!([0.0, 1.0, 2.0, 3.0]);
         let b = array!([4.0, 5.0, 6.0, 7.0]);
         let out = einsum("i,i->", &[a, b]).unwrap();
-        assert_array_eq(
+        assert_array_eq_with_context(
             out,
             array!(38.0),
             tolerances::EXACT.rtol,
             tolerances::EXACT.atol,
+            "float32 vector dot",
         );
 
         // Test trace (diagonal sum)
         let m = array!([[1, 2], [3, 4]]);
         let out = einsum("ii->", &[m]).unwrap();
-        assert_array_eq(
+        assert_array_eq_with_context(
             out,
-            array!(5.0),
+            array!(5),
             tolerances::EXACT.rtol,
             tolerances::EXACT.atol,
+            "int32 matrix trace",
         );
     }
 

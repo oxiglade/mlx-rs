@@ -428,19 +428,54 @@ fn compare_tensor(
 /// Panics on an observation error or mismatch. Value mismatch output includes the first bad
 /// logical index, expected and actual values with their bits, and the maximum error.
 pub fn assert_array_eq(got: impl AsRef<Array>, expected: impl AsRef<Array>, rtol: f64, atol: f64) {
-    let got = observe(got.as_ref())
-        .unwrap_or_else(|error| panic!("failed to observe got tensor: {error}"));
-    let expected = observe(expected.as_ref())
-        .unwrap_or_else(|error| panic!("failed to observe expected tensor: {error}"));
+    assert_array_eq_impl(got, expected, rtol, atol, None);
+}
+
+/// Asserts strict tensor equality with a context label included in panic diagnostics.
+///
+/// Comparison semantics are identical to [`assert_array_eq`].
+pub fn assert_array_eq_with_context(
+    got: impl AsRef<Array>,
+    expected: impl AsRef<Array>,
+    rtol: f64,
+    atol: f64,
+    context: &str,
+) {
+    assert_array_eq_impl(got, expected, rtol, atol, Some(context));
+}
+
+fn assert_array_eq_impl(
+    got: impl AsRef<Array>,
+    expected: impl AsRef<Array>,
+    rtol: f64,
+    atol: f64,
+    context: Option<&str>,
+) {
+    let got = observe(got.as_ref()).unwrap_or_else(|error| {
+        panic_with_context(context, &format!("failed to observe got tensor: {error}"))
+    });
+    let expected = observe(expected.as_ref()).unwrap_or_else(|error| {
+        panic_with_context(
+            context,
+            &format!("failed to observe expected tensor: {error}"),
+        )
+    });
     if let Err(error) = compare_tensor(&got, &expected, rtol, atol) {
-        panic!("tensor mismatch: {error}");
+        panic_with_context(context, &format!("tensor mismatch: {error}"));
+    }
+}
+
+fn panic_with_context(context: Option<&str>, message: &str) -> ! {
+    match context {
+        Some(context) => panic!("{context}: {message}"),
+        None => panic!("{message}"),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{compare_tensor, HostTensor, TensorData};
-    use crate::Dtype;
+    use super::{assert_array_eq, compare_tensor, observe, tolerances, HostTensor, TensorData};
+    use crate::{array, ops::broadcast_to, Array, Dtype};
 
     fn f32_tensor(dtype: Dtype, shape: &[i32], values: &[f32]) -> HostTensor {
         HostTensor {
@@ -472,6 +507,48 @@ mod tests {
         let got = f32_tensor(Dtype::Float32, &[4], &[1.0, 2.0, 3.0, 4.0]);
 
         assert!(compare_tensor(&got, &expected, 0.0, 0.0).is_err());
+    }
+
+    #[test]
+    fn observes_view_in_logical_order() {
+        let array = array!([[1_u16, 2, 3], [4, 5, 6]]).transpose().unwrap();
+        let expected = array!([[1_u16, 4], [2, 5], [3, 6]]);
+
+        assert_eq!(observe(&array).unwrap().dtype, array.dtype());
+        assert_array_eq(
+            array,
+            expected,
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
+    }
+
+    #[test]
+    fn observes_scalar_dtype_faithfully() {
+        let array = array!(1);
+
+        assert_eq!(observe(&array).unwrap().dtype, array.dtype());
+    }
+
+    #[test]
+    fn observes_broadcast_in_logical_order() {
+        let array = broadcast_to(&array!([true, false]), &[3, 2]).unwrap();
+        let expected = array!([[true, false], [true, false], [true, false]]);
+
+        assert_eq!(observe(&array).unwrap().dtype, array.dtype());
+        assert_array_eq(
+            array,
+            expected,
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
+    }
+
+    #[test]
+    fn observes_empty_dtype_faithfully() {
+        let array = Array::from_slice::<f32>(&[], &[0]);
+
+        assert_eq!(observe(&array).unwrap().dtype, array.dtype());
     }
 
     #[test]

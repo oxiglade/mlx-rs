@@ -138,7 +138,12 @@ fn test_fft_fft() {
     let fft = mlx_rs::fft!(&data).unwrap();
 
     assert_eq!(fft.dtype(), Dtype::Complex64);
-    assert_eq!(fft.as_slice::<complex64>(), FFT_EXPECTED);
+    assert_array_eq(
+        fft,
+        Array::from_slice(FFT_EXPECTED, &[4]),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
 }
 
 // Test functions defined in `mlx_rs::linalg` module.

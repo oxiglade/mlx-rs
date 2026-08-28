@@ -214,7 +214,9 @@ pub fn ifftn_device<'a>(
 
 #[cfg(test)]
 mod tests {
-    use crate::{complex64, fft::*, Array, Dtype};
+    use crate::{
+        complex64, fft::*, test_utils::assert_array_eq, test_utils::tolerances, Array, Dtype,
+    };
 
     #[test]
     fn test_fft() {
@@ -231,22 +233,33 @@ mod tests {
         let fft = fft(&array, None, None).unwrap();
 
         assert_eq!(fft.dtype(), Dtype::Complex64);
-        assert_eq!(fft.as_slice::<complex64>(), FFT_EXPECTED);
+        assert_array_eq(
+            &fft,
+            Array::from_slice(FFT_EXPECTED, FFT_SHAPE),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         let ifft = ifft(&fft, None, None).unwrap();
 
         assert_eq!(ifft.dtype(), Dtype::Complex64);
-        assert_eq!(
-            ifft.as_slice::<complex64>(),
-            FFT_DATA
-                .iter()
-                .map(|&x| complex64::new(x, 0.0))
-                .collect::<Vec<_>>()
+        let expected = FFT_DATA
+            .iter()
+            .map(|&x| complex64::new(x, 0.0))
+            .collect::<Vec<_>>();
+        assert_array_eq(
+            &ifft,
+            Array::from_slice(&expected, FFT_SHAPE),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
         );
 
-        // The original array is not modified and valid
-        let data: &[f32] = array.as_slice();
-        assert_eq!(data, FFT_DATA);
+        assert_array_eq(
+            array,
+            Array::from_slice(FFT_DATA, FFT_SHAPE),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]
@@ -264,22 +277,33 @@ mod tests {
         let fft2 = fft2(&array, None, None).unwrap();
 
         assert_eq!(fft2.dtype(), Dtype::Complex64);
-        assert_eq!(fft2.as_slice::<complex64>(), FFT2_EXPECTED);
+        assert_array_eq(
+            &fft2,
+            Array::from_slice(FFT2_EXPECTED, FFT2_SHAPE),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         let ifft2 = ifft2(&fft2, None, None).unwrap();
 
         assert_eq!(ifft2.dtype(), Dtype::Complex64);
-        assert_eq!(
-            ifft2.as_slice::<complex64>(),
-            FFT2_DATA
-                .iter()
-                .map(|&x| complex64::new(x, 0.0))
-                .collect::<Vec<_>>()
+        let expected = FFT2_DATA
+            .iter()
+            .map(|&x| complex64::new(x, 0.0))
+            .collect::<Vec<_>>();
+        assert_array_eq(
+            &ifft2,
+            Array::from_slice(&expected, FFT2_SHAPE),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
         );
 
-        // test that previous array is not modified and valid
-        let data: &[f32] = array.as_slice();
-        assert_eq!(data, FFT2_DATA);
+        assert_array_eq(
+            array,
+            Array::from_slice(FFT2_DATA, FFT2_SHAPE),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]
@@ -301,21 +325,32 @@ mod tests {
         let fftn = fftn(&array, None, None).unwrap();
 
         assert_eq!(fftn.dtype(), Dtype::Complex64);
-        assert_eq!(fftn.as_slice::<complex64>(), FFTN_EXPECTED);
+        assert_array_eq(
+            &fftn,
+            Array::from_slice(FFTN_EXPECTED, FFTN_SHAPE),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         let ifftn = ifftn(&fftn, FFTN_SHAPE, &[0, 1, 2]).unwrap();
 
         assert_eq!(ifftn.dtype(), Dtype::Complex64);
-        assert_eq!(
-            ifftn.as_slice::<complex64>(),
-            FFTN_DATA
-                .iter()
-                .map(|&x| complex64::new(x, 0.0))
-                .collect::<Vec<_>>()
+        let expected = FFTN_DATA
+            .iter()
+            .map(|&x| complex64::new(x, 0.0))
+            .collect::<Vec<_>>();
+        assert_array_eq(
+            &ifftn,
+            Array::from_slice(&expected, FFTN_SHAPE),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
         );
 
-        // test that previous array is not modified and valid
-        let data: &[f32] = array.as_slice();
-        assert_eq!(data, FFTN_DATA);
+        assert_array_eq(
+            array,
+            Array::from_slice(FFTN_DATA, FFTN_SHAPE),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 }

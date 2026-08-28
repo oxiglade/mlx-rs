@@ -586,7 +586,9 @@ pub fn triu_device(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{array, dtype::Dtype, StreamOrDevice};
+    use crate::{
+        array, dtype::Dtype, test_utils::assert_array_eq, test_utils::tolerances, StreamOrDevice,
+    };
     use half::f16;
 
     #[test]
@@ -634,8 +636,12 @@ mod tests {
         assert_eq!(array.shape(), &[2, 3]);
         assert_eq!(array.dtype(), Dtype::Float32);
 
-        let data: &[f32] = array.as_slice();
-        assert_eq!(data, &[7.0; 6]);
+        assert_array_eq(
+            array,
+            Array::from_slice(&[7.0; 6], &[2, 3]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]
@@ -645,8 +651,12 @@ mod tests {
         assert_eq!(array.shape(), &[2, 3]);
         assert_eq!(array.dtype(), Dtype::Float32);
 
-        let data: &[f32] = array.as_slice();
-        float_eq::float_eq!(*data, [0.0; 6], abs <= [1e-6; 6]);
+        assert_array_eq(
+            array,
+            Array::from_slice(&[0.0; 6], &[2, 3]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]
@@ -807,28 +817,43 @@ mod tests {
         assert_eq!(from_array_with_dtype.dtype(), Dtype::Float16);
         assert_eq!(from_array_with_dtype.shape(), &[3]);
 
-        let expected_f16: Vec<f16> = vec![f16::from_f32(7.5); 3];
-        let data: Vec<f16> = from_array_with_dtype.as_slice::<f16>().to_vec();
-        assert_eq!(data, expected_f16);
+        assert_array_eq(
+            from_array_with_dtype,
+            Array::from_slice(&[f16::from_f32(7.5); 3], &[3]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         // Test with default dtype (inherits from input)
         let from_array_default_dtype = full_like(&base_int, &array!(4.0f32), None).unwrap();
         assert_eq!(from_array_default_dtype.dtype(), Dtype::Int16);
-        let data: &[i16] = from_array_default_dtype.as_slice();
-        assert_eq!(data, &[4, 4, 4]);
+        assert_array_eq(
+            from_array_default_dtype,
+            Array::from_slice(&[4_i16, 4, 4], &[3]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         // Test with explicit dtype float32
         let from_scalar_with_dtype =
             full_like(&base_int, &array!(3.25f32), Some(Dtype::Float32)).unwrap();
         assert_eq!(from_scalar_with_dtype.dtype(), Dtype::Float32);
-        let data: &[f32] = from_scalar_with_dtype.as_slice();
-        assert_eq!(data, &[3.25f32, 3.25f32, 3.25f32]);
+        assert_array_eq(
+            from_scalar_with_dtype,
+            Array::from_slice(&[3.25_f32; 3], &[3]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         // Test with float base and int value - uses base dtype
         let base_float = Array::from_slice(&[1.0f32, 2.0f32], &[2]);
         let from_scalar_default_dtype = full_like(&base_float, &array!(2i32), None).unwrap();
         assert_eq!(from_scalar_default_dtype.dtype(), Dtype::Float32);
-        let data: &[f32] = from_scalar_default_dtype.as_slice();
-        assert_eq!(data, &[2.0f32, 2.0f32]);
+        assert_array_eq(
+            from_scalar_default_dtype,
+            Array::from_slice(&[2.0_f32; 2], &[2]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 }

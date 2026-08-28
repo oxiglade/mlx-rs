@@ -1639,7 +1639,7 @@ mod tests {
     use crate::{
         array, complex64,
         ops::{all_close, arange, broadcast_to, eye, full, linspace, ones, reshape, split},
-        test_utils::{assert_array_eq, tolerances},
+        test_utils::{assert_array_eq, assert_array_eq_with_context, tolerances},
         transforms::eval,
         Dtype, StreamOrDevice,
     };
@@ -2305,19 +2305,21 @@ mod tests {
     #[test]
     fn test_unary_round() {
         let x = array!([0.5, -0.5, 1.5, -1.5, 2.3, 2.6]);
-        assert_array_eq(
+        assert_array_eq_with_context(
             round(&x, None).unwrap(),
             array!([0.0_f32, 0.0, 2.0, -2.0, 2.0, 3.0]),
             tolerances::EXACT.rtol,
             tolerances::EXACT.atol,
+            "float32 half-to-even rounding",
         );
 
         let x = array!([11, 222, 32]);
-        assert_array_eq(
+        assert_array_eq_with_context(
             round(&x, -1).unwrap(),
             array!([10, 220, 30]),
             tolerances::EXACT.rtol,
             tolerances::EXACT.atol,
+            "int32 negative-decimal rounding",
         );
     }
 
@@ -3052,7 +3054,13 @@ mod tests {
             ],
             &[5, 2],
         );
-        assert_array_eq(z, expected, tolerances::EXACT.rtol, tolerances::EXACT.atol);
+        assert_array_eq_with_context(
+            z,
+            expected,
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+            "float32 explicit-axis contraction",
+        );
 
         let x = reshape(arange::<_, f32>(None, 360.0, None).unwrap(), &[3, 4, 5, 6]).unwrap();
         let y = reshape(arange::<_, f32>(None, 360.0, None).unwrap(), &[6, 4, 5, 3]).unwrap();
@@ -3069,7 +3077,13 @@ mod tests {
             ],
             &[3, 6],
         );
-        assert_array_eq(z, expected, tolerances::EXACT.rtol, tolerances::EXACT.atol);
+        assert_array_eq_with_context(
+            z,
+            expected,
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+            "float32 axis-count contraction",
+        );
     }
 
     #[test]

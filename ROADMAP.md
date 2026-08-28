@@ -51,22 +51,21 @@ Recorded because none of it shows up in a test count, and all of it survives add
 - Measured at 0.30.6 CPU after the error-handler fix: eight threads concurrently constructing
   graphs and receiving invoke-stage errors is safe with per-thread delivery. The unsafe surface is
   specifically concurrent *eval* on the shared default stream, not graph construction.
-- `Array::try_as_slice` silently returns storage-order data for non-contiguous arrays without an
-  error or materialization — and on broadcast (zero-stride) views the backing buffer is smaller
-  than `size()`, so the returned slice reads out of bounds. Observed as garbage values from a
-  safe-looking API. Also note MLX reshape/flatten may legally return a strided view rather than a
-  copy, so no op-level materialization guarantees contiguity; the conformance runner extracts
-  stride-aware on the host instead.
-- mlx-rs `diagonal` returns `Float32` for an `Int32` input; Python MLX returns `int32`. The strict
-  comparator migration found the mismatch, confirmed against the pinned oracle.
-- mlx-rs `einsum` returns `Int32` for float32 inputs on `"i,i->"`; Python MLX returns `float32`.
-  The strict comparator migration found the mismatch, confirmed against the pinned oracle.
-- `compile_with_state`: a failed compiled call leaves caller state holding tracer arrays
-  without primitives — a failed training step corrupts model/optimizer state
-  (`[eval] Attempting to eval an array without a primitive`). Found by the Wave 2a
-  error-atomicity trajectory test; the tracing placeholder swap has no error-path restore.
-- mlx-rs `AdaDelta` defaults `rho` to 0.99; Python MLX defaults it to 0.9, causing divergent
-  training behavior for users of the defaults.
+
+## Fixed findings
+
+- The strict comparator surfaced six wrong test expectations (dtype-blind literals), initially
+  misattributed first to operation bugs and then to an observer defect. Sub-assertion-level
+  analysis located them; the operations and observer were correct.
+- Fixed: `compile_with_state` restores caller state after tracing or compiled-apply errors and before retrying.
+- Fixed: `try_as_slice` rejects non-row-contiguous views; safetensors conversion propagates that error.
+- Fixed: `AdaDelta` now defaults `rho` to Python MLX's `0.9`; `0.99` remains available explicitly.
+
+### Coverage note from the strict-comparator migration
+
+The FFT and `full` tests' literals are order-invariant (constant inputs), so they could not and
+still cannot distinguish a transposed read; asymmetric FFT cases belong in the conformance corpus
+when the FFT suite is added.
 
 ## Tranche 2 — leak and use-after-free gate (done)
 

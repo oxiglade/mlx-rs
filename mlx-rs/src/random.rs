@@ -599,7 +599,7 @@ mod tests {
     use super::*;
     use crate::{
         array,
-        test_utils::{assert_array_eq, tolerances},
+        test_utils::{assert_array_eq, assert_array_eq_with_context, tolerances},
     };
     use float_eq::{assert_float_eq, float_eq};
 
@@ -852,11 +852,12 @@ mod tests {
         assert_eq!(result.shape(), [5]);
 
         let expected = Array::from_slice(&[1_u32, 1, 17, 17, 17], &[5]);
-        assert_array_eq(
+        assert_array_eq_with_context(
             result,
             expected,
             tolerances::EXACT.rtol,
             tolerances::EXACT.atol,
+            "categorical default sample values",
         );
     }
 
@@ -869,11 +870,12 @@ mod tests {
         assert_eq!(result.shape(), [5, 2]);
 
         let expected = Array::from_slice(&[16_u32, 3, 14, 10, 17, 7, 6, 8, 12, 8], &[5, 2]);
-        assert_array_eq(
+        assert_array_eq_with_context(
             result,
             expected,
             tolerances::EXACT.rtol,
             tolerances::EXACT.atol,
+            "categorical counted sample values",
         );
     }
 

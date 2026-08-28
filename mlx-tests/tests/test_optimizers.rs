@@ -12,8 +12,8 @@ use mlx_rs::{
     nn,
     ops::{ones, zeros},
     optimizers::{
-        AdaDelta, AdaGrad, AdafactorBuilder, Adam, AdamW, Adamax, Lion, LionBuilder, Optimizer,
-        RmsProp, RmsPropBuilder, Sgd, SgdBuilder,
+        AdaDelta, AdaDeltaBuilder, AdaGrad, AdafactorBuilder, Adam, AdamW, Adamax, Lion,
+        LionBuilder, Optimizer, RmsProp, RmsPropBuilder, Sgd, SgdBuilder,
     },
     random::uniform,
     test_utils::{assert_array_eq, tolerances},
@@ -214,7 +214,7 @@ fn test_ada_delta() {
         SimpleModel {
             a: Param::new(initial_parameter.clone()),
         },
-        AdaDelta::new(0.1_f32).unwrap(),
+        AdaDeltaBuilder::new(0.1_f32).rho(0.99).build().unwrap(),
     );
     let (mut model, mut optimizer) = initial_state.clone();
     let gradients = [
@@ -225,7 +225,7 @@ fn test_ada_delta() {
     let mut expected_parameter = initial_parameter.as_slice::<f32>().to_vec();
     let mut expected_v = [0.0_f32; 3];
     let mut expected_u = [0.0_f32; 3];
-    let rho = AdaDelta::DEFAULT_RHO;
+    let rho = 0.99;
     let epsilon = AdaDelta::DEFAULT_EPS;
     let learning_rate = 0.1_f32;
 
@@ -268,7 +268,11 @@ fn test_ada_delta() {
         );
     }
 
-    assert_save_and_load(optimizer, AdaDelta::new(0.1_f32).unwrap()).unwrap();
+    assert_save_and_load(
+        optimizer,
+        AdaDeltaBuilder::new(0.1_f32).rho(0.99).build().unwrap(),
+    )
+    .unwrap();
 }
 
 // This unit test is adapted from the swift binding unit test `testAdaGrad` in
