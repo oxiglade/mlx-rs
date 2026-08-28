@@ -232,7 +232,24 @@ enum ClosureFailure {
 thread_local! {
     static CLOSURE_ERROR: Cell<Option<ClosureFailure>> = const { Cell::new(None) };
     static LAST_MLX_ERROR: Cell<*const c_char> = const { Cell::new(std::ptr::null()) };
-    pub(crate) static INIT_ERR_HANDLER: Once = const { Once::new() };
+}
+
+pub(crate) static INIT_ERR_HANDLER: ErrorHandlerRegistration = ErrorHandlerRegistration::new();
+
+pub(crate) struct ErrorHandlerRegistration(Once);
+
+impl ErrorHandlerRegistration {
+    const fn new() -> Self {
+        Self(Once::new())
+    }
+
+    pub(crate) fn call_once(&self, f: impl FnOnce()) {
+        self.0.call_once(f);
+    }
+
+    pub(crate) fn with<T>(&self, f: impl FnOnce(&Once) -> T) -> T {
+        f(&self.0)
+    }
 }
 
 #[no_mangle]
@@ -244,15 +261,11 @@ extern "C" fn default_mlx_error_handler(msg: *const c_char, _data: *mut std::ffi
     }
 }
 
-#[no_mangle]
-extern "C" fn noop_mlx_error_handler_data_deleter(_data: *mut std::ffi::c_void) {}
-
+/// Registers one process-global handler; the handler delivers each error through calling-thread
+/// TLS, so one registration serves every thread.
 pub(crate) fn setup_mlx_error_handler() {
-    let handler = default_mlx_error_handler;
-    let data_ptr = LAST_MLX_ERROR.with(|last_error| last_error.as_ptr() as *mut std::ffi::c_void);
-    let dtor = noop_mlx_error_handler_data_deleter;
     unsafe {
-        mlx_sys::mlx_set_error_handler(Some(handler), data_ptr, Some(dtor));
+        mlx_sys::mlx_set_error_handler(Some(default_mlx_error_handler), std::ptr::null_mut(), None);
     }
 }
 

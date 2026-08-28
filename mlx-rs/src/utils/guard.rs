@@ -25,8 +25,7 @@ pub(crate) trait Guarded: Sized {
     where
         F: FnOnce(<Self::Guard as Guard<Self>>::MutRawPtr) -> Status,
     {
-        crate::error::INIT_ERR_HANDLER
-            .with(|init| init.call_once(crate::error::setup_mlx_error_handler));
+        crate::error::INIT_ERR_HANDLER.call_once(crate::error::setup_mlx_error_handler);
 
         let mut guard = Self::Guard::default();
         let status = f(guard.as_mut_raw_ptr());

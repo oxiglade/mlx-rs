@@ -48,6 +48,9 @@ Recorded because none of it shows up in a test count, and all of it survives add
 - `concatenate` claimed first-axis semantics in its documentation, but its binding flattens all
   arrays. The conformance corpus found the mismatch and the documentation is fixed; the API naming
   trap remains until the bump review.
+- Measured at 0.30.6 CPU after the error-handler fix: eight threads concurrently constructing
+  graphs and receiving invoke-stage errors is safe with per-thread delivery. The unsafe surface is
+  specifically concurrent *eval* on the shared default stream, not graph construction.
 - `Array::try_as_slice` silently returns storage-order data for non-contiguous arrays without an
   error or materialization — and on broadcast (zero-stride) views the backing buffer is smaller
   than `size()`, so the returned slice reads out of bounds. Observed as garbage values from a
