@@ -30,6 +30,7 @@ pub(crate) trait Guarded: Sized {
 
         let mut guard = Self::Guard::default();
         let status = f(guard.as_mut_raw_ptr());
+        crate::error::resume_closure_panic();
         match status {
             SUCCESS => {
                 guard.set_init_success(true);

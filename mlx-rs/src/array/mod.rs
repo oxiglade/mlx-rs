@@ -91,8 +91,22 @@ impl Array {
     ///
     /// # Safety
     ///
-    /// The caller must ensure the reference count of the array is properly incremented with
-    /// `mlx_sys::mlx_retain`.
+    /// `c_array` must be a valid, independently owned MLX array handle. [`Array`] takes ownership
+    /// of that handle and frees it on drop. A borrowed handle, such as one returned by
+    /// [`Array::as_ptr`], must first be duplicated into a fresh handle with
+    /// [`mlx_sys::mlx_array_set`].
+    ///
+    /// ```no_run
+    /// use mlx_rs::Array;
+    ///
+    /// let source = Array::from_int(1);
+    /// let duplicate = unsafe {
+    ///     let mut handle = mlx_sys::mlx_array_new();
+    ///     assert_eq!(mlx_sys::mlx_array_set(&mut handle, source.as_ptr()), 0);
+    ///     Array::from_ptr(handle)
+    /// };
+    /// assert_eq!(duplicate.item::<i32>(), 1);
+    /// ```
     pub unsafe fn from_ptr(c_array: mlx_array) -> Array {
         Self { c_array }
     }

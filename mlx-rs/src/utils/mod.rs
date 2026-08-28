@@ -3,10 +3,11 @@
 use guard::Guarded;
 use mlx_sys::mlx_vector_array;
 
-use crate::error::set_closure_error;
+use crate::error::{set_closure_error, set_closure_panic};
 use crate::module::ModuleParameters;
 use crate::{complex64, error::Exception, Array, FromNested};
 use std::collections::HashMap;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::{marker::PhantomData, rc::Rc};
 
 /// Success status code from the c binding
@@ -235,6 +236,7 @@ impl<'a> Closure<'a> {
 impl Drop for Closure<'_> {
     fn drop(&mut self) {
         let status = unsafe { mlx_sys::mlx_closure_free(self.c_closure) };
+        crate::error::resume_closure_panic();
         debug_assert_eq!(status, SUCCESS);
     }
 }
@@ -308,25 +310,26 @@ extern "C" fn trampoline<'a, F>(
 where
     F: FnMut(&[Array]) -> Vec<Array> + 'a,
 {
-    unsafe {
+    let result = catch_unwind(AssertUnwindSafe(|| unsafe {
         let raw_closure: *mut F = payload as *mut _;
-        // Let the box take care of freeing the closure
-        let mut closure = Box::from_raw(raw_closure);
+        let closure = &mut *raw_closure;
         let arrays = match mlx_vector_array_values(vector_array) {
             Ok(arrays) => arrays,
-            Err(_) => {
-                let _ = Box::into_raw(closure); // prevent premature drop
-                return FAILURE;
-            }
+            Err(_) => return None,
         };
         let result = closure(&arrays);
-        let _ = Box::into_raw(closure); // prevent premature drop
 
-        // We should probably keep using new_mlx_vector_array here instead of VectorArray
-        // since we probably don't want to drop the arrays in the closure
         *ret = new_mlx_vector_array(result);
+        Some(())
+    }));
 
-        SUCCESS
+    match result {
+        Ok(Some(())) => SUCCESS,
+        Ok(None) => FAILURE,
+        Err(payload) => {
+            set_closure_panic(payload);
+            FAILURE
+        }
     }
 }
 
@@ -338,19 +341,17 @@ extern "C" fn trampoline_fallible<'a, F>(
 where
     F: FnMut(&[Array]) -> Result<Vec<Array>, Exception> + 'a,
 {
-    unsafe {
+    let result = catch_unwind(AssertUnwindSafe(|| unsafe {
         let raw_closure: *mut F = payload as *mut _;
-        let mut closure = Box::from_raw(raw_closure);
+        let closure = &mut *raw_closure;
         let arrays = match mlx_vector_array_values(vector_array) {
             Ok(arrays) => arrays,
             Err(e) => {
-                let _ = Box::into_raw(closure); // prevent premature drop
                 set_closure_error(e);
                 return FAILURE;
             }
         };
         let result = closure(&arrays);
-        let _ = Box::into_raw(closure); // prevent premature drop
 
         match result {
             Ok(result) => {
@@ -362,6 +363,14 @@ where
                 FAILURE
             }
         }
+    }));
+
+    match result {
+        Ok(status) => status,
+        Err(payload) => {
+            set_closure_panic(payload);
+            FAILURE
+        }
     }
 }
 
@@ -371,8 +380,11 @@ extern "C" fn closure_dtor<F>(payload: *mut std::ffi::c_void) {
     if payload.is_null() {
         return;
     }
-    unsafe {
+    let result = catch_unwind(AssertUnwindSafe(|| unsafe {
         drop(Box::from_raw(payload as *mut F));
+    }));
+    if let Err(payload) = result {
+        set_closure_panic(payload);
     }
 }
 
@@ -605,5 +617,102 @@ impl<T> From<T> for SingleOrVec<T> {
 impl<T> From<Vec<T>> for SingleOrVec<T> {
     fn from(value: Vec<T>) -> Self {
         SingleOrVec::Vec(value)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::any::Any;
+    use std::process::Command;
+
+    const PANIC_CHILD: &str = "MLX_RS_TRAMPOLINE_PANIC_CHILD";
+
+    #[test]
+    fn closure_trampoline_panics_resume_in_rust() {
+        if std::env::var_os(PANIC_CHILD).is_some() {
+            run_trampoline_panic_child();
+            return;
+        }
+
+        let output = Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "utils::tests::closure_trampoline_panics_resume_in_rust",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env(PANIC_CHILD, "1")
+            .output()
+            .unwrap();
+
+        assert!(
+            output.status.success(),
+            "child status: {:?}\nstdout:\n{}\nstderr:\n{}",
+            output.status,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    fn run_trampoline_panic_child() {
+        type Infallible = fn(&[Array]) -> Vec<Array>;
+        let payload = Box::into_raw(Box::new(panic_infallible as Infallible)).cast();
+        let input = unsafe { mlx_sys::mlx_vector_array_new() };
+        let mut output = unsafe { mlx_sys::mlx_vector_array_new() };
+        let status = trampoline::<Infallible>(&mut output, input, payload);
+        assert_eq!(status, FAILURE);
+        assert_captured_panic("infallible trampoline panic");
+        closure_dtor::<Infallible>(payload);
+        unsafe {
+            mlx_sys::mlx_vector_array_free(input);
+            mlx_sys::mlx_vector_array_free(output);
+        }
+
+        let payload = Box::into_raw(Box::new(PanicOnDrop)).cast();
+        closure_dtor::<PanicOnDrop>(payload);
+        assert_captured_panic("closure destructor panic");
+
+        type Fallible = fn(&[Array]) -> Result<Vec<Array>, Exception>;
+        let payload = Box::into_raw(Box::new(panic_fallible as Fallible)).cast();
+        let input = unsafe { mlx_sys::mlx_vector_array_new() };
+        let mut output = unsafe { mlx_sys::mlx_vector_array_new() };
+        let status = trampoline_fallible::<Fallible>(&mut output, input, payload);
+        assert_eq!(status, FAILURE);
+        assert_captured_panic("fallible trampoline panic");
+        closure_dtor::<Fallible>(payload);
+        unsafe {
+            mlx_sys::mlx_vector_array_free(input);
+            mlx_sys::mlx_vector_array_free(output);
+        }
+    }
+
+    fn panic_infallible(_: &[Array]) -> Vec<Array> {
+        panic!("infallible trampoline panic")
+    }
+
+    fn panic_fallible(_: &[Array]) -> Result<Vec<Array>, Exception> {
+        panic!("fallible trampoline panic")
+    }
+
+    struct PanicOnDrop;
+
+    impl Drop for PanicOnDrop {
+        fn drop(&mut self) {
+            panic!("closure destructor panic")
+        }
+    }
+
+    fn assert_captured_panic(expected: &str) {
+        let payload = catch_unwind(crate::error::resume_closure_panic)
+            .expect_err("the trampoline panic should resume in Rust");
+        assert_eq!(panic_message(payload).as_deref(), Some(expected));
+    }
+
+    fn panic_message(payload: Box<dyn Any + Send>) -> Option<String> {
+        payload
+            .downcast_ref::<&'static str>()
+            .map(|s| (*s).to_owned())
+            .or_else(|| payload.downcast_ref::<String>().cloned())
     }
 }

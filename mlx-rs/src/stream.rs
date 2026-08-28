@@ -1,4 +1,4 @@
-use std::{cell::RefCell, ffi::CStr};
+use std::{cell::RefCell, ffi::CStr, thread::LocalKey};
 
 use crate::{
     device::Device,
@@ -10,6 +10,29 @@ thread_local! {
     static TASK_LOCAL_DEFAULT_STREAM: RefCell<Option<Stream>> = const { RefCell::new(None) };
 }
 
+struct ScopedValueGuard<T: 'static> {
+    local: &'static LocalKey<RefCell<Option<T>>>,
+    previous: Option<T>,
+}
+
+impl<T: 'static> Drop for ScopedValueGuard<T> {
+    fn drop(&mut self) {
+        self.local.with_borrow_mut(|stream| {
+            *stream = self.previous.take();
+        });
+    }
+}
+
+fn with_scoped_value<T: 'static, R>(
+    local: &'static LocalKey<RefCell<Option<T>>>,
+    value: T,
+    f: impl FnOnce() -> R,
+) -> R {
+    let previous = local.with_borrow_mut(|current| current.replace(value));
+    let _guard = ScopedValueGuard { local, previous };
+    f()
+}
+
 /// Gets the task local default stream.
 ///
 /// This is NOT intended to be used directly in most cases. Instead, use the
@@ -19,19 +42,13 @@ pub fn task_local_default_stream() -> Option<Stream> {
 }
 
 /// Use a given default stream for the duration of the closure `f`.
+///
+/// The previous task-local stream is restored if `f` panics.
 pub fn with_new_default_stream<F, T>(default_stream: Stream, f: F) -> T
 where
     F: FnOnce() -> T,
 {
-    let prev_stream = TASK_LOCAL_DEFAULT_STREAM.with_borrow_mut(|s| s.replace(default_stream));
-
-    let result = f();
-
-    TASK_LOCAL_DEFAULT_STREAM.with_borrow_mut(|s| {
-        *s = prev_stream;
-    });
-
-    result
+    with_scoped_value(&TASK_LOCAL_DEFAULT_STREAM, default_stream, f)
 }
 
 /// Parameter type for all MLX operations.
@@ -262,6 +279,24 @@ mod tests {
             assert_eq!(task_local_stream_0, task_local_stream_1);
             assert_ne!(task_local_stream_0, cpu_stream);
         });
+    }
+
+    #[test]
+    fn test_scoped_default_stream_restored_after_panic() {
+        thread_local! {
+            static VALUE: RefCell<Option<i32>> = const { RefCell::new(None) };
+        }
+
+        with_scoped_value(&VALUE, 1, || {
+            let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                with_scoped_value(&VALUE, 2, || panic!("stream panic"));
+            }));
+
+            assert!(panic.is_err());
+            assert_eq!(VALUE.with_borrow(|value| *value), Some(1));
+        });
+
+        assert!(VALUE.with_borrow(Option::is_none));
     }
 
     #[test]

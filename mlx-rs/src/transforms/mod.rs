@@ -23,6 +23,11 @@
 //! argument to compute the gradient with respect to, use
 //! [`grad_with_argnums()`] or [`value_and_grad_with_argnums()`].
 //!
+//! # Panics
+//!
+//! A panic in a Rust transform closure is caught before it reaches MLX. After MLX returns through
+//! the C ABI, the panic resumes in Rust with its original payload.
+//!
 //! TODO: update the example once https://github.com/oxideai/mlx-rs/pull/218 is merged
 //!
 //! ```rust,ignore

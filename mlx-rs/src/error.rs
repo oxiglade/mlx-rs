@@ -2,6 +2,7 @@
 
 use crate::Dtype;
 use libc::strdup;
+use std::any::Any;
 use std::convert::Infallible;
 use std::ffi::NulError;
 use std::panic::Location;
@@ -223,8 +224,13 @@ impl From<Exception> for String {
     }
 }
 
+enum ClosureFailure {
+    Error(Exception),
+    Panic(Box<dyn Any + Send>),
+}
+
 thread_local! {
-    static CLOSURE_ERROR: Cell<Option<Exception>> = const { Cell::new(None) };
+    static CLOSURE_ERROR: Cell<Option<ClosureFailure>> = const { Cell::new(None) };
     static LAST_MLX_ERROR: Cell<*const c_char> = const { Cell::new(std::ptr::null()) };
     pub(crate) static INIT_ERR_HANDLER: Once = const { Once::new() };
 }
@@ -251,11 +257,43 @@ pub(crate) fn setup_mlx_error_handler() {
 }
 
 pub(crate) fn set_closure_error(err: Exception) {
-    CLOSURE_ERROR.with(|closure_error| closure_error.set(Some(err)));
+    CLOSURE_ERROR.with(|closure_error| closure_error.set(Some(ClosureFailure::Error(err))));
 }
 
 pub(crate) fn get_and_clear_closure_error() -> Option<Exception> {
-    CLOSURE_ERROR.with(|closure_error| closure_error.replace(None))
+    CLOSURE_ERROR.with(|closure_error| match closure_error.take() {
+        Some(ClosureFailure::Error(err)) => Some(err),
+        Some(ClosureFailure::Panic(payload)) => resume_closure_unwind(payload),
+        None => None,
+    })
+}
+
+pub(crate) fn set_closure_panic(payload: Box<dyn Any + Send>) {
+    CLOSURE_ERROR.with(|closure_error| closure_error.set(Some(ClosureFailure::Panic(payload))));
+}
+
+/// Resumes a panic captured by an MLX closure trampoline after control has returned to Rust.
+///
+/// Closure errors remain available to the calling transform as an [`Exception`]. Panics instead
+/// retain their original payload and resume before the FFI wrapper returns to its caller.
+pub(crate) fn resume_closure_panic() {
+    CLOSURE_ERROR.with(|closure_error| {
+        if let Some(failure) = closure_error.take() {
+            match failure {
+                ClosureFailure::Error(err) => {
+                    closure_error.set(Some(ClosureFailure::Error(err)));
+                }
+                ClosureFailure::Panic(payload) => resume_closure_unwind(payload),
+            }
+        }
+    });
+}
+
+fn resume_closure_unwind(payload: Box<dyn Any + Send>) -> ! {
+    // MLX records its own error when the trampoline reports failure. The panic is the real
+    // cause, so drop that message rather than leaving it to surface against a later operation.
+    let _ = get_and_clear_last_mlx_error();
+    std::panic::resume_unwind(payload)
 }
 
 #[track_caller]
