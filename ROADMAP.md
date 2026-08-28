@@ -18,7 +18,8 @@ oracle side instead — see "Conformance runner" below.
       needs the system Xcode; see the `xcrun` shim comment in `devenv.nix` for why.
 - [x] **Tranche 1 — six FFI defects fixed**, each with a regression test demonstrated to fail
       without its fix. Baseline moved 945 → 952 passing, 60 ignored.
-- [ ] **Tranche 2 — the leak/UAF gate.** Below.
+- [x] **Tranche 2 — the leak/UAF gate.** `cargo run -p xtask -- verify-ffi`, plus the three
+      carried-forward FFI items. Baseline moved 952 → 965 passing, 61 ignored.
 - [ ] **Conformance runner.** Below.
 
 ## Known-weak coverage
@@ -40,12 +41,27 @@ Recorded because none of it shows up in a test count, and all of it survives add
 - CI runs `cargo clippy -- -D warnings` without `--all-targets`, so lints in test code have never
   been gated. There are ~40 such warnings today.
 
-## Tranche 2 — leak and use-after-free gate
+## Tranche 2 — leak and use-after-free gate (done)
+
+    cargo run -p xtask -- verify-ffi                 # JSON to stdout, progress to stderr
+    cargo run -p xtask -- verify-ffi --guard-malloc  # slower use-after-free lane
+
+**The gate is qualified — it has been made to fail on a real defect.** Deleting the body of
+`StringMapIterator::drop` in `mlx-rs/src/utils/io.rs` reintroduces the tranche-1 leak, and the gate
+reports for the `ffi_safety` binary:
+
+    count 201, bytes 3232, baseline_subtracted true,
+    regression_count 200, regression_bytes 3200,
+    named_sites [{site: "<malloc in mlx_map_string_to_string_iterator_new>", count: 200, bytes: 3200}]
+
+Restoring the guard returns it to zero regressions and `verdict: pass`. Re-run that procedure after
+any change to the parser or baseline logic; a gate that has never failed is not known to work.
+
+Clean-tree expectation: `verdict: pass`, exit 0, leak statuses `{pass: 18, not_applicable: 2}`,
+every binary `test: passed`.
 
 `leaks --atExit` is the mechanism: it sees FFI-level leaks, names the responsible C function, and
-scales linearly with call count. Validated against the (now fixed) `SafeTensors::metadata()` leak,
-which showed as 200 iterations → 200 × 16 bytes attributed to
-`mlx_map_string_to_string_iterator_new`.
+scales linearly with call count.
 
 - Every test binary reports a constant `1 leak for 32 total leaked bytes`
   (`ROOT LEAK: <NSArray>`, from Objective-C init). Gate against that baseline.
@@ -55,6 +71,14 @@ which showed as 200 iterations → 200 × 16 bytes attributed to
   what ASan would give us: LeakSanitizer is unsupported on macOS, and `-Zsanitizer` needs nightly
   while CI pins 1.85/stable.
 - Emit structured JSON so the verdict is machine-readable rather than a diff to read.
+- Proc-macro crates are excluded by target kind and reported `not_applicable`. Their test binaries
+  link the compiler host's dynamic libstd and cannot be spawned standalone (`no LC_RPATH's found`),
+  so `leaks` never gets a process; they also contain zero `mlx_sys` references, so there is nothing
+  for this gate to check. Filter on kind, never on crate name.
+- Discover binaries via `cargo test --no-run --message-format=json`, never by globbing
+  `target/debug/deps`. That directory accumulates stale binaries from earlier builds, including
+  ones built without the Metal backend, and running the wrong one produces confident nonsense —
+  `Cannot set gpu device without gpu backend` instead of the real Metal assertion.
 
 ## Conformance runner
 
@@ -77,15 +101,21 @@ These exist to stop generated tests from asserting whatever the implementation c
    commit. Oracle changes are reviewed on their own.
 4. Tolerances come from a central registry. Widening one is an oracle change.
 
+## Follow-ups
+
+- **ASan for the use-after-free lane.** devenv can supply nightly trivially, which unlocks
+  `-Zsanitizer=address`; that would beat `libgmalloc` on speed and diagnostics. Verified limits on
+  this machine: `clang -fsanitize=leak` is rejected outright for `arm64-apple-darwin`, and ASan
+  reports `detect_leaks is not supported on this platform` — so `leaks` stays the only leak
+  detector regardless of toolchain, and only the UAF lane is upgradeable. Full value needs MLX
+  itself rebuilt with `-fsanitize=address` through the cmake crate, which is the real work.
+  It is a backend swap behind the existing gate architecture, so nothing already built is wasted.
+- **The gate runs each binary twice** (once for test status, once under `leaks`; three times with
+  `--guard-malloc`). `leaks` already passes the child's stdout through, so the test result line
+  could be parsed from the run already being done.
+
 ## Open items carried from tranche 1
 
-- `Closure::drop` calls `resume_closure_panic()`, so a `Drop` impl can now panic. If a closure is
-  dropped while already unwinding with a payload pending, that is a double-panic abort. Narrow, but
-  it is a new abort path introduced by a fix that removed one. The primary resume point is
-  `Guarded::try_from_op`; consider whether the `Drop` backstop earns its risk.
-- `test_scoped_default_stream_restored_after_panic` exercises the generic `with_scoped_value`
-  helper on an `i32` rather than `with_new_default_stream` itself. A refactor that stopped using
-  the guard would not be caught.
 - **The threading contract is undocumented, and `--test-threads=1` is load-bearing.** Running
   `mlx-rs`'s lib tests with default parallelism aborts with SIGABRT:
 
@@ -99,10 +129,14 @@ These exist to stop generated tests from asserting whatever the implementation c
   documented as per-thread), so this is not fixable at our pin.
 
   Note the abort comes from concurrent *operations* on a shared stream, not from moving an `Array`
-  across threads. So `unsafe impl Send for Array` (`array/mod.rs:74`) is defensible under the
-  contract *arrays may move between threads; MLX operations must be externally serialised* — but
-  that contract is written nowhere, the `unsafe impl` carries no safety comment, and
-  `--test-threads=1` sits in CI as folklore. Document it; the bump later relaxes it.
+  across threads. So `unsafe impl Send for Array` is defensible under the contract *arrays may move
+  between threads; MLX operations must be externally serialised*.
+
+  **Resolved in tranche 2:** that contract is now stated at crate level in `lib.rs` and beside the
+  `unsafe impl` in `array/mod.rs`, and
+  `ffi_safety.rs::concurrent_gpu_operations_abort_without_thread_local_streams` reproduces the
+  abort under `#[ignore]`. Verified to produce the Metal assertion above, not some other failure.
+  The mlx-c bump can relax the contract once thread-local streams are available.
 
   A second, independent race exists by inspection and is *not* what aborts here: `mlx-rs`
   registers the error handler from a thread-local `Once` (`error.rs:229`) into mlx-c's file-static
