@@ -674,7 +674,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "requires local model files"]
+    #[ignore = "requires MLX_LM_FIXTURES_DIR pointing to local model files"]
     fn test_load_llama_model() {
         use mlx_rs::module::ModuleParameters;
 
@@ -728,7 +728,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "requires local model files"]
+    #[ignore = "requires MLX_LM_FIXTURES_DIR pointing to local model files"]
     fn test_load_tokenizer() {
         let tokenizer = load_llama_tokenizer(CACHED_TEST_MODEL_DIR.as_str()).unwrap();
 
@@ -736,7 +736,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "requires local model files"]
+    #[ignore = "requires MLX_LM_FIXTURES_DIR pointing to local model files"]
     fn test_load_and_run_llama_with_concat_cache() {
         let tokenizer = load_llama_tokenizer(CACHED_TEST_MODEL_DIR.as_str()).unwrap();
         let mut model = load_llama_model(CACHED_TEST_MODEL_DIR.as_str()).unwrap();

@@ -641,13 +641,13 @@ mod tests {
     const CACHED_TEST_MODEL_DIR: &str = "../cache/Qwen3-4B-bf16";
 
     #[test]
-    #[ignore = "requires local model files"]
+    #[ignore = "requires MLX_LM_FIXTURES_DIR pointing to local model files"]
     fn test_load_qwen3_model() {
         let _model = super::load_qwen3_model(CACHED_TEST_MODEL_DIR).unwrap();
     }
 
     #[test]
-    #[ignore = "requires local model files"]
+    #[ignore = "requires MLX_LM_FIXTURES_DIR pointing to local model files"]
     fn test_load_tokenizer() {
         let tokenizer = load_qwen3_tokenizer(CACHED_TEST_MODEL_DIR).unwrap();
 
@@ -655,7 +655,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "requires local model files"]
+    #[ignore = "requires MLX_LM_FIXTURES_DIR pointing to local model files"]
     fn test_load_and_run_qwen3_with_concat_cache() {
         let tokenizer = load_qwen3_tokenizer(CACHED_TEST_MODEL_DIR).unwrap();
 
