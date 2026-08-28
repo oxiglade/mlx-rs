@@ -495,6 +495,10 @@ def generate_tree(target, mx, np):
         mx.set_default_device(old_device)
 
     generator_digest = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+    fixture_shards = {
+        f"fixtures/{name}.safetensors": f"sha256:{hashlib.sha256((target / 'fixtures' / f'{name}.safetensors').read_bytes()).hexdigest()}"
+        for name in SUITES
+    }
     policies = {
         "exact_bits": {"kind": "float", "atol": 0.0, "rtol": 0.0, "nan_equal": True, "infinity_sign": True, "signed_zero": True, "complex": "componentwise"},
         "exact_numeric": {"kind": "exact_numeric"},
@@ -508,6 +512,7 @@ def generate_tree(target, mx, np):
         "rng": {"algorithm": "numpy.PCG64", "case_seed_hash": "sha256(corpus_seed || NUL || case_id)", "seed_bytes": 16, "byte_order": "little"},
         "canonical_device": "cpu",
         "generator_digest": f"sha256:{generator_digest}",
+        "fixture_shards": fixture_shards,
         "environment": {"python": "3.12.14", "architecture": EXPECTED_ARCH, "mlx_package": EXPECTED_MLX, "mlx_metal_package": EXPECTED_MLX, "mlx_runtime": EXPECTED_MLX, "numpy": EXPECTED_NUMPY},
         "tolerance_policies": policies,
         "suites": [f"suites/{name}.json" for name in SUITES],

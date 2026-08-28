@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 mod verify_ffi;
+mod verify_oracle_boundary;
 
 fn get_repo_root() -> PathBuf {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
@@ -453,6 +454,12 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.get(1).is_some_and(|arg| arg == "verify-ffi") {
         std::process::exit(verify_ffi::run(&get_repo_root(), &args[2..]));
+    }
+    if args
+        .get(1)
+        .is_some_and(|arg| arg == "verify-oracle-boundary")
+    {
+        std::process::exit(verify_oracle_boundary::run(&get_repo_root(), &args[2..]));
     }
     let target_tag = args.get(1).cloned();
 

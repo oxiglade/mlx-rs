@@ -42,5 +42,13 @@ After the bootstrap commit, an mlx-rs implementation change may not share a comm
 fixture bytes, tolerance policies, comparator logic, or qualification mutations. Those oracle
 changes require a separate commit and review.
 
+The enforced boundary is listed in `protected-paths.json`: all of `conformance/` and the Rust
+oracle, entry-point, and checker files are protected, while `mlx-rs/src/` and
+`mlx-tests/tests/conformance/adapters.rs` are implementation-owned. Run
+`cargo run -p xtask -- verify-oracle-boundary` for the working tree or add `--base <ref>` to check
+each commit in a range; a deliberately staged commit that must cross both sides uses an
+`oracle-change:` commit-subject prefix, which is reported as a loud override and requires focused
+oracle review rather than silently weakening the boundary.
+
 Tolerance policies are named in `corpus.json`; there is no default policy. Changing or widening a
 policy is an oracle-only change and must not accompany an implementation change.

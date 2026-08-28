@@ -8,7 +8,15 @@
     "byte_order": "little"
   },
   "canonical_device": "cpu",
-  "generator_digest": "sha256:b8ef29783fcb69eb2fded923a7ff9fef9a9f410d95c24fe78597494463712aab",
+  "generator_digest": "sha256:f03de37361405ad81c4cb8a06187e119f8ad1f765605e1d001ca7c70ebb9b603",
+  "fixture_shards": {
+    "fixtures/arithmetic.safetensors": "sha256:e4b034aed8a849a233a4068dd8be1df1db232321de59dfc1422ca8a2b035dd1a",
+    "fixtures/dtypes.safetensors": "sha256:b213e2abd47acc21af65eefdb71b9acf5f904dea5a0fec56144da3d1fc06462f",
+    "fixtures/errors.safetensors": "sha256:343b631e085c3d9289de354e617652b351eb08de57883fee4bc009c52f33a308",
+    "fixtures/execution.safetensors": "sha256:9638a653e7e4a3a25313014f979ea8b0cb4f4a599de28c0dcf4b3b5f78d4dd43",
+    "fixtures/reductions.safetensors": "sha256:1b2f1c711388bbc454c6d3697c4116606f0ed435ecdb220ce0bb62e6802ff622",
+    "fixtures/shapes.safetensors": "sha256:5227be057c1e0f6f31e8c9d799eecbda0ef596342761d310ea570c2b016240df"
+  },
   "environment": {
     "python": "3.12.14",
     "architecture": "arm64",
