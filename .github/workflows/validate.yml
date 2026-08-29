@@ -65,7 +65,7 @@ jobs:
     strategy:
       matrix:
         runner: [macos-15]
-        rust: [1.85.0, stable]
+        rust: [1.88.0, stable]
     steps:
       - uses: actions/checkout@v5
         with:

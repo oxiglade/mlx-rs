@@ -13,7 +13,7 @@ keywords = ["mlx", "deep-learning", "machine-learning"]
 categories = ["science"]
 license = "MIT OR Apache-2.0"
 documentation = "https://oxideai.github.io/mlx-rs/mlx_rs/"
-rust-version = "1.85.0"
+rust-version = "1.88.0"
 
 [workspace]
 members = [
