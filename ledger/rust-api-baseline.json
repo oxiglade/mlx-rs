@@ -7344,12 +7344,12 @@
     {
       "kind": "trait",
       "path": "mlx_rs::transforms::compile::Compile",
-      "signature": "# [doc = \" A trait for functions that can be compiled.\"] # [doc = \"\"] # [doc = \" # Generic parameters\"] # [doc = \"\"] # [doc = \" - `A`: The type of the array arguments\"] # [doc = \" - `O`: The type of the output\"] # [doc = \" - `E`: The type of the error\"] pub trait Compile < A , O , E > : Sized { # [doc = \" The type of the arguments that the returned closure takes.\"] # [doc = \"\"] # [doc = \" This is needed to relax the lifetime requirements of the returned\"] # [doc = \" closure. Otherwise, the arguments to the returned closure would have to\"] # [doc = \" live longer than the closure itself.\"] type Args < 'a > ; # [doc = \" Compiles the function.\"] fn compile < 'args > (self , shapeless : bool) -> impl CallMut < Self :: Args < 'args > , O , E > ; }"
+      "signature": "# [doc = \" A trait for functions that can be compiled.\"] # [doc = \"\"] # [doc = \" # Generic parameters\"] # [doc = \"\"] # [doc = \" - `A`: The type of the array arguments\"] # [doc = \" - `O`: The type of the output\"] # [doc = \" - `E`: The type of the error\"] pub trait Compile < A , O , E > : Sized { # [doc = \" The type of the arguments that the returned closure takes.\"] # [doc = \"\"] # [doc = \" This is needed to relax the lifetime requirements of the returned\"] # [doc = \" closure. Otherwise, the arguments to the returned closure would have to\"] # [doc = \" live longer than the closure itself.\"] type Args < 'a > ; # [doc = \" Compiles the function.\"] fn compile (self , shapeless : bool) -> impl for < 'args > CallMut < Self :: Args < 'args > , O , E > ; }"
     },
     {
       "kind": "trait",
       "path": "mlx_rs::transforms::compile::CompileWithState",
-      "signature": "# [doc = \" A trait for functions that can be compiled with state.\"] # [doc = \"\"] # [doc = \" This trait is used to compile a function that takes a mutable reference to a state\"] # [doc = \" and some arguments and returns a result.\"] # [doc = \"\"] # [doc = \" # Generic parameters\"] # [doc = \"\"] # [doc = \" - `U`: The type of the state.\"] # [doc = \" - `A`: The type of the arguments.\"] # [doc = \" - `O`: The type of the output.\"] # [doc = \" - `E`: The type of the exception.\"] pub trait CompileWithState < U , A , O , E > { # [doc = \" The type of the arguments that the returned closure takes.\"] # [doc = \"\"] # [doc = \" This is needed to relax the lifetime requirements of the returned\"] # [doc = \" closure. Otherwise, the arguments to the returned closure would have to\"] # [doc = \" live longer than the closure itself.\"] type Args < 'a > ; # [doc = \" Compile the function.\"] fn compile < 'args > (self , shapeless : bool) -> impl CallMutWithState < U , Self :: Args < 'args > , O , E > ; }"
+      "signature": "# [doc = \" A trait for functions that can be compiled with state.\"] # [doc = \"\"] # [doc = \" This trait is used to compile a function that takes a mutable reference to a state\"] # [doc = \" and some arguments and returns a result.\"] # [doc = \"\"] # [doc = \" # Generic parameters\"] # [doc = \"\"] # [doc = \" - `U`: The type of the state.\"] # [doc = \" - `A`: The type of the arguments.\"] # [doc = \" - `O`: The type of the output.\"] # [doc = \" - `E`: The type of the exception.\"] pub trait CompileWithState < U , A , O , E > { # [doc = \" The type of the arguments that the returned closure takes.\"] # [doc = \"\"] # [doc = \" This is needed to relax the lifetime requirements of the returned\"] # [doc = \" closure. Otherwise, the arguments to the returned closure would have to\"] # [doc = \" live longer than the closure itself.\"] type Args < 'a > ; # [doc = \" Compile the function.\"] fn compile (self , shapeless : bool ,) -> impl for < 'args > CallMutWithState < U , Self :: Args < 'args > , O , E > ; }"
     },
     {
       "kind": "struct",
@@ -7364,12 +7364,12 @@
     {
       "kind": "function",
       "path": "mlx_rs::transforms::compile::compile",
-      "signature": "pub fn compile < F , A , O , E > (f : F , shapeless : impl Into < Option < bool > > ,) -> impl for < 'a > FnMut (F :: Args < 'a >) -> Result < O , Exception > where F : Compile < A , O , E > + 'static + Copy ,"
+      "signature": "pub fn compile < F , A , O , E > (f : F , shapeless : impl Into < Option < bool > > ,) -> impl for < 'a > FnMut (F :: Args < 'a >) -> Result < O , Exception > where F : Compile < A , O , E > + 'static ,"
     },
     {
       "kind": "function",
       "path": "mlx_rs::transforms::compile::compile_with_state",
-      "signature": "pub fn compile_with_state < F , U , A , O , E > (f : F , shapeless : impl Into < Option < bool > > ,) -> impl for < 'a > FnMut (& mut U , F :: Args < 'a >) -> Result < O , Exception > where F : CompileWithState < U , A , O , E > + Copy + 'static , U : Updatable ,"
+      "signature": "pub fn compile_with_state < F , U , A , O , E > (f : F , shapeless : impl Into < Option < bool > > ,) -> impl for < 'a > FnMut (& mut U , F :: Args < 'a >) -> Result < O , Exception > where F : CompileWithState < U , A , O , E > + 'static , U : Updatable ,"
     },
     {
       "kind": "function",
