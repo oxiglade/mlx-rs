@@ -70,6 +70,7 @@ struct BoundaryReport {
     mode: &'static str,
     base: Option<String>,
     staged_case_marker: Option<String>,
+    skipped_merge_commits: Vec<String>,
     change_sets: Vec<ChangeSetReport>,
     integrity: IntegrityReport,
     errors: Vec<String>,
@@ -80,6 +81,12 @@ struct RawChangeSet {
     id: String,
     paths: Vec<String>,
     message: Option<String>,
+}
+
+#[derive(Default)]
+struct CollectedChangeSets {
+    change_sets: Vec<RawChangeSet>,
+    skipped_merge_commits: Vec<String>,
 }
 
 pub fn run(repo_root: &Path, args: &[String]) -> i32 {
@@ -122,14 +129,18 @@ fn build_report(repo_root: &Path, args: &[String]) -> BoundaryReport {
     } else {
         "working_tree"
     };
-    let raw_change_sets = if errors.is_empty() {
+    let collected = if errors.is_empty() {
         collect_change_sets(repo_root, base.as_deref()).unwrap_or_else(|error| {
             errors.push(error);
-            Vec::new()
+            CollectedChangeSets::default()
         })
     } else {
-        Vec::new()
+        CollectedChangeSets::default()
     };
+    let CollectedChangeSets {
+        change_sets: raw_change_sets,
+        skipped_merge_commits,
+    } = collected;
     let (marker, change_sets) = match config {
         Ok(config) => {
             if config.schema_version != 1 {
@@ -161,6 +172,7 @@ fn build_report(repo_root: &Path, args: &[String]) -> BoundaryReport {
         mode,
         base,
         staged_case_marker: marker,
+        skipped_merge_commits,
         change_sets,
         integrity,
         errors,
@@ -221,14 +233,17 @@ fn validate_config(config: &BoundaryConfig) -> Result<(), String> {
     Ok(())
 }
 
-fn collect_change_sets(repo_root: &Path, base: Option<&str>) -> Result<Vec<RawChangeSet>, String> {
+fn collect_change_sets(
+    repo_root: &Path,
+    base: Option<&str>,
+) -> Result<CollectedChangeSets, String> {
     match base {
         Some(base) => collect_commit_range(repo_root, base),
         None => collect_working_tree(repo_root),
     }
 }
 
-fn collect_working_tree(repo_root: &Path) -> Result<Vec<RawChangeSet>, String> {
+fn collect_working_tree(repo_root: &Path) -> Result<CollectedChangeSets, String> {
     let mut paths = git_paths(
         repo_root,
         &["diff", "--no-renames", "--name-only", "-z", "HEAD", "--"],
@@ -239,50 +254,62 @@ fn collect_working_tree(repo_root: &Path) -> Result<Vec<RawChangeSet>, String> {
     )?);
     paths.sort();
     paths.dedup();
-    Ok(vec![RawChangeSet {
-        id: "working-tree".into(),
-        paths,
-        message: None,
-    }])
+    Ok(CollectedChangeSets {
+        change_sets: vec![RawChangeSet {
+            id: "working-tree".into(),
+            paths,
+            message: None,
+        }],
+        skipped_merge_commits: Vec::new(),
+    })
 }
 
-fn collect_commit_range(repo_root: &Path, base: &str) -> Result<Vec<RawChangeSet>, String> {
+fn collect_commit_range(repo_root: &Path, base: &str) -> Result<CollectedChangeSets, String> {
     git(
         repo_root,
         &["rev-parse", "--verify", &format!("{base}^{{commit}}")],
     )?;
     let output = git(
         repo_root,
-        &["rev-list", "--reverse", &format!("{base}..HEAD")],
+        &[
+            "rev-list",
+            "--reverse",
+            "--parents",
+            &format!("{base}..HEAD"),
+        ],
     )?;
-    output
-        .lines()
-        .filter(|commit| !commit.is_empty())
-        .map(|commit| {
-            let mut paths = git_paths(
-                repo_root,
-                &[
-                    "diff-tree",
-                    "--root",
-                    "-m",
-                    "--no-commit-id",
-                    "--no-renames",
-                    "--name-only",
-                    "-r",
-                    "-z",
-                    commit,
-                ],
-            )?;
-            paths.sort();
-            paths.dedup();
-            let message = git(repo_root, &["log", "-1", "--format=%B", commit])?;
-            Ok(RawChangeSet {
-                id: commit.to_string(),
-                paths,
-                message: Some(message),
-            })
-        })
-        .collect()
+    let mut collected = CollectedChangeSets::default();
+    for line in output.lines().filter(|line| !line.is_empty()) {
+        let mut fields = line.split_whitespace();
+        let commit = fields.next().expect("rev-list returned an empty line");
+        if fields.count() > 1 {
+            collected.skipped_merge_commits.push(commit.to_string());
+            continue;
+        }
+        let mut paths = git_paths(
+            repo_root,
+            &[
+                "diff-tree",
+                "--root",
+                "-m",
+                "--no-commit-id",
+                "--no-renames",
+                "--name-only",
+                "-r",
+                "-z",
+                commit,
+            ],
+        )?;
+        paths.sort();
+        paths.dedup();
+        let message = git(repo_root, &["log", "-1", "--format=%B", commit])?;
+        collected.change_sets.push(RawChangeSet {
+            id: commit.to_string(),
+            paths,
+            message: Some(message),
+        });
+    }
+    Ok(collected)
 }
 
 fn git_paths(repo_root: &Path, args: &[&str]) -> Result<Vec<String>, String> {
@@ -584,9 +611,8 @@ mod tests {
         )
     }
 
-    fn integrity_tree() -> TempDir {
-        let directory = tempfile::tempdir().unwrap();
-        let conformance = directory.path().join("conformance");
+    fn write_integrity_tree(root: &Path) {
+        let conformance = root.join("conformance");
         fs::create_dir(&conformance).unwrap();
         fs::create_dir(conformance.join("fixtures")).unwrap();
         fs::write(conformance.join("generate.py"), b"generator").unwrap();
@@ -603,7 +629,55 @@ mod tests {
             serde_json::to_vec(&corpus).unwrap(),
         )
         .unwrap();
+    }
+
+    fn integrity_tree() -> TempDir {
+        let directory = tempfile::tempdir().unwrap();
+        write_integrity_tree(directory.path());
         directory
+    }
+
+    fn run_git(repo: &Path, args: &[&str]) -> String {
+        git(repo, args).unwrap().trim().to_string()
+    }
+
+    fn merge_range_tree() -> (TempDir, String, String) {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        run_git(root, &["init", "-b", "main"]);
+        run_git(root, &["config", "user.email", "qualification@example.com"]);
+        run_git(root, &["config", "user.name", "Qualification"]);
+
+        write_integrity_tree(root);
+        let config = serde_json::json!({
+            "schema_version": 1,
+            "protected_paths": REQUIRED_PROTECTED_PATHS,
+            "implementation_paths": REQUIRED_IMPLEMENTATION_PATHS,
+            "staged_case_marker": "oracle-change:"
+        });
+        fs::write(
+            root.join("conformance/protected-paths.json"),
+            serde_json::to_vec(&config).unwrap(),
+        )
+        .unwrap();
+        run_git(root, &["add", "."]);
+        run_git(root, &["commit", "-m", "base"]);
+        let base = run_git(root, &["rev-parse", "HEAD"]);
+
+        run_git(root, &["switch", "-c", "oracle"]);
+        fs::write(root.join("conformance/oracle.txt"), b"oracle").unwrap();
+        run_git(root, &["add", "."]);
+        run_git(root, &["commit", "-m", "update oracle"]);
+
+        run_git(root, &["switch", "main"]);
+        fs::create_dir_all(root.join("mlx-rs/src")).unwrap();
+        fs::write(root.join("mlx-rs/src/implementation.rs"), b"implementation").unwrap();
+        run_git(root, &["add", "."]);
+        run_git(root, &["commit", "-m", "update implementation"]);
+        run_git(root, &["merge", "--no-ff", "oracle", "-m", "merge oracle"]);
+        let merge = run_git(root, &["rev-parse", "HEAD"]);
+
+        (directory, base, merge)
     }
 
     #[test]
@@ -632,6 +706,17 @@ mod tests {
         );
         assert_eq!(report.verdict, "pass");
         assert!(report.staged_case_admitted);
+    }
+
+    #[test]
+    fn merge_commits_are_reported_without_rechecking_combined_diff() {
+        let (directory, base, merge) = merge_range_tree();
+        let report = build_report(directory.path(), &["--base".to_string(), base.to_string()]);
+        let json = serde_json::to_value(&report).unwrap();
+
+        assert_eq!(report.verdict, "pass");
+        assert_eq!(json["skipped_merge_commits"], serde_json::json!([merge]));
+        assert_eq!(json["change_sets"].as_array().unwrap().len(), 2);
     }
 
     #[test]
