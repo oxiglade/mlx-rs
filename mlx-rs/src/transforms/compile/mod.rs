@@ -142,8 +142,7 @@
 //! See mlx-rs/mlx-tests/tests/test_compile_with_state.rs for more examples.
 //!
 
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::{Closure, Guarded, VectorArray};
 use crate::Array;
@@ -187,11 +186,31 @@ pub struct Compiled<F, G> {
     state: CompiledState<G>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct CompiledState<F> {
     f: F,
     shapeless: bool,
     id: usize,
+    num_function_outputs: Option<usize>,
+}
+
+static NEXT_COMPILE_ID: AtomicUsize = AtomicUsize::new(1);
+
+impl<F> CompiledState<F> {
+    fn new(f: F, shapeless: bool) -> Self {
+        Self {
+            f,
+            shapeless,
+            id: NEXT_COMPILE_ID.fetch_add(1, Ordering::Relaxed),
+            num_function_outputs: None,
+        }
+    }
+}
+
+impl<F: Clone> Clone for CompiledState<F> {
+    fn clone(&self) -> Self {
+        Self::new(self.f.clone(), self.shapeless)
+    }
 }
 
 impl<F> Drop for CompiledState<F> {
@@ -201,17 +220,6 @@ impl<F> Drop for CompiledState<F> {
             mlx_sys::mlx_detail_compile_erase(self.id);
         }
     }
-}
-
-fn type_id_to_usize<T>(_val: &T) -> usize
-where
-    T: 'static,
-{
-    // hash type id to usize
-    let type_id = std::any::TypeId::of::<T>();
-    let mut hasher = DefaultHasher::new();
-    type_id.hash(&mut hasher);
-    hasher.finish() as usize
 }
 
 fn update_by_replace_with_ref_to_new_array(src: &mut Array, new_array: &Array) {

@@ -321,6 +321,13 @@ fn fallible_success_after_failure_resumes_oracle_trajectory() {
 
 thread_local! {
     static RETRY_CALLS: Cell<usize> = const { Cell::new(0) };
+    static TRACE_CALLS: Cell<usize> = const { Cell::new(0) };
+}
+
+fn trace_once_step(state: &mut Vec<Array>, _args: &[Array]) -> Result<Vec<Array>, Exception> {
+    TRACE_CALLS.with(|counter| counter.set(counter.get() + 1));
+    state[0] = state[0].add(&array!(1.0_f32))?;
+    Ok(vec![state[0].clone()])
 }
 
 fn retry_once_step(state: &mut Vec<Array>, _args: &[Array]) -> Result<Vec<Array>, Exception> {
@@ -357,7 +364,7 @@ fn retry_path_does_not_double_apply_state_mutation() {
         let output = compiled(&mut state, &args).unwrap();
         assert_eq!(
             RETRY_CALLS.with(Cell::get),
-            call + 1,
+            2,
             "compile.retry.call{call}.counter"
         );
         assert_named(
@@ -374,6 +381,33 @@ fn retry_path_does_not_double_apply_state_mutation() {
             &state[1],
             &array!(8.0_f32),
             &format!("compile.retry.call{call}.state.1"),
+        );
+    }
+}
+
+#[test]
+fn compiled_state_traces_once_and_advances_state_on_cache_hits() {
+    TRACE_CALLS.with(|counter| counter.set(0));
+    let mut state = vec![array!(0.0_f32)];
+    let args: [Array; 0] = [];
+    let mut compiled = compile_with_state(trace_once_step, None);
+
+    for call in 1..=4 {
+        let output = compiled(&mut state, &args).unwrap();
+        assert_eq!(
+            TRACE_CALLS.with(Cell::get),
+            1,
+            "compile.trace_once.call{call}.counter"
+        );
+        assert_named(
+            &output[0],
+            &array!(call as f32),
+            &format!("compile.trace_once.call{call}.output.0"),
+        );
+        assert_named(
+            &state[0],
+            &array!(call as f32),
+            &format!("compile.trace_once.call{call}.state.0"),
         );
     }
 }

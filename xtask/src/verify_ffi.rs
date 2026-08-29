@@ -649,6 +649,9 @@ fn number_before(line: &str, marker: &str) -> Result<u64, String> {
 }
 
 fn parse_root_leak(line: &str) -> Option<RootLeak> {
+    if line.trim_start().starts_with("STACK OF ") {
+        return None;
+    }
     let (_, root) = line.split_once("ROOT LEAK:")?;
     let site_start = root.find('<')?;
     let site_end = root[site_start..].find('>')? + site_start;
@@ -718,6 +721,7 @@ ROOT LEAK: <NSArray: 0x600000008000> [32]
     fn repeated_named_sites_are_aggregated() {
         let report = r#"
 Process 456: 4 leaks for 80 total leaked bytes.
+STACK OF 3 INSTANCES OF 'ROOT LEAK: <malloc in mlx_map_string_to_string_iterator_new>':
 ROOT LEAK: <NSArray: 0x600000008000> [32]
 ROOT LEAK: <malloc in mlx_map_string_to_string_iterator_new> [16]
 ROOT LEAK: <malloc in mlx_map_string_to_string_iterator_new> [16]
@@ -736,6 +740,27 @@ ROOT LEAK: <malloc in mlx_map_string_to_string_iterator_new> [16]
                     site: "<malloc in mlx_map_string_to_string_iterator_new>".to_owned(),
                     count: 3,
                     bytes: 48,
+                }],
+            }
+        );
+    }
+
+    #[test]
+    fn qualification_report_counts_only_root_leak_entries() {
+        let report = include_str!("../tests/fixtures/leaks-deliberate-leak.txt");
+
+        assert_eq!(
+            parse_leaks_report(report).unwrap(),
+            LeakResult {
+                count: 201,
+                bytes: 3232,
+                baseline_subtracted: true,
+                regression_count: 200,
+                regression_bytes: 3200,
+                named_sites: vec![NamedSite {
+                    site: "<malloc in mlx_map_string_to_string_iterator_new>".to_owned(),
+                    count: 200,
+                    bytes: 3200,
                 }],
             }
         );

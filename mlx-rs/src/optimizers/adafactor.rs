@@ -453,15 +453,15 @@ impl Updatable for Adafactor {
             .iter()
             .sorted_by(|a, b| a.0.cmp(b.0))
             .flat_map(|(_, v)| {
-                // [expAvgSqRow, expAvgSqCol, expAvgSq, expAvg]
                 [
-                    &v.exp_avg_sq_row,
-                    &v.exp_avg_sq_col,
-                    &v.exp_avg_sq,
-                    &v.exp_avg,
+                    Some(&v.step),
+                    v.exp_avg_sq_row.as_ref(),
+                    v.exp_avg_sq_col.as_ref(),
+                    v.exp_avg_sq.as_ref(),
+                    v.exp_avg.as_ref(),
                 ]
                 .into_iter()
-                .filter_map(|v| v.as_ref())
+                .flatten()
                 .collect::<Vec<_>>()
             })
     }
@@ -473,15 +473,15 @@ impl Updatable for Adafactor {
             .iter_mut()
             .sorted_by(|a, b| a.0.cmp(b.0))
             .flat_map(|(_, v)| {
-                // [expAvgSqRow, expAvgSqCol, expAvgSq, expAvg]
                 [
-                    &mut v.exp_avg_sq_row,
-                    &mut v.exp_avg_sq_col,
-                    &mut v.exp_avg_sq,
-                    &mut v.exp_avg,
+                    Some(&mut v.step),
+                    v.exp_avg_sq_row.as_mut(),
+                    v.exp_avg_sq_col.as_mut(),
+                    v.exp_avg_sq.as_mut(),
+                    v.exp_avg.as_mut(),
                 ]
                 .into_iter()
-                .filter_map(|v| v.as_mut())
+                .flatten()
                 .collect::<Vec<_>>()
             })
     }
