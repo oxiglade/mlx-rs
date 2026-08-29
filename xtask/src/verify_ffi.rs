@@ -1,5 +1,6 @@
 use serde::Serialize;
 use std::collections::BTreeMap;
+use std::env;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus};
@@ -33,6 +34,21 @@ impl TestBinary {
     fn leaks_applicable(&self) -> bool {
         !self.target_kind.iter().any(|kind| kind == "proc-macro")
     }
+
+    fn identity(&self) -> String {
+        format!(
+            "{}|{}|{}",
+            stable_package_id(&self.package_id),
+            self.target,
+            self.target_kind.join(",")
+        )
+    }
+}
+
+pub(crate) fn stable_package_id(package_id: &str) -> &str {
+    package_id
+        .rsplit_once('#')
+        .map_or(package_id, |(_, identity)| identity)
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize)]
@@ -102,8 +118,28 @@ struct Discovery {
 }
 
 #[derive(Serialize)]
+struct ReportEnvironment {
+    architecture: &'static str,
+    os: &'static str,
+    rustc: String,
+}
+
+#[derive(Serialize)]
+struct ExecutionContext {
+    trust: &'static str,
+    procedure: String,
+}
+
+#[derive(Serialize)]
 struct VerifyFfiReport {
+    schema_version: u32,
     command: &'static str,
+    source_commit: String,
+    mlx_c_commit: String,
+    source_clean: bool,
+    mlx_c_clean: bool,
+    environment: ReportEnvironment,
+    execution_context: ExecutionContext,
     guard_malloc_requested: bool,
     discovery: Discovery,
     binaries: Vec<BinaryReport>,
@@ -133,7 +169,7 @@ pub(crate) fn run(root_dir: &Path, args: &[String]) -> i32 {
         Ok(options) => verify(root_dir, options),
         Err(error) => {
             eprintln!("{error}");
-            failed_report(false, error)
+            failed_report(root_dir, false, error)
         }
     };
     let success = report.verdict == Verdict::Pass;
@@ -150,7 +186,7 @@ pub(crate) fn run(root_dir: &Path, args: &[String]) -> i32 {
 fn verify(root_dir: &Path, options: Options) -> VerifyFfiReport {
     let binaries = match discover_test_binaries(root_dir) {
         Ok(binaries) => binaries,
-        Err(error) => return failed_report(options.guard_malloc, error),
+        Err(error) => return failed_report(root_dir, options.guard_malloc, error),
     };
 
     let mut reports = Vec::with_capacity(binaries.len());
@@ -175,20 +211,90 @@ fn verify(root_dir: &Path, options: Options) -> VerifyFfiReport {
     }
 
     let passed = reports.iter().all(binary_passes);
-    VerifyFfiReport {
-        command: "verify-ffi",
-        guard_malloc_requested: options.guard_malloc,
-        discovery: Discovery {
+    report_header(
+        root_dir,
+        options.guard_malloc,
+        Discovery {
             status: Verdict::Pass,
             error: None,
         },
-        binaries: reports,
-        covered_binaries: CoveredBinaries {
+        reports,
+        CoveredBinaries {
             leaks: covered_leaks,
             guard_malloc: covered_guard_malloc,
         },
-        verdict: if passed { Verdict::Pass } else { Verdict::Fail },
+        if passed { Verdict::Pass } else { Verdict::Fail },
+    )
+}
+
+fn report_header(
+    root_dir: &Path,
+    guard_malloc_requested: bool,
+    discovery: Discovery,
+    binaries: Vec<BinaryReport>,
+    covered_binaries: CoveredBinaries,
+    verdict: Verdict,
+) -> VerifyFfiReport {
+    let github_run = env::var("GITHUB_RUN_ID")
+        .ok()
+        .filter(|value| !value.is_empty());
+    let ci = env::var("GITHUB_ACTIONS").as_deref() == Ok("true") && github_run.is_some();
+    VerifyFfiReport {
+        schema_version: 1,
+        command: "verify-ffi",
+        source_commit: git_head(root_dir),
+        mlx_c_commit: git_head(&root_dir.join("mlx-sys/src/mlx-c")),
+        source_clean: git_clean(root_dir),
+        mlx_c_clean: git_clean(&root_dir.join("mlx-sys/src/mlx-c")),
+        environment: ReportEnvironment {
+            architecture: env::consts::ARCH,
+            os: env::consts::OS,
+            rustc: command_text(Command::new("rustc").arg("--version")),
+        },
+        execution_context: ExecutionContext {
+            trust: if ci { "ci" } else { "local" },
+            procedure: if ci {
+                format!(
+                    "github-actions:{}:{}",
+                    env::var("GITHUB_WORKFLOW").unwrap_or_else(|_| "unnamed".to_owned()),
+                    github_run.expect("GitHub Actions context checked above")
+                )
+            } else {
+                "ROADMAP.md#tranche-2-leak-and-use-after-free-gate-done".to_owned()
+            },
+        },
+        guard_malloc_requested,
+        discovery,
+        binaries,
+        covered_binaries,
+        verdict,
     }
+}
+
+fn git_head(directory: &Path) -> String {
+    command_text(
+        Command::new("git")
+            .args(["rev-parse", "HEAD"])
+            .current_dir(directory),
+    )
+}
+
+fn git_clean(directory: &Path) -> bool {
+    Command::new("git")
+        .args(["status", "--porcelain", "--untracked-files=normal"])
+        .current_dir(directory)
+        .output()
+        .is_ok_and(|output| output.status.success() && output.stdout.is_empty())
+}
+
+fn command_text(command: &mut Command) -> String {
+    command
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .map(|output| output.trim().to_owned())
+        .unwrap_or_else(|| "unknown".to_owned())
 }
 
 fn discover_test_binaries(root_dir: &Path) -> Result<Vec<TestBinary>, String> {
@@ -214,6 +320,15 @@ fn discover_test_binaries(root_dir: &Path) -> Result<Vec<TestBinary>, String> {
         return Err("cargo test discovery found no test executables".to_owned());
     }
     Ok(binaries)
+}
+
+pub(crate) fn discovered_target_ids(root_dir: &Path) -> Result<Vec<String>, String> {
+    discover_test_binaries(root_dir).map(|binaries| {
+        binaries
+            .into_iter()
+            .map(|binary| binary.identity())
+            .collect()
+    })
 }
 
 fn run_tests(binary: &TestBinary) -> TestStatus {
@@ -354,21 +469,21 @@ fn binary_passes(report: &BinaryReport) -> bool {
             .is_none_or(|guard| guard.status == Verdict::Pass)
 }
 
-fn failed_report(guard_malloc_requested: bool, error: String) -> VerifyFfiReport {
-    VerifyFfiReport {
-        command: "verify-ffi",
+fn failed_report(root_dir: &Path, guard_malloc_requested: bool, error: String) -> VerifyFfiReport {
+    report_header(
+        root_dir,
         guard_malloc_requested,
-        discovery: Discovery {
+        Discovery {
             status: Verdict::Error,
             error: Some(error),
         },
-        binaries: Vec::new(),
-        covered_binaries: CoveredBinaries {
+        Vec::new(),
+        CoveredBinaries {
             leaks: Vec::new(),
             guard_malloc: Vec::new(),
         },
-        verdict: Verdict::Fail,
-    }
+        Verdict::Fail,
+    )
 }
 
 fn combined_output(stdout: &[u8], stderr: &[u8]) -> String {
@@ -802,6 +917,18 @@ ROOT LEAK: <NSArray: 0x600000008000> [32]
         assert!(Options::parse(&["--unknown".to_owned()]).is_err());
         assert!(
             Options::parse(&["--guard-malloc".to_owned(), "--guard-malloc".to_owned()]).is_err()
+        );
+    }
+
+    #[test]
+    fn package_identity_does_not_depend_on_checkout_path() {
+        assert_eq!(
+            stable_package_id("path+file:///checkout/one/mlx-tests#mlx-tests@0.25.3"),
+            "mlx-tests@0.25.3"
+        );
+        assert_eq!(
+            stable_package_id("path+file:///checkout/two/mlx-tests#mlx-tests@0.25.3"),
+            "mlx-tests@0.25.3"
         );
     }
 }

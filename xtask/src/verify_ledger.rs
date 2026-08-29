@@ -7,7 +7,7 @@ use syn::Item;
 const SCHEMA_VERSION: u64 = 1;
 
 pub fn run(repo_root: &Path, args: &[String]) -> i32 {
-    let result = parse_args(repo_root, args).and_then(|paths| verify_files(repo_root, &paths));
+    let result = verify_value(repo_root, args);
     match result {
         Ok(report) => {
             println!("{}", serde_json::to_string_pretty(&report).unwrap());
@@ -26,6 +26,10 @@ pub fn run(repo_root: &Path, args: &[String]) -> i32 {
             1
         }
     }
+}
+
+pub(crate) fn verify_value(repo_root: &Path, args: &[String]) -> Result<Value, String> {
+    parse_args(repo_root, args).and_then(|paths| verify_files(repo_root, &paths))
 }
 
 struct Paths {

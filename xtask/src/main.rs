@@ -6,6 +6,7 @@ use std::process::Command;
 mod api_baseline;
 mod bindgen_config;
 mod fingerprint;
+mod verify_bump;
 mod verify_ffi;
 mod verify_ledger;
 mod verify_oracle_boundary;
@@ -470,6 +471,9 @@ fn main() {
     }
     if args.get(1).is_some_and(|arg| arg == "verify-ffi") {
         std::process::exit(verify_ffi::run(&get_repo_root(), &args[2..]));
+    }
+    if args.get(1).is_some_and(|arg| arg == "verify-bump") {
+        std::process::exit(verify_bump::run(&get_repo_root(), &args[2..]));
     }
     if args
         .get(1)

@@ -243,6 +243,26 @@ pub(crate) fn delta_value(old: &Path, new: &Path) -> Result<serde_json::Value, S
         .map_err(|error| format!("failed to serialize delta: {error}"))
 }
 
+pub(crate) fn verify_committed(
+    repo_root: &Path,
+    reference: &str,
+    committed_path: &Path,
+) -> Result<serde_json::Value, String> {
+    let actual = generate(repo_root, reference)?;
+    let committed = read_fingerprint(committed_path)?;
+    if actual != committed {
+        return Err(format!(
+            "generated fingerprint for {reference} does not match {}",
+            committed_path.display()
+        ));
+    }
+    Ok(serde_json::json!({
+        "source_commit": actual.content.source_commit,
+        "overall_digest": actual.overall_digest,
+        "artifact": committed_path
+    }))
+}
+
 fn parse_fingerprint_args(args: &[String]) -> Result<(String, Option<PathBuf>), String> {
     let mut reference = None;
     let mut output = None;

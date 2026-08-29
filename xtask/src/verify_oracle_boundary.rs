@@ -83,6 +83,34 @@ struct RawChangeSet {
 }
 
 pub fn run(repo_root: &Path, args: &[String]) -> i32 {
+    let report = build_report(repo_root, args);
+    let passed = report.verdict == "pass";
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&report).expect("serialize oracle boundary report")
+    );
+    if report
+        .change_sets
+        .iter()
+        .any(|change_set| change_set.staged_case_admitted)
+    {
+        eprintln!("ORACLE BOUNDARY OVERRIDE: staged mixed oracle/implementation case admitted");
+    }
+    i32::from(!passed)
+}
+
+pub(crate) fn verify_value(repo_root: &Path, args: &[String]) -> Result<serde_json::Value, String> {
+    let report = build_report(repo_root, args);
+    let value = serde_json::to_value(&report)
+        .map_err(|error| format!("failed to serialize oracle boundary report: {error}"))?;
+    if report.verdict == "pass" {
+        Ok(value)
+    } else {
+        Err(format!("verify-oracle-boundary failed: {}", value))
+    }
+}
+
+fn build_report(repo_root: &Path, args: &[String]) -> BoundaryReport {
     let (base, mut errors) = parse_args(args);
     let config_path = repo_root.join("conformance/protected-paths.json");
     let config = read_json::<BoundaryConfig>(&config_path).map_err(|error| {
@@ -128,7 +156,7 @@ pub fn run(repo_root: &Path, args: &[String]) -> i32 {
         && change_sets.iter().all(|report| report.verdict == "pass")
         && integrity.generator.verdict == "pass"
         && integrity.fixture_shards.verdict == "pass";
-    let report = BoundaryReport {
+    BoundaryReport {
         command: "verify-oracle-boundary",
         mode,
         base,
@@ -137,19 +165,7 @@ pub fn run(repo_root: &Path, args: &[String]) -> i32 {
         integrity,
         errors,
         verdict: if passed { "pass" } else { "fail" },
-    };
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&report).expect("serialize oracle boundary report")
-    );
-    if report
-        .change_sets
-        .iter()
-        .any(|change_set| change_set.staged_case_admitted)
-    {
-        eprintln!("ORACLE BOUNDARY OVERRIDE: staged mixed oracle/implementation case admitted");
     }
-    i32::from(!passed)
 }
 
 fn parse_args(args: &[String]) -> (Option<String>, Vec<String>) {
