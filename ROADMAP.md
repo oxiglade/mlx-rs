@@ -206,7 +206,7 @@ The bump must not begin until all eight admission items exist:
 3. Known error-registration race eliminated and concurrent behavior tested.
 4. Exact-SHA qualified FFI leak verdict, either in CI or through an explicitly lower-trust
    recorded admission procedure.
-   **Status: calibration mode implemented; CI wiring + first green run pending.**
+   **Status: done at CI strength: run 33277976712's ffi-gate job passed all four calibration phases on a blaze runner (deliberate leak detected on the runner itself); calibration JSON retained as a run artifact. Per-child leaks/guard-malloc timeouts convert runner incapability into a named verdict rather than a hang.**
 5. Strict tensor comparator and removal or reclassification of `lr=0` false claims.
 6. Minimal target ABI-delta ledger, Rust public-API baseline, and supported feature matrix.
    **Status: complete** — the classified target delta, stable syn-based Rust API baseline, supported build matrix, and qualified `verify-ledger` gate are present.
