@@ -35,6 +35,12 @@ Recorded because none of it shows up in a test count, and all of it survives add
   point, and it must land as its own change so the failures are attributable.
 - Several `compile`/optimizer tests run at learning rate `0.0`, removing the state transition they
   exist to exercise.
+- At the mlx-c `v0.5.0` pin, `compile_with_state` re-traces its Rust closure on every outer call:
+  a four-call, no-error hardware measurement observed invocation counts `1,2,3,4`, while Python
+  `mx.compile` traces once. The wrapper creates and drops an inner `Compiled` per call, and its drop
+  erases the `fun_id` cache entry, so the per-call closure overhead is real and any cached-graph
+  benefit is unverified. Evaluate the bump target's `mlx_compile_cache` object family as the fix
+  during the bump.
 - 47 doctests use `rust,ignore` and never execute: 35 in `nn/activation.rs`, 6 on the `lib.rs`
   front page. Note that grepping for ```` ```ignore ```` misses these. Most appear to be a fence
   copied forward rather than a deliberate choice.

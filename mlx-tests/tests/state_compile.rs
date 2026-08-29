@@ -1,0 +1,449 @@
+use std::{
+    any::Any,
+    cell::Cell,
+    collections::{BTreeSet, HashMap},
+    panic::{catch_unwind, AssertUnwindSafe},
+    path::PathBuf,
+    rc::Rc,
+};
+
+use mlx_rs::{
+    array,
+    builder::Builder,
+    error::Exception,
+    macros::ModuleParameters,
+    module::{FlattenedModuleParam, ModuleParameters, Param, Parameter},
+    optimizers::{Adam, AdamBuilder, Optimizer, OptimizerState, Sgd, SgdBuilder},
+    test_utils::assert_array_eq_with_context,
+    transforms::compile::compile_with_state,
+    Array,
+};
+
+const RTOL: f64 = 1.0e-6;
+const ATOL: f64 = 1.0e-7;
+const TINY_LEAVES: usize = 512;
+
+#[derive(Clone, Debug, ModuleParameters)]
+struct TinyModel {
+    #[param]
+    weight: Param<Array>,
+    #[param]
+    bias: Param<Array>,
+}
+
+struct Fixture {
+    tensors: HashMap<String, Array>,
+}
+
+impl Fixture {
+    fn load() -> Self {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../conformance/state/state.safetensors");
+        let tensors = Array::load_safetensors(path).expect(
+            "missing state oracle fixture; run conformance/.venv/bin/python conformance/state/generate_state.py",
+        );
+        Self { tensors }
+    }
+
+    fn tensor(&self, name: &str) -> &Array {
+        self.tensors
+            .get(name)
+            .unwrap_or_else(|| panic!("missing fixture tensor {name}"))
+    }
+
+    fn model(&self) -> TinyModel {
+        TinyModel {
+            weight: Param::new(self.tensor("input.param.weight").clone()),
+            bias: Param::new(self.tensor("input.param.bias").clone()),
+        }
+    }
+
+    fn gradients(&self, step: usize) -> [Array; 2] {
+        [
+            self.tensor(&format!("input.gradient.step{step}.weight"))
+                .clone(),
+            self.tensor(&format!("input.gradient.step{step}.bias"))
+                .clone(),
+        ]
+    }
+}
+
+fn assert_named(got: &Array, expected: &Array, context: &str) {
+    assert_array_eq_with_context(got, expected, RTOL, ATOL, context);
+}
+
+fn assert_all_leaves(got: &[Array], expected: &[Array], case: &str) {
+    assert_eq!(got.len(), expected.len(), "{case}.leaf_count");
+    for (index, (got, expected)) in got.iter().zip(expected).enumerate() {
+        assert_named(got, expected, &format!("{case}.leaf.{index}"));
+    }
+}
+
+fn assert_model_optimizer<O: Optimizer>(
+    got: &(TinyModel, O),
+    expected: &(TinyModel, O),
+    case: &str,
+) {
+    let got_parameters = got.0.parameters().flatten();
+    let expected_parameters = expected.0.parameters().flatten();
+    let got_keys = got_parameters.keys().cloned().collect::<BTreeSet<_>>();
+    let expected_keys = expected_parameters.keys().cloned().collect::<BTreeSet<_>>();
+    assert_eq!(got_keys, expected_keys, "{case}.parameter_keys");
+    for key in expected_keys {
+        assert_named(
+            got_parameters[&key],
+            expected_parameters[&key],
+            &format!("{case}.parameter.{key}"),
+        );
+    }
+
+    let got_state = got.1.state().flatten().collect::<HashMap<_, _>>();
+    let expected_state = expected.1.state().flatten().collect::<HashMap<_, _>>();
+    let got_keys = got_state.keys().cloned().collect::<BTreeSet<_>>();
+    let expected_keys = expected_state.keys().cloned().collect::<BTreeSet<_>>();
+    assert_eq!(got_keys, expected_keys, "{case}.optimizer_state_keys");
+    for key in expected_keys {
+        assert_named(
+            got_state[&key],
+            expected_state[&key],
+            &format!("{case}.optimizer_state.{key}"),
+        );
+    }
+}
+
+fn adam_frozen_step((model, optimizer): &mut (TinyModel, Adam), gradients: &[Array]) -> Vec<Array> {
+    let mut gradient_map = FlattenedModuleParam::new();
+    gradient_map.insert("weight".into(), gradients[0].clone());
+    optimizer.update(model, gradient_map).unwrap();
+    vec![model.weight.value.clone(), model.bias.value.clone()]
+}
+
+#[test]
+fn frozen_parameter_compiled_updates_match_unfrozen_oracle_on_trainable_keys() {
+    let fixture = Fixture::load();
+    let mut model = fixture.model();
+    model.bias.freeze(false);
+    let optimizer = AdamBuilder::new(0.025_f32)
+        .betas((0.8_f32, 0.95_f32))
+        .eps(1.0e-6_f32)
+        .build()
+        .unwrap();
+    let mut state = (model, optimizer);
+    let mut compiled = compile_with_state(adam_frozen_step, None);
+
+    for step in 1..=3 {
+        compiled(&mut state, &fixture.gradients(step)).unwrap();
+        assert_named(
+            &state.0.weight,
+            fixture.tensor(&format!("adam.step{step}.param.weight")),
+            &format!("compile.frozen.step{step}.parameter.weight"),
+        );
+        assert_named(
+            &state.0.bias,
+            fixture.tensor("input.param.bias"),
+            &format!("compile.frozen.step{step}.parameter.bias"),
+        );
+
+        let optimizer_state = state.1.state().flatten().collect::<HashMap<_, _>>();
+        let expected_keys = [Rc::<str>::from("weight.0"), Rc::<str>::from("weight.1")]
+            .into_iter()
+            .collect::<BTreeSet<_>>();
+        assert_eq!(
+            optimizer_state.keys().cloned().collect::<BTreeSet<_>>(),
+            expected_keys,
+            "compile.frozen.step{step}.optimizer_state_keys"
+        );
+        for key in expected_keys {
+            assert_named(
+                optimizer_state[&key],
+                fixture.tensor(&format!("adam.step{step}.state.{key}")),
+                &format!("compile.frozen.step{step}.optimizer_state.{key}"),
+            );
+        }
+    }
+}
+
+fn many_suffix_step(state: &mut Vec<Array>, args: &[Array]) -> Vec<Array> {
+    for leaf in state.iter_mut().take(64) {
+        *leaf = leaf.add(&args[0]).unwrap();
+    }
+    vec![args[0].square().unwrap()]
+}
+
+fn many_interleaved_step(state: &mut Vec<Array>, args: &[Array]) -> Vec<Array> {
+    for (index, leaf) in state.iter_mut().enumerate() {
+        if index % 3 == 1 {
+            *leaf = leaf.add(&args[0]).unwrap();
+        }
+    }
+    vec![args[0].square().unwrap()]
+}
+
+fn tiny_state() -> Vec<Array> {
+    (0..TINY_LEAVES)
+        .map(|index| Array::from_f32(index as f32 / 16.0 - 7.0))
+        .collect()
+}
+
+#[test]
+fn unchanged_state_pruning_with_many_tiny_suffix_leaves() {
+    let mut expected = tiny_state();
+    let mut got = expected.clone();
+    let input = [array!(0.125_f32)];
+    let expected_output = many_suffix_step(&mut expected, &input);
+    let mut compiled = compile_with_state(many_suffix_step, None);
+    let got_output = compiled(&mut got, &input).unwrap();
+
+    assert_all_leaves(&got_output, &expected_output, "compile.pruned.output");
+    assert_all_leaves(&got, &expected, "compile.pruned");
+}
+
+#[test]
+fn partial_pruning_preserves_interleaved_leaf_slots() {
+    let mut expected = tiny_state();
+    let mut got = expected.clone();
+    let input = [array!(-0.375_f32)];
+    let expected_output = many_interleaved_step(&mut expected, &input);
+    let mut compiled = compile_with_state(many_interleaved_step, None);
+    let got_output = compiled(&mut got, &input).unwrap();
+
+    assert_all_leaves(&got_output, &expected_output, "compile.partial.output");
+    assert_all_leaves(&got, &expected, "compile.partial");
+}
+
+fn nested_step((model, optimizer): &mut (TinyModel, Sgd), gradients: &[Array]) -> Vec<Array> {
+    let mut gradient_map = FlattenedModuleParam::new();
+    gradient_map.insert("weight".into(), gradients[0].clone());
+    gradient_map.insert("bias".into(), gradients[1].clone());
+    optimizer.update(model, gradient_map).unwrap();
+    vec![model.weight.value.clone(), model.bias.value.clone()]
+}
+
+#[test]
+fn nested_module_optimizer_tuple_state() {
+    let fixture = Fixture::load();
+    let optimizer = SgdBuilder::new(0.035_f32)
+        .momentum(0.8_f32)
+        .weight_decay(0.03_f32)
+        .nesterov(true)
+        .build()
+        .unwrap();
+    let initial = (fixture.model(), optimizer);
+    let mut expected = initial.clone();
+    let mut got = initial;
+    let mut compiled = compile_with_state(nested_step, None);
+
+    for step in 1..=3 {
+        let gradients = fixture.gradients(step);
+        let expected_output = nested_step(&mut expected, &gradients);
+        let got_output = compiled(&mut got, &gradients).unwrap();
+        assert_all_leaves(
+            &got_output,
+            &expected_output,
+            &format!("compile.nested.step{step}.output"),
+        );
+        assert_model_optimizer(&got, &expected, &format!("compile.nested.step{step}"));
+    }
+}
+
+fn repeated_step(state: &mut Vec<Array>, args: &[Array]) -> Vec<Array> {
+    state[0] = state[0].add(&args[0]).unwrap();
+    state[1] = state[1].multiply(&array!(0.75_f32)).unwrap();
+    state[2] = state[2].subtract(&args[0]).unwrap();
+    vec![state[0].add(&state[2]).unwrap()]
+}
+
+#[test]
+fn repeated_calls_advance_state_across_five_cached_calls() {
+    let initial = vec![
+        array!(0.5_f32),
+        array!(-2.0_f32),
+        array!(1.25_f32),
+        array!(9.0_f32),
+    ];
+    let mut expected = initial.clone();
+    let mut got = initial;
+    let mut compiled = compile_with_state(repeated_step, None);
+
+    for call in 1..=5 {
+        let input = [array!(call as f32 * 0.2 - 0.35)];
+        let expected_output = repeated_step(&mut expected, &input);
+        let got_output = compiled(&mut got, &input).unwrap();
+        assert_all_leaves(
+            &got_output,
+            &expected_output,
+            &format!("compile.repeated.call{call}.output"),
+        );
+        assert_all_leaves(&got, &expected, &format!("compile.repeated.call{call}"));
+    }
+}
+
+fn fallible_step(state: &mut Vec<Array>, args: &[Array]) -> Result<Vec<Array>, Exception> {
+    args[0].reshape(&[1])?;
+    state[0] = state[0].add(&args[1])?;
+    state[1] = state[1].multiply(&args[1])?;
+    Ok(vec![state[0].subtract(&state[1])?])
+}
+
+#[test]
+fn fallible_success_after_failure_resumes_oracle_trajectory() {
+    let initial = vec![array!(0.75_f32), array!(-1.25_f32), array!(4.0_f32)];
+    let mut expected = initial.clone();
+    let mut got = initial;
+    let mut compiled = compile_with_state(fallible_step, None);
+    let first = [array!(1.0_f32), array!(0.2_f32)];
+    let expected_output = fallible_step(&mut expected, &first).unwrap();
+    let got_output = compiled(&mut got, &first).unwrap();
+    assert_all_leaves(
+        &got_output,
+        &expected_output,
+        "compile.fallible.before.output",
+    );
+    assert_all_leaves(&got, &expected, "compile.fallible.before");
+
+    let before_failure = got.clone();
+    let failing = [array!([1.0_f32, 2.0]), array!(0.3_f32)];
+    assert!(compiled(&mut got, &failing).is_err());
+    assert_all_leaves(&got, &before_failure, "compile.fallible.failure_atomicity");
+
+    for call in 1..=3 {
+        let input = [array!(1.0_f32), array!(call as f32 * -0.15 + 0.4)];
+        let expected_output = fallible_step(&mut expected, &input).unwrap();
+        let got_output = compiled(&mut got, &input).unwrap();
+        assert_all_leaves(
+            &got_output,
+            &expected_output,
+            &format!("compile.fallible.resumed{call}.output"),
+        );
+        assert_all_leaves(&got, &expected, &format!("compile.fallible.resumed{call}"));
+    }
+}
+
+thread_local! {
+    static RETRY_CALLS: Cell<usize> = const { Cell::new(0) };
+}
+
+fn retry_once_step(state: &mut Vec<Array>, _args: &[Array]) -> Result<Vec<Array>, Exception> {
+    let call = RETRY_CALLS.with(|counter| {
+        let call = counter.get() + 1;
+        counter.set(call);
+        call
+    });
+    state[0] = state[0].add(&array!(1.0_f32))?;
+    if call == 1 {
+        array!(1.0_f32).reshape(&[2])?;
+    }
+    Ok(vec![state[0].clone()])
+}
+
+fn always_fail_retry_step(
+    state: &mut Vec<Array>,
+    _args: &[Array],
+) -> Result<Vec<Array>, Exception> {
+    RETRY_CALLS.with(|counter| counter.set(counter.get() + 1));
+    state[0] = state[0].add(&array!(1.0_f32))?;
+    array!(1.0_f32).reshape(&[2])?;
+    Ok(Vec::new())
+}
+
+#[test]
+fn retry_path_does_not_double_apply_state_mutation() {
+    RETRY_CALLS.with(|counter| counter.set(0));
+    let mut state = vec![array!(0.0_f32), array!(8.0_f32)];
+    let args: [Array; 0] = [];
+    let mut compiled = compile_with_state(retry_once_step, None);
+
+    for call in 1..=4 {
+        let output = compiled(&mut state, &args).unwrap();
+        assert_eq!(
+            RETRY_CALLS.with(Cell::get),
+            call + 1,
+            "compile.retry.call{call}.counter"
+        );
+        assert_named(
+            &output[0],
+            &array!(call as f32),
+            &format!("compile.retry.call{call}.output.0"),
+        );
+        assert_named(
+            &state[0],
+            &array!(call as f32),
+            &format!("compile.retry.call{call}.state.0"),
+        );
+        assert_named(
+            &state[1],
+            &array!(8.0_f32),
+            &format!("compile.retry.call{call}.state.1"),
+        );
+    }
+}
+
+fn panic_message(payload: Box<dyn Any + Send>) -> String {
+    if let Some(message) = payload.downcast_ref::<String>() {
+        return message.clone();
+    }
+    if let Some(message) = payload.downcast_ref::<&str>() {
+        return (*message).to_owned();
+    }
+    "non-string panic payload".to_owned()
+}
+
+fn expect_named_failure(class: &str, comparison: impl FnOnce()) {
+    let failure = catch_unwind(AssertUnwindSafe(comparison))
+        .expect_err(&format!("mutation should fail comparison class {class}"));
+    let message = panic_message(failure);
+    assert!(
+        message.contains(class),
+        "expected comparison class {class}, got {message}"
+    );
+}
+
+#[test]
+fn fault_reordered_partial_state_fails_leaf_slot() {
+    let mut state = tiny_state();
+    let input = [array!(-0.375_f32)];
+    many_interleaved_step(&mut state, &input);
+    expect_named_failure("compile.partial.leaf.1", || {
+        assert_named(&state[1], &state[4], "compile.partial.leaf.1");
+    });
+}
+
+#[test]
+fn fault_shifted_output_split_fails_count() {
+    let mut state = vec![
+        array!(1.0_f32),
+        array!(2.0_f32),
+        array!(3.0_f32),
+        array!(4.0_f32),
+    ];
+    let input = [array!(0.25_f32)];
+    let mut compiled = compile_with_state(
+        |state: &mut Vec<Array>, args: &[Array]| {
+            state[0] = state[0].add(&args[0]).unwrap();
+            vec![state[0].clone(), state[1].clone()]
+        },
+        None,
+    );
+    let actual = compiled(&mut state, &input).unwrap();
+    let shifted_expectation = [actual[0].clone()];
+    expect_named_failure("compile.output_count", || {
+        assert_eq!(
+            actual.len(),
+            shifted_expectation.len(),
+            "compile.output_count"
+        );
+    });
+}
+
+#[test]
+fn fault_seeded_duplicate_retry_fails_counter_check() {
+    RETRY_CALLS.with(|counter| counter.set(0));
+    let mut state = vec![array!(0.0_f32)];
+    let args: [Array; 0] = [];
+    let mut compiled = compile_with_state(always_fail_retry_step, None);
+    assert!(compiled(&mut state, &args).is_err());
+    assert_named(&state[0], &array!(0.0_f32), "compile.retry.failed.state.0");
+    expect_named_failure("compile.retry.counter", || {
+        assert_eq!(RETRY_CALLS.with(Cell::get), 1, "compile.retry.counter");
+    });
+}

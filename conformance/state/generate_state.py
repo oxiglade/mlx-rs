@@ -41,6 +41,18 @@ GRADIENTS = [
     },
 ]
 
+TRANSFORM_INPUTS = {
+    "x": [0.4, -0.7, 1.1],
+    "weight": [[0.3, -0.8, 0.5], [1.2, 0.4, -0.6]],
+    "bias": [0.15, -0.35],
+    "a": [0.25, -0.9],
+    "c": [1.4, -0.3],
+    "a_tangent": [-0.2, 0.45],
+    "c_tangent": [0.6, -0.1],
+    "output0_cotangent": [0.7, -1.1],
+    "output1_cotangent": 0.35,
+}
+
 OPTIMIZERS = {
     "sgd": {
         "python_class": "mlx.optimizers.SGD",
@@ -341,6 +353,129 @@ def add_inputs(fixtures, mx):
     return inputs
 
 
+def snapshot_tensor(fixtures, ref, value, np):
+    snapshot = np.array(value, copy=True)
+    fixtures[ref] = snapshot
+    return tensor_record(ref, snapshot)
+
+
+def add_transforms(fixtures, mx, nn, np):
+    arrays = {
+        name: mx.array(values, dtype=mx.float32)
+        for name, values in TRANSFORM_INPUTS.items()
+    }
+    inputs = {
+        name: snapshot_tensor(fixtures, f"transform.input.{name}", value, np)
+        for name, value in arrays.items()
+    }
+
+    def nonlinear(x, weight, bias):
+        return mx.sum(mx.square(mx.tanh(weight @ x + bias)))
+
+    value_and_grads = mx.value_and_grad(nonlinear, argnums=(0, 1, 2))
+    value, gradients = value_and_grads(
+        arrays["x"], arrays["weight"], arrays["bias"]
+    )
+    mx.eval(value, *gradients)
+    nonlinear_records = {
+        "value": snapshot_tensor(
+            fixtures, "transform.nonlinear.value", value, np
+        ),
+        "gradients": {
+            name: snapshot_tensor(
+                fixtures, f"transform.nonlinear.gradient.{name}", gradient, np
+            )
+            for name, gradient in zip(("x", "weight", "bias"), gradients)
+        },
+    }
+
+    selected_value_and_grads = mx.value_and_grad(nonlinear, argnums=(0, 2))
+    selected_value, selected_gradients = selected_value_and_grads(
+        arrays["x"], arrays["weight"], arrays["bias"]
+    )
+    mx.eval(selected_value, *selected_gradients)
+    argnums_records = {
+        "argnums": [0, 2],
+        "value": snapshot_tensor(
+            fixtures, "transform.argnums.value", selected_value, np
+        ),
+        "gradients": {
+            name: snapshot_tensor(
+                fixtures, f"transform.argnums.gradient.{name}", gradient, np
+            )
+            for name, gradient in zip(("x", "bias"), selected_gradients)
+        },
+    }
+
+    def multi_output(a, c):
+        return mx.tanh(a * c + mx.square(a)), mx.sum(a * mx.square(c))
+
+    primals = (arrays["a"], arrays["c"])
+    tangents = (arrays["a_tangent"], arrays["c_tangent"])
+    jvp_values, jvp_tangents = mx.jvp(multi_output, primals, tangents)
+    cotangents = (
+        arrays["output0_cotangent"],
+        arrays["output1_cotangent"],
+    )
+    vjp_values, vjp_cotangents = mx.vjp(multi_output, primals, cotangents)
+    mx.eval(*jvp_values, *jvp_tangents, *vjp_values, *vjp_cotangents)
+
+    def records(prefix, values):
+        return [
+            snapshot_tensor(fixtures, f"{prefix}.{index}", value, np)
+            for index, value in enumerate(values)
+        ]
+
+    directional_records = {
+        "jvp": {
+            "values": records("transform.jvp.value", jvp_values),
+            "tangents": records("transform.jvp.tangent", jvp_tangents),
+        },
+        "vjp": {
+            "values": records("transform.vjp.value", vjp_values),
+            "cotangents": records("transform.vjp.cotangent", vjp_cotangents),
+        },
+    }
+
+    class TransformModel(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.weight = arrays["weight"]
+            self.bias = arrays["bias"]
+
+        def __call__(self, x):
+            return mx.sum(mx.square(mx.tanh(self.weight @ x + self.bias)))
+
+    model = TransformModel()
+    module_value_and_grad = nn.value_and_grad(model, model.__call__)
+    module_value, module_gradients = module_value_and_grad(arrays["x"])
+    mx.eval(module_value, *module_gradients.values())
+    module_records = {
+        "value": snapshot_tensor(
+            fixtures, "transform.module.value", module_value, np
+        ),
+        "gradients": {
+            name: snapshot_tensor(
+                fixtures, f"transform.module.gradient.{name}", gradient, np
+            )
+            for name, gradient in module_gradients.items()
+        },
+    }
+
+    return {
+        "function": "sum(tanh(weight @ x + bias) ** 2)",
+        "inputs": inputs,
+        "nonlinear_value_and_grad": nonlinear_records,
+        "argnums_selection": argnums_records,
+        "directional_function": [
+            "tanh(a * c + a ** 2)",
+            "sum(a * c ** 2)",
+        ],
+        "directional_products": directional_records,
+        "module_value_and_grad": module_records,
+    }
+
+
 def run_trajectory(case_id, optimizer_name, frozen_bias, fixtures, mx, nn, optim, np):
     model = make_model(nn, mx)
     if frozen_bias:
@@ -396,6 +531,7 @@ def run_trajectory(case_id, optimizer_name, frozen_bias, fixtures, mx, nn, optim
 def write_tree(target, mx, nn, optim, np):
     fixtures = {}
     inputs = add_inputs(fixtures, mx)
+    transforms = add_transforms(fixtures, mx, nn, np)
     trajectories = []
     for name in OPTIMIZERS:
         trajectories.append(
@@ -445,6 +581,7 @@ def write_tree(target, mx, nn, optim, np):
             {"id": name, **spec}
             for name, spec in OPTIMIZERS.items()
         ],
+        "transforms": transforms,
         "trajectories": trajectories,
         "fault_matrix": [
             {"id": "no_op_learning_rate", "expected_class": "parameter.weight"},
@@ -452,6 +589,10 @@ def write_tree(target, mx, nn, optim, np):
             {"id": "reordered_state_tensors", "expected_class": "state.weight.0"},
             {"id": "frozen_parameter_mutation", "expected_class": "parameter.bias"},
             {"id": "wrong_step_expectation", "expected_class": "parameter.weight"},
+            {"id": "perturbed_input_gradient", "expected_class": "transform.gradient.x"},
+            {"id": "swapped_directional_product", "expected_class": "transform.jvp.tangent.0"},
+            {"id": "output_split_shift", "expected_class": "compile.output_count"},
+            {"id": "duplicate_retry", "expected_class": "compile.retry.counter"},
         ],
     }
     (target / MANIFEST_NAME).write_text(json.dumps(manifest, indent=2) + "\n")
