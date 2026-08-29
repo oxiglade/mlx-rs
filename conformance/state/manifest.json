@@ -1,0 +1,2044 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "computed_by": "Python MLX optimizer implementations",
+    "oracle_independence": "No mlx-rs output is read or used to derive expectations.",
+    "canonical_device": "cpu",
+    "generator_sha256": "2b10b1e1e1a4a40b395692e6fe857e847be288d44bea6e1e7c9e6eebda8299b1",
+    "fixture_sha256": "f981e9f01d9058e8633ecca402683f3f4cfe181b13bfdfe128e666d1861b95a4",
+    "environment": {
+      "python": "3.12.14",
+      "architecture": "arm64",
+      "pinned_venv": "conformance/.venv",
+      "mlx": "0.30.6",
+      "mlx_metal": "0.30.6",
+      "numpy": "2.2.6"
+    }
+  },
+  "tolerance_policy": {
+    "name": "optimizer_f32_chain",
+    "rtol": 1e-06,
+    "atol": 1e-07,
+    "non_finite": "same_kind_and_infinity_sign",
+    "rationale": "Tight f32 allowance for backend evaluation or fusion ordering; integer step slots remain exact."
+  },
+  "python_state_not_mapped": {
+    "step": "mlx-rs has no global step except Adafactor, where this value maps to each per-parameter step slot.",
+    "learning_rate": "mlx-rs stores learning rate as optimizer configuration, not flattened optimizer state."
+  },
+  "model": {
+    "type": "two_parameter_tensor_model",
+    "frozen_variant": "adam_frozen_bias",
+    "parameters": {
+      "weight": {
+        "ref": "input.param.weight",
+        "dtype": "float32",
+        "shape": [
+          2,
+          3
+        ]
+      },
+      "bias": {
+        "ref": "input.param.bias",
+        "dtype": "float32",
+        "shape": [
+          3
+        ]
+      }
+    },
+    "gradients": [
+      {
+        "weight": {
+          "ref": "input.gradient.step1.weight",
+          "dtype": "float32",
+          "shape": [
+            2,
+            3
+          ]
+        },
+        "bias": {
+          "ref": "input.gradient.step1.bias",
+          "dtype": "float32",
+          "shape": [
+            3
+          ]
+        }
+      },
+      {
+        "weight": {
+          "ref": "input.gradient.step2.weight",
+          "dtype": "float32",
+          "shape": [
+            2,
+            3
+          ]
+        },
+        "bias": {
+          "ref": "input.gradient.step2.bias",
+          "dtype": "float32",
+          "shape": [
+            3
+          ]
+        }
+      },
+      {
+        "weight": {
+          "ref": "input.gradient.step3.weight",
+          "dtype": "float32",
+          "shape": [
+            2,
+            3
+          ]
+        },
+        "bias": {
+          "ref": "input.gradient.step3.bias",
+          "dtype": "float32",
+          "shape": [
+            3
+          ]
+        }
+      }
+    ]
+  },
+  "optimizers": [
+    {
+      "id": "sgd",
+      "python_class": "mlx.optimizers.SGD",
+      "rust_type": "mlx_rs::optimizers::Sgd",
+      "hyperparameters": {
+        "learning_rate": 0.035,
+        "momentum": 0.8,
+        "weight_decay": 0.03,
+        "dampening": 0.0,
+        "nesterov": true
+      },
+      "state_key_mapping": [
+        {
+          "python": "weight.v",
+          "rust": "weight"
+        },
+        {
+          "python": "bias.v",
+          "rust": "bias"
+        }
+      ]
+    },
+    {
+      "id": "adam",
+      "python_class": "mlx.optimizers.Adam",
+      "rust_type": "mlx_rs::optimizers::Adam",
+      "hyperparameters": {
+        "learning_rate": 0.025,
+        "betas": [
+          0.8,
+          0.95
+        ],
+        "eps": 1e-06,
+        "bias_correction": false
+      },
+      "state_key_mapping": [
+        {
+          "python": "weight.m",
+          "rust": "weight.0"
+        },
+        {
+          "python": "weight.v",
+          "rust": "weight.1"
+        },
+        {
+          "python": "bias.m",
+          "rust": "bias.0"
+        },
+        {
+          "python": "bias.v",
+          "rust": "bias.1"
+        }
+      ]
+    },
+    {
+      "id": "adamw",
+      "python_class": "mlx.optimizers.AdamW",
+      "rust_type": "mlx_rs::optimizers::AdamW",
+      "hyperparameters": {
+        "learning_rate": 0.025,
+        "betas": [
+          0.8,
+          0.95
+        ],
+        "eps": 1e-06,
+        "weight_decay": 0.04,
+        "bias_correction": false
+      },
+      "state_key_mapping": [
+        {
+          "python": "weight.m",
+          "rust": "weight.0"
+        },
+        {
+          "python": "weight.v",
+          "rust": "weight.1"
+        },
+        {
+          "python": "bias.m",
+          "rust": "bias.0"
+        },
+        {
+          "python": "bias.v",
+          "rust": "bias.1"
+        }
+      ]
+    },
+    {
+      "id": "adamax",
+      "python_class": "mlx.optimizers.Adamax",
+      "rust_type": "mlx_rs::optimizers::Adamax",
+      "hyperparameters": {
+        "learning_rate": 0.025,
+        "betas": [
+          0.8,
+          0.95
+        ],
+        "eps": 1e-06
+      },
+      "state_key_mapping": [
+        {
+          "python": "weight.m",
+          "rust": "weight.0"
+        },
+        {
+          "python": "weight.v",
+          "rust": "weight.1"
+        },
+        {
+          "python": "bias.m",
+          "rust": "bias.0"
+        },
+        {
+          "python": "bias.v",
+          "rust": "bias.1"
+        }
+      ]
+    },
+    {
+      "id": "adagrad",
+      "python_class": "mlx.optimizers.Adagrad",
+      "rust_type": "mlx_rs::optimizers::AdaGrad",
+      "hyperparameters": {
+        "learning_rate": 0.04,
+        "eps": 1e-06
+      },
+      "state_key_mapping": [
+        {
+          "python": "weight.v",
+          "rust": "weight"
+        },
+        {
+          "python": "bias.v",
+          "rust": "bias"
+        }
+      ]
+    },
+    {
+      "id": "adadelta",
+      "python_class": "mlx.optimizers.AdaDelta",
+      "rust_type": "mlx_rs::optimizers::AdaDelta",
+      "hyperparameters": {
+        "learning_rate": 0.7,
+        "rho": 0.9,
+        "eps": 1e-06
+      },
+      "state_key_mapping": [
+        {
+          "python": "weight.v",
+          "rust": "weight.0"
+        },
+        {
+          "python": "weight.u",
+          "rust": "weight.1"
+        },
+        {
+          "python": "bias.v",
+          "rust": "bias.0"
+        },
+        {
+          "python": "bias.u",
+          "rust": "bias.1"
+        }
+      ]
+    },
+    {
+      "id": "rmsprop",
+      "python_class": "mlx.optimizers.RMSprop",
+      "rust_type": "mlx_rs::optimizers::RmsProp",
+      "hyperparameters": {
+        "learning_rate": 0.03,
+        "alpha": 0.91,
+        "eps": 1e-06
+      },
+      "state_key_mapping": [
+        {
+          "python": "weight.v",
+          "rust": "weight"
+        },
+        {
+          "python": "bias.v",
+          "rust": "bias"
+        }
+      ]
+    },
+    {
+      "id": "lion",
+      "python_class": "mlx.optimizers.Lion",
+      "rust_type": "mlx_rs::optimizers::Lion",
+      "hyperparameters": {
+        "learning_rate": 0.012,
+        "betas": [
+          0.82,
+          0.96
+        ],
+        "weight_decay": 0.07
+      },
+      "state_key_mapping": [
+        {
+          "python": "weight.m",
+          "rust": "weight"
+        },
+        {
+          "python": "bias.m",
+          "rust": "bias"
+        }
+      ]
+    },
+    {
+      "id": "adafactor",
+      "python_class": "mlx.optimizers.Adafactor",
+      "rust_type": "mlx_rs::optimizers::Adafactor",
+      "hyperparameters": {
+        "learning_rate": 0.03,
+        "eps": [
+          1e-30,
+          0.001
+        ],
+        "clip_threshold": 1.0,
+        "decay_rate": -0.8,
+        "beta_1": 0.9,
+        "weight_decay": 0.02,
+        "scale_parameter": false,
+        "relative_step": false,
+        "warmup_init": false
+      },
+      "state_key_mapping": [
+        {
+          "python": "step",
+          "rust": "weight.step",
+          "conversion": "uint64_to_int32"
+        },
+        {
+          "python": "weight.exp_avg_sq_row",
+          "rust": "weight.exp_avg_sq_row"
+        },
+        {
+          "python": "weight.exp_avg_sq_col",
+          "rust": "weight.exp_avg_sq_col"
+        },
+        {
+          "python": "weight.exp_avg",
+          "rust": "weight.exp_avg"
+        },
+        {
+          "python": "step",
+          "rust": "bias.step",
+          "conversion": "uint64_to_int32"
+        },
+        {
+          "python": "bias.exp_avg_sq",
+          "rust": "bias.exp_avg_sq"
+        },
+        {
+          "python": "bias.exp_avg",
+          "rust": "bias.exp_avg"
+        }
+      ]
+    }
+  ],
+  "trajectories": [
+    {
+      "id": "sgd",
+      "optimizer": "sgd",
+      "frozen_parameters": [],
+      "gradient_keys": [
+        "bias",
+        "weight"
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "parameters": {
+            "weight": {
+              "ref": "sgd.step1.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "sgd.step1.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight": {
+              "ref": "sgd.step1.state.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "sgd.step1.state.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias",
+            "weight"
+          ]
+        },
+        {
+          "step": 2,
+          "parameters": {
+            "weight": {
+              "ref": "sgd.step2.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "sgd.step2.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight": {
+              "ref": "sgd.step2.state.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "sgd.step2.state.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias",
+            "weight"
+          ]
+        },
+        {
+          "step": 3,
+          "parameters": {
+            "weight": {
+              "ref": "sgd.step3.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "sgd.step3.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight": {
+              "ref": "sgd.step3.state.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "sgd.step3.state.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias",
+            "weight"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "adam",
+      "optimizer": "adam",
+      "frozen_parameters": [],
+      "gradient_keys": [
+        "bias",
+        "weight"
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "parameters": {
+            "weight": {
+              "ref": "adam.step1.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "adam.step1.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight.0": {
+              "ref": "adam.step1.state.weight.0",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "weight.1": {
+              "ref": "adam.step1.state.weight.1",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias.0": {
+              "ref": "adam.step1.state.bias.0",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            },
+            "bias.1": {
+              "ref": "adam.step1.state.bias.1",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias.0",
+            "bias.1",
+            "weight.0",
+            "weight.1"
+          ]
+        },
+        {
+          "step": 2,
+          "parameters": {
+            "weight": {
+              "ref": "adam.step2.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "adam.step2.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight.0": {
+              "ref": "adam.step2.state.weight.0",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "weight.1": {
+              "ref": "adam.step2.state.weight.1",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias.0": {
+              "ref": "adam.step2.state.bias.0",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            },
+            "bias.1": {
+              "ref": "adam.step2.state.bias.1",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias.0",
+            "bias.1",
+            "weight.0",
+            "weight.1"
+          ]
+        },
+        {
+          "step": 3,
+          "parameters": {
+            "weight": {
+              "ref": "adam.step3.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "adam.step3.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight.0": {
+              "ref": "adam.step3.state.weight.0",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "weight.1": {
+              "ref": "adam.step3.state.weight.1",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias.0": {
+              "ref": "adam.step3.state.bias.0",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            },
+            "bias.1": {
+              "ref": "adam.step3.state.bias.1",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias.0",
+            "bias.1",
+            "weight.0",
+            "weight.1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "adamw",
+      "optimizer": "adamw",
+      "frozen_parameters": [],
+      "gradient_keys": [
+        "bias",
+        "weight"
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "parameters": {
+            "weight": {
+              "ref": "adamw.step1.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "adamw.step1.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight.0": {
+              "ref": "adamw.step1.state.weight.0",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "weight.1": {
+              "ref": "adamw.step1.state.weight.1",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias.0": {
+              "ref": "adamw.step1.state.bias.0",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            },
+            "bias.1": {
+              "ref": "adamw.step1.state.bias.1",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias.0",
+            "bias.1",
+            "weight.0",
+            "weight.1"
+          ]
+        },
+        {
+          "step": 2,
+          "parameters": {
+            "weight": {
+              "ref": "adamw.step2.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "adamw.step2.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight.0": {
+              "ref": "adamw.step2.state.weight.0",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "weight.1": {
+              "ref": "adamw.step2.state.weight.1",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias.0": {
+              "ref": "adamw.step2.state.bias.0",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            },
+            "bias.1": {
+              "ref": "adamw.step2.state.bias.1",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias.0",
+            "bias.1",
+            "weight.0",
+            "weight.1"
+          ]
+        },
+        {
+          "step": 3,
+          "parameters": {
+            "weight": {
+              "ref": "adamw.step3.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "adamw.step3.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight.0": {
+              "ref": "adamw.step3.state.weight.0",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "weight.1": {
+              "ref": "adamw.step3.state.weight.1",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias.0": {
+              "ref": "adamw.step3.state.bias.0",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            },
+            "bias.1": {
+              "ref": "adamw.step3.state.bias.1",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias.0",
+            "bias.1",
+            "weight.0",
+            "weight.1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "adamax",
+      "optimizer": "adamax",
+      "frozen_parameters": [],
+      "gradient_keys": [
+        "bias",
+        "weight"
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "parameters": {
+            "weight": {
+              "ref": "adamax.step1.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "adamax.step1.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight.0": {
+              "ref": "adamax.step1.state.weight.0",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "weight.1": {
+              "ref": "adamax.step1.state.weight.1",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias.0": {
+              "ref": "adamax.step1.state.bias.0",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            },
+            "bias.1": {
+              "ref": "adamax.step1.state.bias.1",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias.0",
+            "bias.1",
+            "weight.0",
+            "weight.1"
+          ]
+        },
+        {
+          "step": 2,
+          "parameters": {
+            "weight": {
+              "ref": "adamax.step2.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "adamax.step2.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight.0": {
+              "ref": "adamax.step2.state.weight.0",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "weight.1": {
+              "ref": "adamax.step2.state.weight.1",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias.0": {
+              "ref": "adamax.step2.state.bias.0",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            },
+            "bias.1": {
+              "ref": "adamax.step2.state.bias.1",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias.0",
+            "bias.1",
+            "weight.0",
+            "weight.1"
+          ]
+        },
+        {
+          "step": 3,
+          "parameters": {
+            "weight": {
+              "ref": "adamax.step3.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "adamax.step3.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight.0": {
+              "ref": "adamax.step3.state.weight.0",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "weight.1": {
+              "ref": "adamax.step3.state.weight.1",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias.0": {
+              "ref": "adamax.step3.state.bias.0",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            },
+            "bias.1": {
+              "ref": "adamax.step3.state.bias.1",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias.0",
+            "bias.1",
+            "weight.0",
+            "weight.1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "adagrad",
+      "optimizer": "adagrad",
+      "frozen_parameters": [],
+      "gradient_keys": [
+        "bias",
+        "weight"
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "parameters": {
+            "weight": {
+              "ref": "adagrad.step1.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "adagrad.step1.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight": {
+              "ref": "adagrad.step1.state.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "adagrad.step1.state.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias",
+            "weight"
+          ]
+        },
+        {
+          "step": 2,
+          "parameters": {
+            "weight": {
+              "ref": "adagrad.step2.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "adagrad.step2.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight": {
+              "ref": "adagrad.step2.state.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "adagrad.step2.state.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias",
+            "weight"
+          ]
+        },
+        {
+          "step": 3,
+          "parameters": {
+            "weight": {
+              "ref": "adagrad.step3.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "adagrad.step3.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight": {
+              "ref": "adagrad.step3.state.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "adagrad.step3.state.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias",
+            "weight"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "adadelta",
+      "optimizer": "adadelta",
+      "frozen_parameters": [],
+      "gradient_keys": [
+        "bias",
+        "weight"
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "parameters": {
+            "weight": {
+              "ref": "adadelta.step1.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "adadelta.step1.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight.0": {
+              "ref": "adadelta.step1.state.weight.0",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "weight.1": {
+              "ref": "adadelta.step1.state.weight.1",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias.0": {
+              "ref": "adadelta.step1.state.bias.0",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            },
+            "bias.1": {
+              "ref": "adadelta.step1.state.bias.1",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias.0",
+            "bias.1",
+            "weight.0",
+            "weight.1"
+          ]
+        },
+        {
+          "step": 2,
+          "parameters": {
+            "weight": {
+              "ref": "adadelta.step2.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "adadelta.step2.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight.0": {
+              "ref": "adadelta.step2.state.weight.0",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "weight.1": {
+              "ref": "adadelta.step2.state.weight.1",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias.0": {
+              "ref": "adadelta.step2.state.bias.0",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            },
+            "bias.1": {
+              "ref": "adadelta.step2.state.bias.1",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias.0",
+            "bias.1",
+            "weight.0",
+            "weight.1"
+          ]
+        },
+        {
+          "step": 3,
+          "parameters": {
+            "weight": {
+              "ref": "adadelta.step3.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "adadelta.step3.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight.0": {
+              "ref": "adadelta.step3.state.weight.0",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "weight.1": {
+              "ref": "adadelta.step3.state.weight.1",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias.0": {
+              "ref": "adadelta.step3.state.bias.0",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            },
+            "bias.1": {
+              "ref": "adadelta.step3.state.bias.1",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias.0",
+            "bias.1",
+            "weight.0",
+            "weight.1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rmsprop",
+      "optimizer": "rmsprop",
+      "frozen_parameters": [],
+      "gradient_keys": [
+        "bias",
+        "weight"
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "parameters": {
+            "weight": {
+              "ref": "rmsprop.step1.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "rmsprop.step1.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight": {
+              "ref": "rmsprop.step1.state.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "rmsprop.step1.state.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias",
+            "weight"
+          ]
+        },
+        {
+          "step": 2,
+          "parameters": {
+            "weight": {
+              "ref": "rmsprop.step2.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "rmsprop.step2.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight": {
+              "ref": "rmsprop.step2.state.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "rmsprop.step2.state.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias",
+            "weight"
+          ]
+        },
+        {
+          "step": 3,
+          "parameters": {
+            "weight": {
+              "ref": "rmsprop.step3.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "rmsprop.step3.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight": {
+              "ref": "rmsprop.step3.state.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "rmsprop.step3.state.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias",
+            "weight"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lion",
+      "optimizer": "lion",
+      "frozen_parameters": [],
+      "gradient_keys": [
+        "bias",
+        "weight"
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "parameters": {
+            "weight": {
+              "ref": "lion.step1.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "lion.step1.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight": {
+              "ref": "lion.step1.state.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "lion.step1.state.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias",
+            "weight"
+          ]
+        },
+        {
+          "step": 2,
+          "parameters": {
+            "weight": {
+              "ref": "lion.step2.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "lion.step2.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight": {
+              "ref": "lion.step2.state.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "lion.step2.state.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias",
+            "weight"
+          ]
+        },
+        {
+          "step": 3,
+          "parameters": {
+            "weight": {
+              "ref": "lion.step3.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "lion.step3.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight": {
+              "ref": "lion.step3.state.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "lion.step3.state.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias",
+            "weight"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "adafactor",
+      "optimizer": "adafactor",
+      "frozen_parameters": [],
+      "gradient_keys": [
+        "bias",
+        "weight"
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "parameters": {
+            "weight": {
+              "ref": "adafactor.step1.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "adafactor.step1.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight.step": {
+              "ref": "adafactor.step1.state.weight.step",
+              "dtype": "int32",
+              "shape": []
+            },
+            "weight.exp_avg_sq_row": {
+              "ref": "adafactor.step1.state.weight.exp_avg_sq_row",
+              "dtype": "float32",
+              "shape": [
+                2
+              ]
+            },
+            "weight.exp_avg_sq_col": {
+              "ref": "adafactor.step1.state.weight.exp_avg_sq_col",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            },
+            "weight.exp_avg": {
+              "ref": "adafactor.step1.state.weight.exp_avg",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias.step": {
+              "ref": "adafactor.step1.state.bias.step",
+              "dtype": "int32",
+              "shape": []
+            },
+            "bias.exp_avg_sq": {
+              "ref": "adafactor.step1.state.bias.exp_avg_sq",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            },
+            "bias.exp_avg": {
+              "ref": "adafactor.step1.state.bias.exp_avg",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias.exp_avg",
+            "bias.exp_avg_sq",
+            "bias.step",
+            "weight.exp_avg",
+            "weight.exp_avg_sq_col",
+            "weight.exp_avg_sq_row",
+            "weight.step"
+          ]
+        },
+        {
+          "step": 2,
+          "parameters": {
+            "weight": {
+              "ref": "adafactor.step2.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "adafactor.step2.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight.step": {
+              "ref": "adafactor.step2.state.weight.step",
+              "dtype": "int32",
+              "shape": []
+            },
+            "weight.exp_avg_sq_row": {
+              "ref": "adafactor.step2.state.weight.exp_avg_sq_row",
+              "dtype": "float32",
+              "shape": [
+                2
+              ]
+            },
+            "weight.exp_avg_sq_col": {
+              "ref": "adafactor.step2.state.weight.exp_avg_sq_col",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            },
+            "weight.exp_avg": {
+              "ref": "adafactor.step2.state.weight.exp_avg",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias.step": {
+              "ref": "adafactor.step2.state.bias.step",
+              "dtype": "int32",
+              "shape": []
+            },
+            "bias.exp_avg_sq": {
+              "ref": "adafactor.step2.state.bias.exp_avg_sq",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            },
+            "bias.exp_avg": {
+              "ref": "adafactor.step2.state.bias.exp_avg",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias.exp_avg",
+            "bias.exp_avg_sq",
+            "bias.step",
+            "weight.exp_avg",
+            "weight.exp_avg_sq_col",
+            "weight.exp_avg_sq_row",
+            "weight.step"
+          ]
+        },
+        {
+          "step": 3,
+          "parameters": {
+            "weight": {
+              "ref": "adafactor.step3.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "adafactor.step3.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight.step": {
+              "ref": "adafactor.step3.state.weight.step",
+              "dtype": "int32",
+              "shape": []
+            },
+            "weight.exp_avg_sq_row": {
+              "ref": "adafactor.step3.state.weight.exp_avg_sq_row",
+              "dtype": "float32",
+              "shape": [
+                2
+              ]
+            },
+            "weight.exp_avg_sq_col": {
+              "ref": "adafactor.step3.state.weight.exp_avg_sq_col",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            },
+            "weight.exp_avg": {
+              "ref": "adafactor.step3.state.weight.exp_avg",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias.step": {
+              "ref": "adafactor.step3.state.bias.step",
+              "dtype": "int32",
+              "shape": []
+            },
+            "bias.exp_avg_sq": {
+              "ref": "adafactor.step3.state.bias.exp_avg_sq",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            },
+            "bias.exp_avg": {
+              "ref": "adafactor.step3.state.bias.exp_avg",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "bias.exp_avg",
+            "bias.exp_avg_sq",
+            "bias.step",
+            "weight.exp_avg",
+            "weight.exp_avg_sq_col",
+            "weight.exp_avg_sq_row",
+            "weight.step"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "adam_frozen_bias",
+      "optimizer": "adam",
+      "frozen_parameters": [
+        "bias"
+      ],
+      "gradient_keys": [
+        "weight"
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "parameters": {
+            "weight": {
+              "ref": "adam_frozen_bias.step1.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "adam_frozen_bias.step1.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight.0": {
+              "ref": "adam_frozen_bias.step1.state.weight.0",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "weight.1": {
+              "ref": "adam_frozen_bias.step1.state.weight.1",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "weight.0",
+            "weight.1"
+          ]
+        },
+        {
+          "step": 2,
+          "parameters": {
+            "weight": {
+              "ref": "adam_frozen_bias.step2.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "adam_frozen_bias.step2.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight.0": {
+              "ref": "adam_frozen_bias.step2.state.weight.0",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "weight.1": {
+              "ref": "adam_frozen_bias.step2.state.weight.1",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "weight.0",
+            "weight.1"
+          ]
+        },
+        {
+          "step": 3,
+          "parameters": {
+            "weight": {
+              "ref": "adam_frozen_bias.step3.param.weight",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "bias": {
+              "ref": "adam_frozen_bias.step3.param.bias",
+              "dtype": "float32",
+              "shape": [
+                3
+              ]
+            }
+          },
+          "state": {
+            "weight.0": {
+              "ref": "adam_frozen_bias.step3.state.weight.0",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "weight.1": {
+              "ref": "adam_frozen_bias.step3.state.weight.1",
+              "dtype": "float32",
+              "shape": [
+                2,
+                3
+              ]
+            }
+          },
+          "expected_state_keys": [
+            "weight.0",
+            "weight.1"
+          ]
+        }
+      ]
+    }
+  ],
+  "fault_matrix": [
+    {
+      "id": "no_op_learning_rate",
+      "expected_class": "parameter.weight"
+    },
+    {
+      "id": "stuck_step_counter",
+      "expected_class": "state.weight.step"
+    },
+    {
+      "id": "reordered_state_tensors",
+      "expected_class": "state.weight.0"
+    },
+    {
+      "id": "frozen_parameter_mutation",
+      "expected_class": "parameter.bias"
+    },
+    {
+      "id": "wrong_step_expectation",
+      "expected_class": "parameter.weight"
+    }
+  ]
+}

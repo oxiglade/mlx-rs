@@ -60,6 +60,7 @@ Recorded because none of it shows up in a test count, and all of it survives add
 - Fixed: `compile_with_state` restores caller state after tracing or compiled-apply errors and before retrying.
 - Fixed: `try_as_slice` rejects non-row-contiguous views; safetensors conversion propagates that error.
 - Fixed: `AdaDelta` now defaults `rho` to Python MLX's `0.9`; `0.99` remains available explicitly.
+- The state-pack oracle's first fixtures were corrupted by Python in-place mutation aliasing (Adafactor weight decay); caught because Rust matched causal math and refused the corrupted expectation; snapshots now copy at capture.
 
 ### Coverage note from the strict-comparator migration
 
@@ -242,6 +243,11 @@ Wave 2 done criteria:
 - [x] Comparisons qualify separate tolerances, dtype, shape, non-finite values, and boundary behavior; tensor equality and optimizer/compile false claims are audited.
 - [x] Canonical fingerprints produce a zero-unclassified target delta with typed, resolvable evidence and real Rust paths for wrapped entries.
 - [x] Rust public-API and supported-feature baselines exist, and synthetic add, remove, signature, evidence, and unclassified mutations fail the ledger gate.
+
+Wave 3 progress:
+
+- [x] Wave 3a: all nine optimizers have independent three-step parameter/slot oracles, exact flattened-state key-set checks, frozen-parameter coverage, eager/compiled consistency sentinels, and the no-op/stuck-counter/reordered-state/frozen-mutation/wrong-step qualification matrix.
+- [ ] Wave 3b: complete compile-state behavior (nested, changed/unchanged/pruned, repeated/fallible calls, duplicate-retry prevention, and error atomicity) and nonlinear grad/VJP/JVP transform values plus the remaining output-split and duplicate-retry mutations.
 
 The shared-file conflict list is `mlx-tests/tests/conformance.rs`, `conformance/generate.py`,
 `.github/workflows/validate.yml`, and `xtask/src/main.rs`. Give each shared file one integration
