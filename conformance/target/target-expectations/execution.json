@@ -1,0 +1,222 @@
+{
+  "cases": [
+    {
+      "id": "execution.001",
+      "input_refs": [
+        "execution.001.input.0",
+        "execution.001.input.1"
+      ],
+      "input_sha256": "sha256:8c6269654522af8d0e857a3e76f2931956b6cbfd33a99bd884b218e8de8467eb",
+      "recipe": "add",
+      "seed_hex": "2b650946ef8d0349a9ff6952f1f30ae6",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0b0000000d0000000d00000010000000110000000f000000",
+            "dtype": "I32",
+            "shape": [
+              6
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "execution.002",
+      "input_refs": [
+        "execution.002.input.0",
+        "execution.002.input.1"
+      ],
+      "input_sha256": "sha256:b75d25c45b14b2458c9e702002baa7deb2c40a3ff5efa57cd57761fbc4e74e34",
+      "recipe": "add",
+      "seed_hex": "82609a757f971a2b119e814bff79857b",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0b0000000d0000000d00000010000000110000000f000000",
+            "dtype": "I32",
+            "shape": [
+              6
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "execution.003",
+      "input_refs": [
+        "execution.003.input.0"
+      ],
+      "input_sha256": "sha256:c39e66084a4a4d394d4d44938446fb53c7701c9df1083a190d5fb0521edb349c",
+      "recipe": "exp",
+      "seed_hex": "eeb791620eb1e974bce7fea9cfcd36bc",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "88ed4b3dae0a963c0000803f2573ec402573ec400000803f",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "execution.004",
+      "input_refs": [
+        "execution.004.input.0"
+      ],
+      "input_sha256": "sha256:8b8ca1e9b6bde3fdcb1deaf3fdb630675dbe18bfd936d0f97cf32227aad9ae7c",
+      "recipe": "exp",
+      "seed_hex": "6ccd997a35bd548dc21e0869a0e10591",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "55950a3e2573ec400000803fae0a963c81645a4288ed4b3d",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "execution.005",
+      "input_refs": [
+        "execution.005.input.0"
+      ],
+      "input_sha256": "sha256:26825c8d06fcb5a24dad12356782ad1c7a136e459520d5e05d21fd583afe4a72",
+      "recipe": "reshape",
+      "seed_hex": "402e5022815e14c94016cdf016429ab6",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00000000000000c000000040000040c0000000000000a040",
+            "dtype": "F32",
+            "shape": [
+              3,
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "execution.006",
+      "input_refs": [
+        "execution.006.input.0"
+      ],
+      "input_sha256": "sha256:c9b88f49a8a70a3890b0d951542fb885110b8411c1fc4588431407cc80609dd3",
+      "recipe": "reshape",
+      "seed_hex": "d09c8f00054c80e4b259dd4ddd9cb00a",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000040400000803f000000000000803f000040c00000803f",
+            "dtype": "F32",
+            "shape": [
+              3,
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "execution.007",
+      "input_refs": [
+        "execution.007.input.0",
+        "execution.007.input.1"
+      ],
+      "input_sha256": "sha256:222eb72a499149a473792b8ffd1aae45d7c459a0d3e101931c6cfd24e2ea4bfe",
+      "recipe": "divmod",
+      "seed_hex": "e2211ae0f9dc4948570e790a63175ec2",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "020000000200000003000000020000000200000006000000",
+            "dtype": "I32",
+            "shape": [
+              6
+            ]
+          },
+          {
+            "data_hex": "020000000100000001000000010000000200000001000000",
+            "dtype": "I32",
+            "shape": [
+              6
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "execution.008",
+      "input_refs": [
+        "execution.008.input.0",
+        "execution.008.input.1"
+      ],
+      "input_sha256": "sha256:30e1930ccc219e6219bca6f8433872b33afc200f5f014edb49a80f5a534fd47e",
+      "recipe": "divmod",
+      "seed_hex": "8d6806c6d49bb8b18bb81c129f6994b2",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "020000000200000003000000020000000200000006000000",
+            "dtype": "I32",
+            "shape": [
+              6
+            ]
+          },
+          {
+            "data_hex": "020000000100000001000000010000000200000001000000",
+            "dtype": "I32",
+            "shape": [
+              6
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    }
+  ],
+  "old_environment": {
+    "architecture": "arm64",
+    "mlx_metal_package": "0.30.6",
+    "mlx_package": "0.30.6",
+    "mlx_runtime": "0.30.6",
+    "numpy": "2.2.6",
+    "python": "3.12.14"
+  },
+  "schema_version": 1,
+  "suite": "execution",
+  "target_environment": {
+    "architecture": "arm64",
+    "device": "cpu",
+    "mlx": "0.32.2",
+    "mlx_metal": "0.32.2",
+    "mlx_runtime": "0.32.2",
+    "numpy": "2.2.6",
+    "python": "3.12.14",
+    "venv": "conformance/.venv-target"
+  }
+}

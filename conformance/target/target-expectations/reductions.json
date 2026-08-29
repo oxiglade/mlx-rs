@@ -1,0 +1,243 @@
+{
+  "cases": [
+    {
+      "id": "reductions.001",
+      "input_refs": [
+        "reductions.001.input.0"
+      ],
+      "input_sha256": "sha256:788ba2a62f396d056de43040565b60a60590156f0b13f16bb226979491cc5f2d",
+      "recipe": "sum",
+      "seed_hex": "939fc6b640656aeba50032faad1caafd",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000030c1",
+            "dtype": "F32",
+            "shape": []
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "reductions.002",
+      "input_refs": [
+        "reductions.002.input.0"
+      ],
+      "input_sha256": "sha256:b2f7d025a2029edc2d1ceaa95eb0f785208a8c37d170f42fcafecd1cb62fc2a8",
+      "recipe": "sum",
+      "seed_hex": "37cafc4bc1d873f83a7ce13c56129dda",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0300000001000000ffffffff",
+            "dtype": "I32",
+            "shape": [
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "reductions.003",
+      "input_refs": [
+        "reductions.003.input.0"
+      ],
+      "input_sha256": "sha256:853a92b8c48ac9fa5a28f180421319ad86a49267398beb8e72e1904c582fe286",
+      "recipe": "sum",
+      "seed_hex": "06b49817e4eb91c6aeb54bf90b95940e",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000000c000000040000080c00000a040000000400000a040",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "reductions.004",
+      "input_refs": [
+        "reductions.004.input.0"
+      ],
+      "input_sha256": "sha256:ce907d6e1d2f6a6299c362e44a2305b15d9f2fe1c7d7a2022fbdcde58fa8f05d",
+      "recipe": "sum_axes",
+      "seed_hex": "cd7a5ab7ad03166b3539063bf0352e1e",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000040410000803f0000c041",
+            "dtype": "F32",
+            "shape": [
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "reductions.005",
+      "input_refs": [
+        "reductions.005.input.0"
+      ],
+      "input_sha256": "sha256:1fee6799a2005e965236188cc7dc6c81eab0de2a6f282247bfcec595692f3763",
+      "recipe": "sum_axes",
+      "seed_hex": "90d5df2af56cf06dece746fd3163d4a8",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "faffffffffffffff0b000000000000000700000000000000",
+            "dtype": "I64",
+            "shape": [
+              1,
+              3,
+              1
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "reductions.006",
+      "input_refs": [
+        "reductions.006.input.0"
+      ],
+      "input_sha256": "sha256:369f248a6d3e454ad7b43060fb070a4a6db93d33c687b880d3086d9c43bed66c",
+      "recipe": "sum",
+      "seed_hex": "86b0b69f8eb9ac273f47cd4a5d6fbaad",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "c04d",
+            "dtype": "F16",
+            "shape": []
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "reductions.007",
+      "input_refs": [
+        "reductions.007.input.0"
+      ],
+      "input_sha256": "sha256:acf69bcce1a4567c95e4bd6c296f01e9627f0175bde473e5edf690e994a6e786",
+      "recipe": "sum",
+      "seed_hex": "8f120a39409c5a649a03690da474d89d",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "803f",
+            "dtype": "BF16",
+            "shape": []
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "reductions.008",
+      "input_refs": [
+        "reductions.008.input.0"
+      ],
+      "input_sha256": "sha256:6bc362e560711c3d2f5fb344c1f49c3a35a6f141358412dda8faf630f0f2c852",
+      "recipe": "sum",
+      "seed_hex": "63a1920d9c7fda380ac0d969feb3d976",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "72038c3fb21336c0dcb749c0c28484c03c4399c095f52bc038e540bf",
+            "dtype": "F32",
+            "shape": [
+              7,
+              1
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "reductions.009",
+      "input_refs": [
+        "reductions.009.input.0"
+      ],
+      "input_sha256": "sha256:4a124d6cc5d476b989b2d1de1b69edad94ecfeb81b7d24aae7971eac5d7d7b99",
+      "recipe": "sum",
+      "seed_hex": "42529c23791408beca4fc4065257018b",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000000000000000000000000",
+            "dtype": "F32",
+            "shape": [
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "reductions.010",
+      "input_refs": [
+        "reductions.010.input.0"
+      ],
+      "input_sha256": "sha256:b451dcfdb5e92daacf42f1cf0cbf107e03dece59751a413b3f01227b7f429a82",
+      "recipe": "sum",
+      "seed_hex": "5b5ab60b11a68063e3fcb7ef7210ffb9",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "15000000",
+            "dtype": "U32",
+            "shape": [
+              1,
+              1
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    }
+  ],
+  "old_environment": {
+    "architecture": "arm64",
+    "mlx_metal_package": "0.30.6",
+    "mlx_package": "0.30.6",
+    "mlx_runtime": "0.30.6",
+    "numpy": "2.2.6",
+    "python": "3.12.14"
+  },
+  "schema_version": 1,
+  "suite": "reductions",
+  "target_environment": {
+    "architecture": "arm64",
+    "device": "cpu",
+    "mlx": "0.32.2",
+    "mlx_metal": "0.32.2",
+    "mlx_runtime": "0.32.2",
+    "numpy": "2.2.6",
+    "python": "3.12.14",
+    "venv": "conformance/.venv-target"
+  }
+}

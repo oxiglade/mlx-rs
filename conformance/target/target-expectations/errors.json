@@ -1,0 +1,98 @@
+{
+  "cases": [
+    {
+      "id": "errors.001",
+      "input_refs": [
+        "errors.001.input.0",
+        "errors.001.input.1"
+      ],
+      "input_sha256": "sha256:8ec91e001f96a9e8317c44a375846f04b05cb5011d8bd998a886acdf6e0e838e",
+      "recipe": "add",
+      "seed_hex": "90a2f67e8d22cc2408ad1cc61fcf8683",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "errors.002",
+      "input_refs": [
+        "errors.002.input.0"
+      ],
+      "input_sha256": "sha256:37de48d850df61485087115ea558c3fac8eafc971f82a965f3c394ac33c21e2e",
+      "recipe": "reshape",
+      "seed_hex": "54166d53b3b78e92e03ad5bc7b61cb8a",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "errors.003",
+      "input_refs": [
+        "errors.003.input.0",
+        "errors.003.input.1"
+      ],
+      "input_sha256": "sha256:5755893ff3334b4a172a2472aac4407e8edae6f0a8c67255c7cdffedacf287a1",
+      "recipe": "take",
+      "seed_hex": "567049d5970b0813c26944910367216c",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "errors.004",
+      "input_refs": [
+        "errors.004.input.0"
+      ],
+      "input_sha256": "sha256:f8810ac341f455ea4bcf08e698165f0c23f3cce1be2405a7494ac7a1cfaeb580",
+      "recipe": "negative",
+      "seed_hex": "253ad55b908c6db939b617c81ebf7399",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    }
+  ],
+  "old_environment": {
+    "architecture": "arm64",
+    "mlx_metal_package": "0.30.6",
+    "mlx_package": "0.30.6",
+    "mlx_runtime": "0.30.6",
+    "numpy": "2.2.6",
+    "python": "3.12.14"
+  },
+  "schema_version": 1,
+  "suite": "errors",
+  "target_environment": {
+    "architecture": "arm64",
+    "device": "cpu",
+    "mlx": "0.32.2",
+    "mlx_metal": "0.32.2",
+    "mlx_runtime": "0.32.2",
+    "numpy": "2.2.6",
+    "python": "3.12.14",
+    "venv": "conformance/.venv-target"
+  }
+}

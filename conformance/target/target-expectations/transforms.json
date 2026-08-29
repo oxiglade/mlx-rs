@@ -1,0 +1,273 @@
+{
+  "cases": [
+    {
+      "id": "transforms.nonlinear_value_and_grad",
+      "input_refs": [
+        "transform.input.x",
+        "transform.input.weight",
+        "transform.input.bias",
+        "transform.input.a",
+        "transform.input.c",
+        "transform.input.a_tangent",
+        "transform.input.c_tangent",
+        "transform.input.output0_cotangent",
+        "transform.input.output1_cotangent"
+      ],
+      "input_sha256": "sha256:29dd66ea7451846d4d29db8407d2b85b08e89d6f6b0a828fb59d17cd8d0502e5",
+      "recipe": "nonlinear_value_and_grad",
+      "seed_hex": null,
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00ba9c3f",
+            "dtype": "F32",
+            "ref": "transform.nonlinear.value",
+            "shape": []
+          },
+          {
+            "data_hex": "67a544bf05731cbf36f9233f",
+            "dtype": "F32",
+            "ref": "transform.nonlinear.gradient.x",
+            "shape": [
+              3
+            ]
+          },
+          {
+            "data_hex": "df99213ea3668dbe9333de3e2b4c97bea662043fbc0850bf",
+            "dtype": "F32",
+            "ref": "transform.nonlinear.gradient.weight",
+            "shape": [
+              2,
+              3
+            ]
+          },
+          {
+            "data_hex": "5700ca3e361f3dbf",
+            "dtype": "F32",
+            "ref": "transform.nonlinear.gradient.bias",
+            "shape": [
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "transforms.argnums_selection",
+      "input_refs": [
+        "transform.input.x",
+        "transform.input.weight",
+        "transform.input.bias",
+        "transform.input.a",
+        "transform.input.c",
+        "transform.input.a_tangent",
+        "transform.input.c_tangent",
+        "transform.input.output0_cotangent",
+        "transform.input.output1_cotangent"
+      ],
+      "input_sha256": "sha256:29dd66ea7451846d4d29db8407d2b85b08e89d6f6b0a828fb59d17cd8d0502e5",
+      "recipe": "argnums_selection",
+      "seed_hex": null,
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00ba9c3f",
+            "dtype": "F32",
+            "ref": "transform.argnums.value",
+            "shape": []
+          },
+          {
+            "data_hex": "67a544bf05731cbf36f9233f",
+            "dtype": "F32",
+            "ref": "transform.argnums.gradient.x",
+            "shape": [
+              3
+            ]
+          },
+          {
+            "data_hex": "5700ca3e361f3dbf",
+            "dtype": "F32",
+            "ref": "transform.argnums.gradient.bias",
+            "shape": [
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "transforms.jvp",
+      "input_refs": [
+        "transform.input.x",
+        "transform.input.weight",
+        "transform.input.bias",
+        "transform.input.a",
+        "transform.input.c",
+        "transform.input.a_tangent",
+        "transform.input.c_tangent",
+        "transform.input.output0_cotangent",
+        "transform.input.output1_cotangent"
+      ],
+      "input_sha256": "sha256:29dd66ea7451846d4d29db8407d2b85b08e89d6f6b0a828fb59d17cd8d0502e5",
+      "recipe": "jvp",
+      "seed_hex": null,
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "d9fbc73e180f4b3f",
+            "dtype": "F32",
+            "ref": "transform.jvp.value.0",
+            "shape": [
+              2
+            ]
+          },
+          {
+            "data_hex": "7268d13e",
+            "dtype": "F32",
+            "ref": "transform.jvp.value.1",
+            "shape": []
+          },
+          {
+            "data_hex": "9d9647be3b56a2be",
+            "dtype": "F32",
+            "ref": "transform.jvp.tangent.0",
+            "shape": [
+              2
+            ]
+          },
+          {
+            "data_hex": "84916d3c",
+            "dtype": "F32",
+            "ref": "transform.jvp.tangent.1",
+            "shape": []
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "transforms.vjp",
+      "input_refs": [
+        "transform.input.x",
+        "transform.input.weight",
+        "transform.input.bias",
+        "transform.input.a",
+        "transform.input.c",
+        "transform.input.a_tangent",
+        "transform.input.c_tangent",
+        "transform.input.output0_cotangent",
+        "transform.input.output1_cotangent"
+      ],
+      "input_sha256": "sha256:29dd66ea7451846d4d29db8407d2b85b08e89d6f6b0a828fb59d17cd8d0502e5",
+      "recipe": "vjp",
+      "seed_hex": null,
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "d9fbc73e180f4b3f",
+            "dtype": "F32",
+            "ref": "transform.vjp.value.0",
+            "shape": [
+              2
+            ]
+          },
+          {
+            "data_hex": "7268d13e",
+            "dtype": "F32",
+            "ref": "transform.vjp.value.1",
+            "shape": []
+          },
+          {
+            "data_hex": "5f13e83f725c633f",
+            "dtype": "F32",
+            "ref": "transform.vjp.cotangent.0",
+            "shape": [
+              2
+            ]
+          },
+          {
+            "data_hex": "cf5ec93e555e0e3f",
+            "dtype": "F32",
+            "ref": "transform.vjp.cotangent.1",
+            "shape": [
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "transforms.module_value_and_grad",
+      "input_refs": [
+        "transform.input.x",
+        "transform.input.weight",
+        "transform.input.bias",
+        "transform.input.a",
+        "transform.input.c",
+        "transform.input.a_tangent",
+        "transform.input.c_tangent",
+        "transform.input.output0_cotangent",
+        "transform.input.output1_cotangent"
+      ],
+      "input_sha256": "sha256:29dd66ea7451846d4d29db8407d2b85b08e89d6f6b0a828fb59d17cd8d0502e5",
+      "recipe": "module_value_and_grad",
+      "seed_hex": null,
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00ba9c3f",
+            "dtype": "F32",
+            "ref": "transform.module.value",
+            "shape": []
+          },
+          {
+            "data_hex": "df99213ea3668dbe9333de3e2b4c97bea662043fbc0850bf",
+            "dtype": "F32",
+            "ref": "transform.module.gradient.weight",
+            "shape": [
+              2,
+              3
+            ]
+          },
+          {
+            "data_hex": "5700ca3e361f3dbf",
+            "dtype": "F32",
+            "ref": "transform.module.gradient.bias",
+            "shape": [
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    }
+  ],
+  "old_environment": {
+    "architecture": "arm64",
+    "mlx": "0.30.6",
+    "mlx_metal": "0.30.6",
+    "numpy": "2.2.6",
+    "pinned_venv": "conformance/.venv",
+    "python": "3.12.14"
+  },
+  "schema_version": 1,
+  "suite": "transforms",
+  "target_environment": {
+    "architecture": "arm64",
+    "device": "cpu",
+    "mlx": "0.32.2",
+    "mlx_metal": "0.32.2",
+    "mlx_runtime": "0.32.2",
+    "numpy": "2.2.6",
+    "python": "3.12.14",
+    "venv": "conformance/.venv-target"
+  }
+}
