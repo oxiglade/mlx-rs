@@ -1,15 +1,20 @@
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::env;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Command, ExitStatus};
+use std::process::{Child, Command, ExitStatus, Stdio};
+use std::thread;
 use std::time::{Duration, Instant};
 
 const CALIBRATION_BINARY: &str = "ci_leak_calibration";
 const CALIBRATION_TEST: &str = "deliberate_iterator_handle_leak";
 const CALIBRATION_LEAK_SITE: &str = "<malloc in mlx_map_string_to_string_iterator_new>";
 const DEFAULT_CALIBRATION_BUDGET_SECONDS: u64 = 20 * 60;
+// CI task-port acquisition can block forever instead of returning a leaks error.
+const DEFAULT_LEAKS_TIMEOUT_SECONDS: u64 = 180;
+const GUARD_MALLOC_TIMEOUT_MULTIPLIER: u32 = 3;
+const PROCESS_WAIT_POLL_INTERVAL: Duration = Duration::from_millis(10);
 
 #[derive(Debug, PartialEq, Eq, Serialize)]
 struct LeakResult {
@@ -91,15 +96,19 @@ struct ProcessExit {
 #[derive(Serialize)]
 struct LeakCheck {
     status: LeakStatus,
+    duration_ms: u64,
     result: Option<LeakResult>,
     tool_status: Option<ProcessExit>,
+    failure: Option<String>,
     error: Option<String>,
 }
 
 #[derive(Serialize)]
 struct GuardMallocCheck {
     status: Verdict,
+    duration_ms: u64,
     process_status: Option<ProcessExit>,
+    failure: Option<String>,
     error: Option<String>,
 }
 
@@ -140,6 +149,7 @@ struct ExecutionContext {
 struct VerifyFfiReport {
     schema_version: u32,
     command: &'static str,
+    leaks_timeout_seconds: u64,
     source_commit: String,
     mlx_c_commit: String,
     source_clean: bool,
@@ -170,6 +180,12 @@ struct CapturedExit {
 struct SpawnFailure {
     kind: std::io::ErrorKind,
     message: String,
+}
+
+#[derive(Debug)]
+enum CaptureFailure {
+    Io(SpawnFailure),
+    Timeout { elapsed: Duration },
 }
 
 #[derive(Serialize)]
@@ -216,6 +232,7 @@ struct CalibrationReport {
     source_commit: String,
     mlx_c_commit: String,
     budget_seconds: u64,
+    leaks_timeout_seconds: u64,
     phases: CalibrationPhases,
     total_duration_ms: u64,
     verdict: Verdict,
@@ -223,53 +240,93 @@ struct CalibrationReport {
 
 #[derive(Debug, PartialEq, Eq)]
 enum Options {
-    Verify { guard_malloc: bool },
-    Calibrate { budget_seconds: u64 },
+    Verify {
+        guard_malloc: bool,
+        leaks_timeout_seconds: u64,
+    },
+    Calibrate {
+        budget_seconds: u64,
+        leaks_timeout_seconds: u64,
+    },
 }
 
 impl Options {
     fn parse(args: &[String]) -> Result<Self, String> {
-        match args {
-            [] => Ok(Self::Verify {
-                guard_malloc: false,
-            }),
-            [flag] if flag == "--guard-malloc" => Ok(Self::Verify { guard_malloc: true }),
-            [flag] if flag == "--calibrate" => Ok(Self::Calibrate {
-                budget_seconds: DEFAULT_CALIBRATION_BUDGET_SECONDS,
-            }),
-            [calibrate, budget, seconds]
-                if calibrate == "--calibrate" && budget == "--budget-seconds" =>
-            {
-                let budget_seconds = seconds
-                    .parse::<u64>()
-                    .ok()
-                    .filter(|seconds| *seconds > 0)
-                    .ok_or_else(usage)?;
-                Ok(Self::Calibrate { budget_seconds })
+        let mut guard_malloc = false;
+        let mut calibrate = false;
+        let mut budget_seconds = DEFAULT_CALIBRATION_BUDGET_SECONDS;
+        let mut leaks_timeout_seconds = DEFAULT_LEAKS_TIMEOUT_SECONDS;
+        let mut budget_seen = false;
+        let mut timeout_seen = false;
+        let mut index = 0;
+        while index < args.len() {
+            match args[index].as_str() {
+                "--guard-malloc" if !guard_malloc => guard_malloc = true,
+                "--calibrate" if !calibrate => calibrate = true,
+                "--budget-seconds" if !budget_seen => {
+                    index += 1;
+                    budget_seconds = parse_positive_seconds(args.get(index))?;
+                    budget_seen = true;
+                }
+                "--leaks-timeout-seconds" if !timeout_seen => {
+                    index += 1;
+                    leaks_timeout_seconds = parse_positive_seconds(args.get(index))?;
+                    timeout_seen = true;
+                }
+                _ => return Err(usage()),
             }
-            _ => Err(usage()),
+            index += 1;
+        }
+
+        if calibrate {
+            if guard_malloc {
+                return Err(usage());
+            }
+            Ok(Self::Calibrate {
+                budget_seconds,
+                leaks_timeout_seconds,
+            })
+        } else if budget_seen {
+            Err(usage())
+        } else {
+            Ok(Self::Verify {
+                guard_malloc,
+                leaks_timeout_seconds,
+            })
         }
     }
 }
 
+fn parse_positive_seconds(value: Option<&String>) -> Result<u64, String> {
+    value
+        .and_then(|value| value.parse::<u64>().ok())
+        .filter(|seconds| *seconds > 0)
+        .ok_or_else(usage)
+}
+
 fn usage() -> String {
-    "usage: cargo run -p xtask -- verify-ffi [--guard-malloc | --calibrate [--budget-seconds N]]"
-        .to_owned()
+    "usage: cargo run -p xtask -- verify-ffi [--guard-malloc] [--leaks-timeout-seconds N] | --calibrate [--budget-seconds N] [--leaks-timeout-seconds N]".to_owned()
 }
 
 pub(crate) fn run(root_dir: &Path, args: &[String]) -> i32 {
     match Options::parse(args) {
-        Ok(Options::Verify { guard_malloc }) => {
-            let report = verify(root_dir, guard_malloc);
+        Ok(Options::Verify {
+            guard_malloc,
+            leaks_timeout_seconds,
+        }) => {
+            let report = verify(root_dir, guard_malloc, leaks_timeout_seconds);
             write_report(&report, report.verdict == Verdict::Pass)
         }
-        Ok(Options::Calibrate { budget_seconds }) => {
-            let report = calibrate(root_dir, budget_seconds);
+        Ok(Options::Calibrate {
+            budget_seconds,
+            leaks_timeout_seconds,
+        }) => {
+            let report = calibrate(root_dir, budget_seconds, leaks_timeout_seconds);
             write_report(&report, report.verdict == Verdict::Pass)
         }
         Err(error) => {
             eprintln!("{error}");
-            let report = failed_report(root_dir, false, error);
+            let report = failed_report(root_dir, false, DEFAULT_LEAKS_TIMEOUT_SECONDS, error);
             write_report(&report, false)
         }
     }
@@ -286,8 +343,13 @@ fn write_report(report: &impl Serialize, success: bool) -> i32 {
     }
 }
 
-fn calibrate(root_dir: &Path, budget_seconds: u64) -> CalibrationReport {
+fn calibrate(
+    root_dir: &Path,
+    budget_seconds: u64,
+    leaks_timeout_seconds: u64,
+) -> CalibrationReport {
     let total_started = Instant::now();
+    let leaks_timeout = Duration::from_secs(leaks_timeout_seconds);
 
     // The probe child must allocate: a no-malloc process (e.g. /usr/bin/true)
     // yields no leaks summary and misreports a healthy runner as unparseable.
@@ -301,7 +363,10 @@ fn calibrate(root_dir: &Path, budget_seconds: u64) -> CalibrationReport {
             probe_command.args(["--atExit", "--"]);
             probe_command.arg(&binary.path);
             probe_command.arg("--test-threads=1");
-            assess_environment_probe(capture_command(&mut probe_command), probe_started.elapsed())
+            assess_environment_probe(
+                capture_command(&mut probe_command, leaks_timeout),
+                probe_started.elapsed(),
+            )
         }
         Err(error) => CalibrationLeakPhase {
             status: Verdict::Error,
@@ -315,11 +380,11 @@ fn calibrate(root_dir: &Path, budget_seconds: u64) -> CalibrationReport {
         },
     };
 
-    let deliberate_leak_detection = run_deliberate_leak_calibration(root_dir);
+    let deliberate_leak_detection = run_deliberate_leak_calibration(root_dir, leaks_timeout);
 
     eprintln!("running clean full verify-ffi gate");
     let clean_started = Instant::now();
-    let clean_report = verify(root_dir, false);
+    let clean_report = verify(root_dir, false, leaks_timeout_seconds);
     let clean_duration = clean_started.elapsed();
     let clean_gate = CleanGatePhase {
         status: if clean_report.verdict == Verdict::Pass {
@@ -346,13 +411,17 @@ fn calibrate(root_dir: &Path, budget_seconds: u64) -> CalibrationReport {
         source_commit: git_head(root_dir),
         mlx_c_commit: git_head(&root_dir.join("mlx-sys/src/mlx-c")),
         budget_seconds,
+        leaks_timeout_seconds,
         phases,
         total_duration_ms: duration_ms(total_started.elapsed()),
         verdict,
     }
 }
 
-fn run_deliberate_leak_calibration(root_dir: &Path) -> CalibrationLeakPhase {
+fn run_deliberate_leak_calibration(
+    root_dir: &Path,
+    leaks_timeout: Duration,
+) -> CalibrationLeakPhase {
     let started = Instant::now();
     let binary = match discover_calibration_binary(root_dir) {
         Ok(binary) => binary,
@@ -382,7 +451,10 @@ fn run_deliberate_leak_calibration(root_dir: &Path) -> CalibrationLeakPhase {
         CALIBRATION_TEST,
         "--test-threads=1",
     ]);
-    assess_deliberate_leak(capture_command(&mut command), started.elapsed())
+    assess_deliberate_leak(
+        capture_command(&mut command, leaks_timeout),
+        started.elapsed(),
+    )
 }
 
 fn discover_calibration_binary(root_dir: &Path) -> Result<TestBinary, String> {
@@ -427,31 +499,141 @@ fn discover_calibration_binary(root_dir: &Path) -> Result<TestBinary, String> {
     }
 }
 
-fn capture_command(command: &mut Command) -> Result<CapturedCommand, SpawnFailure> {
-    command
-        .output()
-        .map(|output| CapturedCommand {
-            stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
-            stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
-            status: CapturedExit {
-                exit_code: output.status.code(),
-                signal: exit_signal(&output.status),
-            },
-        })
+fn capture_command(
+    command: &mut Command,
+    timeout: Duration,
+) -> Result<CapturedCommand, CaptureFailure> {
+    configure_process_group(command);
+    command.stdout(Stdio::piped()).stderr(Stdio::piped());
+    let started = Instant::now();
+    let mut child = command.spawn().map_err(capture_io_failure)?;
+    let stdout = child.stdout.take().expect("stdout configured as piped");
+    let stderr = child.stderr.take().expect("stderr configured as piped");
+    let stdout_reader = thread::spawn(move || read_pipe(stdout));
+    let stderr_reader = thread::spawn(move || read_pipe(stderr));
+
+    let mut status = None;
+    loop {
+        if status.is_none() {
+            match child.try_wait() {
+                Ok(completed) => status = completed,
+                Err(error) => {
+                    terminate_capture(&mut child, stdout_reader, stderr_reader);
+                    return Err(capture_io_failure(error));
+                }
+            }
+        }
+        if status.is_some() && stdout_reader.is_finished() && stderr_reader.is_finished() {
+            break;
+        }
+        if started.elapsed() >= timeout {
+            terminate_capture(&mut child, stdout_reader, stderr_reader);
+            return Err(CaptureFailure::Timeout {
+                elapsed: started.elapsed(),
+            });
+        }
+        thread::sleep(PROCESS_WAIT_POLL_INTERVAL.min(timeout.saturating_sub(started.elapsed())));
+    }
+    let stdout = join_pipe(stdout_reader).map_err(CaptureFailure::Io)?;
+    let stderr = join_pipe(stderr_reader).map_err(CaptureFailure::Io)?;
+    let status = status.expect("completed process checked before leaving wait loop");
+    Ok(CapturedCommand {
+        stdout: String::from_utf8_lossy(&stdout).into_owned(),
+        stderr: String::from_utf8_lossy(&stderr).into_owned(),
+        status: CapturedExit {
+            exit_code: status.code(),
+            signal: exit_signal(&status),
+        },
+    })
+}
+
+fn terminate_capture(
+    child: &mut Child,
+    stdout_reader: thread::JoinHandle<std::io::Result<Vec<u8>>>,
+    stderr_reader: thread::JoinHandle<std::io::Result<Vec<u8>>>,
+) {
+    kill_process_group(child);
+    let _ = child.wait();
+    let _ = join_pipe(stdout_reader);
+    let _ = join_pipe(stderr_reader);
+}
+
+fn capture_io_failure(error: std::io::Error) -> CaptureFailure {
+    CaptureFailure::Io(SpawnFailure {
+        kind: error.kind(),
+        message: error.to_string(),
+    })
+}
+
+fn read_pipe(mut pipe: impl Read) -> std::io::Result<Vec<u8>> {
+    let mut bytes = Vec::new();
+    pipe.read_to_end(&mut bytes)?;
+    Ok(bytes)
+}
+
+fn join_pipe(
+    reader: thread::JoinHandle<std::io::Result<Vec<u8>>>,
+) -> Result<Vec<u8>, SpawnFailure> {
+    reader
+        .join()
+        .map_err(|_| SpawnFailure {
+            kind: std::io::ErrorKind::Other,
+            message: "command output reader panicked".to_owned(),
+        })?
         .map_err(|error| SpawnFailure {
             kind: error.kind(),
             message: error.to_string(),
         })
 }
 
+#[cfg(unix)]
+fn configure_process_group(command: &mut Command) {
+    use std::os::unix::process::CommandExt;
+
+    command.process_group(0);
+}
+
+#[cfg(not(unix))]
+fn configure_process_group(_command: &mut Command) {}
+
+#[cfg(unix)]
+fn kill_process_group(child: &mut Child) {
+    unsafe extern "C" {
+        fn kill(pid: i32, signal: i32) -> i32;
+    }
+
+    if let Ok(process_group) = i32::try_from(child.id()) {
+        unsafe {
+            kill(-process_group, 9);
+        }
+    }
+    let _ = child.kill();
+}
+
+#[cfg(not(unix))]
+fn kill_process_group(child: &mut Child) {
+    let _ = child.kill();
+}
+
 fn assess_environment_probe(
-    attempt: Result<CapturedCommand, SpawnFailure>,
+    attempt: Result<CapturedCommand, CaptureFailure>,
     duration: Duration,
 ) -> CalibrationLeakPhase {
     let target = CALIBRATION_BINARY;
     let captured = match attempt {
         Ok(captured) => captured,
-        Err(error) => {
+        Err(CaptureFailure::Timeout { elapsed }) => {
+            return calibration_leak_failure(
+                Verdict::Error,
+                duration.max(elapsed),
+                target,
+                None,
+                None,
+                "leaks_timeout",
+                format!("leaks timed out after {} ms", duration_ms(elapsed)),
+            );
+        }
+        Err(CaptureFailure::Io(error)) => {
             let failure = if error.kind == std::io::ErrorKind::NotFound {
                 "leaks_missing"
             } else {
@@ -526,12 +708,23 @@ fn assess_environment_probe(
 }
 
 fn assess_deliberate_leak(
-    attempt: Result<CapturedCommand, SpawnFailure>,
+    attempt: Result<CapturedCommand, CaptureFailure>,
     duration: Duration,
 ) -> CalibrationLeakPhase {
     let captured = match attempt {
         Ok(captured) => captured,
-        Err(error) => {
+        Err(CaptureFailure::Timeout { elapsed }) => {
+            return calibration_leak_failure(
+                Verdict::Error,
+                duration.max(elapsed),
+                CALIBRATION_BINARY,
+                None,
+                None,
+                "leaks_timeout",
+                format!("leaks timed out after {} ms", duration_ms(elapsed)),
+            );
+        }
+        Err(CaptureFailure::Io(error)) => {
             let failure = if error.kind == std::io::ErrorKind::NotFound {
                 "leaks_missing"
             } else {
@@ -698,21 +891,25 @@ fn duration_ms(duration: Duration) -> u64 {
     duration.as_millis().min(u128::from(u64::MAX)) as u64
 }
 
-fn verify(root_dir: &Path, guard_malloc: bool) -> VerifyFfiReport {
+fn verify(root_dir: &Path, guard_malloc: bool, leaks_timeout_seconds: u64) -> VerifyFfiReport {
     let binaries = match discover_test_binaries(root_dir) {
         Ok(binaries) => binaries,
-        Err(error) => return failed_report(root_dir, guard_malloc, error),
+        Err(error) => {
+            return failed_report(root_dir, guard_malloc, leaks_timeout_seconds, error);
+        }
     };
+    let leaks_timeout = Duration::from_secs(leaks_timeout_seconds);
+    let guard_malloc_timeout = leaks_timeout.saturating_mul(GUARD_MALLOC_TIMEOUT_MULTIPLIER);
 
     let mut reports = Vec::with_capacity(binaries.len());
     let mut covered_leaks = Vec::new();
     let mut covered_guard_malloc = Vec::new();
     for binary in binaries {
         let test = run_tests(&binary);
-        let (leaks, covered_path) = run_leaks(&binary);
+        let (leaks, covered_path) = run_leaks(&binary, leaks_timeout);
         covered_leaks.extend(covered_path);
         let guard_malloc = guard_malloc.then(|| {
-            let (check, covered_path) = run_guard_malloc(&binary);
+            let (check, covered_path) = run_guard_malloc(&binary, guard_malloc_timeout);
             covered_guard_malloc.extend(covered_path);
             check
         });
@@ -729,6 +926,7 @@ fn verify(root_dir: &Path, guard_malloc: bool) -> VerifyFfiReport {
     report_header(
         root_dir,
         guard_malloc,
+        leaks_timeout_seconds,
         Discovery {
             status: Verdict::Pass,
             error: None,
@@ -745,6 +943,7 @@ fn verify(root_dir: &Path, guard_malloc: bool) -> VerifyFfiReport {
 fn report_header(
     root_dir: &Path,
     guard_malloc_requested: bool,
+    leaks_timeout_seconds: u64,
     discovery: Discovery,
     binaries: Vec<BinaryReport>,
     covered_binaries: CoveredBinaries,
@@ -757,6 +956,7 @@ fn report_header(
     VerifyFfiReport {
         schema_version: 1,
         command: "verify-ffi",
+        leaks_timeout_seconds,
         source_commit: git_head(root_dir),
         mlx_c_commit: git_head(&root_dir.join("mlx-sys/src/mlx-c")),
         source_clean: git_clean(root_dir),
@@ -864,13 +1064,15 @@ fn run_tests(binary: &TestBinary) -> TestStatus {
     status
 }
 
-fn run_leaks(binary: &TestBinary) -> (LeakCheck, Option<String>) {
+fn run_leaks(binary: &TestBinary, timeout: Duration) -> (LeakCheck, Option<String>) {
     if !binary.leaks_applicable() {
         return (
             LeakCheck {
                 status: LeakStatus::NotApplicable,
+                duration_ms: 0,
                 result: None,
                 tool_status: None,
+                failure: None,
                 error: None,
             },
             None,
@@ -879,28 +1081,45 @@ fn run_leaks(binary: &TestBinary) -> (LeakCheck, Option<String>) {
 
     let path = binary.path.display().to_string();
     eprintln!("running leaks for {} ({path})", binary.target);
-    let output = match Command::new("leaks")
+    let started = Instant::now();
+    let mut command = Command::new("leaks");
+    command
         .args(["--atExit", "--"])
         .arg(&binary.path)
-        .arg("--test-threads=1")
-        .output()
-    {
+        .arg("--test-threads=1");
+    let output = match capture_command(&mut command, timeout) {
         Ok(output) => output,
-        Err(error) => {
+        Err(CaptureFailure::Timeout { elapsed }) => {
             return (
                 LeakCheck {
                     status: LeakStatus::Error,
+                    duration_ms: duration_ms(elapsed),
                     result: None,
                     tool_status: None,
-                    error: Some(format!("failed to run leaks: {error}")),
+                    failure: Some("leaks_timeout".to_owned()),
+                    error: Some(format!("leaks timed out after {} ms", duration_ms(elapsed))),
+                },
+                Some(path),
+            );
+        }
+        Err(CaptureFailure::Io(error)) => {
+            return (
+                LeakCheck {
+                    status: LeakStatus::Error,
+                    duration_ms: duration_ms(started.elapsed()),
+                    result: None,
+                    tool_status: None,
+                    failure: None,
+                    error: Some(format!("failed to run leaks: {}", error.message)),
                 },
                 None,
             );
         }
     };
+    let elapsed = started.elapsed();
 
-    let text = combined_output(&output.stdout, &output.stderr);
-    let tool_status = Some(process_exit(&output.status));
+    let text = captured_output(&output);
+    let tool_status = Some(process_exit_from_captured(&output.status));
     let result = match parse_leaks_report(&text) {
         Ok(result) => result,
         Err(error) => {
@@ -908,8 +1127,10 @@ fn run_leaks(binary: &TestBinary) -> (LeakCheck, Option<String>) {
             return (
                 LeakCheck {
                     status: LeakStatus::Error,
+                    duration_ms: duration_ms(elapsed),
                     result: None,
                     tool_status,
+                    failure: None,
                     error: Some(error),
                 },
                 Some(path),
@@ -924,39 +1145,63 @@ fn run_leaks(binary: &TestBinary) -> (LeakCheck, Option<String>) {
     (
         LeakCheck {
             status,
+            duration_ms: duration_ms(elapsed),
             result: Some(result),
             tool_status,
+            failure: None,
             error: None,
         },
         Some(path),
     )
 }
 
-fn run_guard_malloc(binary: &TestBinary) -> (GuardMallocCheck, Option<String>) {
+fn run_guard_malloc(binary: &TestBinary, timeout: Duration) -> (GuardMallocCheck, Option<String>) {
     let path = binary.path.display().to_string();
     eprintln!("running guard malloc for {} ({path})", binary.target);
-    let output = match Command::new(&binary.path)
+    let started = Instant::now();
+    let mut command = Command::new(&binary.path);
+    command
         .arg("--test-threads=1")
-        .env("DYLD_INSERT_LIBRARIES", "/usr/lib/libgmalloc.dylib")
-        .output()
-    {
+        .env("DYLD_INSERT_LIBRARIES", "/usr/lib/libgmalloc.dylib");
+    let output = match capture_command(&mut command, timeout) {
         Ok(output) => output,
-        Err(error) => {
+        Err(CaptureFailure::Timeout { elapsed }) => {
             return (
                 GuardMallocCheck {
                     status: Verdict::Error,
+                    duration_ms: duration_ms(elapsed),
                     process_status: None,
-                    error: Some(format!("failed to run guard malloc pass: {error}")),
+                    failure: Some("guard_malloc_timeout".to_owned()),
+                    error: Some(format!(
+                        "guard malloc timed out after {} ms",
+                        duration_ms(elapsed)
+                    )),
+                },
+                Some(path),
+            );
+        }
+        Err(CaptureFailure::Io(error)) => {
+            return (
+                GuardMallocCheck {
+                    status: Verdict::Error,
+                    duration_ms: duration_ms(started.elapsed()),
+                    process_status: None,
+                    failure: None,
+                    error: Some(format!(
+                        "failed to run guard malloc pass: {}",
+                        error.message
+                    )),
                 },
                 None,
             );
         }
     };
-    let success = output.status.success();
+    let elapsed = started.elapsed();
+    let success = output.status.exit_code == Some(0) && output.status.signal.is_none();
     if !success {
         eprintln!(
             "guard malloc failed for {path}:\n{}",
-            combined_output(&output.stdout, &output.stderr)
+            captured_output(&output)
         );
     }
     (
@@ -966,7 +1211,9 @@ fn run_guard_malloc(binary: &TestBinary) -> (GuardMallocCheck, Option<String>) {
             } else {
                 Verdict::Fail
             },
-            process_status: Some(process_exit(&output.status)),
+            duration_ms: duration_ms(elapsed),
+            process_status: Some(process_exit_from_captured(&output.status)),
+            failure: None,
             error: None,
         },
         Some(path),
@@ -984,10 +1231,16 @@ fn binary_passes(report: &BinaryReport) -> bool {
             .is_none_or(|guard| guard.status == Verdict::Pass)
 }
 
-fn failed_report(root_dir: &Path, guard_malloc_requested: bool, error: String) -> VerifyFfiReport {
+fn failed_report(
+    root_dir: &Path,
+    guard_malloc_requested: bool,
+    leaks_timeout_seconds: u64,
+    error: String,
+) -> VerifyFfiReport {
     report_header(
         root_dir,
         guard_malloc_requested,
+        leaks_timeout_seconds,
         Discovery {
             status: Verdict::Error,
             error: Some(error),
@@ -1007,10 +1260,10 @@ fn combined_output(stdout: &[u8], stderr: &[u8]) -> String {
     output
 }
 
-fn process_exit(status: &ExitStatus) -> ProcessExit {
+fn process_exit_from_captured(status: &CapturedExit) -> ProcessExit {
     ProcessExit {
-        exit_code: status.code(),
-        signal: exit_signal(status),
+        exit_code: status.exit_code,
+        signal: status.signal,
     }
 }
 
@@ -1203,8 +1456,10 @@ mod tests {
             },
             leaks: LeakCheck {
                 status: leak_status,
+                duration_ms: 0,
                 result: None,
                 tool_status: None,
+                failure: None,
                 error: None,
             },
             test,
@@ -1447,17 +1702,22 @@ ROOT LEAK: <NSArray: 0x600000008000> [32]
         assert_eq!(
             Options::parse(&[]).unwrap(),
             Options::Verify {
-                guard_malloc: false
+                guard_malloc: false,
+                leaks_timeout_seconds: DEFAULT_LEAKS_TIMEOUT_SECONDS,
             }
         );
         assert_eq!(
             Options::parse(&["--guard-malloc".to_owned()]).unwrap(),
-            Options::Verify { guard_malloc: true }
+            Options::Verify {
+                guard_malloc: true,
+                leaks_timeout_seconds: DEFAULT_LEAKS_TIMEOUT_SECONDS,
+            }
         );
         assert_eq!(
             Options::parse(&["--calibrate".to_owned()]).unwrap(),
             Options::Calibrate {
-                budget_seconds: DEFAULT_CALIBRATION_BUDGET_SECONDS
+                budget_seconds: DEFAULT_CALIBRATION_BUDGET_SECONDS,
+                leaks_timeout_seconds: DEFAULT_LEAKS_TIMEOUT_SECONDS,
             }
         );
         assert_eq!(
@@ -1468,7 +1728,34 @@ ROOT LEAK: <NSArray: 0x600000008000> [32]
             ])
             .unwrap(),
             Options::Calibrate {
-                budget_seconds: 900
+                budget_seconds: 900,
+                leaks_timeout_seconds: DEFAULT_LEAKS_TIMEOUT_SECONDS,
+            }
+        );
+        assert_eq!(
+            Options::parse(&[
+                "--guard-malloc".to_owned(),
+                "--leaks-timeout-seconds".to_owned(),
+                "7".to_owned(),
+            ])
+            .unwrap(),
+            Options::Verify {
+                guard_malloc: true,
+                leaks_timeout_seconds: 7,
+            }
+        );
+        assert_eq!(
+            Options::parse(&[
+                "--calibrate".to_owned(),
+                "--leaks-timeout-seconds".to_owned(),
+                "9".to_owned(),
+                "--budget-seconds".to_owned(),
+                "900".to_owned(),
+            ])
+            .unwrap(),
+            Options::Calibrate {
+                budget_seconds: 900,
+                leaks_timeout_seconds: 9,
             }
         );
         assert!(Options::parse(&["--unknown".to_owned()]).is_err());
@@ -1478,6 +1765,7 @@ ROOT LEAK: <NSArray: 0x600000008000> [32]
             "0".to_owned(),
         ])
         .is_err());
+        assert!(Options::parse(&["--leaks-timeout-seconds".to_owned(), "0".to_owned(),]).is_err());
         assert!(
             Options::parse(&["--guard-malloc".to_owned(), "--guard-malloc".to_owned()]).is_err()
         );
@@ -1550,10 +1838,10 @@ ROOT LEAK: <malloc in mlx_map_string_to_string_iterator_new> [16]
     #[test]
     fn calibration_reports_missing_leaks_from_spawn_failure() {
         let phase = assess_environment_probe(
-            Err(SpawnFailure {
+            Err(CaptureFailure::Io(SpawnFailure {
                 kind: std::io::ErrorKind::NotFound,
                 message: "No such file or directory".to_owned(),
-            }),
+            })),
             Duration::from_millis(1),
         );
 
@@ -1576,6 +1864,33 @@ ROOT LEAK: <malloc in mlx_map_string_to_string_iterator_new> [16]
         assert_eq!(phase.status, Verdict::Error);
         assert_eq!(phase.failure.as_deref(), Some("child_task_port_denied"));
         assert!(phase.error.unwrap().contains("Couldn't get task port"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn hanging_leaks_child_is_killed_and_classified_as_tool_error() {
+        let started = Instant::now();
+        let mut command = Command::new("sh");
+        command.args(["-c", "sleep 1 &"]);
+
+        let attempt = capture_command(&mut command, Duration::from_millis(50));
+        let phase = assess_environment_probe(attempt, started.elapsed());
+
+        assert_eq!(phase.status, Verdict::Error);
+        assert_eq!(phase.failure.as_deref(), Some("leaks_timeout"));
+        assert!(phase.duration_ms >= 50);
+        assert!(phase.duration_ms < 500);
+        assert!(phase.error.unwrap().contains("timed out"));
+    }
+
+    #[test]
+    fn maximum_timeout_does_not_overflow_the_deadline() {
+        let mut command = Command::new("true");
+
+        let captured = capture_command(&mut command, Duration::from_secs(u64::MAX)).unwrap();
+
+        assert_eq!(captured.status.exit_code, Some(0));
+        assert_eq!(captured.status.signal, None);
     }
 
     #[test]
