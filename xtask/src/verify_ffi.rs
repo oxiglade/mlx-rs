@@ -4,6 +4,12 @@ use std::env;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus};
+use std::time::{Duration, Instant};
+
+const CALIBRATION_BINARY: &str = "ci_leak_calibration";
+const CALIBRATION_TEST: &str = "deliberate_iterator_handle_leak";
+const CALIBRATION_LEAK_SITE: &str = "<malloc in mlx_map_string_to_string_iterator_new>";
+const DEFAULT_CALIBRATION_BUDGET_SECONDS: u64 = 20 * 60;
 
 #[derive(Debug, PartialEq, Eq, Serialize)]
 struct LeakResult {
@@ -76,7 +82,7 @@ enum LeakStatus {
     NotApplicable,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 struct ProcessExit {
     exit_code: Option<i32>,
     signal: Option<i32>,
@@ -147,32 +153,129 @@ struct VerifyFfiReport {
     verdict: Verdict,
 }
 
+#[derive(Debug)]
+struct CapturedCommand {
+    stdout: String,
+    stderr: String,
+    status: CapturedExit,
+}
+
+#[derive(Debug, Serialize)]
+struct CapturedExit {
+    exit_code: Option<i32>,
+    signal: Option<i32>,
+}
+
+#[derive(Debug)]
+struct SpawnFailure {
+    kind: std::io::ErrorKind,
+    message: String,
+}
+
+#[derive(Serialize)]
+struct CalibrationLeakPhase {
+    status: Verdict,
+    duration_ms: u64,
+    target: &'static str,
+    expected_site: Option<&'static str>,
+    result: Option<LeakResult>,
+    tool_status: Option<CapturedExit>,
+    failure: Option<String>,
+    error: Option<String>,
+}
+
+#[derive(Serialize)]
+struct CleanGatePhase {
+    status: Verdict,
+    duration_ms: u64,
+    report: VerifyFfiReport,
+}
+
+#[derive(Serialize)]
+struct BudgetPhase {
+    status: Verdict,
+    limit_ms: u64,
+    observed_ms: u64,
+    failure: Option<String>,
+    error: Option<String>,
+}
+
+#[derive(Serialize)]
+struct CalibrationPhases {
+    environment_probe: CalibrationLeakPhase,
+    deliberate_leak_detection: CalibrationLeakPhase,
+    clean_gate: CleanGatePhase,
+    budget: BudgetPhase,
+}
+
+#[derive(Serialize)]
+struct CalibrationReport {
+    schema_version: u32,
+    command: &'static str,
+    mode: &'static str,
+    source_commit: String,
+    mlx_c_commit: String,
+    budget_seconds: u64,
+    phases: CalibrationPhases,
+    total_duration_ms: u64,
+    verdict: Verdict,
+}
+
 #[derive(Debug, PartialEq, Eq)]
-struct Options {
-    guard_malloc: bool,
+enum Options {
+    Verify { guard_malloc: bool },
+    Calibrate { budget_seconds: u64 },
 }
 
 impl Options {
     fn parse(args: &[String]) -> Result<Self, String> {
         match args {
-            [] => Ok(Self {
+            [] => Ok(Self::Verify {
                 guard_malloc: false,
             }),
-            [flag] if flag == "--guard-malloc" => Ok(Self { guard_malloc: true }),
-            _ => Err("usage: cargo run -p xtask -- verify-ffi [--guard-malloc]".to_owned()),
+            [flag] if flag == "--guard-malloc" => Ok(Self::Verify { guard_malloc: true }),
+            [flag] if flag == "--calibrate" => Ok(Self::Calibrate {
+                budget_seconds: DEFAULT_CALIBRATION_BUDGET_SECONDS,
+            }),
+            [calibrate, budget, seconds]
+                if calibrate == "--calibrate" && budget == "--budget-seconds" =>
+            {
+                let budget_seconds = seconds
+                    .parse::<u64>()
+                    .ok()
+                    .filter(|seconds| *seconds > 0)
+                    .ok_or_else(usage)?;
+                Ok(Self::Calibrate { budget_seconds })
+            }
+            _ => Err(usage()),
         }
     }
 }
 
+fn usage() -> String {
+    "usage: cargo run -p xtask -- verify-ffi [--guard-malloc | --calibrate [--budget-seconds N]]"
+        .to_owned()
+}
+
 pub(crate) fn run(root_dir: &Path, args: &[String]) -> i32 {
-    let report = match Options::parse(args) {
-        Ok(options) => verify(root_dir, options),
+    match Options::parse(args) {
+        Ok(Options::Verify { guard_malloc }) => {
+            let report = verify(root_dir, guard_malloc);
+            write_report(&report, report.verdict == Verdict::Pass)
+        }
+        Ok(Options::Calibrate { budget_seconds }) => {
+            let report = calibrate(root_dir, budget_seconds);
+            write_report(&report, report.verdict == Verdict::Pass)
+        }
         Err(error) => {
             eprintln!("{error}");
-            failed_report(root_dir, false, error)
+            let report = failed_report(root_dir, false, error);
+            write_report(&report, false)
         }
-    };
-    let success = report.verdict == Verdict::Pass;
+    }
+}
+
+fn write_report(report: &impl Serialize, success: bool) -> i32 {
     let mut stdout = std::io::stdout().lock();
     serde_json::to_writer(&mut stdout, &report).expect("failed to serialize verify-ffi report");
     writeln!(stdout).expect("failed to write verify-ffi report");
@@ -183,10 +286,422 @@ pub(crate) fn run(root_dir: &Path, args: &[String]) -> i32 {
     }
 }
 
-fn verify(root_dir: &Path, options: Options) -> VerifyFfiReport {
+fn calibrate(root_dir: &Path, budget_seconds: u64) -> CalibrationReport {
+    let total_started = Instant::now();
+
+    // The probe child must allocate: a no-malloc process (e.g. /usr/bin/true)
+    // yields no leaks summary and misreports a healthy runner as unparseable.
+    // The calibration binary with its only test skipped is clean but still
+    // initializes the runtime, so it always produces a parseable report.
+    eprintln!("probing leaks child inspection with the skipped calibration binary");
+    let probe_started = Instant::now();
+    let environment_probe = match discover_calibration_binary(root_dir) {
+        Ok(binary) => {
+            let mut probe_command = Command::new("leaks");
+            probe_command.args(["--atExit", "--"]);
+            probe_command.arg(&binary.path);
+            probe_command.arg("--test-threads=1");
+            assess_environment_probe(capture_command(&mut probe_command), probe_started.elapsed())
+        }
+        Err(error) => CalibrationLeakPhase {
+            status: Verdict::Error,
+            duration_ms: duration_ms(probe_started.elapsed()),
+            target: CALIBRATION_BINARY,
+            expected_site: None,
+            result: None,
+            tool_status: None,
+            failure: Some("calibration_binary_discovery_failed".to_owned()),
+            error: Some(error),
+        },
+    };
+
+    let deliberate_leak_detection = run_deliberate_leak_calibration(root_dir);
+
+    eprintln!("running clean full verify-ffi gate");
+    let clean_started = Instant::now();
+    let clean_report = verify(root_dir, false);
+    let clean_duration = clean_started.elapsed();
+    let clean_gate = CleanGatePhase {
+        status: if clean_report.verdict == Verdict::Pass {
+            Verdict::Pass
+        } else {
+            Verdict::Fail
+        },
+        duration_ms: duration_ms(clean_duration),
+        report: clean_report,
+    };
+    let budget = assess_budget(clean_duration, Duration::from_secs(budget_seconds));
+    let phases = CalibrationPhases {
+        environment_probe,
+        deliberate_leak_detection,
+        clean_gate,
+        budget,
+    };
+    let verdict = calibration_verdict(&phases);
+
+    CalibrationReport {
+        schema_version: 1,
+        command: "verify-ffi",
+        mode: "calibration",
+        source_commit: git_head(root_dir),
+        mlx_c_commit: git_head(&root_dir.join("mlx-sys/src/mlx-c")),
+        budget_seconds,
+        phases,
+        total_duration_ms: duration_ms(total_started.elapsed()),
+        verdict,
+    }
+}
+
+fn run_deliberate_leak_calibration(root_dir: &Path) -> CalibrationLeakPhase {
+    let started = Instant::now();
+    let binary = match discover_calibration_binary(root_dir) {
+        Ok(binary) => binary,
+        Err(error) => {
+            return CalibrationLeakPhase {
+                status: Verdict::Error,
+                duration_ms: duration_ms(started.elapsed()),
+                target: CALIBRATION_BINARY,
+                expected_site: Some(CALIBRATION_LEAK_SITE),
+                result: None,
+                tool_status: None,
+                failure: Some("calibration_binary_discovery_failed".to_owned()),
+                error: Some(error),
+            };
+        }
+    };
+
+    eprintln!(
+        "running deliberate leak calibration for {} ({})",
+        binary.target,
+        binary.path.display()
+    );
+    let mut command = Command::new("leaks");
+    command.args(["--atExit", "--"]).arg(&binary.path).args([
+        "--ignored",
+        "--exact",
+        CALIBRATION_TEST,
+        "--test-threads=1",
+    ]);
+    assess_deliberate_leak(capture_command(&mut command), started.elapsed())
+}
+
+fn discover_calibration_binary(root_dir: &Path) -> Result<TestBinary, String> {
+    eprintln!("discovering deliberate leak calibration executable");
+    let discovery = Command::new("cargo")
+        .args([
+            "test",
+            "-p",
+            "mlx-tests",
+            "--test",
+            CALIBRATION_BINARY,
+            "--no-run",
+            "--message-format=json",
+        ])
+        .current_dir(root_dir)
+        .output()
+        .map_err(|error| format!("failed to discover calibration binary: {error}"))?;
+    if !discovery.stderr.is_empty() {
+        eprint!("{}", String::from_utf8_lossy(&discovery.stderr));
+    }
+    if !discovery.status.success() {
+        return Err(format!(
+            "calibration binary discovery exited with {}",
+            discovery.status
+        ));
+    }
+    let messages = String::from_utf8(discovery.stdout)
+        .map_err(|error| format!("calibration discovery emitted non-UTF-8 JSON: {error}"))?;
+    let matches = parse_test_binaries(&messages)?
+        .into_iter()
+        .filter(|binary| binary.target == CALIBRATION_BINARY)
+        .collect::<Vec<_>>();
+    match matches.as_slice() {
+        [binary] => Ok(TestBinary {
+            package_id: binary.package_id.clone(),
+            target: binary.target.clone(),
+            target_kind: binary.target_kind.clone(),
+            path: binary.path.clone(),
+        }),
+        [] => Err("cargo did not emit the calibration test executable".to_owned()),
+        _ => Err("cargo emitted multiple calibration test executables".to_owned()),
+    }
+}
+
+fn capture_command(command: &mut Command) -> Result<CapturedCommand, SpawnFailure> {
+    command
+        .output()
+        .map(|output| CapturedCommand {
+            stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+            stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+            status: CapturedExit {
+                exit_code: output.status.code(),
+                signal: exit_signal(&output.status),
+            },
+        })
+        .map_err(|error| SpawnFailure {
+            kind: error.kind(),
+            message: error.to_string(),
+        })
+}
+
+fn assess_environment_probe(
+    attempt: Result<CapturedCommand, SpawnFailure>,
+    duration: Duration,
+) -> CalibrationLeakPhase {
+    let target = CALIBRATION_BINARY;
+    let captured = match attempt {
+        Ok(captured) => captured,
+        Err(error) => {
+            let failure = if error.kind == std::io::ErrorKind::NotFound {
+                "leaks_missing"
+            } else {
+                "leaks_probe_spawn_failed"
+            };
+            return calibration_leak_failure(
+                Verdict::Error,
+                duration,
+                target,
+                None,
+                None,
+                failure,
+                error.message,
+            );
+        }
+    };
+    let text = captured_output(&captured);
+    if child_task_port_denied(&text) {
+        return calibration_leak_failure(
+            Verdict::Error,
+            duration,
+            target,
+            None,
+            Some(captured.status),
+            "child_task_port_denied",
+            text.trim().to_owned(),
+        );
+    }
+    let process_succeeded =
+        captured.status.exit_code == Some(0) && captured.status.signal.is_none();
+    match parse_leaks_report(&text) {
+        Ok(result) if result.regression_count != 0 || result.regression_bytes != 0 => {
+            calibration_leak_failure(
+                Verdict::Fail,
+                duration,
+                target,
+                Some(result),
+                Some(captured.status),
+                "probe_not_clean",
+                "the trivial environment probe reported a leak regression".to_owned(),
+            )
+        }
+        Ok(result) if !process_succeeded => calibration_leak_failure(
+            Verdict::Error,
+            duration,
+            target,
+            Some(result),
+            Some(captured.status),
+            "probe_process_failed",
+            "leaks did not exit normally after inspecting the trivial probe".to_owned(),
+        ),
+        Ok(result) => CalibrationLeakPhase {
+            status: Verdict::Pass,
+            duration_ms: duration_ms(duration),
+            target,
+            expected_site: None,
+            result: Some(result),
+            tool_status: Some(captured.status),
+            failure: None,
+            error: None,
+        },
+        Err(error) => calibration_leak_failure(
+            Verdict::Error,
+            duration,
+            target,
+            None,
+            Some(captured.status),
+            "leaks_report_unparsed",
+            error,
+        ),
+    }
+}
+
+fn assess_deliberate_leak(
+    attempt: Result<CapturedCommand, SpawnFailure>,
+    duration: Duration,
+) -> CalibrationLeakPhase {
+    let captured = match attempt {
+        Ok(captured) => captured,
+        Err(error) => {
+            let failure = if error.kind == std::io::ErrorKind::NotFound {
+                "leaks_missing"
+            } else {
+                "deliberate_leak_spawn_failed"
+            };
+            return calibration_leak_failure(
+                Verdict::Error,
+                duration,
+                CALIBRATION_BINARY,
+                None,
+                None,
+                failure,
+                error.message,
+            );
+        }
+    };
+    let text = captured_output(&captured);
+    if child_task_port_denied(&text) {
+        return calibration_leak_failure(
+            Verdict::Error,
+            duration,
+            CALIBRATION_BINARY,
+            None,
+            Some(captured.status),
+            "child_task_port_denied",
+            text.trim().to_owned(),
+        );
+    }
+    let result = match parse_leaks_report(&text) {
+        Ok(result) => result,
+        Err(error) => {
+            return calibration_leak_failure(
+                Verdict::Error,
+                duration,
+                CALIBRATION_BINARY,
+                None,
+                Some(captured.status),
+                "leaks_report_unparsed",
+                error,
+            );
+        }
+    };
+
+    if captured.status.signal.is_some() || classify_test_output(&text) != TestStatus::Passed {
+        return calibration_leak_failure(
+            Verdict::Fail,
+            duration,
+            CALIBRATION_BINARY,
+            Some(result),
+            Some(captured.status),
+            "deliberate_test_failed",
+            "the ignored calibration test did not complete successfully".to_owned(),
+        );
+    }
+
+    let site_detected = result
+        .named_sites
+        .iter()
+        .any(|site| site.site == CALIBRATION_LEAK_SITE && site.count > 0);
+    if result.regression_count == 0 || !site_detected {
+        return calibration_leak_failure(
+            Verdict::Fail,
+            duration,
+            CALIBRATION_BINARY,
+            Some(result),
+            Some(captured.status),
+            "expected_site_missing",
+            format!("leaks did not report a nonzero regression at {CALIBRATION_LEAK_SITE}"),
+        );
+    }
+
+    CalibrationLeakPhase {
+        status: Verdict::Pass,
+        duration_ms: duration_ms(duration),
+        target: CALIBRATION_BINARY,
+        expected_site: Some(CALIBRATION_LEAK_SITE),
+        result: Some(result),
+        tool_status: Some(captured.status),
+        failure: None,
+        error: None,
+    }
+}
+
+fn calibration_leak_failure(
+    status: Verdict,
+    duration: Duration,
+    target: &'static str,
+    result: Option<LeakResult>,
+    tool_status: Option<CapturedExit>,
+    failure: &'static str,
+    error: String,
+) -> CalibrationLeakPhase {
+    CalibrationLeakPhase {
+        status,
+        duration_ms: duration_ms(duration),
+        target,
+        expected_site: (target == CALIBRATION_BINARY).then_some(CALIBRATION_LEAK_SITE),
+        result,
+        tool_status,
+        failure: Some(failure.to_owned()),
+        error: Some(error),
+    }
+}
+
+fn captured_output(captured: &CapturedCommand) -> String {
+    let mut text = captured.stdout.clone();
+    text.push_str(&captured.stderr);
+    text
+}
+
+fn child_task_port_denied(output: &str) -> bool {
+    let output = output.to_ascii_lowercase();
+    output.contains("task_for_pid")
+        || output.contains("cannot acquire child task port")
+        || output.contains("couldn't get task port")
+        || output.contains("could not get task port")
+        || (output.contains("task port")
+            && (output.contains("denied")
+                || output.contains("failed")
+                || output.contains("not permitted")))
+}
+
+fn assess_budget(observed: Duration, limit: Duration) -> BudgetPhase {
+    let exceeded = observed > limit;
+    BudgetPhase {
+        status: if exceeded {
+            Verdict::Fail
+        } else {
+            Verdict::Pass
+        },
+        limit_ms: duration_ms(limit),
+        observed_ms: duration_ms(observed),
+        failure: exceeded.then(|| "budget_exceeded".to_owned()),
+        error: exceeded.then(|| {
+            format!(
+                "clean full gate took {} ms, exceeding the {} ms budget",
+                duration_ms(observed),
+                duration_ms(limit)
+            )
+        }),
+    }
+}
+
+fn calibration_verdict(phases: &CalibrationPhases) -> Verdict {
+    calibration_verdict_from_statuses([
+        &phases.environment_probe.status,
+        &phases.deliberate_leak_detection.status,
+        &phases.clean_gate.status,
+        &phases.budget.status,
+    ])
+}
+
+fn calibration_verdict_from_statuses(statuses: [&Verdict; 4]) -> Verdict {
+    if statuses.iter().any(|status| **status == Verdict::Error) {
+        Verdict::Error
+    } else if statuses.iter().all(|status| **status == Verdict::Pass) {
+        Verdict::Pass
+    } else {
+        Verdict::Fail
+    }
+}
+
+fn duration_ms(duration: Duration) -> u64 {
+    duration.as_millis().min(u128::from(u64::MAX)) as u64
+}
+
+fn verify(root_dir: &Path, guard_malloc: bool) -> VerifyFfiReport {
     let binaries = match discover_test_binaries(root_dir) {
         Ok(binaries) => binaries,
-        Err(error) => return failed_report(root_dir, options.guard_malloc, error),
+        Err(error) => return failed_report(root_dir, guard_malloc, error),
     };
 
     let mut reports = Vec::with_capacity(binaries.len());
@@ -196,7 +711,7 @@ fn verify(root_dir: &Path, options: Options) -> VerifyFfiReport {
         let test = run_tests(&binary);
         let (leaks, covered_path) = run_leaks(&binary);
         covered_leaks.extend(covered_path);
-        let guard_malloc = options.guard_malloc.then(|| {
+        let guard_malloc = guard_malloc.then(|| {
             let (check, covered_path) = run_guard_malloc(&binary);
             covered_guard_malloc.extend(covered_path);
             check
@@ -213,7 +728,7 @@ fn verify(root_dir: &Path, options: Options) -> VerifyFfiReport {
     let passed = reports.iter().all(binary_passes);
     report_header(
         root_dir,
-        options.guard_malloc,
+        guard_malloc,
         Discovery {
             status: Verdict::Pass,
             error: None,
@@ -928,18 +1443,41 @@ ROOT LEAK: <NSArray: 0x600000008000> [32]
     }
 
     #[test]
-    fn verify_ffi_accepts_only_guard_malloc_flag() {
+    fn verify_ffi_accepts_only_supported_modes() {
         assert_eq!(
             Options::parse(&[]).unwrap(),
-            Options {
+            Options::Verify {
                 guard_malloc: false
             }
         );
         assert_eq!(
             Options::parse(&["--guard-malloc".to_owned()]).unwrap(),
-            Options { guard_malloc: true }
+            Options::Verify { guard_malloc: true }
+        );
+        assert_eq!(
+            Options::parse(&["--calibrate".to_owned()]).unwrap(),
+            Options::Calibrate {
+                budget_seconds: DEFAULT_CALIBRATION_BUDGET_SECONDS
+            }
+        );
+        assert_eq!(
+            Options::parse(&[
+                "--calibrate".to_owned(),
+                "--budget-seconds".to_owned(),
+                "900".to_owned(),
+            ])
+            .unwrap(),
+            Options::Calibrate {
+                budget_seconds: 900
+            }
         );
         assert!(Options::parse(&["--unknown".to_owned()]).is_err());
+        assert!(Options::parse(&[
+            "--calibrate".to_owned(),
+            "--budget-seconds".to_owned(),
+            "0".to_owned(),
+        ])
+        .is_err());
         assert!(
             Options::parse(&["--guard-malloc".to_owned(), "--guard-malloc".to_owned()]).is_err()
         );
@@ -954,6 +1492,189 @@ ROOT LEAK: <NSArray: 0x600000008000> [32]
         assert_eq!(
             stable_package_id("path+file:///checkout/two/mlx-tests#mlx-tests@0.25.3"),
             "mlx-tests@0.25.3"
+        );
+    }
+
+    fn captured_command(stdout: &str, stderr: &str, exit_code: i32) -> CapturedCommand {
+        CapturedCommand {
+            stdout: stdout.to_owned(),
+            stderr: stderr.to_owned(),
+            status: CapturedExit {
+                exit_code: Some(exit_code),
+                signal: None,
+            },
+        }
+    }
+
+    #[test]
+    fn calibration_accepts_parsed_probe_and_expected_named_site() {
+        let probe = assess_environment_probe(
+            Ok(captured_command(
+                "Process 1: 0 leaks for 0 total leaked bytes.",
+                "",
+                0,
+            )),
+            Duration::from_millis(5),
+        );
+        let deliberate = assess_deliberate_leak(
+            Ok(captured_command(
+                r#"
+running 1 test
+test deliberate_iterator_handle_leak ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+Process 2: 3 leaks for 64 total leaked bytes.
+ROOT LEAK: <NSArray: 0x600000008000> [32]
+ROOT LEAK: <malloc in mlx_map_string_to_string_iterator_new> [16]
+ROOT LEAK: <malloc in mlx_map_string_to_string_iterator_new> [16]
+"#,
+                "",
+                1,
+            )),
+            Duration::from_millis(8),
+        );
+
+        assert_eq!(probe.status, Verdict::Pass);
+        assert_eq!(probe.failure, None);
+        assert_eq!(deliberate.status, Verdict::Pass);
+        assert_eq!(deliberate.failure, None);
+        assert_eq!(
+            deliberate.result.unwrap().named_sites,
+            vec![NamedSite {
+                site: CALIBRATION_LEAK_SITE.to_owned(),
+                count: 2,
+                bytes: 32,
+            }]
+        );
+    }
+
+    #[test]
+    fn calibration_reports_missing_leaks_from_spawn_failure() {
+        let phase = assess_environment_probe(
+            Err(SpawnFailure {
+                kind: std::io::ErrorKind::NotFound,
+                message: "No such file or directory".to_owned(),
+            }),
+            Duration::from_millis(1),
+        );
+
+        assert_eq!(phase.status, Verdict::Error);
+        assert_eq!(phase.failure.as_deref(), Some("leaks_missing"));
+        assert!(phase.error.unwrap().contains("No such file or directory"));
+    }
+
+    #[test]
+    fn calibration_reports_child_task_port_denial_from_captured_output() {
+        let phase = assess_environment_probe(
+            Ok(captured_command(
+                "",
+                "leaks[42]: [fatal] Couldn't get task port for pid 43 immediately after launch",
+                1,
+            )),
+            Duration::from_millis(2),
+        );
+
+        assert_eq!(phase.status, Verdict::Error);
+        assert_eq!(phase.failure.as_deref(), Some("child_task_port_denied"));
+        assert!(phase.error.unwrap().contains("Couldn't get task port"));
+    }
+
+    #[test]
+    fn calibration_rejects_a_leaking_environment_probe() {
+        let phase = assess_environment_probe(
+            Ok(captured_command(
+                r#"
+Process 4: 1 leak for 16 total leaked bytes.
+ROOT LEAK: <malloc in unexpected_probe_allocator> [16]
+"#,
+                "",
+                1,
+            )),
+            Duration::from_millis(2),
+        );
+
+        assert_eq!(phase.status, Verdict::Fail);
+        assert_eq!(phase.failure.as_deref(), Some("probe_not_clean"));
+        assert_eq!(phase.result.unwrap().regression_count, 1);
+    }
+
+    #[test]
+    fn calibration_rejects_zero_summary_from_failed_probe_process() {
+        let phase = assess_environment_probe(
+            Ok(captured_command(
+                "Process 5: 0 leaks for 0 total leaked bytes.",
+                "probe terminated abnormally",
+                1,
+            )),
+            Duration::from_millis(2),
+        );
+
+        assert_eq!(phase.status, Verdict::Error);
+        assert_eq!(phase.failure.as_deref(), Some("probe_process_failed"));
+        assert_eq!(phase.tool_status.unwrap().exit_code, Some(1));
+    }
+
+    #[test]
+    fn calibration_rejects_captured_leak_report_without_expected_site() {
+        let phase = assess_deliberate_leak(
+            Ok(captured_command(
+                r#"
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+Process 3: 2 leaks for 48 total leaked bytes.
+ROOT LEAK: <NSArray: 0x600000008000> [32]
+ROOT LEAK: <malloc in another_allocator> [16]
+"#,
+                "",
+                1,
+            )),
+            Duration::from_millis(3),
+        );
+
+        assert_eq!(phase.status, Verdict::Fail);
+        assert_eq!(phase.failure.as_deref(), Some("expected_site_missing"));
+        assert_eq!(phase.result.unwrap().regression_count, 1);
+    }
+
+    #[test]
+    fn calibration_rejects_full_gate_over_budget() {
+        let phase = assess_budget(
+            Duration::from_secs(1_201),
+            Duration::from_secs(DEFAULT_CALIBRATION_BUDGET_SECONDS),
+        );
+
+        assert_eq!(phase.status, Verdict::Fail);
+        assert_eq!(phase.failure.as_deref(), Some("budget_exceeded"));
+        assert_eq!(phase.observed_ms, 1_201_000);
+        assert_eq!(phase.limit_ms, 1_200_000);
+    }
+
+    #[test]
+    fn calibration_exit_verdict_requires_every_phase_to_pass() {
+        assert_eq!(
+            calibration_verdict_from_statuses([
+                &Verdict::Pass,
+                &Verdict::Pass,
+                &Verdict::Pass,
+                &Verdict::Pass,
+            ]),
+            Verdict::Pass
+        );
+        assert_eq!(
+            calibration_verdict_from_statuses([
+                &Verdict::Pass,
+                &Verdict::Fail,
+                &Verdict::Pass,
+                &Verdict::Pass,
+            ]),
+            Verdict::Fail
+        );
+        assert_eq!(
+            calibration_verdict_from_statuses([
+                &Verdict::Error,
+                &Verdict::Pass,
+                &Verdict::Pass,
+                &Verdict::Pass,
+            ]),
+            Verdict::Error
         );
     }
 }

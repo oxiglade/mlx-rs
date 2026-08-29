@@ -32,6 +32,31 @@ jobs:
       - run: cargo run -p xtask -- verify-oracle-boundary --base ${{ github.event.pull_request.base.sha }}
         if: github.event_name == 'pull_request'
 
+  # Proves the leak gate works on THIS runner before trusting it: leaks can
+  # attach, a deliberate leak is detected, the clean 21-binary gate passes in
+  # budget. A runner that denies task ports fails loudly here instead of
+  # producing a silently green gate.
+  ffi-gate:
+    runs-on: blaze/macos-15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+      - run: sudo xcodes select 16.4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: false
+          rustflags: ""
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ffi-gate-${{ hashFiles('**/Cargo.toml') }}
+      - run: cargo run -p xtask -- verify-ffi --calibrate --budget-seconds 1200 | tee verify-ffi-calibration.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verify-ffi-calibration
+          path: verify-ffi-calibration.json
+
   tests:
     runs-on: blaze/${{ matrix.runner }}
     strategy:
