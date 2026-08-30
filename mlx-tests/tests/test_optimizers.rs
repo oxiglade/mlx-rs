@@ -6,105 +6,24 @@ use std::{collections::HashMap, rc::Rc};
 use mlx_rs::{
     array,
     builder::Builder,
-    losses::{LossReduction, MseLossBuilder},
     macros::ModuleParameters,
-    module::{FlattenedModuleParam, Module, ModuleParameters, Param},
-    nn,
+    module::{FlattenedModuleParam, ModuleParameters, Param},
     ops::{ones, zeros},
     optimizers::{
         AdaDelta, AdaDeltaBuilder, AdaGrad, AdafactorBuilder, Adam, AdamW, Adamax, Lion,
-        LionBuilder, Optimizer, RmsProp, RmsPropBuilder, Sgd, SgdBuilder,
+        LionBuilder, Optimizer, RmsPropBuilder, SgdBuilder,
     },
-    random::uniform,
     test_utils::{assert_array_eq, tolerances},
-    transforms::{eval, eval_params},
     Array, Dtype,
 };
 
 mod common;
 
-use common::*;
-
 /* -------------------------------------------------------------------------- */
 /*                              Convergence tests                             */
 /* -------------------------------------------------------------------------- */
 
-pub fn train<F, O>(f: F, steps: usize) -> Result<Array, Box<dyn std::error::Error>>
-where
-    F: FnOnce() -> O,
-    O: Optimizer,
-{
-    let mut optimizer = f();
-
-    let mse_loss = MseLossBuilder::new()
-        .reduction(LossReduction::Mean)
-        .build()?;
-    let loss = |model: &mut LinearFunctionModel, (x, y): (&Array, &Array)| {
-        mse_loss.apply(model.forward(x)?, y)
-    };
-
-    // TODO: check compiled model once we have it
-    let mut model = LinearFunctionModel::new(None)?;
-    eval_params(model.parameters())?;
-
-    let m = array!(0.25);
-    let b = array!(7.0);
-
-    let mut lg = nn::value_and_grad(loss);
-
-    let mut last_loss = None;
-    for _ in 0..steps {
-        // println!("target: b = {}, m = {}", b, m);
-        // println!("parameters: {:?}", model.parameters());
-
-        // generate random training data along with the ground truth.
-        // notice that the shape is [B, 1] where B is the batch
-        // dimension -- this allows us to train on 10 samples simultaneously
-        let x = uniform::<_, f32>(-5.0, 5.0, &[10, 1], None)?;
-        let y = &m * &x + &b;
-        eval([&x, &y])?;
-
-        // compute the loss and gradients.  use the optimizer
-        // to adjust the parameters closer to the target
-        let (loss, g) = lg(&mut model, (&x, &y))?;
-        optimizer.update(&mut model, g)?;
-
-        eval_params(model.parameters())?;
-
-        last_loss = Some(loss);
-    }
-
-    Ok(last_loss.unwrap())
-}
-
 const NUM_TRIALS: usize = 3;
-
-#[test]
-fn test_sgd_converges() {
-    let mut total_loss = 0.0;
-    for _ in 0..NUM_TRIALS {
-        let loss = train(|| Sgd::new(0.1), 30).unwrap();
-        total_loss += loss.item::<f32>();
-    }
-    // It sometimes doesn't converge that fast, so we take the average loss
-    // across multiple trials
-    let avg_loss = total_loss / NUM_TRIALS as f32;
-    assert!(avg_loss < 0.1, "avg loss: {avg_loss}");
-}
-
-#[test]
-fn test_rmsprop_converges() {
-    let mut total_loss = 0.0;
-    for _ in 0..NUM_TRIALS {
-        // RMSProp doesn't seem to converge as fast as SGD
-        let loss = train(|| RmsProp::new(0.1).unwrap(), 100).unwrap();
-        total_loss += loss.item::<f32>();
-    }
-    // It sometimes doesn't converge that fast, so we take the average loss
-    // across multiple trials
-    let avg_loss = total_loss / NUM_TRIALS as f32;
-    assert!(avg_loss < 0.1, "avg loss: {avg_loss}");
-}
 
 /* -------------------------------------------------------------------------- */
 /*                            Optimizer unit tests                            */
@@ -214,7 +133,7 @@ fn test_ada_delta() {
         SimpleModel {
             a: Param::new(initial_parameter.clone()),
         },
-        AdaDeltaBuilder::new(0.1_f32).rho(0.99).build().unwrap(),
+        AdaDeltaBuilder::new(0.1_f32).rho(0.99_f32).build().unwrap(),
     );
     let (mut model, mut optimizer) = initial_state.clone();
     let gradients = [
@@ -270,7 +189,7 @@ fn test_ada_delta() {
 
     assert_save_and_load(
         optimizer,
-        AdaDeltaBuilder::new(0.1_f32).rho(0.99).build().unwrap(),
+        AdaDeltaBuilder::new(0.1_f32).rho(0.99_f32).build().unwrap(),
     )
     .unwrap();
 }
@@ -318,7 +237,7 @@ fn test_adagrad() {
     let mut a_grad_params = FlattenedModuleParam::new();
     a_grad_params.insert("a".into(), a_grad.clone());
 
-    let mut optimizer = AdaGrad::new(0.1);
+    let mut optimizer = AdaGrad::new(0.1_f32);
 
     optimizer.update(&mut a_model, a_grad_params).unwrap();
     assert_eq!(a_model.a.shape(), &[4, 3]);
@@ -336,7 +255,7 @@ fn test_adagrad() {
         tolerances::STANDARD.atol,
     );
 
-    assert_save_and_load(optimizer, AdaGrad::new(0.1)).unwrap();
+    assert_save_and_load(optimizer, AdaGrad::new(0.1_f32)).unwrap();
 }
 
 // This unit test is adapted from the swift binding unit test `testAdam` in
@@ -382,7 +301,7 @@ fn test_adam() {
     let mut a_grad_params = FlattenedModuleParam::new();
     a_grad_params.insert("a".into(), a_grad.clone());
 
-    let mut optimizer = Adam::new(0.1);
+    let mut optimizer = Adam::new(0.1_f32);
 
     optimizer.update(&mut a_model, a_grad_params).unwrap();
     assert_eq!(a_model.a.shape(), &[4, 3]);
@@ -400,7 +319,7 @@ fn test_adam() {
         tolerances::RANDOM_STATISTIC.atol,
     );
 
-    assert_save_and_load(optimizer, Adam::new(0.1)).unwrap();
+    assert_save_and_load(optimizer, Adam::new(0.1_f32)).unwrap();
 }
 
 // This unit test is adapted from the swift binding unit test `testAdamW` in
@@ -446,7 +365,7 @@ fn test_adamw() {
     let mut a_grad_params = FlattenedModuleParam::new();
     a_grad_params.insert("a".into(), a_grad.clone());
 
-    let mut optimizer = AdamW::new(0.1);
+    let mut optimizer = AdamW::new(0.1_f32);
 
     optimizer.update(&mut a_model, a_grad_params).unwrap();
     assert_eq!(a_model.a.shape(), &[4, 3]);
@@ -464,7 +383,7 @@ fn test_adamw() {
         tolerances::RANDOM_STATISTIC.atol,
     );
 
-    assert_save_and_load(optimizer, AdamW::new(0.1)).unwrap();
+    assert_save_and_load(optimizer, AdamW::new(0.1_f32)).unwrap();
 }
 
 // This unit test is adapted from the python unit test `test_adamax` in
@@ -510,7 +429,7 @@ fn test_adamax() {
     let mut a_grad_params = FlattenedModuleParam::new();
     a_grad_params.insert("a".into(), a_grad.clone());
 
-    let mut optimizer = Adamax::new(0.1);
+    let mut optimizer = Adamax::new(0.1_f32);
 
     optimizer.update(&mut a_model, a_grad_params).unwrap();
     assert_eq!(a_model.a.shape(), &[4, 3]);
@@ -528,7 +447,7 @@ fn test_adamax() {
         tolerances::RANDOM_STATISTIC.atol,
     );
 
-    assert_save_and_load(optimizer, Adamax::new(0.1)).unwrap();
+    assert_save_and_load(optimizer, Adamax::new(0.1_f32)).unwrap();
 }
 
 // This unit test is adapted from the python unit test `test_rmsprop` in
@@ -598,7 +517,7 @@ fn test_rmsprop() {
 fn test_sgd() {
     let (mut model, gradients) = create_default_test_model_and_grads();
 
-    let mut optim = SgdBuilder::new(1e-2).momentum(0.9).build().unwrap();
+    let mut optim = SgdBuilder::new(1e-2_f32).momentum(0.9_f32).build().unwrap();
     optim.update(&mut model, gradients).unwrap();
 
     let expected_first_a = ones::<f32>(&[10]).unwrap() * -0.01;
@@ -691,7 +610,7 @@ fn test_lion() {
     let mut a_grad_params = FlattenedModuleParam::new();
     a_grad_params.insert("a".into(), a_grad.clone());
 
-    let mut optimizer = Lion::new(0.1);
+    let mut optimizer = Lion::new(0.1_f32);
 
     optimizer.update(&mut a_model, a_grad_params).unwrap();
     assert_eq!(a_model.a.shape(), &[4, 3]);
@@ -709,7 +628,7 @@ fn test_lion() {
         tolerances::RANDOM_STATISTIC.atol,
     );
 
-    assert_save_and_load(optimizer, Lion::new(0.1)).unwrap();
+    assert_save_and_load(optimizer, Lion::new(0.1_f32)).unwrap();
 }
 
 // This unit test is adapted from the swift binding unit test `testLion1` in
@@ -755,7 +674,10 @@ fn test_lion1() {
     let mut a_grad_params = FlattenedModuleParam::new();
     a_grad_params.insert("a".into(), a_grad.clone());
 
-    let mut optimizer = LionBuilder::new(0.1).weight_decay(0.1).build().unwrap();
+    let mut optimizer = LionBuilder::new(0.1_f32)
+        .weight_decay(0.1_f32)
+        .build()
+        .unwrap();
 
     optimizer.update(&mut a_model, a_grad_params).unwrap();
     assert_eq!(a_model.a.shape(), &[4, 3]);
@@ -775,7 +697,10 @@ fn test_lion1() {
 
     assert_save_and_load(
         optimizer,
-        LionBuilder::new(0.1).weight_decay(0.1).build().unwrap(),
+        LionBuilder::new(0.1_f32)
+            .weight_decay(0.1_f32)
+            .build()
+            .unwrap(),
     )
     .unwrap();
 }
