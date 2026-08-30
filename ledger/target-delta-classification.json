@@ -65,7 +65,7 @@
       "disposition": "internal",
       "rationale": "the bump owns this handle privately through the Compiled RAII cache binding",
       "evidence": [
-        "state:test:mlx-tests/tests/state_compile.rs#failed_trace_is_not_retried_and_later_calls_use_the_cache"
+        "state:test:mlx-tests/tests/state_compile.rs#failed_trace_rolls_back_and_caller_retry_recovers_growth"
       ]
     },
     {
@@ -80,7 +80,7 @@
       "disposition": "internal",
       "rationale": "the bump owns this handle privately through the Compiled RAII cache binding",
       "evidence": [
-        "state:test:mlx-tests/tests/state_compile.rs#failed_trace_is_not_retried_and_later_calls_use_the_cache"
+        "state:test:mlx-tests/tests/state_compile.rs#failed_trace_rolls_back_and_caller_retry_recovers_growth"
       ]
     },
     {
@@ -195,7 +195,7 @@
       "disposition": "internal",
       "rationale": "the bump resolves this private handle when Compiled is created and for each explicit clear",
       "evidence": [
-        "state:test:mlx-tests/tests/state_compile.rs#failed_trace_is_not_retried_and_later_calls_use_the_cache"
+        "state:test:mlx-tests/tests/state_compile.rs#failed_trace_rolls_back_and_caller_retry_recovers_growth"
       ]
     },
     {
@@ -903,7 +903,7 @@
       "disposition": "internal",
       "rationale": "the bump collapses the C handle family into one private Compiled-owned RAII abstraction",
       "evidence": [
-        "state:test:mlx-tests/tests/state_compile.rs#failed_trace_is_not_retried_and_later_calls_use_the_cache"
+        "state:test:mlx-tests/tests/state_compile.rs#failed_trace_rolls_back_and_caller_retry_recovers_growth"
       ],
       "risk_class": "ownership",
       "ownership": {
@@ -970,7 +970,7 @@
       "disposition": "internal",
       "rationale": "the backing C struct remains private behind the Compiled-owned RAII cache binding",
       "evidence": [
-        "state:test:mlx-tests/tests/state_compile.rs#failed_trace_is_not_retried_and_later_calls_use_the_cache"
+        "state:test:mlx-tests/tests/state_compile.rs#failed_trace_rolls_back_and_caller_retry_recovers_growth"
       ]
     },
     {
@@ -1019,7 +1019,7 @@
       "disposition": "internal",
       "rationale": "the C typedef remains private behind the Compiled-owned RAII cache binding",
       "evidence": [
-        "state:test:mlx-tests/tests/state_compile.rs#failed_trace_is_not_retried_and_later_calls_use_the_cache"
+        "state:test:mlx-tests/tests/state_compile.rs#failed_trace_rolls_back_and_caller_retry_recovers_growth"
       ]
     },
     {
