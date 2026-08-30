@@ -4,14 +4,14 @@
     "computed_by": "Python MLX optimizer implementations",
     "oracle_independence": "No mlx-rs output is read or used to derive expectations.",
     "canonical_device": "cpu",
-    "generator_sha256": "fe9fd3c64eddcbf6d299533a03c337f41ebadce5711a10a008e96c097ce02080",
+    "generator_sha256": "076a28e71b0e7c17208880886662055c1ceee61f7180865d0a69794a1c260d46",
     "fixture_sha256": "23b41787aabe22008808c36d14f44db231f2c531d58ce8644e76b11644f30c83",
     "environment": {
       "python": "3.12.14",
       "architecture": "arm64",
       "pinned_venv": "conformance/.venv",
-      "mlx": "0.30.6",
-      "mlx_metal": "0.30.6",
+      "mlx": "0.32.2",
+      "mlx_metal": "0.32.2",
       "numpy": "2.2.6"
     }
   },

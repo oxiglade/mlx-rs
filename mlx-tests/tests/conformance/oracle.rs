@@ -347,9 +347,9 @@ fn load_corpus() -> Result<LoadedCorpus, Vec<String>> {
     }
     if corpus.environment.python != "3.12.14"
         || corpus.environment.architecture != "arm64"
-        || corpus.environment.mlx_package != "0.30.6"
-        || corpus.environment.mlx_metal_package != "0.30.6"
-        || corpus.environment.mlx_runtime != "0.30.6"
+        || corpus.environment.mlx_package != "0.32.2"
+        || corpus.environment.mlx_metal_package != "0.32.2"
+        || corpus.environment.mlx_runtime != "0.32.2"
         || corpus.environment.numpy != "2.2.6"
     {
         failures.push("environment provenance does not match the reference lock".into());

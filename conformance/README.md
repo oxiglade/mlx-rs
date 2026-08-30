@@ -14,10 +14,13 @@ conformance/.venv/bin/python conformance/generate.py
 cargo test -p mlx-tests --test conformance -- --test-threads=1
 ```
 
-The generator requires Python 3.12.14 on arm64, `mlx==0.30.6`, `mlx-metal==0.30.6`,
-`numpy==2.2.6`, and an MLX 0.30.6 runtime. It exits before generation when the reference
+The generator requires Python 3.12.14 on arm64, `mlx==0.32.2`, `mlx-metal==0.32.2`,
+`numpy==2.2.6`, and an MLX 0.32.2 runtime. It exits before generation when the reference
 environment does not match. The lock file pins every wheel with a SHA-256 hash and must be
 installed with `--require-hashes`.
+
+On 2026-08-30 the committed corpus became 0.32.2-canonical; `target/` remains the historical
+0.30.6-to-0.32.2 replay baseline.
 
 Generation builds two independent temporary trees and compares their hashes. It replaces the
 committed catalog, suite files, qualification file, and fixture shards only when both trees are

@@ -12,7 +12,7 @@ from pathlib import Path
 
 EXPECTED_PYTHON = (3, 12, 14)
 EXPECTED_ARCH = "arm64"
-EXPECTED_MLX = "0.30.6"
+EXPECTED_MLX = "0.32.2"
 EXPECTED_NUMPY = "2.2.6"
 CORPUS_SEED = "mlx-rs-committed-cpu-ops-v1"
 SUITES = ("arithmetic", "dtypes", "errors", "execution", "reductions", "shapes")

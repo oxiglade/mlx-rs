@@ -399,7 +399,7 @@
       ],
       "expected": {
         "status": "success",
-        "provenance": "mlx_python",
+        "provenance": "numpy_corroborated",
         "outputs": [
           {
             "name": "output0",
