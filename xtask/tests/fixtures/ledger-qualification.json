@@ -55,6 +55,14 @@
     "schema_version": 1,
     "old_source_commit": "old",
     "target_source_commit": "new",
+    "behavioral_renames": [
+      {
+        "c_name": "mlx_added",
+        "python_name": "mlx.core.added",
+        "rust_path": "demo::added",
+        "semantic_op": "added"
+      }
+    ],
     "entries": [
       {
         "change": "added",

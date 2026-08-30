@@ -2,6 +2,44 @@
   "schema_version": 1,
   "old_source_commit": "a1290d221f92bd020af805b7d14207eee4ec973b",
   "target_source_commit": "c74db5307cc8ce122f48d97ef951b30578674e7f",
+  "behavioral_renames": [
+    {
+      "c_name": "mlx_concatenate_axis",
+      "python_name": "mlx.core.concatenate",
+      "rust_path": "mlx_rs::ops::concatenate",
+      "semantic_op": "concatenate"
+    },
+    {
+      "c_name": "mlx_concatenate",
+      "python_name": "mlx.core.concatenate",
+      "rust_path": "mlx_rs::ops::concatenate_flat",
+      "semantic_op": "concatenate_flat"
+    },
+    {
+      "c_name": "mlx_where",
+      "python_name": "mlx.core.where",
+      "rust_path": "mlx_rs::ops::select",
+      "semantic_op": "where"
+    },
+    {
+      "c_name": "mlx_split",
+      "python_name": "mlx.core.split",
+      "rust_path": "mlx_rs::ops::split_equal",
+      "semantic_op": "split"
+    },
+    {
+      "c_name": "mlx_split_sections",
+      "python_name": "mlx.core.split",
+      "rust_path": "mlx_rs::ops::split_at_indices",
+      "semantic_op": "split_sections"
+    },
+    {
+      "c_name": "mlx_stack_axis",
+      "python_name": "mlx.core.stack",
+      "rust_path": "mlx_rs::ops::stack",
+      "semantic_op": "stack"
+    }
+  ],
   "entries": [
     {
       "change": "added",

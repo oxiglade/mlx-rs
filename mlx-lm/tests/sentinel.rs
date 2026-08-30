@@ -13,7 +13,7 @@ use mlx_lm::{
 };
 use mlx_rs::{
     module::Module,
-    ops::{concatenate_axis, indexing::IndexOp},
+    ops::{concatenate, indexing::IndexOp},
     Array, Dtype,
 };
 use safetensors::{Dtype as SafeDtype, SafeTensors};
@@ -113,8 +113,8 @@ impl KeyValueCache for InspectableCache {
     ) -> std::result::Result<(Array, Array), mlx_rs::error::Exception> {
         match (self.keys.take(), self.values.take()) {
             (Some(existing_keys), Some(existing_values)) => {
-                self.keys = Some(concatenate_axis(&[existing_keys, keys], -2)?);
-                self.values = Some(concatenate_axis(&[existing_values, values], -2)?);
+                self.keys = Some(concatenate(&[existing_keys, keys], -2)?);
+                self.values = Some(concatenate(&[existing_values, values], -2)?);
             }
             _ => {
                 self.keys = Some(keys);

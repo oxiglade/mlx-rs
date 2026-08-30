@@ -6,7 +6,7 @@ use mlx_rs::{
     error::Exception,
     module::Module,
     nn,
-    ops::{arange, which},
+    ops::{arange, select},
     Array,
 };
 use serde::Deserialize;
@@ -105,7 +105,7 @@ impl Llama3Rope {
 
         // First pass: scale low frequencies (long wavelengths) by factor
         let is_low = wavelens.gt(Array::from_f32(low_freq_wavelen))?;
-        let freqs = which(&is_low, &freqs.multiply(Array::from_f32(factor))?, &freqs)?;
+        let freqs = select(&is_low, &freqs.multiply(Array::from_f32(factor))?, &freqs)?;
 
         // Second pass: smooth interpolation for medium frequencies
         let is_medium = wavelens
@@ -125,7 +125,7 @@ impl Llama3Rope {
             .add(&smooth_factors)?;
         let smooth_freqs = freqs.divide(&denom)?;
 
-        let freqs = which(&is_medium, &smooth_freqs, &freqs)?;
+        let freqs = select(&is_medium, &smooth_freqs, &freqs)?;
 
         Ok(Self {
             dimensions: dims,

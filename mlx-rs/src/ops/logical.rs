@@ -1051,7 +1051,7 @@ pub fn is_neg_inf_device(
 /// - condition: condition array
 /// - a: input selected from where condition is non-zero or `true`
 /// - b: input selected from where condition is zero or `false`
-pub fn r#where(
+pub fn select(
     condition: impl AsRef<Array>,
     a: impl AsRef<Array>,
     b: impl AsRef<Array>,
@@ -1068,10 +1068,20 @@ pub fn r#where(
     })
 }
 
-/// Compatibility shim for [`r#where`].
+/// Compatibility alias for [`select`].
+#[deprecated(since = "0.26.0", note = "renamed to `select`")]
+pub fn r#where(
+    condition: impl AsRef<Array>,
+    a: impl AsRef<Array>,
+    b: impl AsRef<Array>,
+) -> Result<Array> {
+    select(condition, a, b)
+}
+
+/// Compatibility shim for [`select`].
 #[deprecated(
     since = "0.26.0",
-    note = "use `with_stream` or `with_device` around `r#where`"
+    note = "use `with_stream` or `with_device` around `select`"
 )]
 pub fn r#where_device(
     condition: impl AsRef<Array>,
@@ -1079,23 +1089,24 @@ pub fn r#where_device(
     b: impl AsRef<Array>,
     stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    crate::with_stream(stream.as_ref(), || r#where(condition, a, b))
+    crate::with_stream(stream.as_ref(), || select(condition, a, b))
 }
 
-/// Alias for [`r#where`]
+/// Compatibility alias for [`select`].
+#[deprecated(since = "0.26.0", note = "renamed to `select`")]
 pub fn which(
     condition: impl AsRef<Array>,
     a: impl AsRef<Array>,
     b: impl AsRef<Array>,
 ) -> Result<Array> {
-    r#where(condition, a, b)
+    select(condition, a, b)
 }
 
-/// Compatibility shim for [`which`].
+/// Compatibility shim for [`select`].
 #[generate_macro(customize(forwarding_shim = true))]
 #[deprecated(
     since = "0.26.0",
-    note = "use `with_stream` or `with_device` around `which`"
+    note = "use `with_stream` or `with_device` around `select`"
 )]
 pub fn which_device(
     condition: impl AsRef<Array>,
@@ -1103,7 +1114,7 @@ pub fn which_device(
     b: impl AsRef<Array>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    crate::with_stream(stream.as_ref(), || which(condition, a, b))
+    crate::with_stream(stream.as_ref(), || select(condition, a, b))
 }
 
 #[cfg(test)]
@@ -1406,22 +1417,22 @@ mod tests {
     }
 
     #[test]
-    fn test_which() {
+    fn test_select() {
         let condition = Array::from_slice(&[true, false, true], &[3]);
         let a = Array::from_slice(&[1, 2, 3], &[3]);
         let b = Array::from_slice(&[4, 5, 6], &[3]);
-        let c = which(&condition, &a, &b).unwrap();
+        let c = select(&condition, &a, &b).unwrap();
 
         let c_data: &[i32] = c.as_slice();
         assert_eq!(c_data, [1, 5, 3]);
     }
 
     #[test]
-    fn test_which_invalid_broadcast() {
+    fn test_select_invalid_broadcast() {
         let condition = Array::from_slice(&[true, false, true], &[3]);
         let a = Array::from_slice(&[1, 2, 3], &[3]);
         let b = Array::from_slice(&[4, 5, 6, 7], &[4]);
-        let c = which(&condition, &a, &b);
+        let c = select(&condition, &a, &b);
         assert!(c.is_err());
     }
 

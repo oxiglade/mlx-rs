@@ -5,7 +5,7 @@ use crate::{
     error::{CrossEntropyBuildError, Exception},
     ops::{
         abs, clip, exp, indexing::take_along_axis, log, logaddexp, logsumexp_axes, maximum,
-        minimum, multiply, power, r#where, sqrt, square, sum_axes, sum_axis,
+        minimum, multiply, power, select, sqrt, square, sum_axes, sum_axis,
     },
     Array,
 };
@@ -527,7 +527,7 @@ impl SmoothL1Loss {
         check_shape(predictions, targets, "predictions", "targets")?;
         let diff = predictions.subtract(targets)?.abs()?;
         let beta = array!(beta);
-        let loss = r#where(
+        let loss = select(
             &diff.lt(&beta)?,
             array!(0.5).multiply(square(&diff)?)?.divide(&beta)?,
             diff.subtract(array!(0.5).multiply(beta)?)?,

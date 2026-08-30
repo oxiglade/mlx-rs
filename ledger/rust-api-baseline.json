@@ -1478,12 +1478,25 @@
     {
       "kind": "method",
       "path": "mlx_rs::Array::split",
-      "signature": "pub fn split (& self , num_parts : i32 , axis : impl Into < Option < i32 > >) -> Result < Vec < Array > >"
+      "signature": "pub fn split (& self , num_parts : i32 , axis : impl Into < Option < i32 > >) -> Result < Vec < Array > >",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "renamed to `split_equal`"
+      }
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::Array::split_at_indices",
+      "signature": "pub fn split_at_indices (& self , indices : & [i32] , axis : impl Into < Option < i32 > > ,) -> Result < Vec < Array > >"
     },
     {
       "kind": "method",
       "path": "mlx_rs::Array::split_axis",
-      "signature": "pub fn split_axis (& self , indices : & [i32] , axis : impl Into < Option < i32 > >) -> Result < Vec < Array > >"
+      "signature": "pub fn split_axis (& self , indices : & [i32] , axis : impl Into < Option < i32 > >) -> Result < Vec < Array > >",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "renamed to `split_at_indices`"
+      }
     },
     {
       "kind": "method",
@@ -1491,7 +1504,7 @@
       "signature": "pub fn split_axis_device (& self , indices : & [i32] , axis : impl Into < Option < i32 > > , stream : impl AsRef < Stream > ,) -> Result < Vec < Array > >",
       "deprecated": {
         "since": "0.26.0",
-        "note": "use `with_stream` or `with_device` around `split_axis`"
+        "note": "use `with_stream` or `with_device` around `split_at_indices`"
       }
     },
     {
@@ -1500,8 +1513,13 @@
       "signature": "pub fn split_device (& self , num_parts : i32 , axis : impl Into < Option < i32 > > , stream : impl AsRef < Stream > ,) -> Result < Vec < Array > >",
       "deprecated": {
         "since": "0.26.0",
-        "note": "use `with_stream` or `with_device` around `split`"
+        "note": "use `with_stream` or `with_device` around `split_equal`"
       }
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::Array::split_equal",
+      "signature": "pub fn split_equal (& self , num_parts : i32 , axis : impl Into < Option < i32 > >) -> Result < Vec < Array > >"
     },
     {
       "kind": "method",
@@ -2440,7 +2458,7 @@
       "generated_by": "generate_macro",
       "deprecated": {
         "since": "0.26.0",
-        "note": "use `with_stream` or `with_device` around `concatenate`"
+        "note": "the old `concatenate` flattened inputs; use `concatenate_flat`"
       }
     },
     {
@@ -2450,7 +2468,7 @@
       "generated_by": "generate_macro",
       "deprecated": {
         "since": "0.26.0",
-        "note": "use `with_stream` or `with_device` around `concatenate_axis`"
+        "note": "use `with_stream` or `with_device` around `concatenate`"
       }
     },
     {
@@ -5826,12 +5844,16 @@
     {
       "kind": "function",
       "path": "mlx_rs::ops::concatenate",
-      "signature": "pub fn concatenate (arrays : & [impl AsRef < Array >]) -> Result < Array >"
+      "signature": "pub fn concatenate (arrays : & [impl AsRef < Array >] , axis : i32) -> Result < Array >"
     },
     {
       "kind": "function",
       "path": "mlx_rs::ops::concatenate_axis",
-      "signature": "pub fn concatenate_axis (arrays : & [impl AsRef < Array >] , axis : i32) -> Result < Array >"
+      "signature": "pub fn concatenate_axis (arrays : & [impl AsRef < Array >] , axis : i32) -> Result < Array >",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "renamed to `concatenate`"
+      }
     },
     {
       "kind": "function",
@@ -5839,7 +5861,7 @@
       "signature": "pub fn concatenate_axis_device (arrays : & [impl AsRef < Array >] , axis : i32 , stream : impl AsRef < Stream > ,) -> Result < Array >",
       "deprecated": {
         "since": "0.26.0",
-        "note": "use `with_stream` or `with_device` around `concatenate_axis`"
+        "note": "use `with_stream` or `with_device` around `concatenate`"
       }
     },
     {
@@ -5848,8 +5870,13 @@
       "signature": "pub fn concatenate_device (arrays : & [impl AsRef < Array >] , stream : impl AsRef < Stream > ,) -> Result < Array >",
       "deprecated": {
         "since": "0.26.0",
-        "note": "use `with_stream` or `with_device` around `concatenate`"
+        "note": "the old `concatenate` flattened inputs; use `concatenate_flat`"
       }
+    },
+    {
+      "kind": "function",
+      "path": "mlx_rs::ops::concatenate_flat",
+      "signature": "pub fn concatenate_flat (arrays : & [impl AsRef < Array >]) -> Result < Array >"
     },
     {
       "kind": "function",
@@ -7468,7 +7495,11 @@
     {
       "kind": "function",
       "path": "mlx_rs::ops::r#where",
-      "signature": "pub fn r#where (condition : impl AsRef < Array > , a : impl AsRef < Array > , b : impl AsRef < Array > ,) -> Result < Array >"
+      "signature": "pub fn r#where (condition : impl AsRef < Array > , a : impl AsRef < Array > , b : impl AsRef < Array > ,) -> Result < Array >",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "renamed to `select`"
+      }
     },
     {
       "kind": "function",
@@ -7476,7 +7507,7 @@
       "signature": "pub fn r#where_device (condition : impl AsRef < Array > , a : impl AsRef < Array > , b : impl AsRef < Array > , stream : impl AsRef < Stream > ,) -> Result < Array >",
       "deprecated": {
         "since": "0.26.0",
-        "note": "use `with_stream` or `with_device` around `r#where`"
+        "note": "use `with_stream` or `with_device` around `select`"
       }
     },
     {
@@ -7621,6 +7652,11 @@
     },
     {
       "kind": "function",
+      "path": "mlx_rs::ops::select",
+      "signature": "pub fn select (condition : impl AsRef < Array > , a : impl AsRef < Array > , b : impl AsRef < Array > ,) -> Result < Array >"
+    },
+    {
+      "kind": "function",
       "path": "mlx_rs::ops::sigmoid",
       "signature": "pub fn sigmoid (a : impl AsRef < Array >) -> Result < Array >"
     },
@@ -7748,7 +7784,16 @@
     {
       "kind": "function",
       "path": "mlx_rs::ops::split",
-      "signature": "pub fn split (a : impl AsRef < Array > , num_parts : i32 , axis : impl Into < Option < i32 > > ,) -> Result < Vec < Array > >"
+      "signature": "pub fn split (a : impl AsRef < Array > , num_parts : i32 , axis : impl Into < Option < i32 > > ,) -> Result < Vec < Array > >",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "renamed to `split_equal`"
+      }
+    },
+    {
+      "kind": "function",
+      "path": "mlx_rs::ops::split_at_indices",
+      "signature": "pub fn split_at_indices (a : impl AsRef < Array > , indices : & [i32] , axis : impl Into < Option < i32 > > ,) -> Result < Vec < Array > >"
     },
     {
       "kind": "function",
@@ -7756,13 +7801,22 @@
       "signature": "pub fn split_device (a : impl AsRef < Array > , num_parts : i32 , axis : impl Into < Option < i32 > > , stream : impl AsRef < Stream > ,) -> Result < Vec < Array > >",
       "deprecated": {
         "since": "0.26.0",
-        "note": "use `with_stream` or `with_device` around `split`"
+        "note": "use `with_stream` or `with_device` around `split_equal`"
       }
     },
     {
       "kind": "function",
+      "path": "mlx_rs::ops::split_equal",
+      "signature": "pub fn split_equal (a : impl AsRef < Array > , num_parts : i32 , axis : impl Into < Option < i32 > > ,) -> Result < Vec < Array > >"
+    },
+    {
+      "kind": "function",
       "path": "mlx_rs::ops::split_sections",
-      "signature": "pub fn split_sections (a : impl AsRef < Array > , indices : & [i32] , axis : impl Into < Option < i32 > > ,) -> Result < Vec < Array > >"
+      "signature": "pub fn split_sections (a : impl AsRef < Array > , indices : & [i32] , axis : impl Into < Option < i32 > > ,) -> Result < Vec < Array > >",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "renamed to `split_at_indices`"
+      }
     },
     {
       "kind": "function",
@@ -7770,7 +7824,7 @@
       "signature": "pub fn split_sections_device (a : impl AsRef < Array > , indices : & [i32] , axis : impl Into < Option < i32 > > , stream : impl AsRef < Stream > ,) -> Result < Vec < Array > >",
       "deprecated": {
         "since": "0.26.0",
-        "note": "use `with_stream` or `with_device` around `split_sections`"
+        "note": "use `with_stream` or `with_device` around `split_at_indices`"
       }
     },
     {
@@ -7832,12 +7886,16 @@
     {
       "kind": "function",
       "path": "mlx_rs::ops::stack",
-      "signature": "pub fn stack (arrays : & [impl AsRef < Array >]) -> Result < Array >"
+      "signature": "pub fn stack (arrays : & [impl AsRef < Array >] , axis : i32) -> Result < Array >"
     },
     {
       "kind": "function",
       "path": "mlx_rs::ops::stack_axis",
-      "signature": "pub fn stack_axis (arrays : & [impl AsRef < Array >] , axis : i32) -> Result < Array >"
+      "signature": "pub fn stack_axis (arrays : & [impl AsRef < Array >] , axis : i32) -> Result < Array >",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "renamed to `stack`"
+      }
     },
     {
       "kind": "function",
@@ -7845,7 +7903,7 @@
       "signature": "pub fn stack_axis_device (arrays : & [impl AsRef < Array >] , axis : i32 , stream : impl AsRef < Stream > ,) -> Result < Array >",
       "deprecated": {
         "since": "0.26.0",
-        "note": "use `with_stream` or `with_device` around `stack_axis`"
+        "note": "use `with_stream` or `with_device` around `stack`"
       }
     },
     {
@@ -7854,7 +7912,7 @@
       "signature": "pub fn stack_device (arrays : & [impl AsRef < Array >] , stream : impl AsRef < Stream > ,) -> Result < Array >",
       "deprecated": {
         "since": "0.26.0",
-        "note": "use `with_stream` or `with_device` around `stack`"
+        "note": "the old `stack` used axis 0; use `stack(arrays, 0)`"
       }
     },
     {
@@ -8182,7 +8240,11 @@
     {
       "kind": "function",
       "path": "mlx_rs::ops::which",
-      "signature": "pub fn which (condition : impl AsRef < Array > , a : impl AsRef < Array > , b : impl AsRef < Array > ,) -> Result < Array >"
+      "signature": "pub fn which (condition : impl AsRef < Array > , a : impl AsRef < Array > , b : impl AsRef < Array > ,) -> Result < Array >",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "renamed to `select`"
+      }
     },
     {
       "kind": "function",
@@ -8190,7 +8252,7 @@
       "signature": "pub fn which_device (condition : impl AsRef < Array > , a : impl AsRef < Array > , b : impl AsRef < Array > , stream : impl AsRef < Stream > ,) -> Result < Array >",
       "deprecated": {
         "since": "0.26.0",
-        "note": "use `with_stream` or `with_device` around `which`"
+        "note": "use `with_stream` or `with_device` around `select`"
       }
     },
     {
@@ -9038,7 +9100,7 @@
       "generated_by": "generate_macro",
       "deprecated": {
         "since": "0.26.0",
-        "note": "use `with_stream` or `with_device` around `split`"
+        "note": "use `with_stream` or `with_device` around `split_equal`"
       }
     },
     {
@@ -9048,7 +9110,7 @@
       "generated_by": "generate_macro",
       "deprecated": {
         "since": "0.26.0",
-        "note": "use `with_stream` or `with_device` around `split_sections`"
+        "note": "use `with_stream` or `with_device` around `split_at_indices`"
       }
     },
     {
@@ -9098,7 +9160,7 @@
       "generated_by": "generate_macro",
       "deprecated": {
         "since": "0.26.0",
-        "note": "use `with_stream` or `with_device` around `stack`"
+        "note": "the old `stack` used axis 0; use `stack(arrays, 0)`"
       }
     },
     {
@@ -9108,7 +9170,7 @@
       "generated_by": "generate_macro",
       "deprecated": {
         "since": "0.26.0",
-        "note": "use `with_stream` or `with_device` around `stack_axis`"
+        "note": "use `with_stream` or `with_device` around `stack`"
       }
     },
     {
@@ -9723,7 +9785,7 @@
       "generated_by": "generate_macro",
       "deprecated": {
         "since": "0.26.0",
-        "note": "use `with_stream` or `with_device` around `which`"
+        "note": "use `with_stream` or `with_device` around `select`"
       }
     },
     {

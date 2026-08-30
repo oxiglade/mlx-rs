@@ -192,15 +192,25 @@ impl Array {
         crate::with_stream(stream.as_ref(), || self.move_axis(src, dst))
     }
 
-    /// See [`split`]
+    /// See [`split_at_indices`].
+    pub fn split_at_indices(
+        &self,
+        indices: &[i32],
+        axis: impl Into<Option<i32>>,
+    ) -> Result<Vec<Array>> {
+        split_at_indices(self, indices, axis)
+    }
+
+    /// Compatibility alias for [`Array::split_at_indices`].
+    #[deprecated(since = "0.26.0", note = "renamed to `split_at_indices`")]
     pub fn split_axis(&self, indices: &[i32], axis: impl Into<Option<i32>>) -> Result<Vec<Array>> {
-        split_sections(self, indices, axis)
+        self.split_at_indices(indices, axis)
     }
 
     /// Compatibility shim for [`split_axis`].
     #[deprecated(
         since = "0.26.0",
-        note = "use `with_stream` or `with_device` around `split_axis`"
+        note = "use `with_stream` or `with_device` around `split_at_indices`"
     )]
     pub fn split_axis_device(
         &self,
@@ -208,18 +218,24 @@ impl Array {
         axis: impl Into<Option<i32>>,
         stream: impl AsRef<Stream>,
     ) -> Result<Vec<Array>> {
-        crate::with_stream(stream.as_ref(), || self.split_axis(indices, axis))
+        crate::with_stream(stream.as_ref(), || self.split_at_indices(indices, axis))
     }
 
-    /// See [`split`]
+    /// See [`split_equal`].
+    pub fn split_equal(&self, num_parts: i32, axis: impl Into<Option<i32>>) -> Result<Vec<Array>> {
+        split_equal(self, num_parts, axis)
+    }
+
+    /// Compatibility alias for [`Array::split_equal`].
+    #[deprecated(since = "0.26.0", note = "renamed to `split_equal`")]
     pub fn split(&self, num_parts: i32, axis: impl Into<Option<i32>>) -> Result<Vec<Array>> {
-        split(self, num_parts, axis)
+        self.split_equal(num_parts, axis)
     }
 
     /// Compatibility shim for [`split`].
     #[deprecated(
         since = "0.26.0",
-        note = "use `with_stream` or `with_device` around `split`"
+        note = "use `with_stream` or `with_device` around `split_equal`"
     )]
     pub fn split_device(
         &self,
@@ -227,7 +243,7 @@ impl Array {
         axis: impl Into<Option<i32>>,
         stream: impl AsRef<Stream>,
     ) -> Result<Vec<Array>> {
-        crate::with_stream(stream.as_ref(), || self.split(num_parts, axis))
+        crate::with_stream(stream.as_ref(), || self.split_equal(num_parts, axis))
     }
 
     /// See [`swap_axes`]
@@ -438,9 +454,9 @@ pub fn broadcast_to_device(
 ///
 /// let x = Array::from_iter(0..4, &[2, 2]);
 /// let y = Array::from_iter(4..8, &[2, 2]);
-/// let result = concatenate_axis(&[x, y], 0);
+/// let result = concatenate(&[x, y], 0);
 /// ```
-pub fn concatenate_axis(arrays: &[impl AsRef<Array>], axis: i32) -> Result<Array> {
+pub fn concatenate(arrays: &[impl AsRef<Array>], axis: i32) -> Result<Array> {
     let stream = Stream::thread_local_or_default();
     let c_arrays = VectorArray::try_from_iter(arrays.iter())?;
     Array::try_from_op(|res| unsafe {
@@ -448,27 +464,10 @@ pub fn concatenate_axis(arrays: &[impl AsRef<Array>], axis: i32) -> Result<Array
     })
 }
 
-/// Compatibility shim for [`concatenate_axis`].
-#[generate_macro(customize(forwarding_shim = true))]
-#[deprecated(
-    since = "0.26.0",
-    note = "use `with_stream` or `with_device` around `concatenate_axis`"
-)]
-pub fn concatenate_axis_device(
-    arrays: &[impl AsRef<Array>],
-    axis: i32,
-    #[optional] stream: impl AsRef<Stream>,
-) -> Result<Array> {
-    crate::with_stream(stream.as_ref(), || concatenate_axis(arrays, axis))
-}
-
-/// Flatten the arrays and concatenate them. Use [`concatenate_axis`] to concatenate along an axis.
-pub fn concatenate(arrays: &[impl AsRef<Array>]) -> Result<Array> {
-    let stream = Stream::thread_local_or_default();
-    let c_arrays = VectorArray::try_from_iter(arrays.iter())?;
-    Array::try_from_op(|res| unsafe {
-        mlx_sys::mlx_concatenate(res, c_arrays.as_ptr(), stream.as_ref().as_ptr())
-    })
+/// Compatibility alias for [`concatenate`].
+#[deprecated(since = "0.26.0", note = "renamed to `concatenate`")]
+pub fn concatenate_axis(arrays: &[impl AsRef<Array>], axis: i32) -> Result<Array> {
+    concatenate(arrays, axis)
 }
 
 /// Compatibility shim for [`concatenate`].
@@ -477,11 +476,34 @@ pub fn concatenate(arrays: &[impl AsRef<Array>]) -> Result<Array> {
     since = "0.26.0",
     note = "use `with_stream` or `with_device` around `concatenate`"
 )]
+pub fn concatenate_axis_device(
+    arrays: &[impl AsRef<Array>],
+    axis: i32,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || concatenate(arrays, axis))
+}
+
+/// Flatten the arrays and concatenate them. Use [`concatenate`] to concatenate along an axis.
+pub fn concatenate_flat(arrays: &[impl AsRef<Array>]) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
+    let c_arrays = VectorArray::try_from_iter(arrays.iter())?;
+    Array::try_from_op(|res| unsafe {
+        mlx_sys::mlx_concatenate(res, c_arrays.as_ptr(), stream.as_ref().as_ptr())
+    })
+}
+
+/// Compatibility shim preserving the old flattening behavior of `concatenate`.
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "the old `concatenate` flattened inputs; use `concatenate_flat`"
+)]
 pub fn concatenate_device(
     arrays: &[impl AsRef<Array>],
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    crate::with_stream(stream.as_ref(), || concatenate(arrays))
+    crate::with_stream(stream.as_ref(), || concatenate_flat(arrays))
 }
 
 /// Add a size one dimension at the given axis, returns an error if the axes are invalid.
@@ -900,9 +922,9 @@ pub fn move_axis_device(
 /// use mlx_rs::{Array, ops::*};
 ///
 /// let a = Array::from_iter(0..10, &[10]);
-/// let result = split_sections(&a, &[3, 7], 0);
+/// let result = split_at_indices(&a, &[3, 7], 0);
 /// ```
-pub fn split_sections(
+pub fn split_at_indices(
     a: impl AsRef<Array>,
     indices: &[i32],
     axis: impl Into<Option<i32>>,
@@ -921,11 +943,21 @@ pub fn split_sections(
     })
 }
 
-/// Compatibility shim for [`split_sections`].
+/// Compatibility alias for [`split_at_indices`].
+#[deprecated(since = "0.26.0", note = "renamed to `split_at_indices`")]
+pub fn split_sections(
+    a: impl AsRef<Array>,
+    indices: &[i32],
+    axis: impl Into<Option<i32>>,
+) -> Result<Vec<Array>> {
+    split_at_indices(a, indices, axis)
+}
+
+/// Compatibility shim for [`split_at_indices`].
 #[generate_macro(customize(forwarding_shim = true))]
 #[deprecated(
     since = "0.26.0",
-    note = "use `with_stream` or `with_device` around `split_sections`"
+    note = "use `with_stream` or `with_device` around `split_at_indices`"
 )]
 pub fn split_sections_device(
     a: impl AsRef<Array>,
@@ -933,7 +965,7 @@ pub fn split_sections_device(
     #[optional] axis: impl Into<Option<i32>>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Vec<Array>> {
-    crate::with_stream(stream.as_ref(), || split_sections(a, indices, axis))
+    crate::with_stream(stream.as_ref(), || split_at_indices(a, indices, axis))
 }
 
 /// Split an array into equal parts along a given axis. Returns an error if the array cannot be
@@ -951,9 +983,9 @@ pub fn split_sections_device(
 /// use mlx_rs::{Array, ops::*};
 ///
 /// let a = Array::from_iter(0..10, &[10]);
-/// let result = split(&a, 2, 0);
+/// let result = split_equal(&a, 2, 0);
 /// ```
-pub fn split(
+pub fn split_equal(
     a: impl AsRef<Array>,
     num_parts: i32,
     axis: impl Into<Option<i32>>,
@@ -971,11 +1003,21 @@ pub fn split(
     })
 }
 
-/// Compatibility shim for [`split`].
+/// Compatibility alias for [`split_equal`].
+#[deprecated(since = "0.26.0", note = "renamed to `split_equal`")]
+pub fn split(
+    a: impl AsRef<Array>,
+    num_parts: i32,
+    axis: impl Into<Option<i32>>,
+) -> Result<Vec<Array>> {
+    split_equal(a, num_parts, axis)
+}
+
+/// Compatibility shim for [`split_equal`].
 #[generate_macro(customize(forwarding_shim = true))]
 #[deprecated(
     since = "0.26.0",
-    note = "use `with_stream` or `with_device` around `split`"
+    note = "use `with_stream` or `with_device` around `split_equal`"
 )]
 pub fn split_device(
     a: impl AsRef<Array>,
@@ -983,7 +1025,7 @@ pub fn split_device(
     #[optional] axis: impl Into<Option<i32>>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Vec<Array>> {
-    crate::with_stream(stream.as_ref(), || split(a, num_parts, axis))
+    crate::with_stream(stream.as_ref(), || split_equal(a, num_parts, axis))
 }
 
 /// Number of padding values to add to the edges of each axis.
@@ -1143,9 +1185,9 @@ pub fn pad_device<'a>(
 ///
 /// let a = Array::from_iter(0..4, &[2, 2]);
 /// let b = Array::from_iter(4..8, &[2, 2]);
-/// let result = stack_axis(&[&a, &b], 0);
+/// let result = stack(&[&a, &b], 0);
 /// ```
-pub fn stack_axis(arrays: &[impl AsRef<Array>], axis: i32) -> Result<Array> {
+pub fn stack(arrays: &[impl AsRef<Array>], axis: i32) -> Result<Array> {
     let stream = Stream::thread_local_or_default();
     let c_vec = VectorArray::try_from_iter(arrays.iter())?;
     Array::try_from_op(|res| unsafe {
@@ -1153,41 +1195,10 @@ pub fn stack_axis(arrays: &[impl AsRef<Array>], axis: i32) -> Result<Array> {
     })
 }
 
-/// Compatibility shim for [`stack_axis`].
-#[generate_macro(customize(forwarding_shim = true))]
-#[deprecated(
-    since = "0.26.0",
-    note = "use `with_stream` or `with_device` around `stack_axis`"
-)]
-pub fn stack_axis_device(
-    arrays: &[impl AsRef<Array>],
-    axis: i32,
-    #[optional] stream: impl AsRef<Stream>,
-) -> Result<Array> {
-    crate::with_stream(stream.as_ref(), || stack_axis(arrays, axis))
-}
-
-/// Stacks the arrays along a new axis. Returns an error if the arrays have different shapes.
-///
-/// # Params
-///
-/// - `arrays`: The input arrays.
-///
-/// # Example
-///
-/// ```rust
-/// use mlx_rs::{Array, ops::*};
-///
-/// let a = Array::from_iter(0..4, &[2, 2]);
-/// let b = Array::from_iter(4..8, &[2, 2]);
-/// let result = stack(&[&a, &b]);
-/// ```
-pub fn stack(arrays: &[impl AsRef<Array>]) -> Result<Array> {
-    let stream = Stream::thread_local_or_default();
-    let c_vec = VectorArray::try_from_iter(arrays.iter())?;
-    Array::try_from_op(|res| unsafe {
-        mlx_sys::mlx_stack(res, c_vec.as_ptr(), stream.as_ref().as_ptr())
-    })
+/// Compatibility alias for [`stack`].
+#[deprecated(since = "0.26.0", note = "renamed to `stack`")]
+pub fn stack_axis(arrays: &[impl AsRef<Array>], axis: i32) -> Result<Array> {
+    stack(arrays, axis)
 }
 
 /// Compatibility shim for [`stack`].
@@ -1196,11 +1207,25 @@ pub fn stack(arrays: &[impl AsRef<Array>]) -> Result<Array> {
     since = "0.26.0",
     note = "use `with_stream` or `with_device` around `stack`"
 )]
+pub fn stack_axis_device(
+    arrays: &[impl AsRef<Array>],
+    axis: i32,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || stack(arrays, axis))
+}
+
+/// Compatibility shim preserving the old axis-zero behavior of `stack`.
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "the old `stack` used axis 0; use `stack(arrays, 0)`"
+)]
 pub fn stack_device(
     arrays: &[impl AsRef<Array>],
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    crate::with_stream(stream.as_ref(), || stack(arrays))
+    crate::with_stream(stream.as_ref(), || stack(arrays, 0))
 }
 
 /// Swap two axes of an array. Returns an error if the axes are invalid.
@@ -1577,18 +1602,29 @@ mod tests {
     }
 
     #[test]
+    fn test_concatenate() {
+        let a = Array::from_slice(&[1, 2, 3, 4], &[2, 2]);
+        let b = Array::from_slice(&[5, 6], &[1, 2]);
+        assert_eq!(concatenate(&[&a, &b], 0).unwrap().shape(), &[3, 2]);
+
+        let flat = concatenate_flat(&[&a, &b]).unwrap();
+        assert_eq!(flat.shape(), &[6]);
+        assert_eq!(flat.as_slice::<i32>(), &[1, 2, 3, 4, 5, 6]);
+    }
+
+    #[test]
     fn test_split_equal() {
         let x = Array::from_int(3);
-        assert!(split(&x, 0, 0).is_err());
+        assert!(split_equal(&x, 0, 0).is_err());
 
         let x = Array::from_slice(&[0, 1, 2], &[3]);
-        assert!(split(&x, 3, 1).is_err());
-        assert!(split(&x, -2, 1).is_err());
+        assert!(split_equal(&x, 3, 1).is_err());
+        assert!(split_equal(&x, -2, 1).is_err());
 
-        let out = split(&x, 3, 0).unwrap();
+        let out = split_equal(&x, 3, 0).unwrap();
         assert_eq!(out.len(), 3);
 
-        let mut out = split(&x, 3, -1).unwrap();
+        let mut out = split_equal(&x, 3, -1).unwrap();
         assert_eq!(out.len(), 3);
         for (i, a) in out.iter_mut().enumerate() {
             assert_eq!(a.shape(), &[1]);
@@ -1597,7 +1633,7 @@ mod tests {
         }
 
         let x = Array::from_slice(&[0, 1, 2, 3, 4, 5], &[2, 3]);
-        let out = split(&x, 2, None).unwrap();
+        let out = split_equal(&x, 2, None).unwrap();
         assert_array_eq(
             &out[0],
             Array::from_slice(&[0, 1, 2], &[1, 3]),
@@ -1611,7 +1647,7 @@ mod tests {
             tolerances::EXACT.atol,
         );
 
-        let out = split(&x, 3, 1).unwrap();
+        let out = split_equal(&x, 3, 1).unwrap();
         assert_array_eq(
             &out[0],
             Array::from_slice(&[0, 3], &[2, 1]),
@@ -1632,12 +1668,12 @@ mod tests {
         );
 
         let x = Array::zeros::<i32>(&[8, 12]).unwrap();
-        let out = split(&x, 2, None).unwrap();
+        let out = split_equal(&x, 2, None).unwrap();
         assert_eq!(out.len(), 2);
         assert_eq!(out[0].shape(), &[4, 12]);
         assert_eq!(out[1].shape(), &[4, 12]);
 
-        let out = split(&x, 3, 1).unwrap();
+        let out = split_equal(&x, 3, 1).unwrap();
         assert_eq!(out.len(), 3);
         assert_eq!(out[0].shape(), &[8, 4]);
         assert_eq!(out[1].shape(), &[8, 4]);
@@ -1645,35 +1681,35 @@ mod tests {
     }
 
     #[test]
-    fn test_split() {
+    fn test_split_at_indices() {
         let x = Array::zeros::<i32>(&[8, 12]).unwrap();
 
-        let out = split_sections(&x, &[], None).unwrap();
+        let out = split_at_indices(&x, &[], None).unwrap();
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].shape(), x.shape());
 
-        let out = split_sections(&x, &[3, 7], None).unwrap();
+        let out = split_at_indices(&x, &[3, 7], None).unwrap();
         assert_eq!(out.len(), 3);
         assert_eq!(out[0].shape(), &[3, 12]);
         assert_eq!(out[1].shape(), &[4, 12]);
         assert_eq!(out[2].shape(), &[1, 12]);
 
-        let out = split_sections(&x, &[20], None).unwrap();
+        let out = split_at_indices(&x, &[20], None).unwrap();
         assert_eq!(out.len(), 2);
         assert_eq!(out[0].shape(), &[8, 12]);
         assert_eq!(out[1].shape(), &[0, 12]);
 
-        let out = split_sections(&x, &[-5], None).unwrap();
+        let out = split_at_indices(&x, &[-5], None).unwrap();
         assert_eq!(out[0].shape(), &[3, 12]);
         assert_eq!(out[1].shape(), &[5, 12]);
 
-        let out = split_sections(&x, &[2, 8], Some(1)).unwrap();
+        let out = split_at_indices(&x, &[2, 8], Some(1)).unwrap();
         assert_eq!(out[0].shape(), &[8, 2]);
         assert_eq!(out[1].shape(), &[8, 6]);
         assert_eq!(out[2].shape(), &[8, 4]);
 
         let x = Array::from_iter(0i32..5, &[5]);
-        let out = split_sections(&x, &[2, 1, 2], None).unwrap();
+        let out = split_at_indices(&x, &[2, 1, 2], None).unwrap();
         assert_array_eq(
             &out[0],
             Array::from_slice(&[0, 1], &[2]),
@@ -1717,24 +1753,24 @@ mod tests {
     fn test_stack() {
         let x = Array::from_slice::<f32>(&[], &[0]);
         let x = vec![x];
-        assert_eq!(stack_axis(&x, 0).unwrap().shape(), &[1, 0]);
-        assert_eq!(stack_axis(&x, 1).unwrap().shape(), &[0, 1]);
+        assert_eq!(stack(&x, 0).unwrap().shape(), &[1, 0]);
+        assert_eq!(stack(&x, 1).unwrap().shape(), &[0, 1]);
 
         let x = Array::from_slice(&[1, 2, 3], &[3]);
         let x = vec![x];
-        assert_eq!(stack_axis(&x, 0).unwrap().shape(), &[1, 3]);
-        assert_eq!(stack_axis(&x, 1).unwrap().shape(), &[3, 1]);
+        assert_eq!(stack(&x, 0).unwrap().shape(), &[1, 3]);
+        assert_eq!(stack(&x, 1).unwrap().shape(), &[3, 1]);
 
         let y = Array::from_slice(&[4, 5, 6], &[3]);
         let mut z = x;
         z.push(y);
-        assert_eq!(stack(&z).unwrap().shape(), &[2, 3]);
-        assert_eq!(stack_axis(&z, 1).unwrap().shape(), &[3, 2]);
-        assert_eq!(stack_axis(&z, -1).unwrap().shape(), &[3, 2]);
-        assert_eq!(stack_axis(&z, -2).unwrap().shape(), &[2, 3]);
+        assert_eq!(stack(&z, 0).unwrap().shape(), &[2, 3]);
+        assert_eq!(stack(&z, 1).unwrap().shape(), &[3, 2]);
+        assert_eq!(stack(&z, -1).unwrap().shape(), &[3, 2]);
+        assert_eq!(stack(&z, -2).unwrap().shape(), &[2, 3]);
 
         let empty: Vec<Array> = Vec::new();
-        assert!(stack_axis(&empty, 0).is_err());
+        assert!(stack(&empty, 0).is_err());
 
         let x = Array::from_slice(&[1, 2, 3], &[3])
             .as_dtype(Dtype::Float16)
@@ -1742,7 +1778,7 @@ mod tests {
         let y = Array::from_slice(&[4, 5, 6], &[3])
             .as_dtype(Dtype::Int32)
             .unwrap();
-        assert_eq!(stack_axis(&[x, y], 0).unwrap().dtype(), Dtype::Float16);
+        assert_eq!(stack(&[x, y], 0).unwrap().dtype(), Dtype::Float16);
 
         let x = Array::from_slice(&[1, 2, 3], &[3])
             .as_dtype(Dtype::Int32)
@@ -1750,7 +1786,7 @@ mod tests {
         let y = Array::from_slice(&[4, 5, 6, 7], &[4])
             .as_dtype(Dtype::Int32)
             .unwrap();
-        assert!(stack_axis(&[x, y], 0).is_err());
+        assert!(stack(&[x, y], 0).is_err());
     }
 
     #[test]

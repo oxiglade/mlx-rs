@@ -112,7 +112,7 @@ pub(super) fn dispatch(case: &Case, safe: &SafeTensors<'_>) -> Result<Vec<Array>
             let a = args.tensor("input1")?;
             let b = args.tensor("input2")?;
             args.execution()?;
-            vec![mlx_error(ops::r#where(&c, &a, &b))?]
+            vec![mlx_error(ops::select(&c, &a, &b))?]
         }
         "ops.divmod.array_array" => {
             let a = args.tensor("input0")?;
@@ -201,14 +201,14 @@ pub(super) fn dispatch(case: &Case, safe: &SafeTensors<'_>) -> Result<Vec<Array>
             };
             let axis = args.optional_axis("axis")?;
             args.execution()?;
-            mlx_error(ops::split(&a, parts, axis))?
+            mlx_error(ops::split_equal(&a, parts, axis))?
         }
         "ops.split.sections" => {
             let a = args.tensor("input0")?;
             let indices = args.axes("indices")?;
             let axis = args.optional_axis("axis")?;
             args.execution()?;
-            mlx_error(ops::split_sections(&a, &indices, axis))?
+            mlx_error(ops::split_at_indices(&a, &indices, axis))?
         }
         "ops.broadcast_arrays" => {
             let mut arrays = Vec::new();
@@ -243,7 +243,7 @@ pub(super) fn dispatch(case: &Case, safe: &SafeTensors<'_>) -> Result<Vec<Array>
             }
             let axis = args.axis("axis")?;
             args.execution()?;
-            vec![mlx_error(ops::concatenate_axis(&arrays, axis))?]
+            vec![mlx_error(ops::concatenate(&arrays, axis))?]
         }
         "ops.sum.axis_optional" => {
             let a = args.tensor("input0")?;

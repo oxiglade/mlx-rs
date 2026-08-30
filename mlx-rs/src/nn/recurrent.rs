@@ -7,7 +7,7 @@ use crate::{
     ops::{
         addmm,
         indexing::{Ellipsis, IndexOp},
-        matmul, sigmoid, split, stack_axis, tanh,
+        matmul, sigmoid, split_equal, stack, tanh,
     },
     random::uniform,
     with_stream, Array, Stream,
@@ -147,7 +147,7 @@ impl Rnn {
             all_hidden.push(hidden);
         }
 
-        stack_axis(&all_hidden[..], -2)
+        stack(&all_hidden[..], -2)
     }
 }
 
@@ -329,7 +329,7 @@ impl Gru {
 
             rz = sigmoid(&rz)?;
 
-            let parts = split(&rz, 2, -1)?;
+            let parts = split_equal(&rz, 2, -1)?;
             let r = &parts[0];
             let z = &parts[1];
 
@@ -351,7 +351,7 @@ impl Gru {
             all_hidden.push(hidden);
         }
 
-        stack_axis(&all_hidden[..], -2)
+        stack(&all_hidden[..], -2)
     }
 }
 
@@ -537,7 +537,7 @@ impl Lstm {
                 ifgo = addmm(&ifgo, hidden, self.wh.t(), None, None)?;
             }
 
-            let pieces = split(&ifgo, 4, -1)?;
+            let pieces = split_equal(&ifgo, 4, -1)?;
 
             let i = sigmoid(&pieces[0])?;
             let f = sigmoid(&pieces[1])?;
@@ -555,10 +555,7 @@ impl Lstm {
             all_cell.push(cell);
         }
 
-        Ok((
-            stack_axis(&all_hidden[..], -2)?,
-            stack_axis(&all_cell[..], -2)?,
-        ))
+        Ok((stack(&all_hidden[..], -2)?, stack(&all_cell[..], -2)?))
     }
 }
 

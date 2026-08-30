@@ -5,7 +5,7 @@ use mlx_rs::{
     macros::{ModuleParameters, Quantizable},
     module::Module,
     nn,
-    ops::concatenate_axis,
+    ops::concatenate,
     quantization::MaybeQuantized,
     Array,
 };
@@ -137,8 +137,8 @@ impl Module<AttentionInput<'_>> for Attention {
                 let offset = key_cache.shape()[2];
                 queries = self.rope.forward((&queries, offset))?;
                 keys = self.rope.forward((&keys, offset))?;
-                keys = concatenate_axis(&[key_cache, &keys], 2)?;
-                values = concatenate_axis(&[value_cache, &values], 2)?;
+                keys = concatenate(&[key_cache, &keys], 2)?;
+                values = concatenate(&[value_cache, &values], 2)?;
             }
             None => {
                 queries = self.rope.forward(&queries)?;

@@ -1,4 +1,4 @@
-use mlx_rs::{error::Exception, ops::concatenate_axis, Array};
+use mlx_rs::{error::Exception, ops::concatenate, Array};
 
 // TODO: somehow move quantized methods to a separate trait?
 pub trait KeyValueCache {
@@ -86,8 +86,8 @@ impl KeyValueCache for ConcatKeyValueCache {
     ) -> Result<(Array, Array), Exception> {
         match (self.keys.take(), self.values.take()) {
             (Some(k), Some(v)) => {
-                self.keys = Some(concatenate_axis(&[k, keys], -2)?);
-                self.values = Some(concatenate_axis(&[v, values], -2)?);
+                self.keys = Some(concatenate(&[k, keys], -2)?);
+                self.values = Some(concatenate(&[v, values], -2)?);
             }
             _ => {
                 self.keys = Some(keys);

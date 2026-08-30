@@ -97,6 +97,7 @@ fn verify_files(repo_root: &Path, paths: &Paths) -> Result<Value, String> {
         "verdict": "pass",
         "delta_counts": delta["counts"],
         "classified_entries": result.classified,
+        "behavioral_renames": result.behavioral_renames,
         "dispositions": result.dispositions,
         "supported_builds": result.supported_builds
     }))
@@ -104,6 +105,7 @@ fn verify_files(repo_root: &Path, paths: &Paths) -> Result<Value, String> {
 
 struct Verification {
     classified: usize,
+    behavioral_renames: usize,
     dispositions: BTreeMap<String, usize>,
     supported_builds: usize,
 }
@@ -125,6 +127,7 @@ fn verify_documents(
         return Err("committed API baseline does not match Rust source".to_owned());
     }
     let api_paths = api_paths(api_baseline)?;
+    let behavioral_renames = validate_behavioral_renames(classification, &api_paths)?;
     let supported_builds = validate_feature_matrix(feature_matrix)?;
     let expected = delta_entries(delta)?;
     let entries = classification["entries"]
@@ -232,9 +235,48 @@ fn verify_documents(
     }
     Ok(Verification {
         classified: seen.len(),
+        behavioral_renames,
         dispositions,
         supported_builds,
     })
+}
+
+fn validate_behavioral_renames(
+    classification: &Value,
+    api_paths: &BTreeSet<String>,
+) -> Result<usize, String> {
+    let renames = classification["behavioral_renames"]
+        .as_array()
+        .filter(|renames| !renames.is_empty())
+        .ok_or("classification behavioral_renames must be a non-empty array")?;
+    let mut c_names = BTreeSet::new();
+    let mut rust_paths = BTreeSet::new();
+    for rename in renames {
+        let c_name = required_one_line(rename, "c_name")?;
+        let python_name = required_one_line(rename, "python_name")?;
+        let rust_path = required_one_line(rename, "rust_path")?;
+        required_one_line(rename, "semantic_op")?;
+        if !c_name.starts_with("mlx_") {
+            return Err(format!("behavioral rename has invalid C name {c_name}"));
+        }
+        if !python_name.starts_with("mlx.core.") {
+            return Err(format!(
+                "behavioral rename {c_name} has invalid python_name {python_name}"
+            ));
+        }
+        if !api_paths.contains(rust_path) {
+            return Err(format!(
+                "behavioral rename Rust path {rust_path} is absent from API baseline"
+            ));
+        }
+        if !c_names.insert(c_name) {
+            return Err(format!("duplicate behavioral rename C name {c_name}"));
+        }
+        if !rust_paths.insert(rust_path) {
+            return Err(format!("duplicate behavioral rename Rust path {rust_path}"));
+        }
+    }
+    Ok(renames.len())
 }
 
 fn validate_ownership(
@@ -621,6 +663,7 @@ mod tests {
         let mut fixture = fixture();
         fixture["classification"]["entries"][0]["rust_path"] = "mlx_rs::fft::fft".into();
         fixture["classification"]["entries"][0]["evidence"][0] = "api:path:mlx_rs::fft::fft".into();
+        fixture["classification"]["behavioral_renames"][0]["rust_path"] = "mlx_rs::fft::fft".into();
         fixture["api_baseline"]["entries"][0]["path"] = "mlx_rs::fft::fft".into();
         let evidence = ["api:path:mlx_rs::fft::fft", "conf:add.basic"]
             .into_iter()
@@ -655,6 +698,27 @@ mod tests {
     #[test]
     fn qualification_accepts_the_captured_fixture() {
         verify_fixture(&fixture()).unwrap();
+    }
+
+    #[test]
+    fn qualification_requires_behavioral_rename_metadata() {
+        let mut fixture = fixture();
+        fixture["classification"]
+            .as_object_mut()
+            .unwrap()
+            .remove("behavioral_renames");
+        assert!(verify_fixture(&fixture)
+            .unwrap_err()
+            .contains("behavioral_renames"));
+    }
+
+    #[test]
+    fn qualification_rejects_a_behavioral_rename_without_a_public_rust_path() {
+        let mut fixture = fixture();
+        fixture["classification"]["behavioral_renames"][0]["rust_path"] = "demo::missing".into();
+        assert!(verify_fixture(&fixture)
+            .unwrap_err()
+            .contains("absent from API baseline"));
     }
 
     #[test]

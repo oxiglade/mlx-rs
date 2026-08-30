@@ -5,7 +5,7 @@ use crate::ops::logsumexp_axis;
 use crate::{
     array,
     error::{Exception, Result},
-    ops::{abs, exp, maximum, minimum, multiply, which},
+    ops::{abs, exp, maximum, minimum, multiply, select},
     transforms::compile::compile,
     Array,
 };
@@ -71,7 +71,7 @@ pub fn log_softmax(x: impl AsRef<Array>, axis: impl Into<Option<i32>>) -> Result
 /// This is:
 ///
 /// ```rust, ignore
-/// which(x.gt(0), x, alpha * (exp(x) - 1))
+/// select(x.gt(0), x, alpha * (exp(x) - 1))
 /// ```
 ///
 /// # Params
@@ -192,7 +192,7 @@ pub fn gelu_fast_approximate(x: impl AsRef<Array>) -> Result<Array> {
 /// This function splits the `axis` dimension of the input into two halves
 /// (`a` and `b`) and applies `a * sigmoid(b)`.
 pub fn glu(x: impl AsRef<Array>, axis: impl Into<Option<i32>>) -> Result<Array> {
-    let split = x.as_ref().split(2, axis)?;
+    let split = x.as_ref().split_equal(2, axis)?;
     let (a, b) = (&split[0], &split[1]);
     Ok(a * sigmoid(b)?)
 }
@@ -205,11 +205,11 @@ pub fn glu(x: impl AsRef<Array>, axis: impl Into<Option<i32>>) -> Result<Array> 
 /// This is:
 ///
 /// ```rust, ignore
-/// r#where(x.gt(threshold), 1, 0)
+/// select(x.gt(threshold), 1, 0)
 /// ```
 pub fn step(x: impl AsRef<Array>, threshold: impl Into<Option<f32>>) -> Result<Array> {
     let threshold = array!(threshold.into().unwrap_or(0.0));
-    crate::ops::r#where(&x.as_ref().gt(threshold)?, &array!(1), &array!(0))
+    crate::ops::select(&x.as_ref().gt(threshold)?, &array!(1), &array!(0))
 }
 
 /// Applies the Scaled Exponential Linear Unit.
@@ -773,7 +773,7 @@ generate_builder! {
     /// This is:
     ///
     /// ```rust, ignore
-    /// r#where(x.gt(threshold), 1, 0)
+    /// select(x.gt(threshold), 1, 0)
     /// ```
     #[derive(Debug, Clone, ModuleParameters, Buildable)]
     #[module(root = crate)]
@@ -842,7 +842,7 @@ fn compiled_leaky_relu(x: &Array, neg_slope: &Array) -> Result<Array> {
 #[inline]
 fn compiled_elu(x: &Array, alpha: &Array) -> Result<Array> {
     let f = |(x_, alpha_): (&Array, &Array)| {
-        which(&x_.gt(&array!(0.0))?, x_, alpha_ * (exp(x_)? - array!(1.0)))
+        select(&x_.gt(&array!(0.0))?, x_, alpha_ * (exp(x_)? - array!(1.0)))
     };
     let mut compiled = compile(f, true);
     compiled((x, alpha))

@@ -5,7 +5,7 @@ use crate::{
     error::Exception,
     module::{Module, Param},
     ops::{
-        arange, concatenate_axis, exp,
+        arange, concatenate, exp,
         indexing::{NewAxis, TryIndexOp},
         log,
     },
@@ -245,9 +245,9 @@ impl Module<&Array> for Sinpe {
         let siny = y.sin()?;
 
         if self.cosine_first {
-            y = concatenate_axis(&[cosy, siny], -1)?;
+            y = concatenate(&[cosy, siny], -1)?;
         } else {
-            y = concatenate_axis(&[siny, cosy], -1)?;
+            y = concatenate(&[siny, cosy], -1)?;
         }
 
         if self.scale != 1.0 {

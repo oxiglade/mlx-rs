@@ -120,7 +120,7 @@ pub(crate) fn quantized_scaled_dot_product_attention(
 
         if mask.dtype() == Dtype::Bool {
             let finfo_min = scores.dtype().finfo_min()?;
-            scores = mlx_rs::ops::r#where(mask, scores, Array::from_f64(finfo_min))?;
+            scores = mlx_rs::ops::select(mask, scores, Array::from_f64(finfo_min))?;
         } else {
             scores += mask;
         }
