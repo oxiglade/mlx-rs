@@ -199,7 +199,8 @@ The admitted dependency change is one immutable tuple to another:
 - **Old-version oracle:** arm64 Python `3.12.14`, `mlx==0.30.6`, `mlx-metal==0.30.6`, and
   `numpy==2.2.6`, pinned by hashes in `conformance/requirements.lock`.
 
-The bump must not begin until all eight admission items exist:
+The bump must not begin until all eight admission items exist. Public API admitted after the bump
+also follows the idiom-wave rules in [CHARTER.md](CHARTER.md):
 
 1. Exact target commit/version tuple and checked-in playbook.
 2. Enforced oracle boundary, digest integrity, and staged-case process.
@@ -210,6 +211,7 @@ The bump must not begin until all eight admission items exist:
 5. Strict tensor comparator and removal or reclassification of `lr=0` false claims.
 6. Minimal target ABI-delta ledger, Rust public-API baseline, and supported feature matrix.
    **Status: complete** — the classified target delta, stable syn-based Rust API baseline, supported build matrix, and qualified `verify-ledger` gate are present.
+   The baseline also gates the post-bump idiom wave defined by [CHARTER.md](CHARTER.md).
 7. Qualified stateful optimizer, compile, and transform packs.
 8. Deterministic replay against the exact target Python MLX version.
 
@@ -234,13 +236,14 @@ testing, expanded mlx-lm coverage, all doctests, all-target clippy cleanup, or A
 
 The eight admission items above are the bump gate. Work in the same wave can proceed independently
 except for the listed shared-file constraints; a non-admission item does not become a bump gate
-merely because it shares a wave with one.
+merely because it shares a wave with one. These waves establish bump evidence; the later idiom wave
+is governed by [CHARTER.md](CHARTER.md).
 
 | Wave | Work | Done criteria | Parallelism and serialization |
 |---:|---|---|---|
 | 0 | Freeze target and admission contract | Exact old and target SHAs, nested MLX versions, oracle environment, waiver policy, evidence classes, minimum gate, and this 13-step playbook are checked in. | Completes before target-ledger generation or target replay. |
 | 1 | Enforce the oracle boundary; remove the error-handler race and qualify FFI reporting on an exact SHA; begin canonical ABI fingerprinting; add one mlx-lm sentinel. | Protected oracle/schema/comparator/qualification code is separated from implementation adapters; staged cases work; mixed oracle/implementation changes and digest tampering fail; process-global error registration and a concurrent regression replace the race; clean and deliberate-leak calibration qualifies an environment-rich `verify-ffi` JSON report in CI or records the lower-trust fallback; old and target canonical fingerprints can be generated; one tiny offline prefill/decode/cache sentinel has independent expectations. Parser diagnostic correction and duplicate-run reduction are folded into this FFI work only where needed, and any such change requalifies the gate. | One integration owner edits `.github/workflows/validate.yml`. Do not assign concurrent edits to the conformance monolith or generator. The mlx-lm sentinel is independent and is not itself an admission item. |
-| 2 | Migrate to the strict tensor comparator; complete target-delta classifications and the Rust public-API baseline. | Comparisons qualify separate `rtol`/`atol`, dtype, shape, NaN, infinity, and boundary behavior; tensor `PartialEq` assertions are audited; optimizer/compile correctness no longer rests on `lr=0` or scalar summaries; canonical function and ABI-type fingerprints produce a zero-unclassified target delta with typed evidence; wrapped entries resolve to real Rust paths; public-API and supported-feature baselines exist; synthetic add/remove/signature/type/evidence mutations fail the ledger. | The comparator contract settles before Wave 3 packs. Serialize changes to `xtask/src/main.rs`; Wave 2 consumes Wave 1 fingerprints. |
+| 2 | Migrate to the strict tensor comparator; complete target-delta classifications and the Rust public-API baseline. | Comparisons qualify separate `rtol`/`atol`, dtype, shape, NaN, infinity, and boundary behavior; tensor `PartialEq` assertions are audited; optimizer/compile correctness no longer rests on `lr=0` or scalar summaries; canonical function and ABI-type fingerprints produce a zero-unclassified target delta with typed evidence; wrapped entries resolve to real Rust paths; public-API and supported-feature baselines exist; synthetic add/remove/signature/type/evidence mutations fail the ledger. The baseline is the gate for the [charter's idiom wave](CHARTER.md#charter-rules). | The comparator contract settles before Wave 3 packs. Serialize changes to `xtask/src/main.rs`; Wave 2 consumes Wave 1 fingerprints. |
 | 3 | Add stateful optimizer, compile-state, and transform packs. | Full parameter and optimizer-slot tensors match independent expectations for two or three nonzero updates; compile-state cases cover frozen, nested, changed/unchanged/pruned state, repeated and fallible calls, duplicate-retry prevention, and error atomicity; nonlinear multi-input/output grad, VJP, and JVP values are checked; the named no-op/stuck-counter/reordered-state/frozen-mutation/output-split/duplicate-retry fault matrix fails as expected. | Put packs in new focused test files. Do not have pack owners append concurrently to `mlx-tests/tests/conformance.rs`. |
 | 4 | Add deterministic target-version replay and aggregate bump admission. | The worker rejects any handshake other than Python MLX `0.32.2`; named corpus and state cases produce structured, reproducible old-versus-target verdicts with reset/isolation checks; legitimate semantic changes retain separate reviewed baselines; the aggregate verdict consumes the Wave 1-4 reports, verifies the recorded tuple and fingerprints, lists waivers, and fails on any unmet admission item. | Wait for the case schema and Wave 3 state recipes to stabilize. One owner integrates the aggregate command in `xtask/src/main.rs`. |
 | 5 | Add scheduled seeded differential breadth and deferred hygiene. | Scheduled cases record reproducible seeds, timeouts and crashes, minimize failures, and promote accepted cases into the committed corpus; genuine Rust doctests compile while formulas remain text; all-target clippy is clean or no-new-warning gated; optional ASan work proceeds only after a spike demonstrates findings distinct from the qualified leak/Guard Malloc gate. | Broad worker changes and wide documentation or lint churn come last. One owner coordinates any workflow changes. |
@@ -283,6 +286,26 @@ owner at a time.
 
 ## Repeatable `mlx-c` bump playbook
 
+### Charter deltas
+
+- Retain each `Compiled` value's originating compile-cache handle and use that exact handle for
+  erase; resolve the caller's current cache separately for each `clear_cache()` call
+  ([CHARTER.md](CHARTER.md#concrete-0322-rebind-decisions)).
+- Make `Compiled` structurally `!Send + !Sync` for this tuple
+  ([CHARTER.md](CHARTER.md#charter-rules)).
+- Preserve monotonic `fun_id` allocation, including fresh IDs for clones, and consume erase status
+  without panicking in `Drop` ([CHARTER.md](CHARTER.md#charter-rules)).
+- Delete the unconditional compile-with-state retry; one call performs one attempted state
+  transition, whether it succeeds or fails ([CHARTER.md](CHARTER.md#charter-rules)).
+- Exercise the nested cold-cache deadlock shape in a subprocess with a hard deadline and proof that
+  the cold trace ran; do not add a process-global lock without target evidence
+  ([CHARTER.md](CHARTER.md#charter-rules)).
+- At bump time, fail closed on compiled-state count, key-layout, and optional-presence mismatches;
+  do not truncate positional updates ([CHARTER.md](CHARTER.md#charter-rules)).
+- Expand stream admission to explicit identity/pass-through, nested stream and device restoration
+  after success and panic, cross-thread isolation, CPU and Metal per-thread defaults, moved and
+  cloned arrays, and stream create/free churn ([CHARTER.md](CHARTER.md#charter-rules)).
+
 1. **Resolve the immutable target tuple.** Start from the old and target commits recorded in the
    admission contract. Re-read the target mlx-c CMake pin and require MLX `v0.32.2`; record runtime
    `mlx_version`, Xcode, arm64 architecture, Rust toolchain, and supported feature set. Never target
@@ -318,13 +341,15 @@ owner at a time.
    Preserve reviewed old and target baselines where MLX legitimately changed semantics.
 10. **Run the high-risk packs.** Run dtype comparison/classification, shape and index properties,
     retained fuzz regressions, gradients, eager/compiled multi-step state, frozen and pruned state,
-    all optimizer state, and supported quantized/model smoke cases. Wave 3 delivers the required
-    optimizer, compile-state, and transform packs; any wider pack is required only when its ledger
-    surface is affected.
+    all optimizer state, expanded stream admission, and supported quantized/model smoke cases.
+    Wave 3 delivers the required optimizer, compile-state, and transform packs; any wider pack is
+    required only when its ledger surface is affected. Compiled-state and stream cases enforce the
+    bump-time subset of the [charter](CHARTER.md#charter-rules).
 11. **Run parity and public-surface gates.** Require zero unclassified target C/ABI delta and zero
     unexplained Rust public-API drift. Every newly exposed Rust API needs an ownership disposition
     and appropriate typed evidence. Full Python parity remains deferred, but any Python-qualified
-    surface changed by the bump must be classified.
+    surface changed by the bump must be classified. Post-bump admission must also satisfy the
+    [charter's idiom-wave rules](CHARTER.md#charter-rules).
 12. **Run the supported workspace matrix.** Run declared MSRV and stable configurations,
     debug/release where relevant, the single-thread legacy suite, explicit supported-thread tests,
     genuine doctests, and the one tiny deterministic local mlx-lm decode. Do not use Hub, network,
@@ -336,6 +361,7 @@ owner at a time.
 
 A dependency-only bump is complete when supported behavior has no unclassified regression and
 every new upstream entity is classified. Full catch-up is complete only when the designated
-deferred semantic set reaches zero. Each new Rust API lands vertically with its parity mapping,
-independently sourced cases, ownership classification, required golden or differential result,
-applicable property or gradient evidence, and public documentation.
+deferred semantic set reaches zero. Each new Rust API lands vertically under the
+[charter](CHARTER.md), with its parity mapping, independently sourced cases, ownership
+classification, required golden or differential result, applicable property or gradient evidence,
+and public documentation.
