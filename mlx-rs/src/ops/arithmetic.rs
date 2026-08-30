@@ -3010,8 +3010,8 @@ mod tests {
     #[test]
     fn test_unary_neg() {
         let x = array!(1.0);
-        assert_eq!(negative(&x).unwrap().item::<f32>(), -1.0);
-        assert_eq!((-x).item::<f32>(), -1.0);
+        assert_eq!(negative(&x).unwrap().item_exact::<f32>(), -1.0);
+        assert_eq!((-x).item_exact::<f32>(), -1.0);
 
         // works on empty array
         assert_array_eq(
@@ -3123,20 +3123,20 @@ mod tests {
     #[test]
     fn test_unary_floor_ceil() {
         let x = array![1.0];
-        assert_eq!(floor(&x).unwrap().item::<f32>(), 1.0);
-        assert_eq!(ceil(&x).unwrap().item::<f32>(), 1.0);
+        assert_eq!(floor(&x).unwrap().item_exact::<f32>(), 1.0);
+        assert_eq!(ceil(&x).unwrap().item_exact::<f32>(), 1.0);
 
         let x = array![1.5];
-        assert_eq!(floor(&x).unwrap().item::<f32>(), 1.0);
-        assert_eq!(ceil(&x).unwrap().item::<f32>(), 2.0);
+        assert_eq!(floor(&x).unwrap().item_exact::<f32>(), 1.0);
+        assert_eq!(ceil(&x).unwrap().item_exact::<f32>(), 2.0);
 
         let x = array![-1.5];
-        assert_eq!(floor(&x).unwrap().item::<f32>(), -2.0);
-        assert_eq!(ceil(&x).unwrap().item::<f32>(), -1.0);
+        assert_eq!(floor(&x).unwrap().item_exact::<f32>(), -2.0);
+        assert_eq!(ceil(&x).unwrap().item_exact::<f32>(), -1.0);
 
         let x = array![NEG_INF];
-        assert_eq!(floor(&x).unwrap().item::<f32>(), NEG_INF);
-        assert_eq!(ceil(&x).unwrap().item::<f32>(), NEG_INF);
+        assert_eq!(floor(&x).unwrap().item_exact::<f32>(), NEG_INF);
+        assert_eq!(ceil(&x).unwrap().item_exact::<f32>(), NEG_INF);
 
         let x = array!([1.0, 1.0]).as_type::<complex64>().unwrap();
         assert!(floor(&x).is_err());
@@ -3167,11 +3167,11 @@ mod tests {
     #[test]
     fn test_unary_exp() {
         let x = array![0.0];
-        assert_eq!(exp(&x).unwrap().item::<f32>(), 1.0);
+        assert_eq!(exp(&x).unwrap().item_exact::<f32>(), 1.0);
 
         let x = array![2.0];
         assert_float_eq! {
-            exp(&x).unwrap().item::<f32>(),
+            exp(&x).unwrap().item_exact::<f32>(),
             2.0f32.exp(),
             abs <= 1e-5
         };
@@ -3184,13 +3184,13 @@ mod tests {
         );
 
         let x = array![NEG_INF];
-        assert_eq!(exp(&x).unwrap().item::<f32>(), 0.0);
+        assert_eq!(exp(&x).unwrap().item_exact::<f32>(), 0.0);
 
         // Integer input type
         let x = array![2];
         assert_eq!(x.dtype(), Dtype::Int32);
         assert_float_eq! {
-            exp(&x).unwrap().item::<f32>(),
+            exp(&x).unwrap().item_exact::<f32>(),
             2.0f32.exp(),
             abs <= 1e-5
         };
@@ -3199,30 +3199,26 @@ mod tests {
         let x = broadcast_to(&array!(1.0), &[2, 2, 2]).unwrap();
         let res = exp(&x).unwrap();
         let expected = Array::full::<f32>(&[2, 2, 2], array!(1.0f32.exp())).unwrap();
-        assert!(all_close(&res, &expected, None, None, None)
-            .unwrap()
-            .item::<bool>());
+        assert!(all_close(&res, &expected, None, None, None).unwrap());
 
         let data = Array::from_slice(&[0.0, 1.0, 2.0, 3.0], &[2, 2]);
         let x = split_equal(&data, 2, 1).unwrap();
         let expected = Array::from_slice(&[0.0f32.exp(), 2.0f32.exp()], &[2, 1]);
-        assert!(all_close(exp(&x[0]).unwrap(), &expected, None, None, None)
-            .unwrap()
-            .item::<bool>());
+        assert!(all_close(exp(&x[0]).unwrap(), &expected, None, None, None).unwrap());
     }
 
     #[test]
     fn test_unary_expm1() {
         let x = array![-1.0];
         assert_float_eq! {
-            expm1(&x).unwrap().item::<f32>(),
+            expm1(&x).unwrap().item_exact::<f32>(),
             (-1.0f32).exp_m1(),
             abs <= 1e-5
         };
 
         let x = array![1.0];
         assert_float_eq! {
-            expm1(&x).unwrap().item::<f32>(),
+            expm1(&x).unwrap().item_exact::<f32>(),
             1.0f32.exp_m1(),
             abs <= 1e-5
         };
@@ -3231,7 +3227,7 @@ mod tests {
         let x = array![1];
         assert_eq!(expm1(&x).unwrap().dtype(), Dtype::Float32);
         assert_float_eq! {
-            expm1(&x).unwrap().item::<f32>(),
+            expm1(&x).unwrap().item_exact::<f32>(),
             1.0f32.exp_m1(),
             abs <= 1e-5
         };
@@ -3240,11 +3236,11 @@ mod tests {
     #[test]
     fn test_unary_sin() {
         let x = array![0.0];
-        assert_eq!(sin(&x).unwrap().item::<f32>(), 0.0);
+        assert_eq!(sin(&x).unwrap().item_exact::<f32>(), 0.0);
 
         let x = array![std::f32::consts::PI / 2.0];
         assert_float_eq! {
-            sin(&x).unwrap().item::<f32>(),
+            sin(&x).unwrap().item_exact::<f32>(),
             (std::f32::consts::PI / 2.0f32).sin(),
             abs <= 1e-5
         };
@@ -3260,7 +3256,7 @@ mod tests {
         let x = array![0];
         assert_eq!(x.dtype(), Dtype::Int32);
         assert_float_eq! {
-            sin(&x).unwrap().item::<f32>(),
+            sin(&x).unwrap().item_exact::<f32>(),
             0.0f32.sin(),
             abs <= 1e-5
         };
@@ -3269,30 +3265,26 @@ mod tests {
         let x = broadcast_to(&array!(1.0), &[2, 2, 2]).unwrap();
         let res = sin(&x).unwrap();
         let expected = Array::full::<f32>(&[2, 2, 2], array!(1.0f32.sin())).unwrap();
-        assert!(all_close(&res, &expected, None, None, None)
-            .unwrap()
-            .item::<bool>());
+        assert!(all_close(&res, &expected, None, None, None).unwrap());
 
         let data = Array::from_slice(&[0.0, 1.0, 2.0, 3.0], &[2, 2]);
         let x = split_equal(&data, 2, 1).unwrap();
         let expected = Array::from_slice(&[0.0f32.sin(), 2.0f32.sin()], &[2, 1]);
-        assert!(all_close(sin(&x[0]).unwrap(), &expected, None, None, None)
-            .unwrap()
-            .item::<bool>());
+        assert!(all_close(sin(&x[0]).unwrap(), &expected, None, None, None).unwrap());
     }
 
     #[test]
     fn test_unary_cos() {
         let x = array![0.0];
         assert_float_eq! {
-            cos(&x).unwrap().item::<f32>(),
+            cos(&x).unwrap().item_exact::<f32>(),
             0.0f32.cos(),
             abs <= 1e-5
         };
 
         let x = array![std::f32::consts::PI / 2.0];
         assert_float_eq! {
-            cos(&x).unwrap().item::<f32>(),
+            cos(&x).unwrap().item_exact::<f32>(),
             (std::f32::consts::PI / 2.0f32).cos(),
             abs <= 1e-5
         };
@@ -3308,7 +3300,7 @@ mod tests {
         let x = array![0];
         assert_eq!(x.dtype(), Dtype::Int32);
         assert_float_eq! {
-            cos(&x).unwrap().item::<f32>(),
+            cos(&x).unwrap().item_exact::<f32>(),
             0.0f32.cos(),
             abs <= 1e-5
         };
@@ -3317,25 +3309,21 @@ mod tests {
         let x = broadcast_to(&array!(1.0), &[2, 2, 2]).unwrap();
         let res = cos(&x).unwrap();
         let expected = Array::full::<f32>(&[2, 2, 2], array!(1.0f32.cos())).unwrap();
-        assert!(all_close(&res, &expected, None, None, None)
-            .unwrap()
-            .item::<bool>());
+        assert!(all_close(&res, &expected, None, None, None).unwrap());
 
         let data = Array::from_slice(&[0.0, 1.0, 2.0, 3.0], &[2, 2]);
         let x = split_equal(&data, 2, 1).unwrap();
         let expected = Array::from_slice(&[0.0f32.cos(), 2.0f32.cos()], &[2, 1]);
-        assert!(all_close(cos(&x[0]).unwrap(), &expected, None, None, None)
-            .unwrap()
-            .item::<bool>());
+        assert!(all_close(cos(&x[0]).unwrap(), &expected, None, None, None).unwrap());
     }
 
     #[test]
     fn test_unary_degrees() {
         let x = array![0.0];
-        assert_eq!(degrees(&x).unwrap().item::<f32>(), 0.0);
+        assert_eq!(degrees(&x).unwrap().item_exact::<f32>(), 0.0);
 
         let x = array![std::f32::consts::PI / 2.0];
-        assert_eq!(degrees(&x).unwrap().item::<f32>(), 90.0);
+        assert_eq!(degrees(&x).unwrap().item_exact::<f32>(), 90.0);
 
         assert_array_eq(
             degrees(array!()).unwrap(),
@@ -3347,34 +3335,28 @@ mod tests {
         // Integer input type
         let x = array![0];
         assert_eq!(x.dtype(), Dtype::Int32);
-        assert_eq!(degrees(&x).unwrap().item::<f32>(), 0.0);
+        assert_eq!(degrees(&x).unwrap().item_exact::<f32>(), 0.0);
 
         // Input is irregularly strided
         let x = broadcast_to(&array!(std::f32::consts::PI / 2.0), &[2, 2, 2]).unwrap();
         let res = degrees(&x).unwrap();
         let expected = Array::full::<f32>(&[2, 2, 2], array!(90.0)).unwrap();
-        assert!(all_close(&res, &expected, None, None, None)
-            .unwrap()
-            .item::<bool>());
+        assert!(all_close(&res, &expected, None, None, None).unwrap());
 
         let angles = Array::from_slice(&[0.0, PI / 2.0, PI, 1.5 * PI], &[2, 2]);
         let x = split_equal(&angles, 2, 1).unwrap();
         let expected = Array::from_slice(&[0.0, 180.0], &[2, 1]);
-        assert!(
-            all_close(degrees(&x[0]).unwrap(), &expected, None, None, None)
-                .unwrap()
-                .item::<bool>()
-        );
+        assert!(all_close(degrees(&x[0]).unwrap(), &expected, None, None, None).unwrap());
     }
 
     #[test]
     fn test_unary_radians() {
         let x = array![0.0];
-        assert_eq!(radians(&x).unwrap().item::<f32>(), 0.0);
+        assert_eq!(radians(&x).unwrap().item_exact::<f32>(), 0.0);
 
         let x = array![90.0];
         assert_eq!(
-            radians(&x).unwrap().item::<f32>(),
+            radians(&x).unwrap().item_exact::<f32>(),
             std::f32::consts::PI / 2.0
         );
 
@@ -3389,7 +3371,7 @@ mod tests {
         let x = array![90];
         assert_eq!(x.dtype(), Dtype::Int32);
         assert_eq!(
-            radians(&x).unwrap().item::<f32>(),
+            radians(&x).unwrap().item_exact::<f32>(),
             std::f32::consts::PI / 2.0
         );
 
@@ -3397,85 +3379,75 @@ mod tests {
         let x = broadcast_to(&array!(90.0), &[2, 2, 2]).unwrap();
         let res = radians(&x).unwrap();
         let expected = Array::full::<f32>(&[2, 2, 2], array!(std::f32::consts::PI / 2.0)).unwrap();
-        assert!(all_close(&res, &expected, None, None, None)
-            .unwrap()
-            .item::<bool>());
+        assert!(all_close(&res, &expected, None, None, None).unwrap());
 
         let angles = Array::from_slice(&[0.0, 90.0, 180.0, 270.0], &[2, 2]);
         let x = split_equal(&angles, 2, 1).unwrap();
         let expected = Array::from_slice(&[0.0, PI], &[2, 1]);
-        assert!(
-            all_close(radians(&x[0]).unwrap(), &expected, None, None, None)
-                .unwrap()
-                .item::<bool>()
-        );
+        assert!(all_close(radians(&x[0]).unwrap(), &expected, None, None, None).unwrap());
     }
 
     #[test]
     fn test_unary_log() {
         let x = array![0.0];
-        assert_eq!(log(&x).unwrap().item::<f32>(), NEG_INF);
+        assert_eq!(log(&x).unwrap().item_exact::<f32>(), NEG_INF);
 
         let x = array![1.0];
-        assert_eq!(log(&x).unwrap().item::<f32>(), 0.0);
+        assert_eq!(log(&x).unwrap().item_exact::<f32>(), 0.0);
 
         // Integer input type
         let x = array![1];
         assert_eq!(log(&x).unwrap().dtype(), Dtype::Float32);
-        assert_eq!(log(&x).unwrap().item::<f32>(), 0.0);
+        assert_eq!(log(&x).unwrap().item_exact::<f32>(), 0.0);
 
         // Input is irregularly strided
         let x = broadcast_to(&array!(1.0), &[2, 2, 2]).unwrap();
         let res = log(&x).unwrap();
         let expected = Array::full::<f32>(&[2, 2, 2], array!(0.0)).unwrap();
-        assert!(all_close(&res, &expected, None, None, None)
-            .unwrap()
-            .item::<bool>());
+        assert!(all_close(&res, &expected, None, None, None).unwrap());
 
         let data = Array::from_slice(&[1.0, 2.0, 3.0, 4.0], &[2, 2]);
         let x = split_equal(&data, 2, 1).unwrap();
         let expected = Array::from_slice(&[1.0f32.ln(), 3.0f32.ln()], &[2, 1]);
-        assert!(all_close(log(&x[0]).unwrap(), &expected, None, None, None)
-            .unwrap()
-            .item::<bool>());
+        assert!(all_close(log(&x[0]).unwrap(), &expected, None, None, None).unwrap());
     }
 
     #[test]
     fn test_unary_log2() {
         let x = array![0.0];
-        assert_eq!(log2(&x).unwrap().item::<f32>(), NEG_INF);
+        assert_eq!(log2(&x).unwrap().item_exact::<f32>(), NEG_INF);
 
         let x = array![1.0];
-        assert_eq!(log2(&x).unwrap().item::<f32>(), 0.0);
+        assert_eq!(log2(&x).unwrap().item_exact::<f32>(), 0.0);
 
         let x = array![1024.0];
-        assert_eq!(log2(&x).unwrap().item::<f32>(), 10.0);
+        assert_eq!(log2(&x).unwrap().item_exact::<f32>(), 10.0);
     }
 
     #[test]
     fn test_unary_log10() {
         let x = array![0.0];
-        assert_eq!(log10(&x).unwrap().item::<f32>(), NEG_INF);
+        assert_eq!(log10(&x).unwrap().item_exact::<f32>(), NEG_INF);
 
         let x = array![1.0];
-        assert_eq!(log10(&x).unwrap().item::<f32>(), 0.0);
+        assert_eq!(log10(&x).unwrap().item_exact::<f32>(), 0.0);
 
         let x = array![1000.0];
-        assert_eq!(log10(&x).unwrap().item::<f32>(), 3.0);
+        assert_eq!(log10(&x).unwrap().item_exact::<f32>(), 3.0);
     }
 
     #[test]
     fn test_unary_log1p() {
         let x = array![-1.0];
         assert_float_eq! {
-            log1p(&x).unwrap().item::<f32>(),
+            log1p(&x).unwrap().item_exact::<f32>(),
             (-1.0f32).ln_1p(),
             abs <= 1e-5
         };
 
         let x = array![1.0];
         assert_float_eq! {
-            log1p(&x).unwrap().item::<f32>(),
+            log1p(&x).unwrap().item_exact::<f32>(),
             1.0f32.ln_1p(),
             abs <= 1e-5
         };
@@ -3484,7 +3456,7 @@ mod tests {
         let x = array![1];
         assert_eq!(log1p(&x).unwrap().dtype(), Dtype::Float32);
         assert_float_eq! {
-            log1p(&x).unwrap().item::<f32>(),
+            log1p(&x).unwrap().item_exact::<f32>(),
             1.0f32.ln_1p(),
             abs <= 1e-5
         };
@@ -3493,25 +3465,19 @@ mod tests {
         let x = broadcast_to(&array!(1.0), &[2, 2, 2]).unwrap();
         let res = log1p(&x).unwrap();
         let expected = Array::full::<f32>(&[2, 2, 2], array!(1.0f32.ln_1p())).unwrap();
-        assert!(all_close(&res, &expected, None, None, None)
-            .unwrap()
-            .item::<bool>());
+        assert!(all_close(&res, &expected, None, None, None).unwrap());
 
         let data = Array::from_slice(&[1.0, 2.0, 3.0, 4.0], &[2, 2]);
         let x = split_equal(&data, 2, 1).unwrap();
         let expected = Array::from_slice(&[1.0f32.ln_1p(), 3.0f32.ln_1p()], &[2, 1]);
-        assert!(
-            all_close(log1p(&x[0]).unwrap(), &expected, None, None, None)
-                .unwrap()
-                .item::<bool>()
-        );
+        assert!(all_close(log1p(&x[0]).unwrap(), &expected, None, None, None).unwrap());
     }
 
     #[test]
     fn test_unary_sigmoid() {
         let x = array![0.0];
         assert_float_eq! {
-            sigmoid(&x).unwrap().item::<f32>(),
+            sigmoid(&x).unwrap().item_exact::<f32>(),
             0.5,
             abs <= 1e-5
         };
@@ -3520,26 +3486,26 @@ mod tests {
         let x = array![0];
         assert_eq!(sigmoid(&x).unwrap().dtype(), Dtype::Float32);
         assert_float_eq! {
-            sigmoid(&x).unwrap().item::<f32>(),
+            sigmoid(&x).unwrap().item_exact::<f32>(),
             0.5,
             abs <= 1e-5
         };
 
         let inf = f32::INFINITY;
         let x = array![inf];
-        assert_eq!(sigmoid(&x).unwrap().item::<f32>(), 1.0);
+        assert_eq!(sigmoid(&x).unwrap().item_exact::<f32>(), 1.0);
 
         let x = array![-inf];
-        assert_eq!(sigmoid(&x).unwrap().item::<f32>(), 0.0);
+        assert_eq!(sigmoid(&x).unwrap().item_exact::<f32>(), 0.0);
     }
 
     #[test]
     fn test_unary_square() {
         let x = array![3.0];
-        assert_eq!(square(&x).unwrap().item::<f32>(), 9.0);
+        assert_eq!(square(&x).unwrap().item_exact::<f32>(), 9.0);
 
         let x = array![2];
-        assert_eq!(square(&x).unwrap().item::<i32>(), 4);
+        assert_eq!(square(&x).unwrap().item_exact::<i32>(), 4);
 
         let x = Array::full::<f32>(&[3, 3], array!(2.0)).unwrap();
         assert!(all_close(
@@ -3549,15 +3515,14 @@ mod tests {
             None,
             None
         )
-        .unwrap()
-        .item::<bool>());
+        .unwrap());
     }
 
     #[test]
     fn test_unary_sqrt_rsqrt() {
         let x = array![4.0];
-        assert_eq!(sqrt(&x).unwrap().item::<f32>(), 2.0);
-        assert_eq!(rsqrt(&x).unwrap().item::<f32>(), 0.5);
+        assert_eq!(sqrt(&x).unwrap().item_exact::<f32>(), 2.0);
+        assert_eq!(rsqrt(&x).unwrap().item_exact::<f32>(), 0.5);
 
         let x = Array::full::<f32>(&[3, 3], array!(9.0)).unwrap();
         assert!(all_close(
@@ -3567,23 +3532,22 @@ mod tests {
             None,
             None
         )
-        .unwrap()
-        .item::<bool>());
+        .unwrap());
 
         let x = array![4i32];
-        assert_eq!(sqrt(&x).unwrap().item::<f32>(), 2.0);
-        assert_eq!(rsqrt(&x).unwrap().item::<f32>(), 0.5);
+        assert_eq!(sqrt(&x).unwrap().item_exact::<f32>(), 2.0);
+        assert_eq!(rsqrt(&x).unwrap().item_exact::<f32>(), 0.5);
     }
 
     #[test]
     fn test_unary_reciprocal() {
         let x = array![8.0];
-        assert_eq!(reciprocal(&x).unwrap().item::<f32>(), 0.125);
+        assert_eq!(reciprocal(&x).unwrap().item_exact::<f32>(), 0.125);
 
         let x = array![2];
         let out = reciprocal(&x).unwrap();
         assert_eq!(out.dtype(), Dtype::Float32);
-        assert_eq!(out.item::<f32>(), 0.5);
+        assert_eq!(out.item_exact::<f32>(), 0.5);
 
         let x = Array::full::<f32>(&[3, 3], array!(2.0)).unwrap();
         assert!(all_close(
@@ -3593,8 +3557,7 @@ mod tests {
             None,
             None
         )
-        .unwrap()
-        .item::<bool>());
+        .unwrap());
     }
 
     #[test]
@@ -3619,20 +3582,20 @@ mod tests {
         let x = array![1.0];
         let y = array![1.0];
         let z = add(&x, &y).unwrap();
-        assert_eq!(z.item::<f32>(), 2.0);
+        assert_eq!(z.item_exact::<f32>(), 2.0);
 
         let z = &x + y;
-        assert_eq!(z.item::<f32>(), 2.0);
+        assert_eq!(z.item_exact::<f32>(), 2.0);
 
         let z = add(z, &x).unwrap();
-        assert_eq!(z.item::<f32>(), 3.0);
+        assert_eq!(z.item_exact::<f32>(), 3.0);
 
         // Chain a few adds:
         let mut out = x.deep_clone();
         for _ in 0..10 {
             out = add(&out, &x).unwrap();
         }
-        assert_eq!(out.item::<f32>(), 11.0);
+        assert_eq!(out.item_exact::<f32>(), 11.0);
 
         // Works for different shapes
         let x = array!([1.0, 2.0, 3.0]);
@@ -3671,7 +3634,7 @@ mod tests {
 
         let y = array!([1, 2, 3]) + 2.0;
         assert_eq!(y.dtype(), Dtype::Float32);
-        // assert!(array_equal(&y, &array![3.0, 4.0, 5.0]).item::<bool>());
+        // assert!(array_equal(&y, &array![3.0, 4.0, 5.0]).item_exact::<bool>());
         assert_array_eq(
             y,
             array!([3.0, 4.0, 5.0]),
@@ -3744,43 +3707,43 @@ mod tests {
     fn test_binary_div() {
         let x = array![1.0];
         let y = array![1.0];
-        assert_eq!(divide(&x, &y).unwrap().item::<f32>(), 1.0);
+        assert_eq!(divide(&x, &y).unwrap().item_exact::<f32>(), 1.0);
 
         let x = array![1.0];
         let y = array![0.5];
-        assert_eq!(divide(&x, &y).unwrap().item::<f32>(), 2.0);
+        assert_eq!(divide(&x, &y).unwrap().item_exact::<f32>(), 2.0);
 
         let x = array![1.0];
         let y = array![4.0];
-        assert_eq!(divide(&x, &y).unwrap().item::<f32>(), 0.25);
+        assert_eq!(divide(&x, &y).unwrap().item_exact::<f32>(), 0.25);
 
         let x = array![true];
         let y = array![true];
-        assert_eq!(divide(&x, &y).unwrap().item::<f32>(), 1.0);
+        assert_eq!(divide(&x, &y).unwrap().item_exact::<f32>(), 1.0);
 
         let x = array![false];
         let y = array![true];
-        assert_eq!(divide(&x, &y).unwrap().item::<f32>(), 0.0);
+        assert_eq!(divide(&x, &y).unwrap().item_exact::<f32>(), 0.0);
 
         let x = array![true];
         let y = array![false];
-        assert!(divide(&x, &y).unwrap().item::<f32>().is_infinite());
+        assert!(divide(&x, &y).unwrap().item_exact::<f32>().is_infinite());
 
         let x = array![false];
         let y = array![false];
-        assert!(divide(&x, &y).unwrap().item::<f32>().is_nan());
+        assert!(divide(&x, &y).unwrap().item_exact::<f32>().is_nan());
     }
 
     #[test]
     fn test_binary_maximum_minimum() {
         let x = array![1.0];
         let y = array![0.0];
-        assert_eq!(maximum(&x, &y).unwrap().item::<f32>(), 1.0);
-        assert_eq!(minimum(&x, &y).unwrap().item::<f32>(), 0.0);
+        assert_eq!(maximum(&x, &y).unwrap().item_exact::<f32>(), 1.0);
+        assert_eq!(minimum(&x, &y).unwrap().item_exact::<f32>(), 0.0);
 
         let y = array![2.0];
-        assert_eq!(maximum(&x, &y).unwrap().item::<f32>(), 2.0);
-        assert_eq!(minimum(&x, &y).unwrap().item::<f32>(), 1.0);
+        assert_eq!(maximum(&x, &y).unwrap().item_exact::<f32>(), 2.0);
+        assert_eq!(minimum(&x, &y).unwrap().item_exact::<f32>(), 1.0);
     }
 
     #[test]
@@ -3788,34 +3751,46 @@ mod tests {
         let x = array![0.0];
         let y = array![0.0];
         assert_float_eq! {
-            logaddexp(&x, &y).unwrap().item::<f32>(),
+            logaddexp(&x, &y).unwrap().item_exact::<f32>(),
             2.0f32.ln(),
             abs <= 1e-5
         };
 
         let x = array!([0u32]);
         let y = array!([10000u32]);
-        assert_eq!(logaddexp(&x, &y).unwrap().item::<f32>(), 10000.0);
+        assert_eq!(logaddexp(&x, &y).unwrap().item_exact::<f32>(), 10000.0);
 
         let x = array![f32::INFINITY];
         let y = array![3.0];
-        assert_eq!(logaddexp(&x, &y).unwrap().item::<f32>(), f32::INFINITY);
+        assert_eq!(
+            logaddexp(&x, &y).unwrap().item_exact::<f32>(),
+            f32::INFINITY
+        );
 
         let x = array![f32::NEG_INFINITY];
         let y = array![3.0];
-        assert_eq!(logaddexp(&x, &y).unwrap().item::<f32>(), 3.0);
+        assert_eq!(logaddexp(&x, &y).unwrap().item_exact::<f32>(), 3.0);
 
         let x = array![f32::NEG_INFINITY];
         let y = array![f32::NEG_INFINITY];
-        assert_eq!(logaddexp(&x, &y).unwrap().item::<f32>(), f32::NEG_INFINITY);
+        assert_eq!(
+            logaddexp(&x, &y).unwrap().item_exact::<f32>(),
+            f32::NEG_INFINITY
+        );
 
         let x = array![f32::INFINITY];
         let y = array![f32::INFINITY];
-        assert_eq!(logaddexp(&x, &y).unwrap().item::<f32>(), f32::INFINITY);
+        assert_eq!(
+            logaddexp(&x, &y).unwrap().item_exact::<f32>(),
+            f32::INFINITY
+        );
 
         let x = array![f32::NEG_INFINITY];
         let y = array![f32::INFINITY];
-        assert_eq!(logaddexp(&x, &y).unwrap().item::<f32>(), f32::INFINITY);
+        assert_eq!(
+            logaddexp(&x, &y).unwrap().item_exact::<f32>(),
+            f32::INFINITY
+        );
     }
 
     #[test]
@@ -3960,7 +3935,7 @@ mod tests {
         let x = array!([1.0, 2.0, 3.0]);
         let y = array!([0.0, 1.0, 0.0]);
         let z = inner(&x, &y).unwrap();
-        assert_eq!(z.item::<f32>(), 2.0);
+        assert_eq!(z.item_exact::<f32>(), 2.0);
 
         let x = reshape(arange::<_, f32>(None, 24.0, None).unwrap(), &[2, 3, 4]).unwrap();
         let y = arange::<_, f32>(None, 4.0, None).unwrap();
@@ -4040,15 +4015,15 @@ mod tests {
         let y = array![2.0];
         let (quo, rem) = divmod(&x, &y).unwrap();
         eval([&quo, &rem]).unwrap();
-        assert_eq!(quo.item::<f32>(), 0.0);
-        assert_eq!(rem.item::<f32>(), 1.0);
+        assert_eq!(quo.item_exact::<f32>(), 0.0);
+        assert_eq!(rem.item_exact::<f32>(), 1.0);
 
         // Check nested in the graph
         let x = array![1.0];
         let y = array![2.0];
         let (quo, rem) = divmod(&x, &y).unwrap();
         let z = quo + rem;
-        assert_eq!(z.item::<f32>(), 1.0);
+        assert_eq!(z.item_exact::<f32>(), 1.0);
 
         // Check that we can still eval when one output goes out of scope
         let mut out_holder = {
@@ -4056,7 +4031,7 @@ mod tests {
             vec![quo]
         };
         eval(out_holder.iter()).unwrap();
-        assert_eq!(out_holder[0].item::<f32>(), 0.0);
+        assert_eq!(out_holder[0].item_exact::<f32>(), 0.0);
 
         // Check that we can still eval when the other output goes out of scope
         out_holder.clear();
@@ -4065,7 +4040,7 @@ mod tests {
             vec![rem]
         };
         eval(out_holder.iter()).unwrap();
-        assert_eq!(out_holder[0].item::<f32>(), 1.0);
+        assert_eq!(out_holder[0].item_exact::<f32>(), 1.0);
     }
 
     // The tests below are adapted from the python unit test `test_blas.py/test_segmented_mm`
@@ -4079,7 +4054,10 @@ mod tests {
             let segments_data: Vec<Vec<u32>> = (0..segments.shape()[0])
                 .map(|i| {
                     let row = segments.index(i);
-                    vec![row.index(0).item::<u32>(), row.index(1).item::<u32>()]
+                    vec![
+                        row.index(0).item_exact::<u32>(),
+                        row.index(1).item_exact::<u32>(),
+                    ]
                 })
                 .collect();
 
@@ -4127,7 +4105,7 @@ mod tests {
                 let c1 = segmented_mm_ref(&a, &b, &segments);
                 let c2 = segmented_mm(&a, &b, &segments).unwrap();
                 assert!(
-                    c1.all_close(&c2, 1e-4, 1e-4, None).unwrap().item::<bool>(),
+                    c1.all_close(&c2, 1e-4, 1e-4, None).unwrap(),
                     "segmented_mm failed for shape ({}, {}, {}) with segments {:?}",
                     m,
                     n,
@@ -4142,7 +4120,7 @@ mod tests {
                 let c1 = segmented_mm_ref(&a_t, &b, &segments);
                 let c2 = segmented_mm(&a_t, &b, &segments).unwrap();
                 assert!(
-                    c1.all_close(&c2, 1e-4, 1e-4, None).unwrap().item::<bool>(),
+                    c1.all_close(&c2, 1e-4, 1e-4, None).unwrap(),
                     "segmented_mm with transposed a failed for shape ({}, {}, {})",
                     m,
                     n,
@@ -4156,7 +4134,7 @@ mod tests {
                 let c1 = segmented_mm_ref(&a, &b_t, &segments);
                 let c2 = segmented_mm(&a, &b_t, &segments).unwrap();
                 assert!(
-                    c1.all_close(&c2, 1e-4, 1e-4, None).unwrap().item::<bool>(),
+                    c1.all_close(&c2, 1e-4, 1e-4, None).unwrap(),
                     "segmented_mm with transposed b failed for shape ({}, {}, {})",
                     m,
                     n,
@@ -4171,7 +4149,7 @@ mod tests {
                 let c1 = segmented_mm_ref(&a_t, &b_t, &segments);
                 let c2 = segmented_mm(&a_t, &b_t, &segments).unwrap();
                 assert!(
-                    c1.all_close(&c2, 1e-4, 1e-4, None).unwrap().item::<bool>(),
+                    c1.all_close(&c2, 1e-4, 1e-4, None).unwrap(),
                     "segmented_mm with both transposed failed for shape ({}, {}, {})",
                     m,
                     n,
@@ -4235,10 +4213,7 @@ mod tests {
         let out_ref = gather_mm_ref(&a, &b, Some(&lhs_indices), Some(&rhs_indices));
         let out_test = gather_mm(&a, &b, &lhs_indices, &rhs_indices, None).unwrap();
         assert!(
-            out_ref
-                .all_close(&out_test, 1e-5, 1e-5, None)
-                .unwrap()
-                .item::<bool>(),
+            out_ref.all_close(&out_test, 1e-5, 1e-5, None).unwrap(),
             "gather_mm test case 1 failed"
         );
 
@@ -4246,10 +4221,7 @@ mod tests {
         let out_ref = gather_mm_ref(&a, &b, None, Some(&rhs_indices));
         let out_test = gather_mm(&a, &b, None::<&Array>, &rhs_indices, None).unwrap();
         assert!(
-            out_ref
-                .all_close(&out_test, 1e-5, 1e-5, None)
-                .unwrap()
-                .item::<bool>(),
+            out_ref.all_close(&out_test, 1e-5, 1e-5, None).unwrap(),
             "gather_mm test case 2 failed"
         );
 
@@ -4260,10 +4232,7 @@ mod tests {
         let out_ref = gather_mm_ref(&a, &b, Some(&lhs_indices), Some(&rhs_indices));
         let out_test = gather_mm(&a, &b, &lhs_indices, &rhs_indices, None).unwrap();
         assert!(
-            out_ref
-                .all_close(&out_test, 1e-5, 1e-5, None)
-                .unwrap()
-                .item::<bool>(),
+            out_ref.all_close(&out_test, 1e-5, 1e-5, None).unwrap(),
             "gather_mm test case 3 failed"
         );
     }
@@ -4290,7 +4259,7 @@ mod tests {
         let c1 = gather_mm_ref(&a, &b, &rhs);
         let c2 = gather_mm(&a, &b, None::<&Array>, &rhs, true).unwrap();
         assert!(
-            c1.all_close(&c2, 1e-4, 1e-4, None).unwrap().item::<bool>(),
+            c1.all_close(&c2, 1e-4, 1e-4, None).unwrap(),
             "gather_mm_sorted failed"
         );
     }

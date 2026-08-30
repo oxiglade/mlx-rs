@@ -121,10 +121,7 @@ mod tests {
         let shifted = fftshift(a, axes).unwrap();
         let unshifted = ifftshift(&shifted, axes).unwrap();
         assert!(
-            unshifted
-                .all_close(a, 1e-5, 1e-6, None)
-                .unwrap()
-                .item::<bool>(),
+            unshifted.all_close(a, 1e-5, 1e-6, None).unwrap(),
             "ifftshift(fftshift(x)) should equal x"
         );
     }
@@ -173,10 +170,7 @@ mod tests {
         let shifted = ifftshift(&r, None).unwrap();
         let unshifted = fftshift(&shifted, None).unwrap();
         assert!(
-            unshifted
-                .all_close(&r, 1e-5, 1e-6, None)
-                .unwrap()
-                .item::<bool>(),
+            unshifted.all_close(&r, 1e-5, 1e-6, None).unwrap(),
             "fftshift(ifftshift(x)) should equal x"
         );
     }
@@ -191,10 +185,7 @@ mod tests {
             let shifted = ifftshift(&r, axes).unwrap();
             let unshifted = fftshift(&shifted, axes).unwrap();
             assert!(
-                unshifted
-                    .all_close(&r, 1e-5, 1e-6, None)
-                    .unwrap()
-                    .item::<bool>(),
+                unshifted.all_close(&r, 1e-5, 1e-6, None).unwrap(),
                 "fftshift(ifftshift(x)) should equal x for axes {:?}",
                 axes
             );
@@ -209,10 +200,7 @@ mod tests {
 
         let shifted = ifftshift(&r, &[-1]).unwrap();
         let unshifted = fftshift(&shifted, &[-1]).unwrap();
-        assert!(unshifted
-            .all_close(&r, 1e-5, 1e-6, None)
-            .unwrap()
-            .item::<bool>(),);
+        assert!(unshifted.all_close(&r, 1e-5, 1e-6, None).unwrap(),);
     }
 
     #[test]
@@ -223,17 +211,11 @@ mod tests {
 
         let shifted = ifftshift(&r, None).unwrap();
         let unshifted = fftshift(&shifted, None).unwrap();
-        assert!(unshifted
-            .all_close(&r, 1e-5, 1e-6, None)
-            .unwrap()
-            .item::<bool>(),);
+        assert!(unshifted.all_close(&r, 1e-5, 1e-6, None).unwrap(),);
 
         let shifted = ifftshift(&r, &[0]).unwrap();
         let unshifted = fftshift(&shifted, &[0]).unwrap();
-        assert!(unshifted
-            .all_close(&r, 1e-5, 1e-6, None)
-            .unwrap()
-            .item::<bool>(),);
+        assert!(unshifted.all_close(&r, 1e-5, 1e-6, None).unwrap(),);
     }
 
     #[test]
@@ -241,6 +223,6 @@ mod tests {
         // Test empty array (matches Python test)
         let x = Array::from_slice::<f32>(&[], &[0]);
         let shifted = fftshift(&x, None).unwrap();
-        assert!(shifted.array_eq(&x, None).unwrap().item::<bool>());
+        assert!(shifted.eq_exact(&x).unwrap());
     }
 }

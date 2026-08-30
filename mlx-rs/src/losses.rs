@@ -912,7 +912,11 @@ mod tests {
             .build()
             .unwrap();
         let loss = cross_entropy.apply(logits, probs).unwrap();
-        assert!(is_nan(&loss).unwrap().all(None).unwrap().item::<bool>());
+        assert!(is_nan(&loss)
+            .unwrap()
+            .all(None)
+            .unwrap()
+            .item_exact::<bool>());
 
         // With weights, no label smoothing
         let logits = array!([[2.0, -1.0], [-1.0, 2.0]]);
@@ -1593,7 +1597,7 @@ mod tests {
             .build()
             .unwrap();
         let loss = hinge_loss.apply(&inputs, &targets).unwrap();
-        assert_eq!(loss.item::<f32>(), 1.0);
+        assert_eq!(loss.item_exact::<f32>(), 1.0);
     }
 
     #[test]
@@ -1605,7 +1609,7 @@ mod tests {
             .build()
             .unwrap();
         let loss = huber_loss.apply(&inputs, &targets).unwrap();
-        assert_eq!(loss.item::<f32>(), 0.5);
+        assert_eq!(loss.item_exact::<f32>(), 0.5);
     }
 
     #[test]
@@ -1617,7 +1621,7 @@ mod tests {
             .build()
             .unwrap();
         let loss = log_cosh_loss.apply(&inputs, &targets).unwrap();
-        assert_float_eq!(loss.item::<f32>(), 0.433781, abs <= 1e-6);
+        assert_float_eq!(loss.item_exact::<f32>(), 0.433781, abs <= 1e-6);
     }
 
     #[test]

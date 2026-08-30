@@ -1135,12 +1135,12 @@ mod tests {
         let s = a.index(-1);
 
         assert_eq!(s.ndim(), 0);
-        assert_eq!(s.item::<i32>(), 7);
+        assert_eq!(s.item_exact::<i32>(), 7);
 
         let s = a.index(-8);
 
         assert_eq!(s.ndim(), 0);
-        assert_eq!(s.item::<i32>(), 0);
+        assert_eq!(s.item_exact::<i32>(), 0);
     }
 
     #[test]
@@ -1216,7 +1216,7 @@ mod tests {
 
         assert_eq!(s2.ndim(), 0);
         assert!(s2.shape().is_empty());
-        assert_eq!(s2.item::<i32>(), 64 + 2 * 8 + 3);
+        assert_eq!(s2.item_exact::<i32>(), 64 + 2 * 8 + 3);
     }
 
     #[test]
@@ -1247,7 +1247,7 @@ mod tests {
         let s = a.index((-1, -2));
 
         assert_eq!(s.ndim(), 0);
-        assert_eq!(s.item::<i32>(), 10);
+        assert_eq!(s.item_exact::<i32>(), 10);
     }
 
     #[test]
@@ -1383,7 +1383,7 @@ mod tests {
 
         let sum = result.sum(None).unwrap();
 
-        assert_eq!(sum.item::<i32>(), expected_sum);
+        assert_eq!(sum.item_exact::<i32>(), expected_sum);
     }
 
     #[test]

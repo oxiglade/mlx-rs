@@ -451,8 +451,7 @@ mod tests {
         let result = input.hadamard_transform(None).unwrap();
 
         let c = result.all_close(&expected, 1e-5, 1e-5, None).unwrap();
-        let c_data: &[bool] = c.as_slice();
-        assert_eq!(c_data, [true]);
+        assert!(c);
     }
 
     // This test is adapted from the python unit test `mlx/test/test_ops.py` `test_kron`

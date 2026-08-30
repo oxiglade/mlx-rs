@@ -208,14 +208,14 @@ fn main() -> Result<()> {
 
         if tokens.len() % cli.tokens_per_eval == 0 {
             eval(&tokens)?;
-            let slice: Vec<u32> = tokens.drain(..).map(|t| t.item::<u32>()).collect();
+            let slice: Vec<u32> = tokens.drain(..).map(|t| t.item_exact::<u32>()).collect();
             let s = tokenizer.decode(&slice, true)?;
             print!("{s}");
         }
     }
 
     eval(&tokens)?;
-    let slice: Vec<u32> = tokens.drain(..).map(|t| t.item::<u32>()).collect();
+    let slice: Vec<u32> = tokens.drain(..).map(|t| t.item_exact::<u32>()).collect();
     let s = tokenizer.decode(&slice, true)?;
     println!("{s}");
 

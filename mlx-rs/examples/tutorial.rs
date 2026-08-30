@@ -10,11 +10,11 @@ fn scalar_basics() {
     assert_eq!(dtype, Dtype::Float32);
 
     // get the value
-    let s = x.item::<f32>();
+    let s = x.item_exact::<f32>();
     assert_eq!(s, 1.0);
 
     // reading the value with a different type is a fatal error
-    // let i = x.item::<i32>();
+    // let i = x.item_exact::<i32>();
 
     // scalars have a size of 1
     let size = x.size();
@@ -66,7 +66,7 @@ fn array_basics() {
     // Some functions or methods on arrays implicitly evaluate them. For example
     // accessing a value in an array or printing the array implicitly evaluate it:
     z = Array::ones::<f32>(&[1]).unwrap();
-    z.item::<f32>(); // implicit evaluation
+    z.item_exact::<f32>(); // implicit evaluation
 
     z = Array::ones::<f32>(&[2, 2]).unwrap();
     println!("{z}"); // implicit evaluation
@@ -86,10 +86,10 @@ fn automatic_differentiation() {
     let x = Array::from(1.5);
 
     let dfdx = calculate_grad(f, &x).unwrap();
-    assert_eq!(dfdx.item::<f32>(), 2.0 * 1.5);
+    assert_eq!(dfdx.item_exact::<f32>(), 2.0 * 1.5);
 
     let dfdx2 = calculate_grad(|args| calculate_grad(f, args), &x).unwrap();
-    assert_eq!(dfdx2.item::<f32>(), 2.0);
+    assert_eq!(dfdx2.item_exact::<f32>(), 2.0);
 }
 
 fn main() {

@@ -242,7 +242,7 @@ fn materialize_last_logits(logits: &Array) -> Result<Array> {
 fn greedy_token(logits: &Array) -> Result<u32> {
     let token = sample(logits, 0.0)?;
     token.eval()?;
-    Ok(token.item::<u32>())
+    Ok(token.item_exact::<u32>())
 }
 
 fn check_cache(caches: &[Option<InspectableCache>], expected: &CacheExpectation) -> Result<()> {
@@ -341,7 +341,7 @@ fn run_fixture(fixture: &Path, expected: &Expectations) -> Result<Observed> {
     }
     offline.assert_unused()?;
     Ok(Observed {
-        prefill_logits: prefill.as_slice::<f32>().to_vec(),
+        prefill_logits: prefill.to_vec_exact::<f32>().unwrap(),
         prefill_shape: prefill.shape().to_vec(),
         prefill_dtype: prefill.dtype(),
         token_ids,

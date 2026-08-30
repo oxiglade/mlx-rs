@@ -37,7 +37,7 @@
 //!
 //! Operations in MLX are lazy. Use [`Array::eval`] to evaluate the the output
 //! of an operation. Operations are also automatically evaluated when inspecting
-//! an array with [`Array::item`], printing an array, or attempting to obtain
+//! an array with [`Array::item_exact`] or [`Array::item_cast`], printing an array, or attempting to obtain
 //! the underlying data with [`Array::as_slice`].
 //!
 //! ```rust
@@ -178,9 +178,9 @@
 //! [`Array::save_numpy`] or [`Array::save_safetensors`] (or any other MLX
 //! saving functions) will also evaluate the array.
 //!
-//! Calling [`Array::item`] on a scalar array will also evaluate it. In the
+//! Calling [`Array::item_exact`] or [`Array::item_cast`] on a scalar array will also evaluate it. In the
 //! example above, printing the loss (`println!("{:?}", loss)`) or pushing the
-//! loss scalar to a [`Vec`] (`losses.push(loss.item::<f32>())`) would cause a
+//! loss scalar to a [`Vec`] (`losses.push(loss.item_exact::<f32>())`) would cause a
 //! graph evaluation. If these lines are before evaluating the loss and module
 //! parameters, then this will be a partial evaluation, computing only the
 //! forward pass.
@@ -194,7 +194,7 @@
 //! fn fun(x: &Array) -> Array {
 //!     let (h, y) = first_layer(x);
 //!
-//!     if y.gt(array!(0.5)).unwrap().item() {
+//!     if y.gt(array!(0.5)).unwrap().item_exact() {
 //!         second_layer_a(h)
 //!     } else {
 //!         second_layer_b(h)

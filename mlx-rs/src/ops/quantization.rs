@@ -421,7 +421,7 @@ mod tests {
             assert_eq!(biases.shape(), [128, 4]);
 
             let x_hat = dequantize(&x_q, &scales, &biases, 128, *i).unwrap();
-            let max_diff = ((&x - &x_hat).abs().unwrap().max(None).unwrap()).item::<f32>();
+            let max_diff = ((&x - &x_hat).abs().unwrap().max(None).unwrap()).item_exact::<f32>();
             assert!(max_diff <= 127.0 / (1 << i) as f32);
         }
     }
@@ -449,7 +449,7 @@ mod tests {
         let y_hat = x.matmul(&w_hat).unwrap();
 
         assert_eq!(y_q.shape(), y_hat.shape());
-        let max_diff = ((&y_q - &y_hat).abs().unwrap().max(None).unwrap()).item::<f32>();
+        let max_diff = ((&y_q - &y_hat).abs().unwrap().max(None).unwrap()).item_exact::<f32>();
         assert!(max_diff < 1e-3, "max_diff: {}", max_diff);
     }
 
@@ -506,7 +506,7 @@ mod tests {
         )
         .unwrap();
         assert!(
-            c1.all_close(&c2, 1e-4, 1e-4, None).unwrap().item::<bool>(),
+            c1.all_close(&c2, 1e-4, 1e-4, None).unwrap(),
             "gather_qmm test case 1 failed"
         );
 
@@ -529,7 +529,7 @@ mod tests {
         )
         .unwrap();
         assert!(
-            c1.all_close(&c2, 1e-4, 1e-4, None).unwrap().item::<bool>(),
+            c1.all_close(&c2, 1e-4, 1e-4, None).unwrap(),
             "gather_qmm test case 2 failed"
         );
     }

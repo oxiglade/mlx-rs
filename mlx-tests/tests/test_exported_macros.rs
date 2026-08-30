@@ -143,7 +143,7 @@ fn test_fft_fft() {
 fn test_linalg_norm() {
     let a = array!([1.0, 2.0, 3.0, 4.0]).reshape(&[2, 2]).unwrap();
     let norm = linalg::norm_l2(&a, linalg::NormOptions::default()).unwrap();
-    assert_eq!(norm.item::<f32>(), 5.477_226);
+    assert_eq!(norm.item_exact::<f32>(), 5.477_226);
 }
 
 // Test functions defined in `mlx_rs::random` module.
@@ -152,14 +152,14 @@ fn test_linalg_norm() {
 fn test_random_uniform() {
     let value = random::uniform::<_, f32>(0.0, 1.0, &[1], None).unwrap();
     assert_eq!(value.shape(), &[1]);
-    assert!(value.item::<f32>() >= 0.0 && value.item::<f32>() <= 1.0);
+    assert!(value.item_exact::<f32>() >= 0.0 && value.item_exact::<f32>() <= 1.0);
 }
 
 #[test]
 fn test_random_normal() {
     let value = random::normal::<f32>(&[1], None, None, None).unwrap();
     assert_eq!(value.shape(), &[1]);
-    assert!(value.item::<f32>() >= -10.0 && value.item::<f32>() <= 10.0);
+    assert!(value.item_exact::<f32>() >= -10.0 && value.item_exact::<f32>() <= 10.0);
 }
 
 // Test functions defined in `mlx_rs::fast` module.

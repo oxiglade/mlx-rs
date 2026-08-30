@@ -1,4 +1,4 @@
-use crate::array::Array;
+use crate::array::{Array, ArrayElement};
 use crate::error::Result;
 use crate::utils::guard::Guarded;
 use crate::Stream;
@@ -367,6 +367,8 @@ impl Array {
 
     /// Approximate comparison of two arrays returning an error if the inputs aren't valid.
     ///
+    /// This evaluates the comparison result before returning a Rust `bool`.
+    ///
     /// The arrays are considered equal if:
     ///
     /// ```text
@@ -387,10 +389,7 @@ impl Array {
     /// use mlx_rs::array;
     /// let a = array!([0., 1., 2., 3.]).sqrt().unwrap();
     /// let b = array!([0., 1., 2., 3.]).power(array!(0.5)).unwrap();
-    /// let mut c = a.all_close(&b, None, None, None).unwrap();
-    ///
-    /// let c_data: &[bool] = c.as_slice();
-    /// // c_data == [true]
+    /// assert!(a.all_close(&b, None, None, None).unwrap());
     /// ```
     pub fn all_close(
         &self,
@@ -398,9 +397,9 @@ impl Array {
         rtol: impl Into<Option<f64>>,
         atol: impl Into<Option<f64>>,
         equal_nan: impl Into<Option<bool>>,
-    ) -> Result<Array> {
+    ) -> Result<bool> {
         let stream = Stream::thread_local_or_default();
-        Array::try_from_op(|res| unsafe {
+        let result = Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_allclose(
                 res,
                 self.as_ptr(),
@@ -410,7 +409,9 @@ impl Array {
                 equal_nan.into().unwrap_or(false),
                 stream.as_ref().as_ptr(),
             )
-        })
+        })?;
+        result.eval()?;
+        bool::array_item(&result)
     }
 
     /// Compatibility shim for [`all_close`].
@@ -425,7 +426,7 @@ impl Array {
         atol: impl Into<Option<f64>>,
         equal_nan: impl Into<Option<bool>>,
         stream: impl AsRef<Stream>,
-    ) -> Result<Array> {
+    ) -> Result<bool> {
         crate::with_stream(stream.as_ref(), || {
             self.all_close(other, rtol, atol, equal_nan)
         })
@@ -500,24 +501,51 @@ impl Array {
     /// let a = Array::from_slice(&[0, 1, 2, 3], &[4]);
     /// let b = Array::from_slice(&[0., 1., 2., 3.], &[4]);
     ///
-    /// let c = a.array_eq(&b, None);
-    /// // c == [true]
+    /// assert!(a.eq_values(&b).unwrap());
     /// ```
+    #[deprecated(since = "0.26.0", note = "use `eq_values` for a Rust boolean")]
     pub fn array_eq(
         &self,
         other: impl AsRef<Array>,
         equal_nan: impl Into<Option<bool>>,
     ) -> Result<Array> {
+        self.array_eq_result(other.as_ref(), equal_nan.into().unwrap_or(false))
+    }
+
+    fn array_eq_result(&self, other: &Array, equal_nan: bool) -> Result<Array> {
         let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_array_equal(
                 res,
                 self.as_ptr(),
-                other.as_ref().as_ptr(),
-                equal_nan.into().unwrap_or(false),
+                other.as_ptr(),
+                equal_nan,
                 stream.as_ref().as_ptr(),
             )
         })
+    }
+
+    /// Compare shape, dtype, and values exactly.
+    ///
+    /// A dtype or shape mismatch returns `false` without evaluating either array. Otherwise this
+    /// evaluates the equality result before returning a Rust `bool`. NaNs compare unequal.
+    pub fn eq_exact(&self, other: impl AsRef<Array>) -> Result<bool> {
+        let other = other.as_ref();
+        if self.dtype() != other.dtype() || self.shape() != other.shape() {
+            return Ok(false);
+        }
+        let result = self.array_eq_result(other, false)?;
+        result.eval()?;
+        bool::array_item(&result)
+    }
+
+    /// Compare shape and values exactly while allowing different dtypes.
+    ///
+    /// This evaluates the equality result before returning a Rust `bool`. NaNs compare unequal.
+    pub fn eq_values(&self, other: impl AsRef<Array>) -> Result<bool> {
+        let result = self.array_eq_result(other.as_ref(), false)?;
+        result.eval()?;
+        bool::array_item(&result)
     }
 
     /// Compatibility shim for [`array_eq`].
@@ -531,7 +559,9 @@ impl Array {
         equal_nan: impl Into<Option<bool>>,
         stream: impl AsRef<Stream>,
     ) -> Result<Array> {
-        crate::with_stream(stream.as_ref(), || self.array_eq(other, equal_nan))
+        let other = other.as_ref();
+        let equal_nan = equal_nan.into().unwrap_or(false);
+        crate::with_stream(stream.as_ref(), || self.array_eq_result(other, equal_nan))
     }
 
     /// An `or` reduction over the given axes returning an error if the axes are invalid.
@@ -767,7 +797,7 @@ pub fn all_close(
     rtol: impl Into<Option<f64>>,
     atol: impl Into<Option<f64>>,
     equal_nan: impl Into<Option<bool>>,
-) -> Result<Array> {
+) -> Result<bool> {
     a.as_ref().all_close(b, rtol, atol, equal_nan)
 }
 
@@ -784,7 +814,7 @@ pub fn all_close_device(
     #[optional] atol: impl Into<Option<f64>>,
     #[optional] equal_nan: impl Into<Option<bool>>,
     #[optional] stream: impl AsRef<Stream>,
-) -> Result<Array> {
+) -> Result<bool> {
     crate::with_stream(stream.as_ref(), || all_close(a, b, rtol, atol, equal_nan))
 }
 
@@ -822,7 +852,8 @@ pub fn array_eq(
     b: impl AsRef<Array>,
     equal_nan: impl Into<Option<bool>>,
 ) -> Result<Array> {
-    a.as_ref().array_eq(b, equal_nan)
+    a.as_ref()
+        .array_eq_result(b.as_ref(), equal_nan.into().unwrap_or(false))
 }
 
 /// Compatibility shim for [`array_eq`].
@@ -1330,9 +1361,7 @@ mod tests {
             .power(array!(0.5))
             .unwrap();
         let c = a.all_close(&b, 1e-5, None, None).unwrap();
-
-        let c_data: &[bool] = c.as_slice();
-        assert_eq!(c_data, [true]);
+        assert!(c);
     }
 
     #[test]
@@ -1375,10 +1404,7 @@ mod tests {
     fn test_array_eq() {
         let a = Array::from_slice(&[0, 1, 2, 3], &[4]);
         let b = Array::from_slice(&[0., 1., 2., 3.], &[4]);
-        let c = a.array_eq(&b, None).unwrap();
-
-        let c_data: &[bool] = c.as_slice();
-        assert_eq!(c_data, [true]);
+        assert!(a.eq_values(&b).unwrap());
     }
 
     #[test]
@@ -1441,54 +1467,54 @@ mod tests {
     #[test]
     fn test_unary_logical_not() {
         let x = array!(false);
-        assert!(logical_not(&x).unwrap().item::<bool>());
+        assert!(logical_not(&x).unwrap().item_exact::<bool>());
 
         let x = array!(1.0);
         let y = logical_not(&x).unwrap();
         assert_eq!(y.dtype(), Dtype::Bool);
-        assert!(!y.item::<bool>());
+        assert!(!y.item_exact::<bool>());
 
         let x = array!(0);
         let y = logical_not(&x).unwrap();
         assert_eq!(y.dtype(), Dtype::Bool);
-        assert!(y.item::<bool>());
+        assert!(y.item_exact::<bool>());
     }
 
     #[test]
     fn test_unary_logical_and() {
         let x = array!(true);
         let y = array!(true);
-        assert!(logical_and(&x, &y).unwrap().item::<bool>());
+        assert!(logical_and(&x, &y).unwrap().item_exact::<bool>());
 
         let x = array!(1.0);
         let y = array!(1.0);
         let z = logical_and(&x, &y).unwrap();
         assert_eq!(z.dtype(), Dtype::Bool);
-        assert!(z.item::<bool>());
+        assert!(z.item_exact::<bool>());
 
         let x = array!(0);
         let y = array!(1.0);
         let z = logical_and(&x, &y).unwrap();
         assert_eq!(z.dtype(), Dtype::Bool);
-        assert!(!z.item::<bool>());
+        assert!(!z.item_exact::<bool>());
     }
 
     #[test]
     fn test_unary_logical_or() {
         let a = array!(false);
         let b = array!(false);
-        assert!(!logical_or(&a, &b).unwrap().item::<bool>());
+        assert!(!logical_or(&a, &b).unwrap().item_exact::<bool>());
 
         let a = array!(1.0);
         let b = array!(1.0);
         let c = logical_or(&a, &b).unwrap();
         assert_eq!(c.dtype(), Dtype::Bool);
-        assert!(c.item::<bool>());
+        assert!(c.item_exact::<bool>());
 
         let a = array!(0);
         let b = array!(1.0);
         let c = logical_or(&a, &b).unwrap();
         assert_eq!(c.dtype(), Dtype::Bool);
-        assert!(c.item::<bool>());
+        assert!(c.item_exact::<bool>());
     }
 }

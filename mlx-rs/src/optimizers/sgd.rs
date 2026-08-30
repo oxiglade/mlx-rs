@@ -134,28 +134,6 @@ impl Optimizer for Sgd {
 }
 
 impl Updatable for Sgd {
-    fn updatable_states_len(&self) -> usize {
-        self.state.len()
-    }
-
-    fn updatable_states(&self) -> impl IntoIterator<Item = &Array> {
-        use itertools::Itertools;
-
-        self.state
-            .iter()
-            .sorted_by(|a, b| a.0.cmp(b.0))
-            .map(|(_, v)| v)
-    }
-
-    fn updatable_states_mut(&mut self) -> impl IntoIterator<Item = &mut Array> {
-        use itertools::Itertools;
-
-        self.state
-            .iter_mut()
-            .sorted_by(|a, b| a.0.cmp(b.0))
-            .map(|(_, v)| v)
-    }
-
     optimizer_updatable_state_methods!();
 }
 

@@ -35,7 +35,7 @@ fn test_nested_module() {
     let sum = y.sum(None).unwrap();
     assert_eq!(sum.dtype(), Dtype::Float32);
     assert!(sum.shape().is_empty());
-    let sum = sum.item::<f32>();
+    let sum = sum.item_exact::<f32>();
     assert!(sum.is_finite());
     assert_ne!(sum, 0.0);
 }

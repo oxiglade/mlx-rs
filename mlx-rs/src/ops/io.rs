@@ -160,9 +160,11 @@ impl Array {
 
                 if status != SUCCESS {
                     mlx_sys::mlx_map_string_to_array_free(data);
-                    return Err(crate::error::get_and_clear_last_mlx_error()
-                        .expect("A non-success status was returned, but no error was set.")
-                        .into());
+                    return Err(crate::error::exception_from_status(
+                        status,
+                        "inserting a safetensors array",
+                    )
+                    .into());
                 }
             }
             data
@@ -182,9 +184,11 @@ impl Array {
 
                 if status != SUCCESS {
                     mlx_sys::mlx_map_string_to_string_free(data);
-                    return Err(crate::error::get_and_clear_last_mlx_error()
-                        .expect("A non-success status was returned, but no error was set.")
-                        .into());
+                    return Err(crate::error::exception_from_status(
+                        status,
+                        "inserting safetensors metadata",
+                    )
+                    .into());
                 }
             }
             data
@@ -197,10 +201,10 @@ impl Array {
 
             let last_error = match status {
                 SUCCESS => None,
-                _ => Some(
-                    crate::error::get_and_clear_last_mlx_error()
-                        .expect("A non-success status was returned, but no error was set."),
-                ),
+                _ => Some(crate::error::exception_from_status(
+                    status,
+                    "saving safetensors",
+                )),
             };
 
             mlx_sys::mlx_map_string_to_array_free(arrays);
@@ -244,8 +248,7 @@ mod tests {
             let original_array = arrays.get(&key).unwrap();
             assert!(loaded_array
                 .all_close(original_array, None, None, None)
-                .unwrap()
-                .item::<bool>());
+                .unwrap());
         }
     }
 
@@ -258,6 +261,6 @@ mod tests {
         a.save_numpy(&path).unwrap();
 
         let b = Array::load_numpy(&path).unwrap();
-        assert!(a.all_close(&b, None, None, None).unwrap().item::<bool>());
+        assert!(a.all_close(&b, None, None, None).unwrap());
     }
 }

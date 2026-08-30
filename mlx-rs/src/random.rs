@@ -122,14 +122,13 @@ impl Default for RandomState {
 }
 
 impl crate::utils::Updatable for RandomState {
-    fn updatable_states_len(&self) -> usize {
-        1
-    }
-    fn updatable_states(&self) -> impl IntoIterator<Item = &Array> {
-        std::iter::once(&self.state)
-    }
-    fn updatable_states_mut(&mut self) -> impl IntoIterator<Item = &mut Array> {
-        std::iter::once(&mut self.state)
+    fn state_projection(
+        &mut self,
+    ) -> std::result::Result<crate::utils::StateProjection<'_>, crate::error::StateProjectionError>
+    {
+        let mut projection = crate::utils::StateProjection::new();
+        projection.required("key", &mut self.state)?;
+        Ok(projection)
     }
 }
 
@@ -289,7 +288,7 @@ pub fn uniform_device<'a, E: Into<Array>, T: ArrayElement>(
 /// let key = mlx_rs::random::key(0).unwrap();
 ///
 /// // generate a single f32 with normal distribution
-/// let value = mlx_rs::random::normal::<f32>(None, None, None, &key).unwrap().item::<f32>();
+/// let value = mlx_rs::random::normal::<f32>(None, None, None, &key).unwrap().item_exact::<f32>();
 ///
 /// // generate an array of f32 with normal distribution in shape [10, 5]
 /// let array = mlx_rs::random::normal::<f32>(&[10, 5], None, None, &key);
@@ -573,7 +572,7 @@ pub fn truncated_normal_device<'a, E: Into<Array>, T: ArrayElement>(
 /// let key = mlx_rs::random::key(0).unwrap();
 ///
 /// // generate a single Float with Gumbel distribution
-/// let value = mlx_rs::random::gumbel::<f32>(None, &key).unwrap().item::<f32>();
+/// let value = mlx_rs::random::gumbel::<f32>(None, &key).unwrap().item_exact::<f32>();
 ///
 /// // generate an array of Float with Gumbel distribution in shape [10, 5]
 /// let array = mlx_rs::random::gumbel::<f32>(&[10, 5], &key);
@@ -757,7 +756,7 @@ mod tests {
         assert_array_eq(&k1, k2, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let k2 = key(1).unwrap();
-        assert!(k1 != k2);
+        assert!(!k1.eq_exact(&k2).unwrap());
     }
 
     #[test]
@@ -765,7 +764,7 @@ mod tests {
         let key = key(0).unwrap();
 
         let (k1, k2) = split(&key, 2).unwrap();
-        assert!(k1 != k2);
+        assert!(!k1.eq_exact(&k2).unwrap());
 
         let (r1, r2) = split(&key, 2).unwrap();
         assert_array_eq(r1, k1, tolerances::EXACT.rtol, tolerances::EXACT.atol);
@@ -782,7 +781,7 @@ mod tests {
     fn test_uniform_single() {
         let key = key(0).unwrap();
         let value = uniform::<_, f32>(0, 10, None, Some(&key)).unwrap();
-        float_eq!(value.item::<f32>(), 4.18, abs <= 0.01);
+        float_eq!(value.item_exact::<f32>(), 4.18, abs <= 0.01);
     }
 
     #[test]
@@ -824,7 +823,7 @@ mod tests {
     fn test_normal() {
         let key = key(0).unwrap();
         let value = normal::<f32>(None, None, None, &key).unwrap();
-        float_eq!(value.item::<f32>(), -0.20, abs <= 0.01);
+        float_eq!(value.item_exact::<f32>(), -0.20, abs <= 0.01);
     }
 
     #[test]
@@ -848,7 +847,7 @@ mod tests {
     fn test_randint_single() {
         let key = key(0).unwrap();
         let value = randint::<_, i32>(0, 100, None, Some(&key)).unwrap();
-        assert_eq!(value.item::<i32>(), 41);
+        assert_eq!(value.item_exact::<i32>(), 41);
     }
 
     #[test]
@@ -877,7 +876,7 @@ mod tests {
     fn test_bernoulli_single() {
         let key = key(0).unwrap();
         let value = bernoulli(None, None, &key).unwrap();
-        assert!(value.item::<bool>());
+        assert!(value.item_exact::<bool>());
     }
 
     #[test]
@@ -1035,7 +1034,7 @@ mod tests {
         let mut state = RandomState::with_seed(0).unwrap();
         let k1 = state.next_key().unwrap();
         let k2 = state.next_key().unwrap();
-        assert!(k1 != k2);
+        assert!(!k1.eq_exact(&k2).unwrap());
     }
 
     #[test]
@@ -1054,9 +1053,10 @@ mod tests {
     #[test]
     fn test_random_state_updatable() {
         use crate::utils::Updatable;
-        let state = RandomState::with_seed(0).unwrap();
-        assert_eq!(state.updatable_states_len(), 1);
-        assert_eq!(state.updatable_states().into_iter().count(), 1);
+        let mut state = RandomState::with_seed(0).unwrap();
+        let projection = state.state_projection().unwrap();
+        assert_eq!(projection.len(), 1);
+        assert_eq!(projection.values().count(), 1);
     }
 
     #[test]
@@ -1071,9 +1071,8 @@ mod tests {
         let seed = 23;
         let mut results = Vec::new();
         let f = || {
-            uniform::<_, f32>(0.0, 1.0, &[10, 10], None)?
-                .sum(None)?
-                .try_item::<f32>()
+            let sum = uniform::<_, f32>(0.0, 1.0, &[10, 10], None)?.sum(None)?;
+            Ok::<_, crate::error::Exception>(sum.item_exact::<f32>())
         };
         for _ in 0..10 {
             let mut state = RandomState::new().unwrap();

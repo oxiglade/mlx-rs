@@ -79,12 +79,12 @@
     {
       "kind": "method",
       "path": "mlx_rs::Array::all_close",
-      "signature": "pub fn all_close (& self , other : impl AsRef < Array > , rtol : impl Into < Option < f64 > > , atol : impl Into < Option < f64 > > , equal_nan : impl Into < Option < bool > > ,) -> Result < Array >"
+      "signature": "pub fn all_close (& self , other : impl AsRef < Array > , rtol : impl Into < Option < f64 > > , atol : impl Into < Option < f64 > > , equal_nan : impl Into < Option < bool > > ,) -> Result < bool >"
     },
     {
       "kind": "method",
       "path": "mlx_rs::Array::all_close_device",
-      "signature": "pub fn all_close_device (& self , other : impl AsRef < Array > , rtol : impl Into < Option < f64 > > , atol : impl Into < Option < f64 > > , equal_nan : impl Into < Option < bool > > , stream : impl AsRef < Stream > ,) -> Result < Array >",
+      "signature": "pub fn all_close_device (& self , other : impl AsRef < Array > , rtol : impl Into < Option < f64 > > , atol : impl Into < Option < f64 > > , equal_nan : impl Into < Option < bool > > , stream : impl AsRef < Stream > ,) -> Result < bool >",
       "deprecated": {
         "since": "0.26.0",
         "note": "use `with_stream` or `with_device` around `all_close`"
@@ -158,7 +158,11 @@
     {
       "kind": "method",
       "path": "mlx_rs::Array::array_eq",
-      "signature": "pub fn array_eq (& self , other : impl AsRef < Array > , equal_nan : impl Into < Option < bool > > ,) -> Result < Array >"
+      "signature": "pub fn array_eq (& self , other : impl AsRef < Array > , equal_nan : impl Into < Option < bool > > ,) -> Result < Array >",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `eq_values` for a Rust boolean"
+      }
     },
     {
       "kind": "method",
@@ -408,6 +412,16 @@
         "since": "0.26.0",
         "note": "use `with_stream` or `with_device` around `eq`"
       }
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::Array::eq_exact",
+      "signature": "pub fn eq_exact (& self , other : impl AsRef < Array >) -> Result < bool >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::Array::eq_values",
+      "signature": "pub fn eq_values (& self , other : impl AsRef < Array >) -> Result < bool >"
     },
     {
       "kind": "method",
@@ -752,7 +766,21 @@
     {
       "kind": "method",
       "path": "mlx_rs::Array::item",
-      "signature": "pub fn item < T : ArrayElement > (& self) -> T"
+      "signature": "pub fn item < T : ArrayElement > (& self) -> T",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `item_cast` or `item_exact`"
+      }
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::Array::item_cast",
+      "signature": "pub fn item_cast < T : ArrayElement > (& self) -> T"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::Array::item_exact",
+      "signature": "pub fn item_exact < T : ArrayElement > (& self) -> T"
     },
     {
       "kind": "method",
@@ -1715,6 +1743,16 @@
     },
     {
       "kind": "method",
+      "path": "mlx_rs::Array::to_vec_cast",
+      "signature": "pub fn to_vec_cast < T : ArrayElement + Clone > (& self) -> Result < Vec < T > , ConversionError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::Array::to_vec_exact",
+      "signature": "pub fn to_vec_exact < T : ArrayElement + Clone > (& self) -> Result < Vec < T > , ConversionError >"
+    },
+    {
+      "kind": "method",
       "path": "mlx_rs::Array::transpose",
       "signature": "pub fn transpose (& self) -> Result < Array >"
     },
@@ -1763,7 +1801,21 @@
     {
       "kind": "method",
       "path": "mlx_rs::Array::try_item",
-      "signature": "pub fn try_item < T : ArrayElement > (& self) -> crate :: error :: Result < T >"
+      "signature": "pub fn try_item < T : ArrayElement > (& self) -> crate :: error :: Result < T >",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `try_item_cast` or `try_item_exact`"
+      }
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::Array::try_item_cast",
+      "signature": "pub fn try_item_cast < T : ArrayElement > (& self) -> Result < T , ConversionError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::Array::try_item_exact",
+      "signature": "pub fn try_item_exact < T : ArrayElement > (& self) -> Result < T , ConversionError >"
     },
     {
       "kind": "method",
@@ -2773,6 +2825,11 @@
     },
     {
       "kind": "enum",
+      "path": "mlx_rs::error::ConversionError",
+      "signature": "# [doc = \" Error converting an array or serialized tensor representation.\"] # [derive (Debug , Error)] pub enum ConversionError { # [doc = \" The requested element type does not match the array dtype.\"] # [error (\"dtype mismatch: expected {expected:?}, found {actual:?}\")] DtypeMismatch { # [doc = \" The requested element type.\"] expected : Dtype , # [doc = \" The array element type.\"] actual : Dtype , } , # [doc = \" Scalar extraction was requested from a non-scalar array.\"] # [error (\"scalar extraction requires one element, found {actual}\")] NotScalar { # [doc = \" The array element count.\"] actual : usize , } , # [doc = \" The array cannot be borrowed as a contiguous slice.\"] # [error (transparent)] ArraySlice (# [from] AsSliceError) , # [doc = \" The upstream runtime rejected the conversion.\"] # [error (transparent)] Exception (# [from] Exception) , # [doc = \" The safetensors data type is not supported.\"] # [cfg (feature = \"safetensors\")] # [error (\"The safetensors data type {0:?} is not supported.\")] SafeTensorDtype (safetensors :: tensor :: Dtype) , # [doc = \" The MLX data type is not supported by safetensors.\"] # [cfg (feature = \"safetensors\")] # [error (\"The mlx data type {0:?} is not supported.\")] MlxDtype (crate :: Dtype) , # [doc = \" Error casting the data buffer to `&[u8]`.\"] # [cfg (feature = \"safetensors\")] # [error (transparent)] PodCastError (# [from] bytemuck :: PodCastError) , # [doc = \" Error creating a safetensors tensor view.\"] # [cfg (feature = \"safetensors\")] # [error (transparent)] SafeTensorError (# [from] safetensors :: tensor :: SafeTensorError) , }"
+    },
+    {
+      "kind": "enum",
       "path": "mlx_rs::error::CrossEntropyBuildError",
       "signature": "# [doc = \" Error with building a cross-entropy loss function\"] # [derive (Debug , Clone , PartialEq , Error)] pub enum CrossEntropyBuildError { # [doc = \" Label smoothing factor must be in the range [0, 1)\"] # [error (\"Label smoothing factor must be in the range [0, 1)\")] InvalidLabelSmoothingFactor , }"
     },
@@ -2809,7 +2866,7 @@
     {
       "kind": "enum",
       "path": "mlx_rs::error::IoError",
-      "signature": "# [doc = \" Error with io operations\"] # [derive (Error , PartialEq , Debug)] pub enum IoError { # [doc = \" Path must point to a local file\"] # [error (\"Path must point to a local file\")] NotFile , # [doc = \" Path contains invalid UTF-8\"] # [error (\"Path contains invalid UTF-8\")] InvalidUtf8 , # [doc = \" Path contains null bytes\"] # [error (\"Path contains null bytes\")] NullBytes , # [doc = \" No file extension found\"] # [error (\"No file extension found\")] NoExtension , # [doc = \" Unsupported file format\"] # [error (\"Unsupported file format\")] UnsupportedFormat , # [doc = \" Unable to open file\"] # [error (\"Unable to open file\")] UnableToOpenFile , # [doc = \" Unable to allocate memory\"] # [error (\"Unable to allocate memory\")] AllocationError , # [doc = \" Null error\"] # [error (transparent)] NulError (# [from] NulError) , # [doc = \" Error with unfalttening the loaded optimizer state\"] # [error (transparent)] Unflatten (# [from] UnflattenError) , # [doc = \" Exception\"] # [error (transparent)] Exception (# [from] Exception) , }"
+      "signature": "# [doc = \" Error with io operations\"] # [derive (Error , PartialEq , Debug)] pub enum IoError { # [doc = \" Path must point to a local file\"] # [error (\"Path must point to a local file\")] NotFile , # [doc = \" Path contains invalid UTF-8\"] # [error (\"Path contains invalid UTF-8\")] InvalidUtf8 , # [doc = \" Path contains null bytes\"] # [error (\"Path contains null bytes\")] NullBytes , # [doc = \" No file extension found\"] # [error (\"No file extension found\")] NoExtension , # [doc = \" Unsupported file format\"] # [error (\"Unsupported file format\")] UnsupportedFormat , # [doc = \" Unable to open file\"] # [error (\"Unable to open file\")] UnableToOpenFile , # [doc = \" Unable to allocate memory\"] # [error (\"Unable to allocate memory\")] AllocationError , # [doc = \" Null error\"] # [error (transparent)] NulError (# [from] NulError) , # [doc = \" Error with unfalttening the loaded optimizer state\"] # [error (transparent)] Unflatten (# [from] UnflattenError) , # [doc = \" Error projecting optimizer state for serialization.\"] # [error (transparent)] StateProjection (# [from] StateProjectionError) , # [doc = \" Exception\"] # [error (transparent)] Exception (# [from] Exception) , }"
     },
     {
       "kind": "enum",
@@ -2830,6 +2887,11 @@
       "kind": "enum",
       "path": "mlx_rs::error::RmsPropBuildError",
       "signature": "# [doc = \" Error with building a RmsProp optimizer\"] # [derive (Debug , Clone , PartialEq , Error)] pub enum RmsPropBuildError { # [doc = \" Alpha must be non-negative\"] # [error (\"alpha must be non-negative\")] NegativeAlpha , # [doc = \" Epsilon must be non-negative\"] # [error (\"epsilon must be non-negative\")] NegativeEpsilon , }"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_rs::error::StateProjectionError",
+      "signature": "# [doc = \" Error declaring, restoring, or evaluating a keyed state projection.\"] # [derive (Debug , PartialEq , Error)] pub enum StateProjectionError { # [doc = \" A projection declared the same key more than once.\"] # [error (\"duplicate state key {0}\")] DuplicateKey (String) , # [doc = \" A projected key was absent from the supplied snapshot.\"] # [error (\"state snapshot is missing key {0}\")] MissingKey (String) , # [doc = \" The supplied snapshot contains keys absent from the projection.\"] # [error (\"state snapshot contains unknown keys {0:?}\")] UnknownKeys (Vec < String >) , # [doc = \" A required slot was absent in the supplied snapshot.\"] # [error (\"required state key {0} is absent\")] RequiredSlotAbsent (String) , # [doc = \" A compiled state vector has the wrong number of present values.\"] # [error (\"state value count mismatch: expected {expected}, found {actual}\")] Cardinality { # [doc = \" The number of present values declared by the layout.\"] expected : usize , # [doc = \" The supplied value count.\"] actual : usize , } , # [doc = \" The upstream runtime rejected an operation needed to restore state.\"] # [error (transparent)] Exception (# [from] Exception) , }"
     },
     {
       "kind": "enum",
@@ -5499,12 +5561,12 @@
     {
       "kind": "function",
       "path": "mlx_rs::ops::all_close",
-      "signature": "pub fn all_close (a : impl AsRef < Array > , b : impl AsRef < Array > , rtol : impl Into < Option < f64 > > , atol : impl Into < Option < f64 > > , equal_nan : impl Into < Option < bool > > ,) -> Result < Array >"
+      "signature": "pub fn all_close (a : impl AsRef < Array > , b : impl AsRef < Array > , rtol : impl Into < Option < f64 > > , atol : impl Into < Option < f64 > > , equal_nan : impl Into < Option < bool > > ,) -> Result < bool >"
     },
     {
       "kind": "function",
       "path": "mlx_rs::ops::all_close_device",
-      "signature": "pub fn all_close_device (a : impl AsRef < Array > , b : impl AsRef < Array > , rtol : impl Into < Option < f64 > > , atol : impl Into < Option < f64 > > , equal_nan : impl Into < Option < bool > > , stream : impl AsRef < Stream > ,) -> Result < Array >",
+      "signature": "pub fn all_close_device (a : impl AsRef < Array > , b : impl AsRef < Array > , rtol : impl Into < Option < f64 > > , atol : impl Into < Option < f64 > > , equal_nan : impl Into < Option < bool > > , stream : impl AsRef < Stream > ,) -> Result < bool >",
       "deprecated": {
         "since": "0.26.0",
         "note": "use `with_stream` or `with_device` around `all_close`"
@@ -8380,7 +8442,7 @@
     {
       "kind": "trait",
       "path": "mlx_rs::optimizers::OptimizerState",
-      "signature": "# [doc = \" Trait for optimizer states.\"] pub trait OptimizerState : Sized { # [doc = \" Error type for unflatten.\"] type UnflattenError : std :: error :: Error + Into < IoError > ; # [doc = \" Flatten the optimizer state.\"] fn flatten (& self) -> impl Iterator < Item = (Rc < str > , & Array) > ; # [doc = \" Flatten the mutable optimizer state.\"] fn flatten_mut (& mut self) -> impl Iterator < Item = (Rc < str > , & mut Array) > ; # [doc = \" Unflatten an iterator of key-value pairs into the optimizer state.\"] fn unflatten < I , K > (input : I) -> Result < Self , Self :: UnflattenError > where I : IntoIterator < Item = (K , Array) > , K : Ord + AsRef < str > + Into < Rc < str > > ; # [doc = \" Save the optimizer state to a safetensors file.\"] fn save_safetensors (& self , path : impl AsRef < Path >) -> Result < () , IoError > { let state = self . flatten () ; Array :: save_safetensors (state , None , path) } # [doc = \" Load the optimizer state from a safetensors file.\"] fn load_safetensors (& mut self , path : impl AsRef < Path >) -> Result < () , IoError > { let loaded = Array :: load_safetensors (path) ? ; let unflattened = Self :: unflatten (loaded) . map_err (Into :: into) ? ; * self = unflattened ; Ok (()) } }"
+      "signature": "# [doc = \" Trait for optimizer states.\"] pub trait OptimizerState : Sized { # [doc = \" Error type for unflatten.\"] type UnflattenError : std :: error :: Error + Into < IoError > ; # [doc = \" Declare all required and optional optimizer-state slots.\"] fn state_projection (& mut self) -> Result < StateProjection < '_ > , StateProjectionError > ; # [doc = \" Flatten present state entries in stable key order.\"] fn flatten (& mut self) -> Result < Vec < (Rc < str > , & Array) > , StateProjectionError > { Ok (self . state_projection () ? . into_entries () . collect ()) } # [doc = \" Flatten mutable present state entries in stable key order.\"] fn flatten_mut (& mut self) -> Result < Vec < (Rc < str > , & mut Array) > , StateProjectionError > { Ok (self . state_projection () ? . into_entries_mut () . collect ()) } # [doc = \" Unflatten an iterator of key-value pairs into the optimizer state.\"] fn unflatten < I , K > (input : I) -> Result < Self , Self :: UnflattenError > where I : IntoIterator < Item = (K , Array) > , K : Ord + AsRef < str > + Into < Rc < str > > ; # [doc = \" Save the optimizer state to a safetensors file.\"] fn save_safetensors (& mut self , path : impl AsRef < Path >) -> Result < () , IoError > { let state = self . flatten () . map_err (IoError :: StateProjection) ? ; Array :: save_safetensors (state , None , path) } # [doc = \" Load the optimizer state from a safetensors file.\"] fn load_safetensors (& mut self , path : impl AsRef < Path >) -> Result < () , IoError > { let loaded = Array :: load_safetensors (path) ? ; let unflattened = Self :: unflatten (loaded) . map_err (Into :: into) ? ; * self = unflattened ; Ok (()) } }"
     },
     {
       "kind": "type",
@@ -9744,9 +9806,134 @@
       "signature": "# [doc = \" Helper type to represent either a single value or a vector of values.\"] # [derive (Debug , Clone , PartialEq , Eq)] pub enum SingleOrVec < T > { # [doc = \" Single value.\"] Single (T) , # [doc = \" Vector of values.\"] Vec (Vec < T >) , }"
     },
     {
+      "kind": "struct",
+      "path": "mlx_rs::utils::StateLayoutEntry",
+      "signature": "# [doc = \" One entry in the compiled layout derived from a [`StateProjection`].\"] # [derive (Debug , Clone , PartialEq , Eq)] pub struct StateLayoutEntry { key : Rc < str > , dtype : Option < crate :: Dtype > , shape : Option < Vec < i32 > > , }"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::utils::StateLayoutEntry::dtype",
+      "signature": "pub fn dtype (& self) -> Option < crate :: Dtype >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::utils::StateLayoutEntry::is_present",
+      "signature": "pub fn is_present (& self) -> bool"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::utils::StateLayoutEntry::key",
+      "signature": "pub fn key (& self) -> & str"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::utils::StateLayoutEntry::shape",
+      "signature": "pub fn shape (& self) -> Option < & [i32] >"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_rs::utils::StateProjection",
+      "signature": "# [doc = \" A stable, keyed declaration of mutable array state.\"] # [doc = \"\"] # [doc = \" Required and optional slots are declared once. All derived views use the same sorted keys and\"] # [doc = \" preserve whether every optional slot is present.\"] # [derive (Debug)] pub struct StateProjection < 'a > { entries : Vec < ProjectedEntry < 'a > > , }"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::utils::StateProjection::into_entries",
+      "signature": "pub fn into_entries (self) -> impl Iterator < Item = (Rc < str > , & 'a Array) >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::utils::StateProjection::into_entries_mut",
+      "signature": "pub fn into_entries_mut (self) -> impl Iterator < Item = (Rc < str > , & 'a mut Array) >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::utils::StateProjection::is_empty",
+      "signature": "pub fn is_empty (& self) -> bool"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::utils::StateProjection::iter",
+      "signature": "pub fn iter (& self) -> impl Iterator < Item = (& str , Option < & Array >) >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::utils::StateProjection::iter_mut",
+      "signature": "pub fn iter_mut (& mut self) -> impl Iterator < Item = (& str , Option < & mut Array >) > + use < '_ , 'a >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::utils::StateProjection::layout",
+      "signature": "pub fn layout (& self) -> Vec < StateLayoutEntry >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::utils::StateProjection::len",
+      "signature": "pub fn len (& self) -> usize"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::utils::StateProjection::new",
+      "signature": "pub fn new () -> Self"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::utils::StateProjection::optional",
+      "signature": "pub fn optional (& mut self , key : impl Into < Rc < str > > , value : & 'a mut Option < Array > ,) -> Result < () , StateProjectionError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::utils::StateProjection::present_len",
+      "signature": "pub fn present_len (& self) -> usize"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::utils::StateProjection::required",
+      "signature": "pub fn required (& mut self , key : impl Into < Rc < str > > , value : & 'a mut Array ,) -> Result < () , StateProjectionError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::utils::StateProjection::restore",
+      "signature": "pub fn restore (& mut self , snapshot : StateSnapshot , reset_new : bool ,) -> Result < () , StateProjectionError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::utils::StateProjection::snapshot",
+      "signature": "pub fn snapshot (& self) -> StateSnapshot"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::utils::StateProjection::values",
+      "signature": "pub fn values (& self) -> impl Iterator < Item = & Array >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::utils::StateProjection::values_mut",
+      "signature": "pub fn values_mut (& mut self) -> impl Iterator < Item = & mut Array > + use < '_ , 'a >"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_rs::utils::StateSnapshot",
+      "signature": "# [doc = \" A presence-preserving snapshot produced by [`StateProjection`].\"] # [derive (Debug , Clone)] pub struct StateSnapshot { entries : Vec < (Rc < str > , Option < Array >) > , }"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::utils::StateSnapshot::is_empty",
+      "signature": "pub fn is_empty (& self) -> bool"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::utils::StateSnapshot::iter",
+      "signature": "pub fn iter (& self) -> impl Iterator < Item = (& str , Option < & Array >) >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::utils::StateSnapshot::len",
+      "signature": "pub fn len (& self) -> usize"
+    },
+    {
       "kind": "trait",
       "path": "mlx_rs::utils::Updatable",
-      "signature": "# [doc = \" Helper trait for compiling a function that takes a Module and/or an Optimizer.\"] # [doc = \" The implementation must ensure consistent ordering of the returned states.\"] # [doc = \"\"] # [doc = \" This is automatically implemented for all types that implement ModuleParameters.\"] pub trait Updatable { # [doc = \" Returns the number of updatable states.\"] # [doc = \"\"] # [doc = \" The number should be the same as calling `self.updatable_states().len()` but\"] # [doc = \" this method should be more efficient in general. The implementation should\"] # [doc = \" avoid iterating over the states if possible.\"] fn updatable_states_len (& self) -> usize ; # [doc = \" Returns a list of references to the updatable states.\"] # [doc = \"\"] # [doc = \" The order of the states should be consistent across calls and should be the same as the\"] # [doc = \" order of the states returned by [`Updatable::updatable_states_mut`].\"] fn updatable_states (& self) -> impl IntoIterator < Item = & Array > ; # [doc = \" Returns a list of mutable references to the updatable states.\"] # [doc = \"\"] # [doc = \" The order of the states should be consistent across calls and should be the same as the\"] # [doc = \" order of the states returned by [`Updatable::updatable_states`].\"] fn updatable_states_mut (& mut self) -> impl IntoIterator < Item = & mut Array > ; # [doc (hidden)] fn updatable_state_snapshot (& self) -> Vec < (Rc < str > , Array) > { self . updatable_states () . into_iter () . enumerate () . map (| (index , array) | (Rc :: from (index . to_string ()) , array . clone ())) . collect () } # [doc (hidden)] fn restore_updatable_state (& mut self , snapshot : Vec < (Rc < str > , Array) > , reset_new : bool ,) -> Result < () , String > { let mut saved = snapshot . into_iter () . collect :: < HashMap < _ , _ > > () ; let mut restored = Vec :: with_capacity (self . updatable_states_len ()) ; for (index , array) in self . updatable_states () . into_iter () . enumerate () { let key = Rc :: < str > :: from (index . to_string ()) ; if let Some (value) = saved . remove (& key) { restored . push (value) ; } else if reset_new { restored . push (crate :: ops :: zeros_like (array) . map_err (| error | error . to_string ()) ?) ; } else { return Err (format ! (\"state entry {key} was created during the call\")) ; } } if ! saved . is_empty () { let mut missing = saved . into_keys () . collect :: < Vec < _ > > () ; missing . sort () ; return Err (format ! (\"state entries disappeared during the call: {missing:?}\")) ; } let mut restored = restored . into_iter () ; for array in self . updatable_states_mut () { * array = restored . next () . unwrap () ; } Ok (()) } }"
+      "signature": "# [doc = \" A type whose mutable arrays are declared by one keyed projection.\"] pub trait Updatable { # [doc = \" Declare all required and optional state slots.\"] fn state_projection (& mut self) -> Result < StateProjection < '_ > , StateProjectionError > ; }"
     },
     {
       "kind": "macro",

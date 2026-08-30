@@ -84,8 +84,8 @@ fn assert_all_leaves(got: &[Array], expected: &[Array], case: &str) {
 }
 
 fn assert_model_optimizer<O: Optimizer>(
-    got: &(TinyModel, O),
-    expected: &(TinyModel, O),
+    got: &mut (TinyModel, O),
+    expected: &mut (TinyModel, O),
     case: &str,
 ) {
     let got_parameters = got.0.parameters().flatten();
@@ -101,8 +101,20 @@ fn assert_model_optimizer<O: Optimizer>(
         );
     }
 
-    let got_state = got.1.state().flatten().collect::<HashMap<_, _>>();
-    let expected_state = expected.1.state().flatten().collect::<HashMap<_, _>>();
+    let got_state = got
+        .1
+        .state_mut()
+        .flatten()
+        .unwrap()
+        .into_iter()
+        .collect::<HashMap<_, _>>();
+    let expected_state = expected
+        .1
+        .state_mut()
+        .flatten()
+        .unwrap()
+        .into_iter()
+        .collect::<HashMap<_, _>>();
     let got_keys = got_state.keys().cloned().collect::<BTreeSet<_>>();
     let expected_keys = expected_state.keys().cloned().collect::<BTreeSet<_>>();
     assert_eq!(got_keys, expected_keys, "{case}.optimizer_state_keys");
@@ -148,7 +160,13 @@ fn frozen_parameter_compiled_updates_match_unfrozen_oracle_on_trainable_keys() {
             &format!("compile.frozen.step{step}.parameter.bias"),
         );
 
-        let optimizer_state = state.1.state().flatten().collect::<HashMap<_, _>>();
+        let optimizer_state = state
+            .1
+            .state_mut()
+            .flatten()
+            .unwrap()
+            .into_iter()
+            .collect::<HashMap<_, _>>();
         let expected_keys = [Rc::<str>::from("weight.0"), Rc::<str>::from("weight.1")]
             .into_iter()
             .collect::<BTreeSet<_>>();
@@ -246,7 +264,11 @@ fn nested_module_optimizer_tuple_state() {
             &expected_output,
             &format!("compile.nested.step{step}.output"),
         );
-        assert_model_optimizer(&got, &expected, &format!("compile.nested.step{step}"));
+        assert_model_optimizer(
+            &mut got,
+            &mut expected,
+            &format!("compile.nested.step{step}"),
+        );
     }
 }
 
@@ -468,7 +490,7 @@ fn failed_trace_rolls_back_and_caller_retry_recovers_growth() {
         .eps(1.0e-6_f32)
         .build()
         .unwrap();
-    let initial = (model, optimizer);
+    let mut initial = (model, optimizer);
     let mut expected = initial.clone();
     let mut state = initial.clone();
     let args = fixture.gradients(1);
@@ -477,8 +499,11 @@ fn failed_trace_rolls_back_and_caller_retry_recovers_growth() {
     assert!(compiled(&mut state, &args).is_err());
     assert_eq!(FALLIBLE_CALLS.with(Cell::get), 1);
     assert_eq!(state.0.parameters().flatten().len(), 2);
-    assert_eq!(state.1.state().flatten().count(), 0);
-    assert_model_optimizer(&state, &initial, "compile.no_retry.failure");
+    assert_eq!(
+        state.1.state_mut().flatten().unwrap().into_iter().count(),
+        0
+    );
+    assert_model_optimizer(&mut state, &mut initial, "compile.no_retry.failure");
 
     let mut trace_calls = 1;
     for call in 1..=4 {
@@ -495,7 +520,11 @@ fn failed_trace_rolls_back_and_caller_retry_recovers_growth() {
             &expected_output,
             &format!("compile.no_retry.call{call}.output"),
         );
-        assert_model_optimizer(&state, &expected, &format!("compile.no_retry.call{call}"));
+        assert_model_optimizer(
+            &mut state,
+            &mut expected,
+            &format!("compile.no_retry.call{call}"),
+        );
     }
     assert!((2..=3).contains(&trace_calls));
 }

@@ -6,6 +6,9 @@ pub enum Error {
     Exception(#[from] Exception),
 
     #[error(transparent)]
+    Conversion(#[from] mlx_rs::error::ConversionError),
+
+    #[error(transparent)]
     Io(#[from] std::io::Error),
 
     #[error(transparent)]

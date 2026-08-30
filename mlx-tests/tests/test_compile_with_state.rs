@@ -45,8 +45,8 @@ fn assert_tensor_maps_eq<G, E>(
 }
 
 fn assert_optimizer_states_eq<O: Optimizer>(
-    got: &(LinearFunctionModel, O),
-    expected: &(LinearFunctionModel, O),
+    got: &mut (LinearFunctionModel, O),
+    expected: &mut (LinearFunctionModel, O),
     rtol: f64,
     atol: f64,
 ) {
@@ -54,8 +54,20 @@ fn assert_optimizer_states_eq<O: Optimizer>(
     let expected_parameters = expected.0.parameters().flatten();
     assert_tensor_maps_eq(&got_parameters, &expected_parameters, rtol, atol);
 
-    let got_optimizer = got.1.state().flatten().collect::<HashMap<_, _>>();
-    let expected_optimizer = expected.1.state().flatten().collect::<HashMap<_, _>>();
+    let got_optimizer = got
+        .1
+        .state_mut()
+        .flatten()
+        .unwrap()
+        .into_iter()
+        .collect::<HashMap<_, _>>();
+    let expected_optimizer = expected
+        .1
+        .state_mut()
+        .flatten()
+        .unwrap()
+        .into_iter()
+        .collect::<HashMap<_, _>>();
     assert_tensor_maps_eq(&got_optimizer, &expected_optimizer, rtol, atol);
 }
 
@@ -130,8 +142,8 @@ fn compile_module_and_optimizer<O: Optimizer + Clone>(optimizer: O) {
             tolerances::STANDARD.atol,
         );
         assert_optimizer_states_eq(
-            &compiled_state,
-            &eager_state,
+            &mut compiled_state,
+            &mut eager_state,
             tolerances::STANDARD.rtol,
             tolerances::STANDARD.atol,
         );
@@ -274,27 +286,27 @@ fn test_compile_module_and_optimizer_with_error() {
             tolerances::STANDARD.atol,
         );
         assert_optimizer_states_eq(
-            &compiled_state,
-            &eager_state,
+            &mut compiled_state,
+            &mut eager_state,
             tolerances::STANDARD.rtol,
             tolerances::STANDARD.atol,
         );
     }
 
-    let eager_before_error = eager_state.clone();
-    let compiled_before_error = compiled_state.clone();
+    let mut eager_before_error = eager_state.clone();
+    let mut compiled_before_error = compiled_state.clone();
     let x_err = [array!([1.0, 2.0]), array!(0.25), array!(-0.5)];
     assert!(step(&mut eager_state, &x_err).is_err());
     assert!(compiled(&mut compiled_state, &x_err).is_err());
     assert_optimizer_states_eq(
-        &eager_state,
-        &eager_before_error,
+        &mut eager_state,
+        &mut eager_before_error,
         tolerances::EXACT.rtol,
         tolerances::EXACT.atol,
     );
     assert_optimizer_states_eq(
-        &compiled_state,
-        &compiled_before_error,
+        &mut compiled_state,
+        &mut compiled_before_error,
         tolerances::EXACT.rtol,
         tolerances::EXACT.atol,
     );
@@ -308,8 +320,8 @@ fn test_compile_module_and_optimizer_with_error() {
         tolerances::STANDARD.atol,
     );
     assert_optimizer_states_eq(
-        &compiled_state,
-        &eager_state,
+        &mut compiled_state,
+        &mut eager_state,
         tolerances::STANDARD.rtol,
         tolerances::STANDARD.atol,
     );

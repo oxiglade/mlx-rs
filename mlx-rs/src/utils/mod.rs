@@ -3,7 +3,7 @@
 use guard::Guarded;
 use mlx_sys::mlx_vector_array;
 
-use crate::error::{set_closure_error, set_closure_panic};
+use crate::error::{set_closure_error, set_closure_panic, StateProjectionError};
 use crate::module::ModuleParameters;
 use crate::{complex64, error::Exception, Array, FromNested};
 use std::collections::HashMap;
@@ -402,144 +402,369 @@ pub(crate) fn get_mut_or_insert_with<'a, T>(
     map.get_mut(key).unwrap()
 }
 
-/// Helper trait for compiling a function that takes a Module and/or an Optimizer.
-/// The implementation must ensure consistent ordering of the returned states.
-///
-/// This is automatically implemented for all types that implement ModuleParameters.
-pub trait Updatable {
-    /// Returns the number of updatable states.
-    ///
-    /// The number should be the same as calling `self.updatable_states().len()` but
-    /// this method should be more efficient in general. The implementation should
-    /// avoid iterating over the states if possible.
-    fn updatable_states_len(&self) -> usize;
+#[derive(Debug)]
+enum ProjectedSlot<'a> {
+    Required(&'a mut Array),
+    Optional(&'a mut Option<Array>),
+}
 
-    /// Returns a list of references to the updatable states.
-    ///
-    /// The order of the states should be consistent across calls and should be the same as the
-    /// order of the states returned by [`Updatable::updatable_states_mut`].
-    fn updatable_states(&self) -> impl IntoIterator<Item = &Array>;
-
-    /// Returns a list of mutable references to the updatable states.
-    ///
-    /// The order of the states should be consistent across calls and should be the same as the
-    /// order of the states returned by [`Updatable::updatable_states`].
-    fn updatable_states_mut(&mut self) -> impl IntoIterator<Item = &mut Array>;
-
-    #[doc(hidden)]
-    fn updatable_state_snapshot(&self) -> Vec<(Rc<str>, Array)> {
-        self.updatable_states()
-            .into_iter()
-            .enumerate()
-            .map(|(index, array)| (Rc::from(index.to_string()), array.clone()))
-            .collect()
+impl ProjectedSlot<'_> {
+    fn value(&self) -> Option<&Array> {
+        match self {
+            Self::Required(value) => Some(value),
+            Self::Optional(value) => value.as_ref(),
+        }
     }
 
-    #[doc(hidden)]
-    fn restore_updatable_state(
-        &mut self,
-        snapshot: Vec<(Rc<str>, Array)>,
-        reset_new: bool,
-    ) -> Result<(), String> {
-        let mut saved = snapshot.into_iter().collect::<HashMap<_, _>>();
-        let mut restored = Vec::with_capacity(self.updatable_states_len());
-        for (index, array) in self.updatable_states().into_iter().enumerate() {
-            let key = Rc::<str>::from(index.to_string());
-            if let Some(value) = saved.remove(&key) {
-                restored.push(value);
-            } else if reset_new {
-                restored.push(crate::ops::zeros_like(array).map_err(|error| error.to_string())?);
-            } else {
-                return Err(format!("state entry {key} was created during the call"));
+    fn value_mut(&mut self) -> Option<&mut Array> {
+        match self {
+            Self::Required(value) => Some(value),
+            Self::Optional(value) => value.as_mut(),
+        }
+    }
+
+    fn restore(&mut self, key: &Rc<str>, value: Option<Array>) -> Result<(), StateProjectionError> {
+        match (self, value) {
+            (Self::Required(target), Some(value)) => {
+                **target = value;
+                Ok(())
+            }
+            (Self::Required(_), None) => {
+                Err(StateProjectionError::RequiredSlotAbsent(key.to_string()))
+            }
+            (Self::Optional(target), value) => {
+                **target = value;
+                Ok(())
             }
         }
-        if !saved.is_empty() {
-            let mut missing = saved.into_keys().collect::<Vec<_>>();
-            missing.sort();
-            return Err(format!(
-                "state entries disappeared during the call: {missing:?}"
-            ));
-        }
-        let mut restored = restored.into_iter();
-        for array in self.updatable_states_mut() {
-            *array = restored.next().unwrap();
+    }
+
+    fn reset(&mut self) -> Result<(), StateProjectionError> {
+        match self {
+            Self::Required(value) => {
+                **value = crate::ops::zeros_like(&**value)?;
+            }
+            Self::Optional(Some(value)) => {
+                *value = crate::ops::zeros_like(&*value)?;
+            }
+            Self::Optional(None) => {}
         }
         Ok(())
     }
+}
+
+impl<'a> ProjectedSlot<'a> {
+    fn into_value(self) -> Option<&'a Array> {
+        match self {
+            Self::Required(value) => Some(value),
+            Self::Optional(value) => value.as_ref(),
+        }
+    }
+
+    fn into_value_mut(self) -> Option<&'a mut Array> {
+        match self {
+            Self::Required(value) => Some(value),
+            Self::Optional(value) => value.as_mut(),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct ProjectedEntry<'a> {
+    key: Rc<str>,
+    slot: ProjectedSlot<'a>,
+}
+
+/// A stable, keyed declaration of mutable array state.
+///
+/// Required and optional slots are declared once. All derived views use the same sorted keys and
+/// preserve whether every optional slot is present.
+#[derive(Debug)]
+pub struct StateProjection<'a> {
+    entries: Vec<ProjectedEntry<'a>>,
+}
+
+impl<'a> StateProjection<'a> {
+    /// Create an empty projection.
+    pub fn new() -> Self {
+        Self {
+            entries: Vec::new(),
+        }
+    }
+
+    /// Declare a required keyed slot.
+    pub fn required(
+        &mut self,
+        key: impl Into<Rc<str>>,
+        value: &'a mut Array,
+    ) -> Result<(), StateProjectionError> {
+        self.insert(key.into(), ProjectedSlot::Required(value))
+    }
+
+    /// Declare an optional keyed slot, retaining its key when the value is absent.
+    pub fn optional(
+        &mut self,
+        key: impl Into<Rc<str>>,
+        value: &'a mut Option<Array>,
+    ) -> Result<(), StateProjectionError> {
+        self.insert(key.into(), ProjectedSlot::Optional(value))
+    }
+
+    fn insert(
+        &mut self,
+        key: Rc<str>,
+        slot: ProjectedSlot<'a>,
+    ) -> Result<(), StateProjectionError> {
+        match self.entries.binary_search_by(|entry| entry.key.cmp(&key)) {
+            Ok(_) => Err(StateProjectionError::DuplicateKey(key.to_string())),
+            Err(index) => {
+                self.entries.insert(index, ProjectedEntry { key, slot });
+                Ok(())
+            }
+        }
+    }
+
+    fn extend_prefixed(
+        &mut self,
+        prefix: &str,
+        projection: StateProjection<'a>,
+    ) -> Result<(), StateProjectionError> {
+        for entry in projection.entries {
+            self.insert(Rc::from(format!("{prefix}{}", entry.key)), entry.slot)?;
+        }
+        Ok(())
+    }
+
+    /// Return the number of declared slots, including absent optional slots.
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    /// Return whether no slots are declared.
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    /// Return the number of currently present arrays.
+    pub fn present_len(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.slot.value().is_some())
+            .count()
+    }
+
+    /// Traverse present arrays in stable key order.
+    pub fn values(&self) -> impl Iterator<Item = &Array> {
+        self.entries.iter().filter_map(|entry| entry.slot.value())
+    }
+
+    /// Traverse present arrays mutably in stable key order.
+    pub fn values_mut(&mut self) -> impl Iterator<Item = &mut Array> + use<'_, 'a> {
+        self.entries
+            .iter_mut()
+            .filter_map(|entry| entry.slot.value_mut())
+    }
+
+    /// Traverse every key and optional-presence tag in stable key order.
+    pub fn iter(&self) -> impl Iterator<Item = (&str, Option<&Array>)> {
+        self.entries
+            .iter()
+            .map(|entry| (entry.key.as_ref(), entry.slot.value()))
+    }
+
+    /// Traverse every key and mutable optional-presence tag in stable key order.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&str, Option<&mut Array>)> + use<'_, 'a> {
+        self.entries
+            .iter_mut()
+            .map(|entry| (entry.key.as_ref(), entry.slot.value_mut()))
+    }
+
+    /// Consume the projection into present immutable entries in stable key order.
+    pub fn into_entries(self) -> impl Iterator<Item = (Rc<str>, &'a Array)> {
+        self.entries
+            .into_iter()
+            .filter_map(|entry| entry.slot.into_value().map(|value| (entry.key, value)))
+    }
+
+    /// Consume the projection into present mutable entries in stable key order.
+    pub fn into_entries_mut(self) -> impl Iterator<Item = (Rc<str>, &'a mut Array)> {
+        self.entries
+            .into_iter()
+            .filter_map(|entry| entry.slot.into_value_mut().map(|value| (entry.key, value)))
+    }
+
+    /// Capture every declared key and optional-presence tag.
+    pub fn snapshot(&self) -> StateSnapshot {
+        StateSnapshot {
+            entries: self
+                .entries
+                .iter()
+                .map(|entry| (entry.key.clone(), entry.slot.value().cloned()))
+                .collect(),
+        }
+    }
+
+    /// Derive the key, presence, dtype, and shape layout.
+    pub fn layout(&self) -> Vec<StateLayoutEntry> {
+        self.entries
+            .iter()
+            .map(|entry| StateLayoutEntry {
+                key: entry.key.clone(),
+                dtype: entry.slot.value().map(Array::dtype),
+                shape: entry.slot.value().map(|array| array.shape().to_vec()),
+            })
+            .collect()
+    }
+
+    /// Restore a keyed snapshot.
+    ///
+    /// When `reset_new` is true, slots created after the snapshot are retained and zeroed. All
+    /// other keys and optional-presence tags are restored exactly.
+    pub fn restore(
+        &mut self,
+        snapshot: StateSnapshot,
+        reset_new: bool,
+    ) -> Result<(), StateProjectionError> {
+        let mut saved = snapshot.entries.into_iter().collect::<HashMap<_, _>>();
+        for entry in &mut self.entries {
+            if let Some(value) = saved.remove(&entry.key) {
+                entry.slot.restore(&entry.key, value)?;
+            } else if reset_new {
+                entry.slot.reset()?;
+            } else {
+                return Err(StateProjectionError::MissingKey(entry.key.to_string()));
+            }
+        }
+        if !saved.is_empty() {
+            let mut keys = saved
+                .into_keys()
+                .map(|key| key.to_string())
+                .collect::<Vec<_>>();
+            keys.sort();
+            return Err(StateProjectionError::UnknownKeys(keys));
+        }
+        Ok(())
+    }
+}
+
+impl Default for StateProjection<'_> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// A presence-preserving snapshot produced by [`StateProjection`].
+#[derive(Debug, Clone)]
+pub struct StateSnapshot {
+    entries: Vec<(Rc<str>, Option<Array>)>,
+}
+
+impl StateSnapshot {
+    /// Return the number of declared slots, including absent optional slots.
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    /// Return whether no slots are declared.
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    /// Traverse keys and present values in stable key order.
+    pub fn iter(&self) -> impl Iterator<Item = (&str, Option<&Array>)> {
+        self.entries
+            .iter()
+            .map(|(key, value)| (key.as_ref(), value.as_ref()))
+    }
+
+    pub(crate) fn present_values(&self) -> impl Iterator<Item = &Array> {
+        self.entries.iter().filter_map(|(_, value)| value.as_ref())
+    }
+
+    pub(crate) fn layout(&self) -> Vec<StateLayoutEntry> {
+        self.entries
+            .iter()
+            .map(|(key, value)| StateLayoutEntry::new(key.clone(), value.as_ref()))
+            .collect()
+    }
+
+    pub(crate) fn from_layout_and_values(
+        layout: &[StateLayoutEntry],
+        values: &[Array],
+    ) -> Result<Self, StateProjectionError> {
+        let expected = layout.iter().filter(|entry| entry.is_present()).count();
+        if values.len() != expected {
+            return Err(StateProjectionError::Cardinality {
+                expected,
+                actual: values.len(),
+            });
+        }
+        let mut values = values.iter();
+        let entries = layout
+            .iter()
+            .map(|entry| {
+                let value = entry.is_present().then(|| values.next().unwrap().clone());
+                (entry.key.clone(), value)
+            })
+            .collect();
+        Ok(Self { entries })
+    }
+}
+
+/// One entry in the compiled layout derived from a [`StateProjection`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StateLayoutEntry {
+    key: Rc<str>,
+    dtype: Option<crate::Dtype>,
+    shape: Option<Vec<i32>>,
+}
+
+impl StateLayoutEntry {
+    fn new(key: Rc<str>, value: Option<&Array>) -> Self {
+        Self {
+            key,
+            dtype: value.map(Array::dtype),
+            shape: value.map(|array| array.shape().to_vec()),
+        }
+    }
+
+    /// Return the stable state key.
+    pub fn key(&self) -> &str {
+        &self.key
+    }
+
+    /// Return whether the slot is present.
+    pub fn is_present(&self) -> bool {
+        self.dtype.is_some()
+    }
+
+    /// Return the dtype when the slot is present.
+    pub fn dtype(&self) -> Option<crate::Dtype> {
+        self.dtype
+    }
+
+    /// Return the shape when the slot is present.
+    pub fn shape(&self) -> Option<&[i32]> {
+        self.shape.as_deref()
+    }
+}
+
+/// A type whose mutable arrays are declared by one keyed projection.
+pub trait Updatable {
+    /// Declare all required and optional state slots.
+    fn state_projection(&mut self) -> Result<StateProjection<'_>, StateProjectionError>;
 }
 
 impl<T> Updatable for T
 where
     T: ModuleParameters,
 {
-    fn updatable_states_len(&self) -> usize {
-        self.num_parameters()
-    }
-
-    fn updatable_states(&self) -> impl IntoIterator<Item = &Array> {
-        use itertools::Itertools;
-
-        // TODO: should we change the parameter map to a BTreeMap because it is sorted?
-        self.parameters()
-            .flatten()
-            .into_iter()
-            .sorted_by(|a, b| a.0.cmp(&b.0))
-            .map(|(_, v)| v)
-    }
-
-    fn updatable_states_mut(&mut self) -> impl IntoIterator<Item = &mut Array> {
-        use itertools::Itertools;
-
-        self.parameters_mut()
-            .flatten()
-            .into_iter()
-            .sorted_by(|a, b| a.0.cmp(&b.0))
-            .map(|(_, v)| v)
-    }
-
-    fn updatable_state_snapshot(&self) -> Vec<(Rc<str>, Array)> {
-        let mut snapshot = self
-            .parameters()
-            .flatten()
-            .into_iter()
-            .map(|(key, array)| (key, array.clone()))
-            .collect::<Vec<_>>();
-        snapshot.sort_by(|a, b| a.0.cmp(&b.0));
-        snapshot
-    }
-
-    fn restore_updatable_state(
-        &mut self,
-        snapshot: Vec<(Rc<str>, Array)>,
-        reset_new: bool,
-    ) -> Result<(), String> {
-        let mut saved = snapshot.into_iter().collect::<HashMap<_, _>>();
-        let mut restored = HashMap::new();
-        for (key, array) in self.parameters().flatten() {
-            if let Some(value) = saved.remove(&key) {
-                restored.insert(key, value);
-            } else if reset_new {
-                restored.insert(
-                    key,
-                    crate::ops::zeros_like(array).map_err(|error| error.to_string())?,
-                );
-            } else {
-                return Err(format!(
-                    "module parameter {key} was created during the call"
-                ));
-            }
+    fn state_projection(&mut self) -> Result<StateProjection<'_>, StateProjectionError> {
+        let mut projection = StateProjection::new();
+        for (key, value) in self.parameters_mut().flatten() {
+            projection.required(key, value)?;
         }
-        if !saved.is_empty() {
-            let mut missing = saved.into_keys().collect::<Vec<_>>();
-            missing.sort();
-            return Err(format!(
-                "module parameters disappeared during the call: {missing:?}"
-            ));
-        }
-        for (key, array) in self.parameters_mut().flatten() {
-            *array = restored.remove(&key).unwrap();
-        }
-        Ok(())
+        Ok(projection)
     }
 }
 
@@ -548,115 +773,24 @@ where
     T1: Updatable,
     T2: Updatable,
 {
-    fn updatable_states_len(&self) -> usize {
-        let (a, b) = self;
-        a.updatable_states_len() + b.updatable_states_len()
-    }
-
-    fn updatable_states(&self) -> impl IntoIterator<Item = &Array> {
-        let (a, b) = self;
-        let params = a.updatable_states();
-        params.into_iter().chain(b.updatable_states())
-    }
-
-    fn updatable_states_mut(&mut self) -> impl IntoIterator<Item = &mut Array> {
-        let (a, b) = self;
-        let params = a.updatable_states_mut();
-        params.into_iter().chain(b.updatable_states_mut())
-    }
-
-    fn updatable_state_snapshot(&self) -> Vec<(Rc<str>, Array)> {
-        let (a, b) = self;
-        a.updatable_state_snapshot()
-            .into_iter()
-            .map(|(key, value)| (Rc::from(format!("0.{key}")), value))
-            .chain(
-                b.updatable_state_snapshot()
-                    .into_iter()
-                    .map(|(key, value)| (Rc::from(format!("1.{key}")), value)),
-            )
-            .collect()
-    }
-
-    fn restore_updatable_state(
-        &mut self,
-        snapshot: Vec<(Rc<str>, Array)>,
-        reset_new: bool,
-    ) -> Result<(), String> {
-        let mut first = Vec::new();
-        let mut second = Vec::new();
-        for (key, value) in snapshot {
-            if let Some(key) = key.strip_prefix("0.") {
-                first.push((Rc::from(key), value));
-            } else if let Some(key) = key.strip_prefix("1.") {
-                second.push((Rc::from(key), value));
-            } else {
-                return Err(format!("invalid tuple state key {key}"));
-            }
-        }
-        self.0.restore_updatable_state(first, reset_new)?;
-        self.1.restore_updatable_state(second, reset_new)
+    fn state_projection(&mut self) -> Result<StateProjection<'_>, StateProjectionError> {
+        let (first, second) = self;
+        let first = first.state_projection()?;
+        let second = second.state_projection()?;
+        let mut projection = StateProjection::new();
+        projection.extend_prefixed("0.", first)?;
+        projection.extend_prefixed("1.", second)?;
+        Ok(projection)
     }
 }
 
 impl Updatable for Vec<Array> {
-    fn updatable_states_len(&self) -> usize {
-        self.len()
-    }
-
-    fn updatable_states(&self) -> impl IntoIterator<Item = &Array> {
-        self.iter()
-    }
-
-    fn updatable_states_mut(&mut self) -> impl IntoIterator<Item = &mut Array> {
-        self.iter_mut()
-    }
-
-    fn updatable_state_snapshot(&self) -> Vec<(Rc<str>, Array)> {
-        self.iter()
-            .enumerate()
-            .map(|(index, array)| (Rc::from(index.to_string()), array.clone()))
-            .collect()
-    }
-
-    fn restore_updatable_state(
-        &mut self,
-        snapshot: Vec<(Rc<str>, Array)>,
-        reset_new: bool,
-    ) -> Result<(), String> {
-        let mut saved = snapshot
-            .into_iter()
-            .map(|(key, value)| {
-                key.parse::<usize>()
-                    .map(|index| (index, value))
-                    .map_err(|_| format!("invalid vector state key {key}"))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        saved.sort_by_key(|(index, _)| *index);
-        if saved
-            .iter()
-            .enumerate()
-            .any(|(expected, (actual, _))| expected != *actual)
-        {
-            return Err("vector state keys are not contiguous".to_owned());
+    fn state_projection(&mut self) -> Result<StateProjection<'_>, StateProjectionError> {
+        let mut projection = StateProjection::new();
+        for (index, value) in self.iter_mut().enumerate() {
+            projection.required(index.to_string(), value)?;
         }
-        if reset_new {
-            if self.len() < saved.len() {
-                return Err("vector state entries disappeared during the call".to_owned());
-            }
-            let saved_len = saved.len();
-            let mut restored = saved
-                .into_iter()
-                .map(|(_, value)| value)
-                .collect::<Vec<_>>();
-            for array in self.iter().skip(saved_len) {
-                restored.push(crate::ops::zeros_like(array).map_err(|error| error.to_string())?);
-            }
-            *self = restored;
-        } else {
-            *self = saved.into_iter().map(|(_, value)| value).collect();
-        }
-        Ok(())
+        Ok(projection)
     }
 }
 
@@ -796,6 +930,48 @@ mod tests {
 
     const PANIC_CHILD: &str = "MLX_RS_TRAMPOLINE_PANIC_CHILD";
     const DROP_DURING_UNWIND_CHILD: &str = "MLX_RS_DROP_DURING_UNWIND_CHILD";
+
+    struct ProjectedState {
+        required: Array,
+        optional: Option<Array>,
+    }
+
+    impl Updatable for ProjectedState {
+        fn state_projection(&mut self) -> Result<StateProjection<'_>, StateProjectionError> {
+            let mut projection = StateProjection::new();
+            projection.optional("z.optional", &mut self.optional)?;
+            projection.required("a.required", &mut self.required)?;
+            Ok(projection)
+        }
+    }
+
+    #[test]
+    fn state_projection_preserves_keys_and_optional_presence() {
+        crate::with_device(crate::Device::cpu(), || {
+            let mut state = ProjectedState {
+                required: Array::from_int(3),
+                optional: None,
+            };
+
+            let snapshot = state.state_projection().unwrap().snapshot();
+            let layout = state.state_projection().unwrap().layout();
+            assert_eq!(
+                layout.iter().map(StateLayoutEntry::key).collect::<Vec<_>>(),
+                vec!["a.required", "z.optional"]
+            );
+            assert!(layout[0].is_present());
+            assert!(!layout[1].is_present());
+
+            state.optional = Some(Array::from_int(9));
+            state
+                .state_projection()
+                .unwrap()
+                .restore(snapshot, false)
+                .unwrap();
+            assert!(state.optional.is_none());
+            assert_eq!(state.required.item_exact::<i32>(), 3);
+        });
+    }
 
     #[test]
     fn closure_trampoline_panics_resume_in_rust() {

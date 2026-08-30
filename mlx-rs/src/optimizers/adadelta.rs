@@ -120,28 +120,6 @@ impl Optimizer for AdaDelta {
 }
 
 impl Updatable for AdaDelta {
-    fn updatable_states_len(&self) -> usize {
-        self.state.len() * 2
-    }
-
-    fn updatable_states(&self) -> impl IntoIterator<Item = &Array> {
-        use itertools::Itertools;
-
-        self.state
-            .iter()
-            .sorted_by(|a, b| a.0.cmp(b.0))
-            .flat_map(|(_, (v, u))| [v, u])
-    }
-
-    fn updatable_states_mut(&mut self) -> impl IntoIterator<Item = &mut Array> {
-        use itertools::Itertools;
-
-        self.state
-            .iter_mut()
-            .sorted_by(|a, b| a.0.cmp(b.0))
-            .flat_map(|(_, (v, u))| [v, u])
-    }
-
     optimizer_updatable_state_methods!();
 }
 
@@ -155,6 +133,6 @@ mod tests {
     fn default_rho_matches_python_mlx() {
         let optimizer = AdaDelta::new(0.1_f32).unwrap();
 
-        assert_eq!(optimizer.rho.item::<f32>(), 0.9);
+        assert_eq!(optimizer.rho.item_exact::<f32>(), 0.9);
     }
 }

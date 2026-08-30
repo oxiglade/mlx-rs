@@ -52,6 +52,10 @@ pub enum IoError {
     #[error(transparent)]
     Unflatten(#[from] UnflattenError),
 
+    /// Error projecting optimizer state for serialization.
+    #[error(transparent)]
+    StateProjection(#[from] StateProjectionError),
+
     /// Exception
     #[error(transparent)]
     Exception(#[from] Exception),
@@ -128,40 +132,101 @@ pub enum OptimizerStateLoadError {
     Unflatten(#[from] UnflattenError),
 }
 
+/// Error declaring, restoring, or evaluating a keyed state projection.
+#[derive(Debug, PartialEq, Error)]
+pub enum StateProjectionError {
+    /// A projection declared the same key more than once.
+    #[error("duplicate state key {0}")]
+    DuplicateKey(String),
+
+    /// A projected key was absent from the supplied snapshot.
+    #[error("state snapshot is missing key {0}")]
+    MissingKey(String),
+
+    /// The supplied snapshot contains keys absent from the projection.
+    #[error("state snapshot contains unknown keys {0:?}")]
+    UnknownKeys(Vec<String>),
+
+    /// A required slot was absent in the supplied snapshot.
+    #[error("required state key {0} is absent")]
+    RequiredSlotAbsent(String),
+
+    /// A compiled state vector has the wrong number of present values.
+    #[error("state value count mismatch: expected {expected}, found {actual}")]
+    Cardinality {
+        /// The number of present values declared by the layout.
+        expected: usize,
+        /// The supplied value count.
+        actual: usize,
+    },
+
+    /// The upstream runtime rejected an operation needed to restore state.
+    #[error(transparent)]
+    Exception(#[from] Exception),
+}
+
+impl From<StateProjectionError> for Exception {
+    #[track_caller]
+    fn from(error: StateProjectionError) -> Self {
+        match error {
+            StateProjectionError::Exception(error) => error,
+            error => Self::custom(error.to_string()),
+        }
+    }
+}
+
 impl From<Infallible> for OptimizerStateLoadError {
     fn from(_: Infallible) -> Self {
         unreachable!()
     }
 }
 
-cfg_safetensors! {
-    /// Error associated with conversion between `safetensors::tensor::TensorView` and `Array`.
-    #[derive(Debug, Error)]
-    pub enum ConversionError {
-        /// The array cannot be borrowed as a contiguous slice.
-        #[error(transparent)]
-        ArraySlice(#[from] AsSliceError),
+/// Error converting an array or serialized tensor representation.
+#[derive(Debug, Error)]
+pub enum ConversionError {
+    /// The requested element type does not match the array dtype.
+    #[error("dtype mismatch: expected {expected:?}, found {actual:?}")]
+    DtypeMismatch {
+        /// The requested element type.
+        expected: Dtype,
+        /// The array element type.
+        actual: Dtype,
+    },
 
-        /// The safetensors data type that is not supported.
-        ///
-        /// This is the error type for conversions from `safetensors::tensor::TensorView` to `Array`.
-        #[error("The safetensors data type {0:?} is not supported.")]
-        SafeTensorDtype(safetensors::tensor::Dtype),
+    /// Scalar extraction was requested from a non-scalar array.
+    #[error("scalar extraction requires one element, found {actual}")]
+    NotScalar {
+        /// The array element count.
+        actual: usize,
+    },
 
-        /// The mlx data type that is not supported.
-        ///
-        /// This is the error type for conversions from `Array` to `safetensors::tensor::TensorView`.
-        #[error("The mlx data type {0:?} is not supported.")]
-        MlxDtype(crate::Dtype),
+    /// The array cannot be borrowed as a contiguous slice.
+    #[error(transparent)]
+    ArraySlice(#[from] AsSliceError),
 
-        /// Error casting the data buffer to `&[u8]`.
-        #[error(transparent)]
-        PodCastError(#[from] bytemuck::PodCastError),
+    /// The upstream runtime rejected the conversion.
+    #[error(transparent)]
+    Exception(#[from] Exception),
 
-        /// Error with creating a `safetensors::tensor::TensorView`.
-        #[error(transparent)]
-        SafeTensorError(#[from] safetensors::tensor::SafeTensorError),
-    }
+    /// The safetensors data type is not supported.
+    #[cfg(feature = "safetensors")]
+    #[error("The safetensors data type {0:?} is not supported.")]
+    SafeTensorDtype(safetensors::tensor::Dtype),
+
+    /// The MLX data type is not supported by safetensors.
+    #[cfg(feature = "safetensors")]
+    #[error("The mlx data type {0:?} is not supported.")]
+    MlxDtype(crate::Dtype),
+
+    /// Error casting the data buffer to `&[u8]`.
+    #[cfg(feature = "safetensors")]
+    #[error(transparent)]
+    PodCastError(#[from] bytemuck::PodCastError),
+
+    /// Error creating a safetensors tensor view.
+    #[cfg(feature = "safetensors")]
+    #[error(transparent)]
+    SafeTensorError(#[from] safetensors::tensor::SafeTensorError),
 }
 
 pub(crate) struct RawException {
@@ -337,6 +402,13 @@ pub(crate) fn get_and_clear_last_mlx_error() -> Option<RawException> {
 
         Some(RawException { what: last_err })
     })
+}
+
+#[track_caller]
+pub(crate) fn exception_from_status(status: i32, operation: &str) -> Exception {
+    get_and_clear_last_mlx_error()
+        .map(Exception::from)
+        .unwrap_or_else(|| Exception::custom(format!("{operation} failed with status {status}")))
 }
 
 /// Error with building a cross-entropy loss function

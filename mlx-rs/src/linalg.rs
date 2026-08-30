@@ -304,8 +304,8 @@ pub fn norm_l2_device<'a>(
 ///     let q_expected = Array::from_slice(&[-0.894427, -0.447214, -0.447214, 0.894427], &[2, 2]);
 ///     let r_expected = Array::from_slice(&[-2.23607, -3.57771, 0.0, 0.447214], &[2, 2]);
 ///
-///     assert!(q.all_close(&q_expected, None, None, None).unwrap().item::<bool>());
-///     assert!(r.all_close(&r_expected, None, None, None).unwrap().item::<bool>());
+///     assert!(q.all_close(&q_expected, None, None, None).unwrap());
+///     assert!(r.all_close(&r_expected, None, None, None).unwrap());
 /// });
 /// ```
 pub fn qr(a: impl AsRef<Array>) -> Result<(Array, Array)> {
@@ -352,9 +352,9 @@ pub fn qr_device(
 ///     let u_expected = Array::from_slice(&[-0.404554, 0.914514, -0.914514, -0.404554], &[2, 2]);
 ///     let s_expected = Array::from_slice(&[5.46499, 0.365966], &[2]);
 ///     let vt_expected = Array::from_slice(&[-0.576048, -0.817416, -0.817415, 0.576048], &[2, 2]);
-///     assert!(u.all_close(&u_expected, None, None, None).unwrap().item::<bool>());
-///     assert!(s.all_close(&s_expected, None, None, None).unwrap().item::<bool>());
-///     assert!(vt.all_close(&vt_expected, None, None, None).unwrap().item::<bool>());
+///     assert!(u.all_close(&u_expected, None, None, None).unwrap());
+///     assert!(s.all_close(&s_expected, None, None, None).unwrap());
+///     assert!(vt.all_close(&vt_expected, None, None, None).unwrap());
 /// });
 /// ```
 pub fn svd(array: impl AsRef<Array>) -> Result<(Array, Array, Array)> {
@@ -405,7 +405,7 @@ pub fn svd_device(
 ///     let a = Array::from_slice(&[1.0f32, 2.0, 3.0, 4.0], &[2, 2]);
 ///     let a_inv = inv(&a).unwrap();
 ///     let expected = Array::from_slice(&[-2.0, 1.0, 1.5, -0.5], &[2, 2]);
-///     assert!(a_inv.all_close(&expected, None, None, None).unwrap().item::<bool>());
+///     assert!(a_inv.all_close(&expected, None, None, None).unwrap());
 /// });
 /// ```
 pub fn inv(a: impl AsRef<Array>) -> Result<Array> {
@@ -912,12 +912,16 @@ mod tests {
         let b = a.reshape(&[3, 3]).unwrap();
 
         assert_float_eq!(
-            norm_l2(&a, NormOptions::default()).unwrap().item::<f32>(),
+            norm_l2(&a, NormOptions::default())
+                .unwrap()
+                .item_exact::<f32>(),
             7.74597,
             abs <= 0.001
         );
         assert_float_eq!(
-            norm_l2(&b, NormOptions::default()).unwrap().item::<f32>(),
+            norm_l2(&b, NormOptions::default())
+                .unwrap()
+                .item_exact::<f32>(),
             7.74597,
             abs <= 0.001
         );
@@ -925,7 +929,7 @@ mod tests {
         assert_float_eq!(
             norm_matrix(&b, "fro", NormOptions::default())
                 .unwrap()
-                .item::<f32>(),
+                .item_exact::<f32>(),
             7.74597,
             abs <= 0.001
         );
@@ -933,14 +937,14 @@ mod tests {
         assert_float_eq!(
             norm(&a, f64::INFINITY, NormOptions::default())
                 .unwrap()
-                .item::<f32>(),
+                .item_exact::<f32>(),
             4.0,
             abs <= 0.001
         );
         assert_float_eq!(
             norm(&b, f64::INFINITY, NormOptions::default())
                 .unwrap()
-                .item::<f32>(),
+                .item_exact::<f32>(),
             9.0,
             abs <= 0.001
         );
@@ -948,25 +952,29 @@ mod tests {
         assert_float_eq!(
             norm(&a, f64::NEG_INFINITY, NormOptions::default())
                 .unwrap()
-                .item::<f32>(),
+                .item_exact::<f32>(),
             0.0,
             abs <= 0.001
         );
         assert_float_eq!(
             norm(&b, f64::NEG_INFINITY, NormOptions::default())
                 .unwrap()
-                .item::<f32>(),
+                .item_exact::<f32>(),
             2.0,
             abs <= 0.001
         );
 
         assert_float_eq!(
-            norm(&a, 1.0, NormOptions::default()).unwrap().item::<f32>(),
+            norm(&a, 1.0, NormOptions::default())
+                .unwrap()
+                .item_exact::<f32>(),
             20.0,
             abs <= 0.001
         );
         assert_float_eq!(
-            norm(&b, 1.0, NormOptions::default()).unwrap().item::<f32>(),
+            norm(&b, 1.0, NormOptions::default())
+                .unwrap()
+                .item_exact::<f32>(),
             7.0,
             abs <= 0.001
         );
@@ -974,14 +982,14 @@ mod tests {
         assert_float_eq!(
             norm(&a, -1.0, NormOptions::default())
                 .unwrap()
-                .item::<f32>(),
+                .item_exact::<f32>(),
             0.0,
             abs <= 0.001
         );
         assert_float_eq!(
             norm(&b, -1.0, NormOptions::default())
                 .unwrap()
-                .item::<f32>(),
+                .item_exact::<f32>(),
             6.0,
             abs <= 0.001
         );
@@ -1000,10 +1008,7 @@ mod tests {
         )
         .unwrap();
         let expected = Array::from_slice(&[1.41421, 2.23607, 5.0], &[3]);
-        assert!(result
-            .all_close(&expected, None, None, None)
-            .unwrap()
-            .item::<bool>());
+        assert!(result.all_close(&expected, None, None, None).unwrap());
     }
 
     #[test]
@@ -1019,10 +1024,7 @@ mod tests {
         )
         .unwrap();
         let expected = Array::from_slice(&[3.74166, 11.225], &[2]);
-        assert!(result
-            .all_close(&expected, None, None, None)
-            .unwrap()
-            .item::<bool>());
+        assert!(result.all_close(&expected, None, None, None).unwrap());
     }
 
     #[test]
@@ -1034,14 +1036,8 @@ mod tests {
         let q_expected = Array::from_slice(&[-0.894427, -0.447214, -0.447214, 0.894427], &[2, 2]);
         let r_expected = Array::from_slice(&[-2.23607, -3.57771, 0.0, 0.447214], &[2, 2]);
 
-        assert!(q
-            .all_close(&q_expected, None, None, None)
-            .unwrap()
-            .item::<bool>());
-        assert!(r
-            .all_close(&r_expected, None, None, None)
-            .unwrap()
-            .item::<bool>());
+        assert!(q.all_close(&q_expected, None, None, None).unwrap());
+        assert!(r.all_close(&r_expected, None, None, None).unwrap());
     }
 
     // The tests below are adapted from the c++ tests
@@ -1129,7 +1125,7 @@ mod tests {
         let shape = a.shape();
         let n = shape[shape.len() - 1];
 
-        let pivots: Vec<u32> = pivots.as_slice().to_vec();
+        let pivots = pivots.to_vec_exact::<u32>().unwrap();
         let mut perm: Vec<u32> = (0..n as u32).collect();
         for (i, p) in pivots.iter().enumerate() {
             perm.swap(i, *p as usize);
@@ -1187,9 +1183,7 @@ mod tests {
             let eig_vals_broadcast = expand_dims(&eig_vals, -2).unwrap();
             let rhs = eig_vals_broadcast.multiply(&eig_vecs).unwrap();
             assert!(
-                lhs.all_close(&rhs, 1e-4, 1e-4, None)
-                    .unwrap()
-                    .item::<bool>(),
+                lhs.all_close(&rhs, 1e-4, 1e-4, None).unwrap(),
                 "A @ eig_vecs should equal eig_vals * eig_vecs"
             );
 
@@ -1198,8 +1192,7 @@ mod tests {
             assert!(
                 eig_vals
                     .all_close(&eig_vals_only, 1e-4, 1e-4, None)
-                    .unwrap()
-                    .item::<bool>(),
+                    .unwrap(),
                 "eigvals should return same eigenvalues as eig"
             );
         }

@@ -75,7 +75,10 @@ fn assert_tensor_maps_eq<G, E>(
     }
 }
 
-fn assert_save_and_load<O>(optimizer: O, new_optimizer: O) -> Result<(), Box<dyn std::error::Error>>
+fn assert_save_and_load<O>(
+    mut optimizer: O,
+    new_optimizer: O,
+) -> Result<(), Box<dyn std::error::Error>>
 where
     O: Optimizer,
 {
@@ -84,13 +87,23 @@ where
     let tmp_dir = tempfile::tempdir()?;
     let path = tmp_dir.path().join("optimizer.safetensors");
 
-    optimizer.state().save_safetensors(&path)?;
+    optimizer.state_mut().save_safetensors(&path)?;
 
     let mut loaded_optimizer = new_optimizer;
     loaded_optimizer.state_mut().load_safetensors(&path)?;
 
-    let original_state: HashMap<_, _> = optimizer.state().flatten().collect();
-    let loaded_state: HashMap<_, _> = loaded_optimizer.state().flatten().collect();
+    let original_state: HashMap<_, _> = optimizer
+        .state_mut()
+        .flatten()
+        .unwrap()
+        .into_iter()
+        .collect();
+    let loaded_state: HashMap<_, _> = loaded_optimizer
+        .state_mut()
+        .flatten()
+        .unwrap()
+        .into_iter()
+        .collect();
 
     assert!(!loaded_state.is_empty());
     assert_tensor_maps_eq(
@@ -141,7 +154,7 @@ fn test_ada_delta() {
         [-0.75, 0.125, -0.25],
         [0.5, 0.25, -0.125],
     ];
-    let mut expected_parameter = initial_parameter.as_slice::<f32>().to_vec();
+    let mut expected_parameter = initial_parameter.to_vec_exact::<f32>().unwrap();
     let mut expected_v = [0.0_f32; 3];
     let mut expected_u = [0.0_f32; 3];
     let rho = 0.99;

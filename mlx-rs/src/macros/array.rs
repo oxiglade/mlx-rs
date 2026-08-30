@@ -95,7 +95,7 @@ mod tests {
         assert_eq!(arr.ndim(), 0);
         // Scalar array has empty shape
         assert!(arr.shape().is_empty());
-        assert_eq!(arr.item::<i32>(), 1);
+        assert_eq!(arr.item_exact::<i32>(), 1);
     }
 
     #[test]
@@ -105,9 +105,9 @@ mod tests {
         // One element array has 1 dimension
         assert_eq!(arr.ndim(), 1);
         assert_eq!(arr.shape(), &[3]);
-        assert_eq!(arr.index(0).item::<i32>(), 1);
-        assert_eq!(arr.index(1).item::<i32>(), 2);
-        assert_eq!(arr.index(2).item::<i32>(), 3);
+        assert_eq!(arr.index(0).item_exact::<i32>(), 1);
+        assert_eq!(arr.index(1).item_exact::<i32>(), 2);
+        assert_eq!(arr.index(2).item_exact::<i32>(), 3);
     }
 
     #[test]
@@ -116,12 +116,12 @@ mod tests {
 
         assert_eq!(a.ndim(), 2);
         assert_eq!(a.shape(), &[2, 3]);
-        assert_eq!(a.index((0, 0)).item::<i32>(), 1);
-        assert_eq!(a.index((0, 1)).item::<i32>(), 2);
-        assert_eq!(a.index((0, 2)).item::<i32>(), 3);
-        assert_eq!(a.index((1, 0)).item::<i32>(), 4);
-        assert_eq!(a.index((1, 1)).item::<i32>(), 5);
-        assert_eq!(a.index((1, 2)).item::<i32>(), 6);
+        assert_eq!(a.index((0, 0)).item_exact::<i32>(), 1);
+        assert_eq!(a.index((0, 1)).item_exact::<i32>(), 2);
+        assert_eq!(a.index((0, 2)).item_exact::<i32>(), 3);
+        assert_eq!(a.index((1, 0)).item_exact::<i32>(), 4);
+        assert_eq!(a.index((1, 1)).item_exact::<i32>(), 5);
+        assert_eq!(a.index((1, 2)).item_exact::<i32>(), 6);
     }
 
     #[test]
@@ -130,18 +130,18 @@ mod tests {
 
         assert!(a.ndim() == 3);
         assert_eq!(a.shape(), &[2, 2, 3]);
-        assert_eq!(a.index((0, 0, 0)).item::<i32>(), 1);
-        assert_eq!(a.index((0, 0, 1)).item::<i32>(), 2);
-        assert_eq!(a.index((0, 0, 2)).item::<i32>(), 3);
-        assert_eq!(a.index((0, 1, 0)).item::<i32>(), 4);
-        assert_eq!(a.index((0, 1, 1)).item::<i32>(), 5);
-        assert_eq!(a.index((0, 1, 2)).item::<i32>(), 6);
-        assert_eq!(a.index((1, 0, 0)).item::<i32>(), 7);
-        assert_eq!(a.index((1, 0, 1)).item::<i32>(), 8);
-        assert_eq!(a.index((1, 0, 2)).item::<i32>(), 9);
-        assert_eq!(a.index((1, 1, 0)).item::<i32>(), 10);
-        assert_eq!(a.index((1, 1, 1)).item::<i32>(), 11);
-        assert_eq!(a.index((1, 1, 2)).item::<i32>(), 12);
+        assert_eq!(a.index((0, 0, 0)).item_exact::<i32>(), 1);
+        assert_eq!(a.index((0, 0, 1)).item_exact::<i32>(), 2);
+        assert_eq!(a.index((0, 0, 2)).item_exact::<i32>(), 3);
+        assert_eq!(a.index((0, 1, 0)).item_exact::<i32>(), 4);
+        assert_eq!(a.index((0, 1, 1)).item_exact::<i32>(), 5);
+        assert_eq!(a.index((0, 1, 2)).item_exact::<i32>(), 6);
+        assert_eq!(a.index((1, 0, 0)).item_exact::<i32>(), 7);
+        assert_eq!(a.index((1, 0, 1)).item_exact::<i32>(), 8);
+        assert_eq!(a.index((1, 0, 2)).item_exact::<i32>(), 9);
+        assert_eq!(a.index((1, 1, 0)).item_exact::<i32>(), 10);
+        assert_eq!(a.index((1, 1, 1)).item_exact::<i32>(), 11);
+        assert_eq!(a.index((1, 1, 2)).item_exact::<i32>(), 12);
     }
 
     #[test]
@@ -150,9 +150,9 @@ mod tests {
 
         assert_eq!(a.ndim(), 2);
         assert_eq!(a.shape(), &[2, 2]);
-        assert_eq!(a.index((0, 0)).item::<i32>(), 1);
-        assert_eq!(a.index((0, 1)).item::<i32>(), 2);
-        assert_eq!(a.index((1, 0)).item::<i32>(), 3);
-        assert_eq!(a.index((1, 1)).item::<i32>(), 4);
+        assert_eq!(a.index((0, 0)).item_exact::<i32>(), 1);
+        assert_eq!(a.index((0, 1)).item_exact::<i32>(), 2);
+        assert_eq!(a.index((1, 0)).item_exact::<i32>(), 3);
+        assert_eq!(a.index((1, 1)).item_exact::<i32>(), 4);
     }
 }

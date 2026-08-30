@@ -71,7 +71,7 @@ fn cpu_and_metal_defaults_evaluate_on_separate_threads() {
                 barrier.wait();
                 let output = input.add(&array!(2.0_f32)).unwrap();
                 output.eval().unwrap();
-                output.as_slice::<f32>().to_vec()
+                output.to_vec_exact::<f32>().unwrap()
             })
         })
     });
@@ -104,7 +104,7 @@ fn moved_and_independently_cloned_arrays_use_thread_defaults() {
         with_stream(&stream, || {
             let output = cpu_array.multiply(&array!(0.5_f32)).unwrap();
             output.eval().unwrap();
-            output.as_slice::<f32>().to_vec()
+            output.to_vec_exact::<f32>().unwrap()
         })
     });
     let metal = thread::spawn(move || {
@@ -112,7 +112,7 @@ fn moved_and_independently_cloned_arrays_use_thread_defaults() {
         with_stream(&stream, || {
             let output = metal_array.multiply(&array!(0.5_f32)).unwrap();
             output.eval().unwrap();
-            output.as_slice::<f32>().to_vec()
+            output.to_vec_exact::<f32>().unwrap()
         })
     });
 

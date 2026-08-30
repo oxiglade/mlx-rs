@@ -50,8 +50,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     println!(
         "Loss {:.5}, L2 distance: |w-w*| = {:.5}, Throughput {:.5} (it/s)",
-        loss.item::<f32>(),
-        error_norm.item::<f32>(),
+        loss.item_exact::<f32>(),
+        error_norm.item_exact::<f32>(),
         throughput
     );
 

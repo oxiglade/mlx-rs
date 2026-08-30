@@ -149,7 +149,10 @@ use std::{
 };
 
 use super::{Closure, Guarded, VectorArray};
-use crate::{error::Exception, utils::SUCCESS};
+use crate::{
+    error::Exception,
+    utils::{StateLayoutEntry, SUCCESS},
+};
 
 #[allow(clippy::module_inception)]
 mod compile;
@@ -194,7 +197,7 @@ struct CompileCache {
     handle: mlx_sys::mlx_compile_cache,
 }
 
-type StateLayout = Vec<(Rc<str>, crate::Dtype, Vec<i32>)>;
+type StateLayout = Vec<StateLayoutEntry>;
 
 impl std::fmt::Debug for CompileCache {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -214,10 +217,10 @@ impl CompileCache {
             return Ok(cache);
         }
 
-        let error = crate::error::get_and_clear_last_mlx_error()
-            .map(|error| error.what)
-            .unwrap_or_else(|| "MLX failed to resolve the current compile cache".to_owned());
-        Err(Exception::custom(error))
+        Err(crate::error::exception_from_status(
+            status,
+            "resolving the current MLX compile cache",
+        ))
     }
 
     fn clear(&self) {

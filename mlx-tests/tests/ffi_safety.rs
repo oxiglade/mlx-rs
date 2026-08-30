@@ -88,7 +88,7 @@ fn run_closure_panic_child() {
         panic_message(panic).as_deref(),
         Some("fallible closure panic payload")
     );
-    assert_eq!((&Array::from_int(20) + 22).item::<i32>(), 42);
+    assert_eq!((&Array::from_int(20) + 22).item_exact::<i32>(), 42);
 }
 
 fn panic_message(payload: Box<dyn Any + Send>) -> Option<String> {

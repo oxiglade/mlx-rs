@@ -11,9 +11,9 @@ use std::{
 
 use crate::{
     array,
-    error::{IoError, UnflattenError},
+    error::{IoError, StateProjectionError, UnflattenError},
     module::{FlattenedModuleParam, ModuleParameters},
-    utils::Updatable,
+    utils::{StateProjection, Updatable},
     Array,
 };
 
@@ -45,28 +45,8 @@ pub use sgd::*;
 macro_rules! impl_updatable_for_mut_optimizer {
     ($optimizer:ty) => {
         impl Updatable for &'_ mut $optimizer {
-            fn updatable_states_len(&self) -> usize {
-                <$optimizer as Updatable>::updatable_states_len(&**self)
-            }
-
-            fn updatable_states(&self) -> impl IntoIterator<Item = &Array> {
-                <$optimizer as Updatable>::updatable_states(&**self)
-            }
-
-            fn updatable_states_mut(&mut self) -> impl IntoIterator<Item = &mut Array> {
-                <$optimizer as Updatable>::updatable_states_mut(&mut **self)
-            }
-
-            fn updatable_state_snapshot(&self) -> Vec<(Rc<str>, Array)> {
-                <$optimizer as Updatable>::updatable_state_snapshot(&**self)
-            }
-
-            fn restore_updatable_state(
-                &mut self,
-                snapshot: Vec<(Rc<str>, Array)>,
-                reset_new: bool,
-            ) -> Result<(), String> {
-                <$optimizer as Updatable>::restore_updatable_state(&mut **self, snapshot, reset_new)
+            fn state_projection(&mut self) -> Result<StateProjection<'_>, StateProjectionError> {
+                <$optimizer as Updatable>::state_projection(&mut **self)
             }
         }
     };
@@ -75,16 +55,8 @@ use impl_updatable_for_mut_optimizer;
 
 macro_rules! optimizer_updatable_state_methods {
     () => {
-        fn updatable_state_snapshot(&self) -> Vec<(Rc<str>, Array)> {
-            optimizer_state_snapshot(self)
-        }
-
-        fn restore_updatable_state(
-            &mut self,
-            snapshot: Vec<(Rc<str>, Array)>,
-            reset_new: bool,
-        ) -> Result<(), String> {
-            restore_optimizer_state(self, snapshot, reset_new)
+        fn state_projection(&mut self) -> Result<StateProjection<'_>, StateProjectionError> {
+            self.state_mut().state_projection()
         }
     };
 }
@@ -98,11 +70,18 @@ pub trait OptimizerState: Sized {
     /// Error type for unflatten.
     type UnflattenError: std::error::Error + Into<IoError>;
 
-    /// Flatten the optimizer state.
-    fn flatten(&self) -> impl Iterator<Item = (Rc<str>, &Array)>;
+    /// Declare all required and optional optimizer-state slots.
+    fn state_projection(&mut self) -> Result<StateProjection<'_>, StateProjectionError>;
 
-    /// Flatten the mutable optimizer state.
-    fn flatten_mut(&mut self) -> impl Iterator<Item = (Rc<str>, &mut Array)>;
+    /// Flatten present state entries in stable key order.
+    fn flatten(&mut self) -> Result<Vec<(Rc<str>, &Array)>, StateProjectionError> {
+        Ok(self.state_projection()?.into_entries().collect())
+    }
+
+    /// Flatten mutable present state entries in stable key order.
+    fn flatten_mut(&mut self) -> Result<Vec<(Rc<str>, &mut Array)>, StateProjectionError> {
+        Ok(self.state_projection()?.into_entries_mut().collect())
+    }
 
     /// Unflatten an iterator of key-value pairs into the optimizer state.
     fn unflatten<I, K>(input: I) -> Result<Self, Self::UnflattenError>
@@ -111,8 +90,8 @@ pub trait OptimizerState: Sized {
         K: Ord + AsRef<str> + Into<Rc<str>>;
 
     /// Save the optimizer state to a safetensors file.
-    fn save_safetensors(&self, path: impl AsRef<Path>) -> Result<(), IoError> {
-        let state = self.flatten();
+    fn save_safetensors(&mut self, path: impl AsRef<Path>) -> Result<(), IoError> {
+        let state = self.flatten().map_err(IoError::StateProjection)?;
         Array::save_safetensors(state, None, path)
     }
 
@@ -130,12 +109,12 @@ pub trait OptimizerState: Sized {
 impl OptimizerState for State {
     type UnflattenError = std::convert::Infallible;
 
-    fn flatten(&self) -> impl Iterator<Item = (Rc<str>, &Array)> {
-        self.iter().map(|(k, v)| (k.clone(), v))
-    }
-
-    fn flatten_mut(&mut self) -> impl Iterator<Item = (Rc<str>, &mut Array)> {
-        self.iter_mut().map(|(k, v)| (k.clone(), v))
+    fn state_projection(&mut self) -> Result<StateProjection<'_>, StateProjectionError> {
+        let mut projection = StateProjection::new();
+        for (key, value) in self {
+            projection.required(key.clone(), value)?;
+        }
+        Ok(projection)
     }
 
     fn unflatten<I, K>(input: I) -> Result<Self, Self::UnflattenError>
@@ -151,22 +130,13 @@ impl OptimizerState for State {
 impl OptimizerState for State<(Array, Array)> {
     type UnflattenError = UnflattenError;
 
-    fn flatten(&self) -> impl Iterator<Item = (Rc<str>, &Array)> {
-        self.iter().flat_map(|(k, (first, second))| {
-            let first_k: Rc<str> = Rc::from(format!("{k}.0"));
-            let second_k: Rc<str> = Rc::from(format!("{k}.1"));
-
-            [(first_k, first), (second_k, second)]
-        })
-    }
-
-    fn flatten_mut(&mut self) -> impl Iterator<Item = (Rc<str>, &mut Array)> {
-        self.iter_mut().flat_map(|(k, (first, second))| {
-            let first_k: Rc<str> = Rc::from(format!("{k}.0"));
-            let second_k: Rc<str> = Rc::from(format!("{k}.1"));
-
-            [(first_k, first), (second_k, second)]
-        })
+    fn state_projection(&mut self) -> Result<StateProjection<'_>, StateProjectionError> {
+        let mut projection = StateProjection::new();
+        for (key, (first, second)) in self {
+            projection.required(format!("{key}.0"), first)?;
+            projection.required(format!("{key}.1"), second)?;
+        }
+        Ok(projection)
     }
 
     fn unflatten<I, K>(input: I) -> Result<Self, Self::UnflattenError>
@@ -248,39 +218,6 @@ pub trait Optimizer: Updatable {
     }
 }
 
-fn optimizer_state_snapshot<O: Optimizer>(optimizer: &O) -> Vec<(Rc<str>, Array)> {
-    let mut snapshot = optimizer
-        .state()
-        .flatten()
-        .map(|(key, array)| (key, array.clone()))
-        .collect::<Vec<_>>();
-    snapshot.sort_by(|a, b| a.0.cmp(&b.0));
-    snapshot
-}
-
-fn restore_optimizer_state<O: Optimizer>(
-    optimizer: &mut O,
-    snapshot: Vec<(Rc<str>, Array)>,
-    reset_new: bool,
-) -> Result<(), String> {
-    let mut entries = if reset_new {
-        optimizer_state_snapshot(optimizer)
-            .into_iter()
-            .map(|(key, value)| {
-                crate::ops::zeros_like(&value)
-                    .map(|value| (key, value))
-                    .map_err(|error| error.to_string())
-            })
-            .collect::<Result<HashMap<_, _>, _>>()?
-    } else {
-        HashMap::new()
-    };
-    entries.extend(snapshot);
-    let restored = O::State::unflatten(entries).map_err(|error| error.to_string())?;
-    *optimizer.state_mut() = restored;
-    Ok(())
-}
-
 /// Type alias for clipped gradients that is returned by `clip_grad_norm`.
 pub type MaybeClippedGrads<'a> = HashMap<Rc<str>, Cow<'a, Array>>;
 
@@ -297,7 +234,7 @@ pub fn clip_grad_norm(
         .values()
         .try_fold(array!(0.0), |acc, grad| acc.add(&grad.square()?.sum(None)?))?
         .sqrt()?
-        .item();
+        .item_exact();
     let normalizer = array!(max_norm / (total_norm + 1e-6));
 
     let clipped_gradients: HashMap<_, _> = gradients
@@ -364,7 +301,7 @@ mod tests {
             .sqrt()
             .unwrap();
 
-        float_eq::assert_float_eq!(norm_of_clipped.item::<f32>(), max_norm, abs <= 1e-6);
+        float_eq::assert_float_eq!(norm_of_clipped.item_exact::<f32>(), max_norm, abs <= 1e-6);
 
         // Ensures that the scaling was done correctly
         let scale = max_norm / total_norm;

@@ -227,12 +227,12 @@ mod tests {
         assert_eq!(a.shape(), &[2, 8, 16]);
         assert_eq!(a.dtype(), Dtype::Float32);
         assert_float_eq!(
-            a.mean(None).unwrap().item::<f32>(),
+            a.mean(None).unwrap().item_exact::<f32>(),
             0.508_688_57,
             abs <= 0.010_173_771_5
         );
         assert_float_eq!(
-            a.sum(None).unwrap().item::<f32>(),
+            a.sum(None).unwrap().item_exact::<f32>(),
             130.224_27,
             abs <= 2.604_485_5
         );
@@ -240,12 +240,12 @@ mod tests {
         assert_eq!(result.shape(), &[2, 8, 5]);
         assert_eq!(result.dtype(), Dtype::Float32);
         assert_float_eq!(
-            result.mean(None).unwrap().item::<f32>(),
+            result.mean(None).unwrap().item_exact::<f32>(),
             0.104_193_09,
             abs <= 0.002_083_861_7
         );
         assert_float_eq!(
-            result.sum(None).unwrap().item::<f32>(),
+            result.sum(None).unwrap().item_exact::<f32>(),
             8.335_447,
             abs <= 0.166_708_95
         );

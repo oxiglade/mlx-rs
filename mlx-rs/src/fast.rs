@@ -346,12 +346,12 @@ mod tests {
         assert_eq!(result.shape(), [2, 8, 16]);
         assert_eq!(result.dtype(), crate::Dtype::Float32);
         assert_float_eq!(
-            result.mean(None).unwrap().item::<f32>(),
+            result.mean(None).unwrap().item_exact::<f32>(),
             0.456_253_77,
             abs <= 0.009_125_075
         );
         assert_float_eq!(
-            result.sum(None).unwrap().item::<f32>(),
+            result.sum(None).unwrap().item_exact::<f32>(),
             116.800_964,
             abs <= 2.336_019_3
         );
@@ -378,7 +378,7 @@ mod tests {
 
         // The results should be close
         let diff = &result - &result_int_offset;
-        let max_diff = diff.abs().unwrap().max(None).unwrap().item::<f32>();
+        let max_diff = diff.abs().unwrap().max(None).unwrap().item_exact::<f32>();
         assert!(max_diff < 1e-5, "Max difference was {}", max_diff);
     }
 
@@ -394,12 +394,12 @@ mod tests {
         assert_eq!(result.shape(), [2, 8, 16]);
         assert_eq!(result.dtype(), crate::Dtype::Float32);
         assert_float_eq!(
-            result.mean(None).unwrap().item::<f32>(),
+            result.mean(None).unwrap().item_exact::<f32>(),
             0.872_938_75,
             abs <= 0.017_458_774
         );
         assert_float_eq!(
-            result.sum(None).unwrap().item::<f32>(),
+            result.sum(None).unwrap().item_exact::<f32>(),
             223.472_32,
             abs <= 4.469_446
         );
@@ -419,12 +419,12 @@ mod tests {
         assert_eq!(result.shape(), [2, 8]);
         assert_eq!(result.dtype(), crate::Dtype::Float32);
         assert_float_eq!(
-            result.mean(None).unwrap().item::<f32>(),
+            result.mean(None).unwrap().item_exact::<f32>(),
             0.290_990_38,
             abs <= 0.005_819_807_8
         );
         assert_float_eq!(
-            result.sum(None).unwrap().item::<f32>(),
+            result.sum(None).unwrap().item_exact::<f32>(),
             4.655_846,
             abs <= 0.093_116_924
         );

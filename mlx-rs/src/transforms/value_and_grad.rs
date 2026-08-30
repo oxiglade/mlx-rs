@@ -122,12 +122,12 @@ mod tests {
         let fun = |argin: &[Array]| -> Vec<Array> { vec![&argin[0] + 1.0] };
         let argnums = &[0];
         let (y, dfdx) = value_and_grad_with_argnums(fun, argnums)(x).unwrap();
-        assert_eq!(y[0].item::<f32>(), 2.0);
-        assert_eq!(dfdx[0].item::<f32>(), 1.0);
+        assert_eq!(y[0].item_exact::<f32>(), 2.0);
+        assert_eq!(dfdx[0].item_exact::<f32>(), 1.0);
 
         let (y, dfdx) = value_and_grad(fun)(x).unwrap();
-        assert_eq!(y[0].item::<f32>(), 2.0);
-        assert_eq!(dfdx[0].item::<f32>(), 1.0);
+        assert_eq!(y[0].item_exact::<f32>(), 2.0);
+        assert_eq!(dfdx[0].item_exact::<f32>(), 1.0);
     }
 
     #[test]

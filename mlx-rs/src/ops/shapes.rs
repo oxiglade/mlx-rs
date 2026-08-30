@@ -1629,7 +1629,7 @@ mod tests {
         for (i, a) in out.iter_mut().enumerate() {
             assert_eq!(a.shape(), &[1]);
             assert_eq!(a.dtype(), Dtype::Int32);
-            assert_eq!(a.item::<i32>(), i as i32);
+            assert_eq!(a.item_exact::<i32>(), i as i32);
         }
 
         let x = Array::from_slice(&[0, 1, 2, 3, 4, 5], &[2, 3]);
@@ -1850,18 +1850,18 @@ mod tests {
         let x = Array::from_int(1);
         let y = transpose(&x).unwrap();
         assert!(y.shape().is_empty());
-        assert_eq!(y.item::<i32>(), 1);
+        assert_eq!(y.item_exact::<i32>(), 1);
         assert!(transpose_axes(&x, &[0][..]).is_err());
         assert!(transpose_axes(&x, &[1][..]).is_err());
 
         let x = Array::from_slice(&[1], &[1]);
         let y = transpose(&x).unwrap();
         assert_eq!(y.shape(), &[1]);
-        assert_eq!(y.item::<i32>(), 1);
+        assert_eq!(y.item_exact::<i32>(), 1);
 
         let y = transpose_axes(&x, &[-1][..]).unwrap();
         assert_eq!(y.shape(), &[1]);
-        assert_eq!(y.item::<i32>(), 1);
+        assert_eq!(y.item_exact::<i32>(), 1);
 
         assert!(transpose_axes(&x, &[1][..]).is_err());
         assert!(transpose_axes(&x, &[0, 0][..]).is_err());

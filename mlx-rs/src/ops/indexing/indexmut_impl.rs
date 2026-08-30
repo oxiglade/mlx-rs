@@ -1375,9 +1375,9 @@ mod tests {
 
         a.index_mut((i1, i2), Array::from_slice(&[100, 200, 300], &[3]));
 
-        assert_eq!(a.index((0, 0)).item::<i32>(), 100i32);
-        assert_eq!(a.index((2, 1)).item::<i32>(), 200i32);
-        assert_eq!(a.index((4, 2)).item::<i32>(), 300i32);
+        assert_eq!(a.index((0, 0)).item_exact::<i32>(), 100i32);
+        assert_eq!(a.index((2, 1)).item_exact::<i32>(), 200i32);
+        assert_eq!(a.index((4, 2)).item_exact::<i32>(), 300i32);
     }
 
     #[test]
@@ -1389,7 +1389,7 @@ mod tests {
             let mut a = Array::from_iter(0..60, &[3, 4, 5]);
 
             a.index_mut(index, Array::from_int(1));
-            let sum = a.sum(None).unwrap().item::<i32>();
+            let sum = a.sum(None).unwrap().item_exact::<i32>();
             assert_eq!(sum, expected_sum);
         }
 
@@ -1420,7 +1420,7 @@ mod tests {
                     let mut a = Array::from_iter(0..360, &[2, 3, 4, 5, 3]);
 
                     a.index_mut(($($i),*), Array::from_int(1));
-                    let sum = a.sum(None).unwrap().item::<i32>();
+                    let sum = a.sum(None).unwrap().item_exact::<i32>();
                     assert_eq!(sum, $sum);
                 }
             };
@@ -1468,7 +1468,7 @@ mod tests {
                     let mut a = Array::from_iter(0..540, &[3, 3, 4, 5, 3]);
 
                     a.index_mut(($($i),*), Array::from_int(1));
-                    let sum = a.sum(None).unwrap().item::<i32>();
+                    let sum = a.sum(None).unwrap().item_exact::<i32>();
                     assert_eq!(sum, $sum);
                 }
             };

@@ -156,7 +156,7 @@ mod tests {
         let value = value.as_ref();
         assert_eq!(value.dtype(), Dtype::Float32);
         assert!(value.shape().is_empty());
-        let value = value.item::<f32>();
+        let value = value.item_exact::<f32>();
         assert!(value.is_finite());
         assert_ne!(value, 0.0);
     }

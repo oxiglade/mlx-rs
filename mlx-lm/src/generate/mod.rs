@@ -209,7 +209,7 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             let token = try_unwrap!(self.token_generator.next()?);
-            let id = try_unwrap!(token.try_item());
+            let id = try_unwrap!(token.try_item_exact());
             self.ids.push(id);
 
             if self.ids.len() >= self.max_tokens {

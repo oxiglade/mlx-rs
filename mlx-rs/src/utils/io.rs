@@ -105,9 +105,10 @@ impl SafeTensors {
                     }
                     1 => {
                         mlx_sys::mlx_array_free(value);
-                        return Err(crate::error::get_and_clear_last_mlx_error()
-                            .expect("A non-success status was returned, but no error was set.")
-                            .into());
+                        return Err(crate::error::exception_from_status(
+                            status,
+                            "advancing an array map iterator",
+                        ));
                     }
                     2 => {
                         mlx_sys::mlx_array_free(value);
@@ -145,9 +146,10 @@ impl SafeTensors {
                         map.insert(key, value);
                     }
                     1 => {
-                        return Err(crate::error::get_and_clear_last_mlx_error()
-                            .expect("A non-success status was returned, but no error was set.")
-                            .into());
+                        return Err(crate::error::exception_from_status(
+                            status,
+                            "advancing a metadata map iterator",
+                        ));
                     }
                     2 => break,
                     _ => unreachable!(),

@@ -1626,9 +1626,12 @@ mod tests {
     fn test_all() {
         let array = Array::from_slice(&[true, false, true, false], &[2, 2]);
 
-        assert_eq!(array.all(None).unwrap().item::<bool>(), false);
+        assert_eq!(array.all(None).unwrap().item_exact::<bool>(), false);
         assert_eq!(array.all(true).unwrap().shape(), &[1, 1]);
-        assert_eq!(array.all_axes(&[0, 1], None).unwrap().item::<bool>(), false);
+        assert_eq!(
+            array.all_axes(&[0, 1], None).unwrap().item_exact::<bool>(),
+            false
+        );
 
         let result = array.all_axis(0, None).unwrap();
         assert_eq!(result.as_slice::<bool>(), &[true, false]);
@@ -1652,10 +1655,10 @@ mod tests {
     #[test]
     fn test_prod() {
         let x = Array::from_slice(&[1, 2, 3, 3], &[2, 2]);
-        assert_eq!(x.prod(None).unwrap().item::<i32>(), 18);
+        assert_eq!(x.prod(None).unwrap().item_exact::<i32>(), 18);
 
         let y = x.prod(true).unwrap();
-        assert_eq!(y.item::<i32>(), 18);
+        assert_eq!(y.item_exact::<i32>(), 18);
         assert_eq!(y.shape(), &[1, 1]);
 
         let result = x.prod_axis(0, None).unwrap();
@@ -1677,9 +1680,9 @@ mod tests {
     #[test]
     fn test_max() {
         let x = Array::from_slice(&[1, 2, 3, 4], &[2, 2]);
-        assert_eq!(x.max(None).unwrap().item::<i32>(), 4);
+        assert_eq!(x.max(None).unwrap().item_exact::<i32>(), 4);
         let y = x.max(true).unwrap();
-        assert_eq!(y.item::<i32>(), 4);
+        assert_eq!(y.item_exact::<i32>(), 4);
         assert_eq!(y.shape(), &[1, 1]);
 
         let result = x.max_axis(0, None).unwrap();
@@ -1719,9 +1722,9 @@ mod tests {
     #[test]
     fn test_mean() {
         let x = Array::from_slice(&[1, 2, 3, 4], &[2, 2]);
-        assert_eq!(x.mean(None).unwrap().item::<f32>(), 2.5);
+        assert_eq!(x.mean(None).unwrap().item_exact::<f32>(), 2.5);
         let y = x.mean(true).unwrap();
-        assert_eq!(y.item::<f32>(), 2.5);
+        assert_eq!(y.item_exact::<f32>(), 2.5);
         assert_eq!(y.shape(), &[1, 1]);
 
         let result = x.mean_axis(0, None).unwrap();
@@ -1750,9 +1753,9 @@ mod tests {
     #[test]
     fn test_min() {
         let x = Array::from_slice(&[1, 2, 3, 4], &[2, 2]);
-        assert_eq!(x.min(None).unwrap().item::<i32>(), 1);
+        assert_eq!(x.min(None).unwrap().item_exact::<i32>(), 1);
         let y = x.min(true).unwrap();
-        assert_eq!(y.item::<i32>(), 1);
+        assert_eq!(y.item_exact::<i32>(), 1);
         assert_eq!(y.shape(), &[1, 1]);
 
         let result = x.min_axis(0, None).unwrap();
@@ -1774,9 +1777,9 @@ mod tests {
     #[test]
     fn test_var() {
         let x = Array::from_slice(&[1, 2, 3, 4], &[2, 2]);
-        assert_eq!(x.var(None, None).unwrap().item::<f32>(), 1.25);
+        assert_eq!(x.var(None, None).unwrap().item_exact::<f32>(), 1.25);
         let y = x.var(true, None).unwrap();
-        assert_eq!(y.item::<f32>(), 1.25);
+        assert_eq!(y.item_exact::<f32>(), 1.25);
         assert_eq!(y.shape(), &[1, 1]);
 
         let result = x.var_axis(0, None, None).unwrap();
@@ -1787,7 +1790,7 @@ mod tests {
 
         let x = Array::from_slice(&[1.0, 2.0], &[2]);
         let out = x.var(None, Some(3)).unwrap();
-        assert_eq!(out.item::<f32>(), f32::INFINITY);
+        assert_eq!(out.item_exact::<f32>(), f32::INFINITY);
     }
 
     #[test]
@@ -1824,7 +1827,7 @@ mod tests {
         let x = Array::from_slice(&[0, 1, 2, 3, 4], &[5]);
         let out = x.median(None).unwrap();
         assert_eq!(out.shape(), &[] as &[i32]);
-        assert_eq!(out.item::<i32>(), 2);
+        assert_eq!(out.item_exact::<f32>(), 2.0);
 
         // Test keepdims
         let out = x.median(true).unwrap();
@@ -1833,7 +1836,7 @@ mod tests {
         // Test median with even count (should be average of two middle values)
         let x = Array::from_slice(&[0, 1, 2, 3, 4, 5], &[6]);
         let out = x.median(None).unwrap();
-        assert!((out.item::<f32>() - 2.5).abs() < 1e-5);
+        assert!((out.item_exact::<f32>() - 2.5).abs() < 1e-5);
 
         // Test median over specific axes
         use crate::random;

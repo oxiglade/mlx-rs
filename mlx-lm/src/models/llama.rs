@@ -759,7 +759,7 @@ mod tests {
         for (token, _ntoks) in generate.zip(0..50) {
             let token = token.unwrap();
             eval([&token]).unwrap();
-            let token_id = token.item::<u32>();
+            let token_id = token.item_exact::<u32>();
             print!("[{}]", token_id);
             if token_id == eos_token_id || token_id == eot_token_id {
                 break;

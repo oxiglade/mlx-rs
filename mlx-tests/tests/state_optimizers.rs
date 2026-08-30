@@ -120,7 +120,7 @@ fn assert_snapshot<O: Optimizer>(
     case_id: &str,
     step: usize,
     model: &TinyModel,
-    optimizer: &O,
+    optimizer: &mut O,
 ) {
     let parameter_prefix = format!("{case_id}.step{step}.param.");
     let parameters = model.parameters().flatten();
@@ -143,8 +143,10 @@ fn assert_snapshot<O: Optimizer>(
 
     let state_prefix = format!("{case_id}.step{step}.state.");
     let state = optimizer
-        .state()
+        .state_mut()
         .flatten()
+        .unwrap()
+        .into_iter()
         .map(|(key, value)| (key.to_string(), value))
         .collect::<HashMap<_, _>>();
     let state_keys = state.keys().cloned().collect::<BTreeSet<_>>();
@@ -170,7 +172,7 @@ fn qualify_oracle_trajectory<O: Optimizer>(case_id: &str, optimizer: O) {
         optimizer
             .update(&mut model, fixture.gradients(step, true))
             .unwrap();
-        assert_snapshot(&fixture, case_id, step, &model, &optimizer);
+        assert_snapshot(&fixture, case_id, step, &model, &mut optimizer);
     }
 }
 
@@ -184,13 +186,13 @@ fn qualify_compiled_trajectory<O: Optimizer + Clone + 'static>(case_id: &str, op
         let gradients = fixture.compiled_gradients(step);
         optimizer_step(&mut eager_state, &gradients);
         compiled(&mut compiled_state, &gradients).unwrap();
-        assert_snapshot(&fixture, case_id, step, &eager_state.0, &eager_state.1);
+        assert_snapshot(&fixture, case_id, step, &eager_state.0, &mut eager_state.1);
         assert_snapshot(
             &fixture,
             case_id,
             step,
             &compiled_state.0,
-            &compiled_state.1,
+            &mut compiled_state.1,
         );
     }
 }
@@ -324,7 +326,7 @@ fn adam_frozen_bias_oracle_trajectory() {
         optimizer
             .update(&mut model, fixture.gradients(step, false))
             .unwrap();
-        assert_snapshot(&fixture, "adam_frozen_bias", step, &model, &optimizer);
+        assert_snapshot(&fixture, "adam_frozen_bias", step, &model, &mut optimizer);
     }
 }
 
@@ -391,14 +393,18 @@ fn fault_stuck_step_counter_is_state_weight_step() {
     let step = optimizer
         .state_mut()
         .flatten_mut()
+        .unwrap()
+        .into_iter()
         .find_map(|(key, value)| (key.as_ref() == "weight.step").then_some(value))
         .unwrap();
     *step = array!(0_i32);
     expect_named_failure("adafactor.step1.state.weight.step", || {
         assert_named(
             optimizer
-                .state()
+                .state_mut()
                 .flatten()
+                .unwrap()
+                .into_iter()
                 .find_map(|(key, value)| (key.as_ref() == "weight.step").then_some(value))
                 .unwrap(),
             fixture.tensor("adafactor.step1.state.weight.step"),
@@ -420,8 +426,10 @@ fn fault_reordered_state_tensors_is_state_weight_zero() {
         .update(&mut model, fixture.gradients(1, true))
         .unwrap();
     let first = optimizer
-        .state()
+        .state_mut()
         .flatten()
+        .unwrap()
+        .into_iter()
         .find_map(|(key, value)| (key.as_ref() == "weight.0").then_some(value))
         .unwrap();
     expect_named_failure("adam.step1.state.weight.0", || {
