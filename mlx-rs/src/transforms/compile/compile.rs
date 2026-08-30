@@ -361,8 +361,6 @@ impl<F> CompiledState<F> {
 
 #[cfg(test)]
 mod tests {
-    use std::mem::ManuallyDrop;
-
     use crate::{
         array,
         error::Exception,
@@ -379,16 +377,16 @@ mod tests {
 
     #[test]
     fn compile_ids_are_unique_for_live_instances_of_the_same_type() {
-        let first = ManuallyDrop::new(super::CompiledState::new(example_fn_0, false));
-        let second = ManuallyDrop::new(super::CompiledState::new(example_fn_0, false));
+        let first = super::CompiledState::new(example_fn_0, false);
+        let second = super::CompiledState::new(example_fn_0, false);
 
         assert_ne!(first.id, second.id);
     }
 
     #[test]
     fn cloned_compile_state_gets_a_fresh_monotonic_id() {
-        let first = ManuallyDrop::new(super::CompiledState::new(example_fn_0, false));
-        let cloned = ManuallyDrop::new(super::CompiledState::clone(&first));
+        let first = super::CompiledState::new(example_fn_0, false);
+        let cloned = super::CompiledState::clone(&first);
 
         assert!(cloned.id > first.id);
     }

@@ -203,17 +203,18 @@ impl std::fmt::Debug for CompileCache {
 impl CompileCache {
     fn current() -> Result<Self, Exception> {
         crate::error::INIT_ERR_HANDLER.call_once(crate::error::setup_mlx_error_handler);
-        let mut handle = unsafe { mlx_sys::mlx_compile_cache_new() };
-        let status = unsafe { mlx_sys::mlx_detail_compile_cache(&mut handle) };
+        let mut cache = Self {
+            handle: unsafe { mlx_sys::mlx_compile_cache_new() },
+        };
+        let status = unsafe { mlx_sys::mlx_detail_compile_cache(&mut cache.handle) };
         crate::error::resume_closure_panic();
         if status == SUCCESS {
-            return Ok(Self { handle });
+            return Ok(cache);
         }
 
         let error = crate::error::get_and_clear_last_mlx_error()
             .map(|error| error.what)
             .unwrap_or_else(|| "MLX failed to resolve the current compile cache".to_owned());
-        consume_status(unsafe { mlx_sys::mlx_compile_cache_free(handle) });
         Err(Exception::custom(error))
     }
 

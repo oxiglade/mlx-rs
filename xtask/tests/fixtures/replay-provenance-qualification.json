@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "target_environment": {
+    "python": "3.12.14",
+    "architecture": "arm64",
+    "venv": "conformance/.venv-target",
+    "mlx": "0.32.2",
+    "mlx_metal": "0.32.2",
+    "numpy": "2.2.6",
+    "mlx_runtime": "0.32.2",
+    "device": "cpu"
+  },
+  "families": [
+    {
+      "id": "corpus",
+      "old_environment": {
+        "python": "3.12.14",
+        "architecture": "arm64",
+        "mlx_package": "0.30.6",
+        "mlx_metal_package": "0.30.6",
+        "mlx_runtime": "0.30.6",
+        "numpy": "2.2.6"
+      },
+      "states": [
+        {
+          "expected_match": "pre_migration",
+          "committed_environment": {
+            "python": "3.12.14",
+            "architecture": "arm64",
+            "mlx_package": "0.30.6",
+            "mlx_metal_package": "0.30.6",
+            "mlx_runtime": "0.30.6",
+            "numpy": "2.2.6"
+          }
+        },
+        {
+          "expected_match": "post_migration",
+          "committed_environment": {
+            "python": "3.12.14",
+            "architecture": "arm64",
+            "mlx_package": "0.32.2",
+            "mlx_metal_package": "0.32.2",
+            "mlx_runtime": "0.32.2",
+            "numpy": "2.2.6"
+          }
+        }
+      ]
+    },
+    {
+      "id": "state",
+      "old_environment": {
+        "python": "3.12.14",
+        "architecture": "arm64",
+        "pinned_venv": "conformance/.venv",
+        "mlx": "0.30.6",
+        "mlx_metal": "0.30.6",
+        "numpy": "2.2.6"
+      },
+      "states": [
+        {
+          "expected_match": "pre_migration",
+          "committed_environment": {
+            "python": "3.12.14",
+            "architecture": "arm64",
+            "pinned_venv": "conformance/.venv",
+            "mlx": "0.30.6",
+            "mlx_metal": "0.30.6",
+            "numpy": "2.2.6"
+          }
+        },
+        {
+          "expected_match": "post_migration",
+          "committed_environment": {
+            "python": "3.12.14",
+            "architecture": "arm64",
+            "pinned_venv": "conformance/.venv",
+            "mlx": "0.32.2",
+            "mlx_metal": "0.32.2",
+            "numpy": "2.2.6"
+          }
+        }
+      ]
+    }
+  ]
+}

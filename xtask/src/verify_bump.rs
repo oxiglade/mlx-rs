@@ -881,13 +881,14 @@ fn validate_replay_document(base: &Path, report: &Value, strict: bool) -> Result
     if double["first_run_sha256"] != reconstructed || double["second_run_sha256"] != reconstructed {
         return Err("target replay double-run hash does not match payload and shards".to_owned());
     }
-    if strict {
-        validate_strict_replay(base, report, &seen)?;
-    }
+    let committed_provenance = strict
+        .then(|| validate_strict_replay(base, report, &seen))
+        .transpose()?;
     Ok(json!({
         "payload_sha256": report["payload_sha256"],
         "suites": suites.len(),
-        "double_run_sha256": double["first_run_sha256"]
+        "double_run_sha256": double["first_run_sha256"],
+        "committed_provenance": committed_provenance
     }))
 }
 
@@ -895,7 +896,7 @@ fn validate_strict_replay(
     base: &Path,
     report: &Value,
     seen: &BTreeSet<&str>,
-) -> Result<(), String> {
+) -> Result<Value, String> {
     if report["payload"]["isolation"]
         != json!({
             "process_scope": "fresh_subprocess_per_suite",
@@ -982,6 +983,10 @@ fn validate_strict_replay(
         "probe_singular_inv".to_owned(),
         BTreeSet::from(["probe.singular_inv".to_owned()]),
     );
+    let mut provenance_matches = BTreeMap::from([
+        ("pre_migration", Vec::<String>::new()),
+        ("post_migration", Vec::<String>::new()),
+    ]);
     for suite in report["payload"]["suites"]
         .as_array()
         .ok_or("target replay suites must be an array")?
@@ -1007,16 +1012,21 @@ fn validate_strict_replay(
                     .ok_or("target replay case id must be a string".to_owned())
             })
             .collect::<Result<BTreeSet<_>, _>>()?;
-        let expected_old_environment = if matches!(id, "state" | "transforms") {
+        let committed_environment = if matches!(id, "state" | "transforms") {
             &manifest["provenance"]["environment"]
         } else {
             &corpus["environment"]
         };
-        if shard["old_environment"] != *expected_old_environment {
-            return Err(format!(
-                "target replay suite {id} old environment does not match committed provenance"
-            ));
-        }
+        let provenance_match = classify_replay_provenance(
+            committed_environment,
+            &shard["old_environment"],
+            &shard["target_environment"],
+        )
+        .map_err(|error| format!("target replay suite {id} {error}"))?;
+        provenance_matches
+            .get_mut(provenance_match)
+            .expect("known provenance match")
+            .push(id.to_owned());
         for case in shard["cases"]
             .as_array()
             .ok_or("target replay shard cases must be an array")?
@@ -1079,11 +1089,27 @@ fn validate_strict_replay(
             "target replay source_artifacts set does not match committed inputs".to_owned(),
         );
     }
+    let historical_source_commit = if provenance_matches["post_migration"].is_empty() {
+        None
+    } else {
+        let replay_report = base.join("replay-report.json");
+        let replay_report = replay_report
+            .strip_prefix(repo_root)
+            .map_err(|_| "target replay report is outside the repository")?
+            .to_str()
+            .ok_or("target replay report path is not UTF-8")?;
+        Some(replay_introduction_commit(repo_root, replay_report)?)
+    };
     for (relative, digest) in sources {
         let path = safe_join(repo_root, relative)
             .ok_or_else(|| format!("invalid target replay source path {relative}"))?;
         require_tracked_unchanged(repo_root, &path)?;
-        if digest != &json!(hash_file(&path)?) {
+        let actual = if let Some(commit) = historical_source_commit.as_deref() {
+            hash_git_file(repo_root, commit, relative)?
+        } else {
+            hash_file(&path)?
+        };
+        if digest != &json!(actual) {
             return Err(format!(
                 "target replay source artifact {relative} digest mismatch"
             ));
@@ -1095,7 +1121,49 @@ fn validate_strict_replay(
     {
         return Err("state manifest has no trajectories".to_owned());
     }
-    Ok(())
+    Ok(json!(provenance_matches))
+}
+
+fn classify_replay_provenance(
+    committed: &Value,
+    old: &Value,
+    target: &Value,
+) -> Result<&'static str, String> {
+    if committed == old {
+        return Ok("pre_migration");
+    }
+    if committed == &project_target_environment(old, target)? {
+        return Ok("post_migration");
+    }
+    Err("committed provenance matches neither replay old nor target environment".to_owned())
+}
+
+fn project_target_environment(old: &Value, target: &Value) -> Result<Value, String> {
+    let old = old
+        .as_object()
+        .ok_or("replay old environment must be an object")?;
+    let target = target
+        .as_object()
+        .ok_or("replay target environment must be an object")?;
+    let mut projected = old.clone();
+    for (provenance_field, target_field) in [
+        ("python", "python"),
+        ("architecture", "architecture"),
+        ("mlx_package", "mlx"),
+        ("mlx_metal_package", "mlx_metal"),
+        ("mlx", "mlx"),
+        ("mlx_metal", "mlx_metal"),
+        ("mlx_runtime", "mlx_runtime"),
+        ("numpy", "numpy"),
+    ] {
+        if old.contains_key(provenance_field) {
+            let value = target
+                .get(target_field)
+                .ok_or_else(|| format!("replay target environment is missing {target_field}"))?;
+            projected.insert(provenance_field.to_owned(), value.clone());
+        }
+    }
+    Ok(Value::Object(projected))
 }
 
 fn required_case_field<'a>(case: &'a Value, suite: &str, field: &str) -> Result<&'a str, String> {
@@ -1395,6 +1463,40 @@ fn hash_file(path: &Path) -> Result<String, String> {
     hash_bytes(&bytes)
 }
 
+fn hash_git_file(repo_root: &Path, commit: &str, path: &str) -> Result<String, String> {
+    let output = Command::new("git")
+        .args(["show", &format!("{commit}:{path}")])
+        .current_dir(repo_root)
+        .output()
+        .map_err(|error| format!("failed to read historical replay source {path}: {error}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "failed to read historical replay source {path}: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+    hash_bytes(&output.stdout)
+}
+
+fn replay_introduction_commit(repo_root: &Path, path: &str) -> Result<String, String> {
+    let history = git(
+        repo_root,
+        &[
+            "log",
+            "--reverse",
+            "--diff-filter=A",
+            "--format=%H",
+            "--",
+            path,
+        ],
+    )?;
+    history
+        .lines()
+        .next()
+        .map(str::to_owned)
+        .ok_or_else(|| format!("target replay report {path} has no introduction commit"))
+}
+
 fn hash_json(value: &Value) -> Result<String, String> {
     let bytes = serde_json::to_vec(value)
         .map_err(|error| format!("failed to serialize JSON for hashing: {error}"))?;
@@ -1589,6 +1691,13 @@ mod tests {
         (root, report)
     }
 
+    fn replay_provenance_qualification() -> Value {
+        serde_json::from_str(include_str!(
+            "../tests/fixtures/replay-provenance-qualification.json"
+        ))
+        .unwrap()
+    }
+
     #[test]
     fn sha256_matches_known_vector() {
         assert_eq!(
@@ -1697,6 +1806,93 @@ mod tests {
         let error = validate_replay_document(root.path(), &report, false).unwrap_err();
 
         assert!(error.contains("double-run hash"));
+    }
+
+    #[test]
+    fn replay_provenance_qualification_accepts_pre_and_post_migration_states() {
+        let fixture = replay_provenance_qualification();
+        let target = &fixture["target_environment"];
+
+        for family in fixture["families"].as_array().unwrap() {
+            for state in family["states"].as_array().unwrap() {
+                assert_eq!(
+                    classify_replay_provenance(
+                        &state["committed_environment"],
+                        &family["old_environment"],
+                        target,
+                    )
+                    .unwrap(),
+                    state["expected_match"].as_str().unwrap(),
+                    "{}",
+                    family["id"].as_str().unwrap(),
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn replay_provenance_rejects_an_environment_outside_the_transition() {
+        let fixture = replay_provenance_qualification();
+        let family = &fixture["families"][0];
+        let mut unrelated = family["states"][1]["committed_environment"].clone();
+        unrelated["numpy"] = "3.0.0".into();
+
+        let error = classify_replay_provenance(
+            &unrelated,
+            &family["old_environment"],
+            &fixture["target_environment"],
+        )
+        .unwrap_err();
+
+        assert!(error.contains("neither replay old nor target environment"));
+    }
+
+    #[test]
+    fn canonical_replay_reports_post_migration_provenance() {
+        let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        let replay_root = repo_root.join("conformance/target");
+        let report = read_json(&replay_root.join("replay-report.json")).unwrap();
+
+        let evidence = validate_replay_document(&replay_root, &report, true).unwrap();
+
+        assert_eq!(
+            evidence["committed_provenance"],
+            json!({
+                "pre_migration": [],
+                "post_migration": [
+                    "arithmetic", "dtypes", "errors", "execution", "reductions", "shapes",
+                    "state", "transforms", "probe_oob_take", "probe_singular_inv"
+                ]
+            })
+        );
+    }
+
+    #[test]
+    fn replay_sources_stay_anchored_to_the_report_introduction() {
+        let root = tempfile::tempdir().unwrap();
+        let run_git = |args: &[&str]| {
+            let status = Command::new("git")
+                .args(args)
+                .current_dir(root.path())
+                .status()
+                .unwrap();
+            assert!(status.success());
+        };
+        run_git(&["init", "--quiet"]);
+        run_git(&["config", "user.email", "qualification@example.invalid"]);
+        run_git(&["config", "user.name", "Qualification"]);
+        fs::write(root.path().join("replay-report.json"), "historical\n").unwrap();
+        run_git(&["add", "replay-report.json"]);
+        run_git(&["commit", "--quiet", "-m", "test: add replay report"]);
+        let introduction = git(root.path(), &["rev-parse", "HEAD"]).unwrap();
+
+        fs::write(root.path().join("replay-report.json"), "metadata update\n").unwrap();
+        run_git(&["commit", "--quiet", "-am", "test: update replay report"]);
+
+        assert_eq!(
+            replay_introduction_commit(root.path(), "replay-report.json").unwrap(),
+            introduction
+        );
     }
 
     #[test]
