@@ -1224,7 +1224,7 @@ where
 /// let a = array!([1.0, 4.0, 3.0, 8.0, 5.0]);
 /// let expected = array!([2.0, 4.0, 3.0, 6.0, 5.0]);
 /// let clipped = clip(&a, (2.0, 6.0)).unwrap();
-/// assert_eq!(clipped, expected);
+/// assert!(clipped.eq_exact(&expected).unwrap());
 /// ```
 pub fn clip<'min, 'max>(a: impl AsRef<Array>, bound: impl ClipBound<'min, 'max>) -> Result<Array> {
     let stream = Stream::thread_local_or_default();

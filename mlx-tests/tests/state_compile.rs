@@ -14,12 +14,13 @@ use std::{
 use mlx_rs::{
     array,
     builder::Builder,
-    error::Exception,
+    error::{Exception, StateProjectionError},
     macros::ModuleParameters,
     module::{FlattenedModuleParam, ModuleParameters, Param, Parameter},
     optimizers::{Adam, AdamBuilder, Optimizer, OptimizerState, Sgd, SgdBuilder},
     test_utils::assert_array_eq_with_context,
     transforms::compile::{clear_cache, compile, compile_with_state},
+    utils::{StateProjection, Updatable},
     Array,
 };
 
@@ -454,22 +455,43 @@ fn trace_once_step(state: &mut Vec<Array>, _args: &[Array]) -> Result<Vec<Array>
     Ok(vec![state[0].clone()])
 }
 
-fn fail_first_trace_step(
-    (model, optimizer): &mut (TinyModel, Adam),
-    gradients: &[Array],
+fn counted_adam_frozen_step(state: &mut (TinyModel, Adam), gradients: &[Array]) -> Vec<Array> {
+    TRACE_CALLS.with(|counter| counter.set(counter.get() + 1));
+    adam_frozen_step(state, gradients)
+}
+
+struct GrowingState {
+    slots: HashMap<Rc<str>, Array>,
+}
+
+impl Updatable for GrowingState {
+    fn state_projection(&mut self) -> Result<StateProjection<'_>, StateProjectionError> {
+        let mut projection = StateProjection::new();
+        for (key, value) in &mut self.slots {
+            projection.required(key.clone(), value)?;
+        }
+        Ok(projection)
+    }
+}
+
+fn fail_once_after_projection_growth(
+    state: &mut GrowingState,
+    args: &[Array],
 ) -> Result<Vec<Array>, Exception> {
     let call = FALLIBLE_CALLS.with(|counter| {
         let call = counter.get() + 1;
         counter.set(call);
         call
     });
-    let mut gradient_map = FlattenedModuleParam::new();
-    gradient_map.insert("weight".into(), gradients[0].clone());
-    optimizer.update(model, gradient_map)?;
+    let accumulator = state
+        .slots
+        .entry(Rc::from("accumulator"))
+        .or_insert_with(|| array!(0.0_f32));
+    *accumulator = accumulator.add(&args[0])?;
     if call == 1 {
         array!(1.0_f32).reshape(&[2])?;
     }
-    Ok(vec![model.weight.value.clone(), model.bias.value.clone()])
+    Ok(vec![accumulator.clone()])
 }
 
 fn always_fail_step(state: &mut Vec<Array>, _args: &[Array]) -> Result<Vec<Array>, Exception> {
@@ -480,8 +502,8 @@ fn always_fail_step(state: &mut Vec<Array>, _args: &[Array]) -> Result<Vec<Array
 }
 
 #[test]
-fn failed_trace_rolls_back_and_caller_retry_recovers_growth() {
-    FALLIBLE_CALLS.with(|counter| counter.set(0));
+fn fresh_optimizer_first_compiled_call_matches_single_eager_step() {
+    TRACE_CALLS.with(|counter| counter.set(0));
     let fixture = Fixture::load();
     let mut model = fixture.model();
     model.bias.freeze(false);
@@ -490,43 +512,73 @@ fn failed_trace_rolls_back_and_caller_retry_recovers_growth() {
         .eps(1.0e-6_f32)
         .build()
         .unwrap();
-    let mut initial = (model, optimizer);
+    let initial = (model, optimizer);
     let mut expected = initial.clone();
-    let mut state = initial.clone();
+    let mut state = initial;
     let args = fixture.gradients(1);
-    let mut compiled = compile_with_state(fail_first_trace_step, None);
+    let expected_output = adam_frozen_step(&mut expected, &args);
+    let mut compiled = compile_with_state(counted_adam_frozen_step, None);
 
-    assert!(compiled(&mut state, &args).is_err());
-    assert_eq!(FALLIBLE_CALLS.with(Cell::get), 1);
-    assert_eq!(state.0.parameters().flatten().len(), 2);
+    let output = compiled(&mut state, &args).unwrap();
+
+    assert_eq!(TRACE_CALLS.with(Cell::get), 1);
+    assert_all_leaves(&output, &expected_output, "compile.fresh_optimizer.output");
+    assert_model_optimizer(&mut state, &mut expected, "compile.fresh_optimizer");
+    let optimizer_keys = state
+        .1
+        .state_mut()
+        .flatten()
+        .unwrap()
+        .into_iter()
+        .map(|(key, _)| key)
+        .collect::<BTreeSet<_>>();
+    let expected_keys = [Rc::<str>::from("weight.0"), Rc::<str>::from("weight.1")]
+        .into_iter()
+        .collect::<BTreeSet<_>>();
     assert_eq!(
-        state.1.state_mut().flatten().unwrap().into_iter().count(),
-        0
+        optimizer_keys, expected_keys,
+        "compile.fresh_optimizer.optimizer_state_keys"
     );
-    assert_model_optimizer(&mut state, &mut initial, "compile.no_retry.failure");
+}
 
-    let mut trace_calls = 1;
-    for call in 1..=4 {
-        let expected_output = adam_frozen_step(&mut expected, &args);
-        let output = compiled(&mut state, &args).unwrap();
-        let calls = FALLIBLE_CALLS.with(Cell::get);
-        assert!(
-            (trace_calls..=3).contains(&calls),
-            "compile.no_retry.call{call}.counter={calls} after {trace_calls}"
-        );
-        trace_calls = calls;
-        assert_all_leaves(
-            &output,
-            &expected_output,
-            &format!("compile.no_retry.call{call}.output"),
-        );
-        assert_model_optimizer(
-            &mut state,
-            &mut expected,
-            &format!("compile.no_retry.call{call}"),
-        );
-    }
-    assert!((2..=3).contains(&trace_calls));
+#[test]
+fn failed_trace_rolls_back_and_caller_retry_recovers_growth() {
+    FALLIBLE_CALLS.with(|counter| counter.set(0));
+    let mut state = GrowingState {
+        slots: HashMap::new(),
+    };
+    let args = [array!(0.25_f32)];
+    let mut compiled = compile_with_state(fail_once_after_projection_growth, None);
+
+    let first_output = compiled(&mut state, &args).unwrap();
+    assert_eq!(FALLIBLE_CALLS.with(Cell::get), 2);
+    assert_eq!(
+        state.slots.keys().map(Rc::as_ref).collect::<BTreeSet<_>>(),
+        BTreeSet::from(["accumulator"])
+    );
+    assert_named(
+        &first_output[0],
+        &array!(0.25_f32),
+        "compile.growth_recovery.first.output",
+    );
+    assert_named(
+        &state.slots["accumulator"],
+        &array!(0.25_f32),
+        "compile.growth_recovery.first.state",
+    );
+
+    let second_output = compiled(&mut state, &args).unwrap();
+    assert_eq!(FALLIBLE_CALLS.with(Cell::get), 2);
+    assert_named(
+        &second_output[0],
+        &array!(0.5_f32),
+        "compile.growth_recovery.second.output",
+    );
+    assert_named(
+        &state.slots["accumulator"],
+        &array!(0.5_f32),
+        "compile.growth_recovery.second.state",
+    );
 }
 
 #[test]

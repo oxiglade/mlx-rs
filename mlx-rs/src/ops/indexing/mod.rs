@@ -53,13 +53,13 @@
 //! let mut s1 = a.index((.., .., 0));
 //!
 //! let expected = Array::from_slice(&[0, 2, 4, 6], &[2, 2]);
-//! assert_eq!(s1, expected);
+//! assert!(s1.eq_exact(&expected).unwrap());
 //!
 //! // a[..., 0]
 //! let mut s2 = a.index((Ellipsis, 0));
 //!
 //! let expected = Array::from_slice(&[0, 2, 4, 6], &[2, 2]);
-//! assert_eq!(s1, expected);
+//! assert!(s1.eq_exact(&expected).unwrap());
 //! ```
 //!
 //! # Set values with indexing
@@ -76,7 +76,7 @@
 //! a.index_mut(2, Array::from_int(0));
 //!
 //! let expected = Array::from_slice(&[1, 2, 0], &[3]);
-//! assert_eq!(a, expected);
+//! assert!(a.eq_exact(&expected).unwrap());
 //! ```
 //!
 //! ```rust
@@ -93,7 +93,7 @@
 //!     ],
 //!     &[2, 2, 5],
 //! );
-//! assert_eq!(a, expected);
+//! assert!(a.eq_exact(&expected).unwrap());
 //! ```
 
 use std::{borrow::Cow, ops::Bound, rc::Rc};
