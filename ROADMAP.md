@@ -369,3 +369,7 @@ deferred semantic set reaches zero. Each new Rust API lands vertically under the
 [charter](CHARTER.md), with its parity mapping, independently sourced cases, ownership
 classification, required golden or differential result, applicable property or gradient evidence,
 and public documentation.
+
+The first post-bump vertical cohort is delivered: the four window functions and the two FFT
+frequency constructors have canonical Rust paths, checked integer conversion, public examples,
+NumPy-corroborated MLX 0.32.2 signal cases, and wrapped ledger dispositions.

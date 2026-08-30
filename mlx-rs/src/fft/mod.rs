@@ -1,8 +1,8 @@
 //! Fast Fourier Transform (FFT) and its inverse (IFFT) for one, two, and `N` dimensions.
 //!
-//! Like all other functions in `mlx-rs`, three variants are provided for each FFT function, plus
-//! each variant has a version that uses the default `StreamOrDevice` or takes a user-specified
-//! `StreamOrDevice`.
+//! The legacy transform APIs provide checked, unchecked, and panicking variants, together with
+//! per-operation stream variants. New APIs use one named `Result` path and follow the scoped or
+//! current-thread default stream.
 //!
 //! The difference are explained below using `fftn` as an example:
 //!
@@ -207,11 +207,12 @@
 //! ```
 
 mod fftn;
+mod frequencies;
 mod rfftn;
 mod shift;
 mod utils;
 
-pub use self::{fftn::*, rfftn::*, shift::*};
+pub use self::{fftn::*, frequencies::*, rfftn::*, shift::*};
 
 /* -------------------------------------------------------------------------- */
 /*                              Helper functions                              */

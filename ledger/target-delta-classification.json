@@ -38,8 +38,14 @@
         "name": "mlx_bartlett",
         "signature": "fn(* mut mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::windows::bartlett",
+      "evidence": [
+        "api:path:mlx_rs::ops::windows::bartlett",
+        "conf:signal.001",
+        "conf:signal.002",
+        "conf:signal.003"
+      ]
     },
     {
       "change": "added",
@@ -50,8 +56,14 @@
         "name": "mlx_blackman",
         "signature": "fn(* mut mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::windows::blackman",
+      "evidence": [
+        "api:path:mlx_rs::ops::windows::blackman",
+        "conf:signal.004",
+        "conf:signal.005",
+        "conf:signal.006"
+      ]
     },
     {
       "change": "added",
@@ -267,8 +279,15 @@
         "name": "mlx_fft_fftfreq",
         "signature": "fn(* mut mlx_array,:: std :: os :: raw :: c_int,f64,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::fft::fftfreq",
+      "evidence": [
+        "api:path:mlx_rs::fft::fftfreq",
+        "conf:signal.013",
+        "conf:signal.014",
+        "conf:signal.015",
+        "conf:signal.016"
+      ]
     },
     {
       "change": "added",
@@ -279,8 +298,15 @@
         "name": "mlx_fft_rfftfreq",
         "signature": "fn(* mut mlx_array,:: std :: os :: raw :: c_int,f64,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::fft::rfftfreq",
+      "evidence": [
+        "api:path:mlx_rs::fft::rfftfreq",
+        "conf:signal.017",
+        "conf:signal.018",
+        "conf:signal.019",
+        "conf:signal.020"
+      ]
     },
     {
       "change": "added",
@@ -339,8 +365,14 @@
         "name": "mlx_hamming",
         "signature": "fn(* mut mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::windows::hamming",
+      "evidence": [
+        "api:path:mlx_rs::ops::windows::hamming",
+        "conf:signal.007",
+        "conf:signal.008",
+        "conf:signal.009"
+      ]
     },
     {
       "change": "added",
@@ -351,8 +383,14 @@
         "name": "mlx_hanning",
         "signature": "fn(* mut mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::windows::hann",
+      "evidence": [
+        "api:path:mlx_rs::ops::windows::hann",
+        "conf:signal.010",
+        "conf:signal.011",
+        "conf:signal.012"
+      ]
     },
     {
       "change": "added",

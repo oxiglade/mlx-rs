@@ -1,5 +1,5 @@
 use super::oracle::{dtype_from_name, mlx_error, Arg, Args, Case, ScalarValue};
-use mlx_rs::{ops, Array, StreamOrDevice};
+use mlx_rs::{fft, ops, Array, StreamOrDevice};
 use safetensors::SafeTensors;
 
 pub(super) const ADAPTERS: &[&str] = &[
@@ -40,6 +40,12 @@ pub(super) const ADAPTERS: &[&str] = &[
     "ops.exp.explicit_cpu",
     "array.reshape.explicit_cpu",
     "ops.divmod.explicit_cpu",
+    "ops.windows.bartlett",
+    "ops.windows.blackman",
+    "ops.windows.hamming",
+    "ops.windows.hann",
+    "fft.fftfreq",
+    "fft.rfftfreq",
 ];
 
 pub(super) fn dispatch(case: &Case, safe: &SafeTensors<'_>) -> Result<Vec<Array>, String> {
@@ -301,6 +307,68 @@ pub(super) fn dispatch(case: &Case, safe: &SafeTensors<'_>) -> Result<Vec<Array>
             args.execution()?;
             let (q, r) = mlx_error(ops::divmod_device(&a, &b, StreamOrDevice::cpu()))?;
             vec![q, r]
+        }
+        "ops.windows.bartlett" => {
+            let ScalarValue::I32(size) = args.scalar("size")? else {
+                return Err("size scalar type mismatch".into());
+            };
+            args.execution()?;
+            vec![mlx_error(ops::windows::bartlett(
+                usize::try_from(size).map_err(|_| "size must be nonnegative")?,
+            ))?]
+        }
+        "ops.windows.blackman" => {
+            let ScalarValue::I32(size) = args.scalar("size")? else {
+                return Err("size scalar type mismatch".into());
+            };
+            args.execution()?;
+            vec![mlx_error(ops::windows::blackman(
+                usize::try_from(size).map_err(|_| "size must be nonnegative")?,
+            ))?]
+        }
+        "ops.windows.hamming" => {
+            let ScalarValue::I32(size) = args.scalar("size")? else {
+                return Err("size scalar type mismatch".into());
+            };
+            args.execution()?;
+            vec![mlx_error(ops::windows::hamming(
+                usize::try_from(size).map_err(|_| "size must be nonnegative")?,
+            ))?]
+        }
+        "ops.windows.hann" => {
+            let ScalarValue::I32(size) = args.scalar("size")? else {
+                return Err("size scalar type mismatch".into());
+            };
+            args.execution()?;
+            vec![mlx_error(ops::windows::hann(
+                usize::try_from(size).map_err(|_| "size must be nonnegative")?,
+            ))?]
+        }
+        "fft.fftfreq" => {
+            let ScalarValue::I32(n) = args.scalar("n")? else {
+                return Err("n scalar type mismatch".into());
+            };
+            let ScalarValue::F32(d) = args.scalar("d")? else {
+                return Err("d scalar type mismatch".into());
+            };
+            args.execution()?;
+            vec![mlx_error(fft::fftfreq(
+                usize::try_from(n).map_err(|_| "n must be nonnegative")?,
+                f64::from(d),
+            ))?]
+        }
+        "fft.rfftfreq" => {
+            let ScalarValue::I32(n) = args.scalar("n")? else {
+                return Err("n scalar type mismatch".into());
+            };
+            let ScalarValue::F32(d) = args.scalar("d")? else {
+                return Err("d scalar type mismatch".into());
+            };
+            args.execution()?;
+            vec![mlx_error(fft::rfftfreq(
+                usize::try_from(n).map_err(|_| "n must be nonnegative")?,
+                f64::from(d),
+            ))?]
         }
         other => return Err(format!("missing adapter {other}")),
     };

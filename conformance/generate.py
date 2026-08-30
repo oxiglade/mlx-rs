@@ -15,7 +15,7 @@ EXPECTED_ARCH = "arm64"
 EXPECTED_MLX = "0.32.2"
 EXPECTED_NUMPY = "2.2.6"
 CORPUS_SEED = "mlx-rs-committed-cpu-ops-v1"
-SUITES = ("arithmetic", "dtypes", "errors", "execution", "reductions", "shapes")
+SUITES = ("arithmetic", "dtypes", "errors", "execution", "reductions", "shapes", "signal")
 ROOT = Path(__file__).resolve().parent
 
 
@@ -210,6 +210,36 @@ def build_specs():
         policy = "elementwise_float" if op == "exp" else data_movement_policy(op, inputs)
         specs.append(case(f"execution.{index:03d}", "execution", op, call, inputs, extra_args=extra, policy=policy, explicit=explicit))
 
+    signal_index = 1
+    for op in ("bartlett", "blackman", "hamming", "hann"):
+        for size in (1, 2, 7):
+            specs.append(case(
+                f"signal.{signal_index:03d}",
+                "signal",
+                op,
+                f"ops.windows.{op}",
+                [],
+                extra_args=[arg_scalar("size", "i32", value=size)],
+                policy="exact_bits",
+            ))
+            signal_index += 1
+    for op in ("fftfreq", "rfftfreq"):
+        for n in (5, 6):
+            for d_bits in ("0x3f800000", "0x3f000000"):
+                specs.append(case(
+                    f"signal.{signal_index:03d}",
+                    "signal",
+                    op,
+                    f"fft.{op}",
+                    [],
+                    extra_args=[
+                        arg_scalar("n", "i32", value=n),
+                        arg_scalar("d", "f32", bits=d_bits),
+                    ],
+                    policy="exact_bits",
+                ))
+                signal_index += 1
+
     errors = [
         case("errors.001", "errors", "add", "ops.add.array_array", [source("F32", [2]), source("F32", [3])]),
         case("errors.002", "errors", "reshape", "ops.reshape", [source("F32", [6])], extra_args=[shape([4, 2])]),
@@ -325,6 +355,13 @@ def call_recipe(mx, op, arrays, extra, explicit):
         return [mx.take(arrays[0], arrays[1], axis=axis_value, **kwargs)]
     if op == "astype":
         return [arrays[0].astype(dtype_objects(mx)[by_name["dtype"]["value"]], **kwargs)]
+    if op in ("bartlett", "blackman", "hamming", "hann"):
+        python_name = "hanning" if op == "hann" else op
+        return [getattr(mx, python_name)(by_name["size"]["value"], **kwargs)]
+    if op in ("fftfreq", "rfftfreq"):
+        return [getattr(mx.fft, op)(
+            by_name["n"]["value"], scalar_array_value(by_name["d"]), **kwargs
+        )]
     raise ValueError(f"unknown recipe {op}")
 
 
@@ -407,6 +444,13 @@ def numpy_agrees(np, arrays, outputs, op, extra):
             result = [np.sum(values[0], axis=selected_axis, keepdims=by_name["keepdims"]["value"] or False)]
         elif op == "take": result = [np.take(values[0], values[1])]
         elif op == "astype": result = [values[0].astype({"F32": np.float32}[by_name["dtype"]["value"]])]
+        elif op in ("bartlett", "blackman", "hamming", "hann"):
+            numpy_name = "hanning" if op == "hann" else op
+            result = [getattr(np, numpy_name)(by_name["size"]["value"]).astype(np.asarray(outputs[0]).dtype)]
+        elif op in ("fftfreq", "rfftfreq"):
+            result = [getattr(np.fft, op)(
+                by_name["n"]["value"], scalar_array_value(by_name["d"])
+            ).astype(np.asarray(outputs[0]).dtype)]
         else: return False
     except Exception:
         return False
@@ -417,7 +461,10 @@ def numpy_agrees(np, arrays, outputs, op, extra):
         got = np.asarray(lhs)
         if got.dtype != expected.dtype or got.shape != expected.shape:
             return False
-        if not np.array_equal(got, expected, equal_nan=True):
+        if op in ("bartlett", "blackman", "hamming", "hann", "fftfreq", "rfftfreq"):
+            if not np.allclose(got, expected, rtol=0.0, atol=np.finfo(expected.dtype).eps, equal_nan=True):
+                return False
+        elif not np.array_equal(got, expected, equal_nan=True):
             return False
     return True
 

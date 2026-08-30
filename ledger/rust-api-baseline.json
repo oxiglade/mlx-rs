@@ -2285,6 +2285,11 @@
     },
     {
       "kind": "function",
+      "path": "mlx_rs::fft::fftfreq",
+      "signature": "pub fn fftfreq (n : usize , d : f64) -> Result < Array >"
+    },
+    {
+      "kind": "function",
       "path": "mlx_rs::fft::fftn",
       "signature": "pub fn fftn < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] >) -> Result < Array >",
       "generated_by": "default_device"
@@ -2403,6 +2408,11 @@
       "kind": "function",
       "path": "mlx_rs::fft::rfft_device",
       "signature": "pub fn rfft_device (a : impl AsRef < Array > , n : impl Into < Option < i32 > > , axis : impl Into < Option < i32 > > , stream : impl AsRef < Stream > ,) -> Result < Array >"
+    },
+    {
+      "kind": "function",
+      "path": "mlx_rs::fft::rfftfreq",
+      "signature": "pub fn rfftfreq (n : usize , d : f64) -> Result < Array >"
     },
     {
       "kind": "function",
@@ -6466,6 +6476,31 @@
       "kind": "function",
       "path": "mlx_rs::ops::which_device",
       "signature": "pub fn which_device (condition : impl AsRef < Array > , a : impl AsRef < Array > , b : impl AsRef < Array > , stream : impl AsRef < Stream > ,) -> Result < Array >"
+    },
+    {
+      "kind": "module",
+      "path": "mlx_rs::ops::windows",
+      "signature": "pub mod windows"
+    },
+    {
+      "kind": "function",
+      "path": "mlx_rs::ops::windows::bartlett",
+      "signature": "pub fn bartlett (size : usize) -> Result < Array >"
+    },
+    {
+      "kind": "function",
+      "path": "mlx_rs::ops::windows::blackman",
+      "signature": "pub fn blackman (size : usize) -> Result < Array >"
+    },
+    {
+      "kind": "function",
+      "path": "mlx_rs::ops::windows::hamming",
+      "signature": "pub fn hamming (size : usize) -> Result < Array >"
+    },
+    {
+      "kind": "function",
+      "path": "mlx_rs::ops::windows::hann",
+      "signature": "pub fn hann (size : usize) -> Result < Array >"
     },
     {
       "kind": "function",

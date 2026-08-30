@@ -2,8 +2,8 @@
 
 This charter governs the mlx-c `c74db5307cc8ce122f48d97ef951b30578674e7f` / MLX `0.32.2`
 target tuple. The target adds 81 ABI entries: six support existing cumulative and median APIs,
-while 75 remain deferred. The 81-entry disposition table below covers those 75 additions plus six
-changed, currently unwrapped entries.
+while 75 were deferred at bump time. The 81-entry disposition table below covers those 75
+additions plus six changed, currently unwrapped entries.
 
 ## Charter rules
 
@@ -135,16 +135,16 @@ compatibility work:
 The six changed-but-unwrapped entries—distributed group handle, init, availability, and split; base
 `logcumsumexp`; and base `trace`—are rebound in `mlx-sys` but remain high-level deferred.
 
-## Disposition of the 81 deferred ledger entries
+## Disposition of the 81 initially deferred ledger entries
 
-The counts below total 75 added-deferred and six changed-deferred:
+The counts below total 75 added-deferred and six changed-deferred at bump time:
 
 | Family | Added | Changed | Charter disposition |
 |---|---:|---:|---|
 | `compile_cache` handle/type/new/free/detail | 6 | 0 | **Bump-time internal.** One private RAII cache associated with `Compiled`; no six-item public mirror. |
 | `mlx_fft_norm` enum/type artifacts | 3 | 0 | **Bump-time internal.** Use `Backward` for compatibility; a public `FftNorm` waits for the FFT options cohort. |
-| Bartlett, Blackman, Hamming, Hanning windows | 4 | 0 | **First post-bump cohort.** `ops::windows::{bartlett, blackman, hamming, hann}(usize)`, with checked conversion, no stream argument, twin, or macro. |
-| `fftfreq`, `rfftfreq` | 2 | 0 | **First post-bump cohort.** `fft::{fftfreq, rfftfreq}(usize, f64)` with odd/even and negative-frequency oracle cases. |
+| Bartlett, Blackman, Hamming, Hanning windows | 4 | 0 | **Delivered first post-bump cohort.** `ops::windows::{bartlett, blackman, hamming, hann}(usize)`, with checked conversion, no stream argument, twin, or macro. |
+| `fftfreq`, `rfftfreq` | 2 | 0 | **Delivered first post-bump cohort.** `fft::{fftfreq, rfftfreq}(usize, f64)` with odd/even and negative-frequency oracle cases. |
 | GGUF I/O and handle artifacts | 19 | 0 | **Separate feature cohort.** Collapse to an RAII `GgufFile` and typed `GgufMetadata`; status 2 maps to absence and status 3 to wrong metadata type, not `Exception` or panic. |
 | Slice-update add/max/min/prod | 4 | 0 | **Idiom-wave indexing cohort.** One index-update operation with `UpdateMode::{Replace, Add, Min, Max, Product}`, shared by slice and advanced indexing. |
 | General array/math additions | 16 | 0 | **Deferred semantic cohorts.** Includes `count_nonzero`, `diff`, `flip`, det/slogdet, linspace endpoint, xor, searchsorted, trunc, unstack, and vecdot; base/axis/axes C overloads collapse into one Rust concept. |
