@@ -141,6 +141,8 @@ impl Updatable for AdaDelta {
             .sorted_by(|a, b| a.0.cmp(b.0))
             .flat_map(|(_, (v, u))| [v, u])
     }
+
+    optimizer_updatable_state_methods!();
 }
 
 impl_updatable_for_mut_optimizer!(AdaDelta);

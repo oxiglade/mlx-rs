@@ -485,6 +485,8 @@ impl Updatable for Adafactor {
                 .collect::<Vec<_>>()
             })
     }
+
+    optimizer_updatable_state_methods!();
 }
 
 impl_updatable_for_mut_optimizer!(Adafactor);

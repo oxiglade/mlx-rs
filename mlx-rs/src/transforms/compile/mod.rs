@@ -149,7 +149,7 @@ use std::{
 };
 
 use super::{Closure, Guarded, VectorArray};
-use crate::{error::Exception, utils::SUCCESS, Array};
+use crate::{error::Exception, utils::SUCCESS};
 
 #[allow(clippy::module_inception)]
 mod compile;
@@ -245,7 +245,7 @@ struct CompiledState<F> {
     id: usize,
     cache: CompileCache,
     num_function_outputs: Option<usize>,
-    state_layout: Option<Vec<(crate::Dtype, Vec<i32>)>>,
+    state_layout: Option<Vec<(Rc<str>, crate::Dtype, Vec<i32>)>>,
 }
 
 static NEXT_COMPILE_ID: AtomicUsize = AtomicUsize::new(1);
@@ -272,12 +272,5 @@ impl<F: Clone> Clone for CompiledState<F> {
 impl<F> Drop for CompiledState<F> {
     fn drop(&mut self) {
         self.cache.erase(self.id);
-    }
-}
-
-fn update_by_replace_with_ref_to_new_array(src: &mut Array, new_array: &Array) {
-    debug_assert_eq!(src.shape(), new_array.shape());
-    unsafe {
-        mlx_sys::mlx_array_set(&mut src.as_ptr() as *mut _, new_array.as_ptr());
     }
 }

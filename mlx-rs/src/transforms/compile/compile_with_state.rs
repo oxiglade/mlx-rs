@@ -8,13 +8,14 @@
 
 use std::{
     cell::{Cell, RefCell},
+    collections::BTreeSet,
     marker::PhantomData,
     rc::Rc,
 };
 
 use crate::{error::Exception, transforms::compile::CompiledState, utils::Updatable, Array};
 
-use super::{update_by_replace_with_ref_to_new_array, Closure, Compiled, Guarded, VectorArray};
+use super::{Closure, Compiled, Guarded, VectorArray};
 
 /// Similar to [`crate::transforms::compile`] but allows for functions that take
 /// a mutable reference to a state `U`.
@@ -355,7 +356,7 @@ fn call_mut_with_state_inner<U>(
     state: Rc<RefCell<&mut U>>,
     args: &[impl AsRef<Array>],
     num_function_outputs: Rc<Cell<Option<usize>>>,
-    state_layout: Rc<RefCell<Option<Vec<(crate::Dtype, Vec<i32>)>>>>,
+    state_layout: Rc<RefCell<Option<Vec<(Rc<str>, crate::Dtype, Vec<i32>)>>>>,
 ) -> crate::error::Result<Vec<Array>>
 where
     U: Updatable,
@@ -376,10 +377,11 @@ where
 
     let inner_inputs_vector = {
         let borrow = state.borrow();
+        let state_inputs = borrow.updatable_state_snapshot();
         VectorArray::try_from_iter(
             args.iter()
                 .map(AsRef::as_ref)
-                .chain(borrow.updatable_states()),
+                .chain(state_inputs.iter().map(|(_, array)| array)),
         )?
     };
 
@@ -418,7 +420,14 @@ where
     let function_results = &result_plus_state_output[..num_fn_outputs];
     let state_outputs = &result_plus_state_output[num_fn_outputs..];
 
-    let output_layout = array_layout(state_outputs.iter());
+    let output_layout = expected_state_layout
+        .iter()
+        .enumerate()
+        .map(|(index, (key, _, _))| {
+            let array = &state_outputs[index];
+            (key.clone(), array.dtype(), array.shape().to_vec())
+        })
+        .collect::<Vec<_>>();
     if output_layout != expected_state_layout {
         return Err(Exception::custom(format!(
             "compile_with_state: state output layout changed: expected \
@@ -426,40 +435,38 @@ where
         )));
     }
 
-    let mut state = state.borrow_mut();
-    let state_arrays = state.updatable_states_mut().into_iter().collect::<Vec<_>>();
-    if state_arrays.len() != state_outputs.len() {
-        return Err(Exception::custom(format!(
-            "compile_with_state: state cardinality changed before apply: expected {}, got {}",
-            state_outputs.len(),
-            state_arrays.len()
-        )));
-    }
-    for (s, new_values) in state_arrays.into_iter().zip(state_outputs) {
-        update_by_replace_with_ref_to_new_array(s, new_values);
-    }
+    let state_output = expected_state_layout
+        .iter()
+        .enumerate()
+        .map(|(index, (key, _, _))| (key.clone(), state_outputs[index].clone()))
+        .collect::<Vec<_>>();
+    state
+        .borrow_mut()
+        .restore_updatable_state(state_output, false)
+        .map_err(|error| {
+            Exception::custom(format!(
+                "compile_with_state: cannot apply compiled state: {error}"
+            ))
+        })?;
 
     // Return only the function results (not the state arrays)
     Ok(function_results.to_vec())
 }
 
-fn array_layout<'a>(arrays: impl IntoIterator<Item = &'a Array>) -> Vec<(crate::Dtype, Vec<i32>)> {
-    arrays
+fn current_state_layout(state: &impl Updatable) -> Vec<(Rc<str>, crate::Dtype, Vec<i32>)> {
+    state
+        .updatable_state_snapshot()
         .into_iter()
-        .map(|array| (array.dtype(), array.shape().to_vec()))
+        .map(|(key, array)| (key, array.dtype(), array.shape().to_vec()))
         .collect()
 }
 
-fn state_layout(state: &impl Updatable) -> Vec<(crate::Dtype, Vec<i32>)> {
-    array_layout(state.updatable_states())
-}
-
 fn validate_state_layout(
-    expected: &[(crate::Dtype, Vec<i32>)],
+    expected: &[(Rc<str>, crate::Dtype, Vec<i32>)],
     state: &impl Updatable,
     phase: &str,
 ) -> Result<(), Exception> {
-    let actual = state_layout(state);
+    let actual = current_state_layout(state);
     if actual == expected {
         Ok(())
     } else {
@@ -470,27 +477,36 @@ fn validate_state_layout(
     }
 }
 
-fn state_snapshot(state: &impl Updatable) -> Vec<Array> {
-    state
-        .updatable_states()
-        .into_iter()
-        .map(Clone::clone)
-        .collect()
+fn state_snapshot(state: &impl Updatable) -> Vec<(Rc<str>, Array)> {
+    state.updatable_state_snapshot()
 }
 
-fn restore_state(state: &mut impl Updatable, snapshot: &[Array]) -> Result<(), Exception> {
-    let state_arrays = state.updatable_states_mut().into_iter().collect::<Vec<_>>();
-    if state_arrays.len() != snapshot.len() {
-        return Err(Exception::custom(format!(
-            "compile_with_state: cannot restore state after failure: expected {} arrays, got {}",
-            snapshot.len(),
-            state_arrays.len()
-        )));
-    }
-    for (array, saved) in state_arrays.into_iter().zip(snapshot) {
-        update_by_replace_with_ref_to_new_array(array, saved);
-    }
-    Ok(())
+fn restore_state(
+    state: &mut impl Updatable,
+    snapshot: &[(Rc<str>, Array)],
+    reset_new: bool,
+) -> Result<(), Exception> {
+    state
+        .restore_updatable_state(snapshot.to_vec(), reset_new)
+        .map_err(|error| {
+            Exception::custom(format!("compile_with_state: cannot restore state: {error}"))
+        })
+}
+
+fn state_grew(before: &[(Rc<str>, Array)], after: &[(Rc<str>, Array)]) -> bool {
+    let before = before
+        .iter()
+        .map(|(key, _)| key.clone())
+        .collect::<BTreeSet<_>>();
+    let after = after
+        .iter()
+        .map(|(key, _)| key.clone())
+        .collect::<BTreeSet<_>>();
+    before.len() < after.len() && before.is_subset(&after)
+}
+
+fn is_recoverable_first_trace_growth(error: &Exception) -> bool {
+    error.what().contains("unordered_map::at: key not found")
 }
 
 impl<F> CompiledState<F> {
@@ -503,113 +519,20 @@ impl<F> CompiledState<F> {
         F: FnMut(&mut U, &[Array]) -> Vec<Array>,
         U: Updatable,
     {
-        if let Some(expected) = self.state_layout.as_deref() {
-            validate_state_layout(expected, state, "call input")?;
-        }
-        let args_len = args.len();
-        let saved_state = state_snapshot(state);
-        let state = Rc::new(RefCell::new(state));
-        let f = &mut self.f;
-
-        // Cell to capture the number of function outputs during tracing
-        let num_function_outputs = Rc::new(Cell::new(self.num_function_outputs));
-        let num_fn_outputs_clone = Rc::clone(&num_function_outputs);
-        let state_layout = Rc::new(RefCell::new(self.state_layout.clone()));
-        let state_layout_clone = Rc::clone(&state_layout);
-
-        let state_clone = Rc::clone(&state);
-        let inner = move |tracers: &[Array]| -> Vec<Array> {
-            // put the tracers in their appropriate places:
-            // - arguments to the function
-            // - inner state
-
-            let tracer_args = &tracers[..args_len];
-
-            // save a snapshot of the inner state
-            let saved_state_inputs = state_clone
-                .borrow()
-                .updatable_states()
-                .into_iter()
-                .map(|array| (*array).clone())
-                .collect::<Vec<Array>>();
-
-            // replace the inner state with the tracers
-            for (s, tracer) in state_clone
-                .borrow_mut()
-                .updatable_states_mut()
-                .into_iter()
-                .zip(tracers.iter().skip(args_len))
-            {
-                update_by_replace_with_ref_to_new_array(s, tracer);
-            }
-
-            // call the function with the tracer arguments and the state holding tracers
-            let mut result = (f)(*state_clone.borrow_mut(), tracer_args);
-
-            // Capture function output count before appending state
-            num_fn_outputs_clone.set(Some(result.len()));
-
-            // recapture the state as it may have changed
-            let mut state_output_tracers = state_clone
-                .borrow()
-                .updatable_states()
-                .into_iter()
-                .map(|array| (*array).clone())
-                .collect::<Vec<Array>>();
-
-            if state_layout_clone.borrow().is_none() {
-                *state_layout_clone.borrow_mut() = Some(array_layout(state_output_tracers.iter()));
-            }
-
-            // put the original values back in the state
-            for (s, saved) in state_clone
-                .borrow_mut()
-                .updatable_states_mut()
-                .into_iter()
-                .zip(saved_state_inputs)
-            {
-                update_by_replace_with_ref_to_new_array(s, &saved);
-            }
-
-            // return the result of the function and the state
-            result.append(&mut state_output_tracers);
-
-            result
-        };
-
-        let inner_closure = Closure::new(inner);
-        let result = call_mut_with_state_inner(
-            inner_closure,
-            self.id,
-            self.shapeless,
-            Rc::clone(&state),
-            args,
-            Rc::clone(&num_function_outputs),
-            Rc::clone(&state_layout),
-        );
-        self.num_function_outputs = num_function_outputs.get();
-        self.state_layout = state_layout.borrow().clone();
-        if let Err(error) = &result {
-            restore_state(*state.borrow_mut(), &saved_state).map_err(|restore_error| {
-                Exception::custom(format!(
-                    "{}; transactional restore failed: {}",
-                    error.what(),
-                    restore_error.what()
-                ))
-            })?;
-        }
-        result
+        self.call_mut_with_state_attempt(state, args, true)
     }
 
-    fn fallible_call_mut_with_state<U>(
+    fn call_mut_with_state_attempt<U>(
         &mut self,
         state: &mut U,
         args: &[impl AsRef<Array>],
+        allow_growth_recovery: bool,
     ) -> Result<Vec<Array>, Exception>
     where
-        F: FnMut(&mut U, &[Array]) -> Result<Vec<Array>, Exception>,
+        F: FnMut(&mut U, &[Array]) -> Vec<Array>,
         U: Updatable,
     {
+        let was_untraced = self.state_layout.is_none();
         if let Some(expected) = self.state_layout.as_deref() {
             validate_state_layout(expected, state, "call input")?;
         }
@@ -633,50 +556,55 @@ impl<F> CompiledState<F> {
             let tracer_args = &tracers[..args_len];
 
             // save a snapshot of the inner state
-            let saved_state_inputs = state_clone
-                .borrow()
-                .updatable_states()
-                .into_iter()
-                .map(|array| (*array).clone())
-                .collect::<Vec<Array>>();
+            let saved_state_inputs = state_snapshot(&**state_clone.borrow());
 
             // replace the inner state with the tracers
-            for (s, tracer) in state_clone
-                .borrow_mut()
-                .updatable_states_mut()
-                .into_iter()
-                .zip(tracers.iter().skip(args_len))
-            {
-                update_by_replace_with_ref_to_new_array(s, tracer);
+            if tracers.len() != args_len + saved_state_inputs.len() {
+                return Err(Exception::custom(format!(
+                    "compile_with_state: invalid tracer count - expected {} arguments and {} state inputs, got {} total inputs",
+                    args_len,
+                    saved_state_inputs.len(),
+                    tracers.len()
+                )));
             }
+            let tracer_state = saved_state_inputs
+                .iter()
+                .enumerate()
+                .map(|(index, (key, _))| (key.clone(), tracers[args_len + index].clone()))
+                .collect::<Vec<_>>();
+            state_clone
+                .borrow_mut()
+                .restore_updatable_state(tracer_state, false)
+                .map_err(|error| {
+                    Exception::custom(format!(
+                        "compile_with_state: cannot install state tracers: {error}"
+                    ))
+                })?;
 
             // call the function with the tracer arguments and the state holding tracers
-            let mut result = (f)(*state_clone.borrow_mut(), tracer_args)?;
+            let mut result = (f)(*state_clone.borrow_mut(), tracer_args);
 
             // Capture function output count before appending state
             num_fn_outputs_clone.set(Some(result.len()));
 
             // recapture the state as it may have changed
-            let mut state_output_tracers = state_clone
-                .borrow()
-                .updatable_states()
-                .into_iter()
-                .map(|array| (*array).clone())
-                .collect::<Vec<Array>>();
+            let state_output = state_snapshot(&**state_clone.borrow());
+            let mut state_output_tracers = state_output
+                .iter()
+                .map(|(_, array)| array.clone())
+                .collect::<Vec<_>>();
 
             if state_layout_clone.borrow().is_none() {
-                *state_layout_clone.borrow_mut() = Some(array_layout(state_output_tracers.iter()));
+                *state_layout_clone.borrow_mut() = Some(
+                    state_output
+                        .into_iter()
+                        .map(|(key, array)| (key, array.dtype(), array.shape().to_vec()))
+                        .collect(),
+                );
             }
 
             // put the original values back in the state
-            for (s, saved) in state_clone
-                .borrow_mut()
-                .updatable_states_mut()
-                .into_iter()
-                .zip(saved_state_inputs)
-            {
-                update_by_replace_with_ref_to_new_array(s, &saved);
-            }
+            restore_state(*state_clone.borrow_mut(), &saved_state_inputs, true)?;
 
             // return the result of the function and the state
             result.append(&mut state_output_tracers);
@@ -697,7 +625,188 @@ impl<F> CompiledState<F> {
         self.num_function_outputs = num_function_outputs.get();
         self.state_layout = state_layout.borrow().clone();
         if let Err(error) = &result {
-            restore_state(*state.borrow_mut(), &saved_state).map_err(|restore_error| {
+            let after_failure = state_snapshot(&**state.borrow());
+            if allow_growth_recovery
+                && was_untraced
+                && state_grew(&saved_state, &after_failure)
+                && is_recoverable_first_trace_growth(error)
+            {
+                restore_state(*state.borrow_mut(), &saved_state, true)?;
+                let retry =
+                    self.call_mut_with_state_attempt(&mut **state.borrow_mut(), args, false);
+                if retry.is_err() {
+                    restore_state(*state.borrow_mut(), &saved_state, false)?;
+                    self.cache.erase(self.id);
+                    self.num_function_outputs = None;
+                    self.state_layout = None;
+                }
+                return retry;
+            }
+            restore_state(*state.borrow_mut(), &saved_state, false).map_err(|restore_error| {
+                Exception::custom(format!(
+                    "{}; transactional restore failed: {}",
+                    error.what(),
+                    restore_error.what()
+                ))
+            })?;
+        }
+        result
+    }
+
+    fn fallible_call_mut_with_state<U>(
+        &mut self,
+        state: &mut U,
+        args: &[impl AsRef<Array>],
+    ) -> Result<Vec<Array>, Exception>
+    where
+        F: FnMut(&mut U, &[Array]) -> Result<Vec<Array>, Exception>,
+        U: Updatable,
+    {
+        self.fallible_call_mut_with_state_attempt(state, args, true)
+    }
+
+    fn fallible_call_mut_with_state_attempt<U>(
+        &mut self,
+        state: &mut U,
+        args: &[impl AsRef<Array>],
+        allow_growth_recovery: bool,
+    ) -> Result<Vec<Array>, Exception>
+    where
+        F: FnMut(&mut U, &[Array]) -> Result<Vec<Array>, Exception>,
+        U: Updatable,
+    {
+        let was_untraced = self.state_layout.is_none();
+        if let Some(expected) = self.state_layout.as_deref() {
+            validate_state_layout(expected, state, "call input")?;
+        }
+        let args_len = args.len();
+        let saved_state = state_snapshot(state);
+        let state = Rc::new(RefCell::new(state));
+        let f = &mut self.f;
+
+        // Cell to capture the number of function outputs during tracing
+        let num_function_outputs = Rc::new(Cell::new(self.num_function_outputs));
+        let num_fn_outputs_clone = Rc::clone(&num_function_outputs);
+        let state_layout = Rc::new(RefCell::new(self.state_layout.clone()));
+        let state_layout_clone = Rc::clone(&state_layout);
+
+        let state_clone = Rc::clone(&state);
+        let inner = move |tracers: &[Array]| -> Result<Vec<Array>, Exception> {
+            // put the tracers in their appropriate places:
+            // - arguments to the function
+            // - inner state
+
+            let tracer_args = &tracers[..args_len];
+
+            // save a snapshot of the inner state
+            let saved_state_inputs = state_snapshot(&**state_clone.borrow());
+
+            // replace the inner state with the tracers
+            if tracers.len() != args_len + saved_state_inputs.len() {
+                return Err(Exception::custom(format!(
+                    "compile_with_state: invalid tracer count - expected {} arguments and {} state inputs, got {} total inputs",
+                    args_len,
+                    saved_state_inputs.len(),
+                    tracers.len()
+                )));
+            }
+            let tracer_state = saved_state_inputs
+                .iter()
+                .enumerate()
+                .map(|(index, (key, _))| (key.clone(), tracers[args_len + index].clone()))
+                .collect::<Vec<_>>();
+            state_clone
+                .borrow_mut()
+                .restore_updatable_state(tracer_state, false)
+                .map_err(|error| {
+                    Exception::custom(format!(
+                        "compile_with_state: cannot install state tracers: {error}"
+                    ))
+                })?;
+
+            // call the function with the tracer arguments and the state holding tracers
+            let call_result = {
+                let mut state = state_clone.borrow_mut();
+                (f)(&mut **state, tracer_args)
+            };
+            let mut result = match call_result {
+                Ok(result) => result,
+                Err(error) => {
+                    restore_state(*state_clone.borrow_mut(), &saved_state_inputs, false).map_err(
+                        |restore_error| {
+                            Exception::custom(format!(
+                                "{}; transactional restore failed: {}",
+                                error.what(),
+                                restore_error.what()
+                            ))
+                        },
+                    )?;
+                    return Err(error);
+                }
+            };
+
+            // Capture function output count before appending state
+            num_fn_outputs_clone.set(Some(result.len()));
+
+            // recapture the state as it may have changed
+            let state_output = state_snapshot(&**state_clone.borrow());
+            let mut state_output_tracers = state_output
+                .iter()
+                .map(|(_, array)| array.clone())
+                .collect::<Vec<_>>();
+
+            if state_layout_clone.borrow().is_none() {
+                *state_layout_clone.borrow_mut() = Some(
+                    state_output
+                        .into_iter()
+                        .map(|(key, array)| (key, array.dtype(), array.shape().to_vec()))
+                        .collect(),
+                );
+            }
+
+            // put the original values back in the state
+            restore_state(*state_clone.borrow_mut(), &saved_state_inputs, true)?;
+
+            // return the result of the function and the state
+            result.append(&mut state_output_tracers);
+
+            Ok(result)
+        };
+
+        let inner_closure = Closure::new_fallible(inner);
+        let result = call_mut_with_state_inner(
+            inner_closure,
+            self.id,
+            self.shapeless,
+            Rc::clone(&state),
+            args,
+            Rc::clone(&num_function_outputs),
+            Rc::clone(&state_layout),
+        );
+        self.num_function_outputs = num_function_outputs.get();
+        self.state_layout = state_layout.borrow().clone();
+        if let Err(error) = &result {
+            let after_failure = state_snapshot(&**state.borrow());
+            if allow_growth_recovery
+                && was_untraced
+                && state_grew(&saved_state, &after_failure)
+                && is_recoverable_first_trace_growth(error)
+            {
+                restore_state(*state.borrow_mut(), &saved_state, true)?;
+                let retry = self.fallible_call_mut_with_state_attempt(
+                    &mut **state.borrow_mut(),
+                    args,
+                    false,
+                );
+                if retry.is_err() {
+                    restore_state(*state.borrow_mut(), &saved_state, false)?;
+                    self.cache.erase(self.id);
+                    self.num_function_outputs = None;
+                    self.state_layout = None;
+                }
+                return retry;
+            }
+            restore_state(*state.borrow_mut(), &saved_state, false).map_err(|restore_error| {
                 Exception::custom(format!(
                     "{}; transactional restore failed: {}",
                     error.what(),

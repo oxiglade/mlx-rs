@@ -425,6 +425,47 @@ pub trait Updatable {
     /// The order of the states should be consistent across calls and should be the same as the
     /// order of the states returned by [`Updatable::updatable_states`].
     fn updatable_states_mut(&mut self) -> impl IntoIterator<Item = &mut Array>;
+
+    #[doc(hidden)]
+    fn updatable_state_snapshot(&self) -> Vec<(Rc<str>, Array)> {
+        self.updatable_states()
+            .into_iter()
+            .enumerate()
+            .map(|(index, array)| (Rc::from(index.to_string()), array.clone()))
+            .collect()
+    }
+
+    #[doc(hidden)]
+    fn restore_updatable_state(
+        &mut self,
+        snapshot: Vec<(Rc<str>, Array)>,
+        reset_new: bool,
+    ) -> Result<(), String> {
+        let mut saved = snapshot.into_iter().collect::<HashMap<_, _>>();
+        let mut restored = Vec::with_capacity(self.updatable_states_len());
+        for (index, array) in self.updatable_states().into_iter().enumerate() {
+            let key = Rc::<str>::from(index.to_string());
+            if let Some(value) = saved.remove(&key) {
+                restored.push(value);
+            } else if reset_new {
+                restored.push(crate::ops::zeros_like(array).map_err(|error| error.to_string())?);
+            } else {
+                return Err(format!("state entry {key} was created during the call"));
+            }
+        }
+        if !saved.is_empty() {
+            let mut missing = saved.into_keys().collect::<Vec<_>>();
+            missing.sort();
+            return Err(format!(
+                "state entries disappeared during the call: {missing:?}"
+            ));
+        }
+        let mut restored = restored.into_iter();
+        for array in self.updatable_states_mut() {
+            *array = restored.next().unwrap();
+        }
+        Ok(())
+    }
 }
 
 impl<T> Updatable for T
@@ -455,6 +496,51 @@ where
             .sorted_by(|a, b| a.0.cmp(&b.0))
             .map(|(_, v)| v)
     }
+
+    fn updatable_state_snapshot(&self) -> Vec<(Rc<str>, Array)> {
+        let mut snapshot = self
+            .parameters()
+            .flatten()
+            .into_iter()
+            .map(|(key, array)| (key, array.clone()))
+            .collect::<Vec<_>>();
+        snapshot.sort_by(|a, b| a.0.cmp(&b.0));
+        snapshot
+    }
+
+    fn restore_updatable_state(
+        &mut self,
+        snapshot: Vec<(Rc<str>, Array)>,
+        reset_new: bool,
+    ) -> Result<(), String> {
+        let mut saved = snapshot.into_iter().collect::<HashMap<_, _>>();
+        let mut restored = HashMap::new();
+        for (key, array) in self.parameters().flatten() {
+            if let Some(value) = saved.remove(&key) {
+                restored.insert(key, value);
+            } else if reset_new {
+                restored.insert(
+                    key,
+                    crate::ops::zeros_like(array).map_err(|error| error.to_string())?,
+                );
+            } else {
+                return Err(format!(
+                    "module parameter {key} was created during the call"
+                ));
+            }
+        }
+        if !saved.is_empty() {
+            let mut missing = saved.into_keys().collect::<Vec<_>>();
+            missing.sort();
+            return Err(format!(
+                "module parameters disappeared during the call: {missing:?}"
+            ));
+        }
+        for (key, array) in self.parameters_mut().flatten() {
+            *array = restored.remove(&key).unwrap();
+        }
+        Ok(())
+    }
 }
 
 impl<T1, T2> Updatable for (T1, T2)
@@ -478,6 +564,39 @@ where
         let params = a.updatable_states_mut();
         params.into_iter().chain(b.updatable_states_mut())
     }
+
+    fn updatable_state_snapshot(&self) -> Vec<(Rc<str>, Array)> {
+        let (a, b) = self;
+        a.updatable_state_snapshot()
+            .into_iter()
+            .map(|(key, value)| (Rc::from(format!("0.{key}")), value))
+            .chain(
+                b.updatable_state_snapshot()
+                    .into_iter()
+                    .map(|(key, value)| (Rc::from(format!("1.{key}")), value)),
+            )
+            .collect()
+    }
+
+    fn restore_updatable_state(
+        &mut self,
+        snapshot: Vec<(Rc<str>, Array)>,
+        reset_new: bool,
+    ) -> Result<(), String> {
+        let mut first = Vec::new();
+        let mut second = Vec::new();
+        for (key, value) in snapshot {
+            if let Some(key) = key.strip_prefix("0.") {
+                first.push((Rc::from(key), value));
+            } else if let Some(key) = key.strip_prefix("1.") {
+                second.push((Rc::from(key), value));
+            } else {
+                return Err(format!("invalid tuple state key {key}"));
+            }
+        }
+        self.0.restore_updatable_state(first, reset_new)?;
+        self.1.restore_updatable_state(second, reset_new)
+    }
 }
 
 impl Updatable for Vec<Array> {
@@ -491,6 +610,53 @@ impl Updatable for Vec<Array> {
 
     fn updatable_states_mut(&mut self) -> impl IntoIterator<Item = &mut Array> {
         self.iter_mut()
+    }
+
+    fn updatable_state_snapshot(&self) -> Vec<(Rc<str>, Array)> {
+        self.iter()
+            .enumerate()
+            .map(|(index, array)| (Rc::from(index.to_string()), array.clone()))
+            .collect()
+    }
+
+    fn restore_updatable_state(
+        &mut self,
+        snapshot: Vec<(Rc<str>, Array)>,
+        reset_new: bool,
+    ) -> Result<(), String> {
+        let mut saved = snapshot
+            .into_iter()
+            .map(|(key, value)| {
+                key.parse::<usize>()
+                    .map(|index| (index, value))
+                    .map_err(|_| format!("invalid vector state key {key}"))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        saved.sort_by_key(|(index, _)| *index);
+        if saved
+            .iter()
+            .enumerate()
+            .any(|(expected, (actual, _))| expected != *actual)
+        {
+            return Err("vector state keys are not contiguous".to_owned());
+        }
+        if reset_new {
+            if self.len() < saved.len() {
+                return Err("vector state entries disappeared during the call".to_owned());
+            }
+            let saved_len = saved.len();
+            let mut restored = saved
+                .into_iter()
+                .map(|(_, value)| value)
+                .collect::<Vec<_>>();
+            for array in self.iter().skip(saved_len) {
+                restored.push(crate::ops::zeros_like(array).map_err(|error| error.to_string())?);
+            }
+            *self = restored;
+        } else {
+            *self = saved.into_iter().map(|(_, value)| value).collect();
+        }
+        Ok(())
     }
 }
 

@@ -56,10 +56,39 @@ macro_rules! impl_updatable_for_mut_optimizer {
             fn updatable_states_mut(&mut self) -> impl IntoIterator<Item = &mut Array> {
                 <$optimizer as Updatable>::updatable_states_mut(&mut **self)
             }
+
+            fn updatable_state_snapshot(&self) -> Vec<(Rc<str>, Array)> {
+                <$optimizer as Updatable>::updatable_state_snapshot(&**self)
+            }
+
+            fn restore_updatable_state(
+                &mut self,
+                snapshot: Vec<(Rc<str>, Array)>,
+                reset_new: bool,
+            ) -> Result<(), String> {
+                <$optimizer as Updatable>::restore_updatable_state(&mut **self, snapshot, reset_new)
+            }
         }
     };
 }
 use impl_updatable_for_mut_optimizer;
+
+macro_rules! optimizer_updatable_state_methods {
+    () => {
+        fn updatable_state_snapshot(&self) -> Vec<(Rc<str>, Array)> {
+            optimizer_state_snapshot(self)
+        }
+
+        fn restore_updatable_state(
+            &mut self,
+            snapshot: Vec<(Rc<str>, Array)>,
+            reset_new: bool,
+        ) -> Result<(), String> {
+            restore_optimizer_state(self, snapshot, reset_new)
+        }
+    };
+}
+use optimizer_updatable_state_methods;
 
 /// Type alias for common optimizer state.
 pub type State<T = Array> = HashMap<Rc<str>, T>;
@@ -217,6 +246,39 @@ pub trait Optimizer: Updatable {
 
         Ok(())
     }
+}
+
+fn optimizer_state_snapshot<O: Optimizer>(optimizer: &O) -> Vec<(Rc<str>, Array)> {
+    let mut snapshot = optimizer
+        .state()
+        .flatten()
+        .map(|(key, array)| (key, array.clone()))
+        .collect::<Vec<_>>();
+    snapshot.sort_by(|a, b| a.0.cmp(&b.0));
+    snapshot
+}
+
+fn restore_optimizer_state<O: Optimizer>(
+    optimizer: &mut O,
+    snapshot: Vec<(Rc<str>, Array)>,
+    reset_new: bool,
+) -> Result<(), String> {
+    let mut entries = if reset_new {
+        optimizer_state_snapshot(optimizer)
+            .into_iter()
+            .map(|(key, value)| {
+                crate::ops::zeros_like(&value)
+                    .map(|value| (key, value))
+                    .map_err(|error| error.to_string())
+            })
+            .collect::<Result<HashMap<_, _>, _>>()?
+    } else {
+        HashMap::new()
+    };
+    entries.extend(snapshot);
+    let restored = O::State::unflatten(entries).map_err(|error| error.to_string())?;
+    *optimizer.state_mut() = restored;
+    Ok(())
 }
 
 /// Type alias for clipped gradients that is returned by `clip_grad_norm`.

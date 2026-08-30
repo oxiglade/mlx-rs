@@ -133,6 +133,8 @@ impl Updatable for RmsProp {
             .sorted_by(|a, b| a.0.cmp(b.0))
             .map(|(_, v)| v)
     }
+
+    optimizer_updatable_state_methods!();
 }
 
 impl_updatable_for_mut_optimizer!(RmsProp);

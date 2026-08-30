@@ -432,17 +432,22 @@ fn trace_once_step(state: &mut Vec<Array>, _args: &[Array]) -> Result<Vec<Array>
     Ok(vec![state[0].clone()])
 }
 
-fn fail_first_trace_step(state: &mut Vec<Array>, _args: &[Array]) -> Result<Vec<Array>, Exception> {
+fn fail_first_trace_step(
+    (model, optimizer): &mut (TinyModel, Adam),
+    gradients: &[Array],
+) -> Result<Vec<Array>, Exception> {
     let call = FALLIBLE_CALLS.with(|counter| {
         let call = counter.get() + 1;
         counter.set(call);
         call
     });
-    state[0] = state[0].add(&array!(1.0_f32))?;
+    let mut gradient_map = FlattenedModuleParam::new();
+    gradient_map.insert("weight".into(), gradients[0].clone());
+    optimizer.update(model, gradient_map)?;
     if call == 1 {
         array!(1.0_f32).reshape(&[2])?;
     }
-    Ok(vec![state[0].clone()])
+    Ok(vec![model.weight.value.clone(), model.bias.value.clone()])
 }
 
 fn always_fail_step(state: &mut Vec<Array>, _args: &[Array]) -> Result<Vec<Array>, Exception> {
@@ -453,40 +458,46 @@ fn always_fail_step(state: &mut Vec<Array>, _args: &[Array]) -> Result<Vec<Array
 }
 
 #[test]
-fn failed_trace_is_not_retried_and_later_calls_use_the_cache() {
+fn failed_trace_rolls_back_and_caller_retry_recovers_growth() {
     FALLIBLE_CALLS.with(|counter| counter.set(0));
-    let mut state = vec![array!(0.0_f32), array!(8.0_f32)];
-    let args: [Array; 0] = [];
+    let fixture = Fixture::load();
+    let mut model = fixture.model();
+    model.bias.freeze(false);
+    let optimizer = AdamBuilder::new(0.025_f32)
+        .betas((0.8_f32, 0.95_f32))
+        .eps(1.0e-6_f32)
+        .build()
+        .unwrap();
+    let initial = (model, optimizer);
+    let mut expected = initial.clone();
+    let mut state = initial.clone();
+    let args = fixture.gradients(1);
     let mut compiled = compile_with_state(fail_first_trace_step, None);
 
     assert!(compiled(&mut state, &args).is_err());
     assert_eq!(FALLIBLE_CALLS.with(Cell::get), 1);
-    assert_named(&state[0], &array!(0.0_f32), "compile.no_retry.state.0");
-    assert_named(&state[1], &array!(8.0_f32), "compile.no_retry.state.1");
+    assert_eq!(state.0.parameters().flatten().len(), 2);
+    assert_eq!(state.1.state().flatten().count(), 0);
+    assert_model_optimizer(&state, &initial, "compile.no_retry.failure");
 
+    let mut trace_calls = 1;
     for call in 1..=4 {
+        let expected_output = adam_frozen_step(&mut expected, &args);
         let output = compiled(&mut state, &args).unwrap();
-        assert_eq!(
-            FALLIBLE_CALLS.with(Cell::get),
-            2,
-            "compile.no_retry.call{call}.counter"
+        let calls = FALLIBLE_CALLS.with(Cell::get);
+        assert!(
+            (trace_calls..=3).contains(&calls),
+            "compile.no_retry.call{call}.counter={calls} after {trace_calls}"
         );
-        assert_named(
-            &output[0],
-            &array!(call as f32),
-            &format!("compile.no_retry.call{call}.output.0"),
+        trace_calls = calls;
+        assert_all_leaves(
+            &output,
+            &expected_output,
+            &format!("compile.no_retry.call{call}.output"),
         );
-        assert_named(
-            &state[0],
-            &array!(call as f32),
-            &format!("compile.no_retry.call{call}.state.0"),
-        );
-        assert_named(
-            &state[1],
-            &array!(8.0_f32),
-            &format!("compile.no_retry.call{call}.state.1"),
-        );
+        assert_model_optimizer(&state, &expected, &format!("compile.no_retry.call{call}"));
     }
+    assert!((2..=3).contains(&trace_calls));
 }
 
 #[test]
