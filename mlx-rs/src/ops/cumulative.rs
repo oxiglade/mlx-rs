@@ -1,7 +1,13 @@
 use crate::error::Result;
 use crate::utils::guard::Guarded;
 use crate::{Array, Stream};
-use mlx_internal_macros::{default_device, generate_macro};
+use mlx_internal_macros::generate_macro;
+fn optional_dtype_none() -> mlx_sys::mlx_optional_dtype {
+    mlx_sys::mlx_optional_dtype {
+        value: mlx_sys::mlx_dtype__MLX_FLOAT32,
+        has_value: false,
+    }
+}
 
 impl Array {
     /// Return the cumulative maximum of the elements along the given axis returning an error if the inputs are invalid.
@@ -21,19 +27,18 @@ impl Array {
     /// // result is [[5, 8], [5, 9]] -- cumulative max along the columns
     /// let result = array.cummax(0, None, None).unwrap();
     /// ```
-    #[default_device]
-    pub fn cummax_device(
+    pub fn cummax(
         &self,
         axis: impl Into<Option<i32>>,
         reverse: impl Into<Option<bool>>,
         inclusive: impl Into<Option<bool>>,
-        stream: impl AsRef<Stream>,
     ) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         let stream = stream.as_ref();
 
         match axis.into() {
             Some(axis) => Array::try_from_op(|res| unsafe {
-                mlx_sys::mlx_cummax(
+                mlx_sys::mlx_cummax_axis(
                     res,
                     self.as_ptr(),
                     axis,
@@ -42,21 +47,31 @@ impl Array {
                     stream.as_ptr(),
                 )
             }),
-            None => {
-                let shape = &[-1];
-                let flat = self.reshape_device(shape, stream)?;
-                Array::try_from_op(|res| unsafe {
-                    mlx_sys::mlx_cummax(
-                        res,
-                        flat.as_ptr(),
-                        0,
-                        reverse.into().unwrap_or(false),
-                        inclusive.into().unwrap_or(true),
-                        stream.as_ptr(),
-                    )
-                })
-            }
+            None => Array::try_from_op(|res| unsafe {
+                mlx_sys::mlx_cummax(
+                    res,
+                    self.as_ptr(),
+                    reverse.into().unwrap_or(false),
+                    inclusive.into().unwrap_or(true),
+                    stream.as_ptr(),
+                )
+            }),
         }
+    }
+
+    /// Compatibility shim for [`cummax`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `cummax`"
+    )]
+    pub fn cummax_device(
+        &self,
+        axis: impl Into<Option<i32>>,
+        reverse: impl Into<Option<bool>>,
+        inclusive: impl Into<Option<bool>>,
+        stream: impl AsRef<Stream>,
+    ) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.cummax(axis, reverse, inclusive))
     }
 
     /// Return the cumulative minimum of the elements along the given axis returning an error if the inputs are invalid.
@@ -76,19 +91,18 @@ impl Array {
     /// // result is [[5, 8], [4, 8]] -- cumulative min along the columns
     /// let result = array.cummin(0, None, None).unwrap();
     /// ```
-    #[default_device]
-    pub fn cummin_device(
+    pub fn cummin(
         &self,
         axis: impl Into<Option<i32>>,
         reverse: impl Into<Option<bool>>,
         inclusive: impl Into<Option<bool>>,
-        stream: impl AsRef<Stream>,
     ) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         let stream = stream.as_ref();
 
         match axis.into() {
             Some(axis) => Array::try_from_op(|res| unsafe {
-                mlx_sys::mlx_cummin(
+                mlx_sys::mlx_cummin_axis(
                     res,
                     self.as_ptr(),
                     axis,
@@ -97,21 +111,31 @@ impl Array {
                     stream.as_ptr(),
                 )
             }),
-            None => {
-                let shape = &[-1];
-                let flat = self.reshape_device(shape, stream)?;
-                Array::try_from_op(|res| unsafe {
-                    mlx_sys::mlx_cummin(
-                        res,
-                        flat.as_ptr(),
-                        0,
-                        reverse.into().unwrap_or(false),
-                        inclusive.into().unwrap_or(true),
-                        stream.as_ptr(),
-                    )
-                })
-            }
+            None => Array::try_from_op(|res| unsafe {
+                mlx_sys::mlx_cummin(
+                    res,
+                    self.as_ptr(),
+                    reverse.into().unwrap_or(false),
+                    inclusive.into().unwrap_or(true),
+                    stream.as_ptr(),
+                )
+            }),
         }
+    }
+
+    /// Compatibility shim for [`cummin`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `cummin`"
+    )]
+    pub fn cummin_device(
+        &self,
+        axis: impl Into<Option<i32>>,
+        reverse: impl Into<Option<bool>>,
+        inclusive: impl Into<Option<bool>>,
+        stream: impl AsRef<Stream>,
+    ) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.cummin(axis, reverse, inclusive))
     }
 
     /// Return the cumulative product of the elements along the given axis returning an error if the inputs are invalid.
@@ -131,7 +155,45 @@ impl Array {
     /// // result is [[5, 8], [20, 72]] -- cumulative min along the columns
     /// let result = array.cumprod(0, None, None).unwrap();
     /// ```
-    #[default_device]
+    pub fn cumprod(
+        &self,
+        axis: impl Into<Option<i32>>,
+        reverse: impl Into<Option<bool>>,
+        inclusive: impl Into<Option<bool>>,
+    ) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
+        let stream = stream.as_ref();
+
+        match axis.into() {
+            Some(axis) => Array::try_from_op(|res| unsafe {
+                mlx_sys::mlx_cumprod_axis(
+                    res,
+                    self.as_ptr(),
+                    axis,
+                    reverse.into().unwrap_or(false),
+                    inclusive.into().unwrap_or(true),
+                    optional_dtype_none(),
+                    stream.as_ptr(),
+                )
+            }),
+            None => Array::try_from_op(|res| unsafe {
+                mlx_sys::mlx_cumprod(
+                    res,
+                    self.as_ptr(),
+                    reverse.into().unwrap_or(false),
+                    inclusive.into().unwrap_or(true),
+                    optional_dtype_none(),
+                    stream.as_ptr(),
+                )
+            }),
+        }
+    }
+
+    /// Compatibility shim for [`cumprod`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `cumprod`"
+    )]
     pub fn cumprod_device(
         &self,
         axis: impl Into<Option<i32>>,
@@ -139,34 +201,7 @@ impl Array {
         inclusive: impl Into<Option<bool>>,
         stream: impl AsRef<Stream>,
     ) -> Result<Array> {
-        let stream = stream.as_ref();
-
-        match axis.into() {
-            Some(axis) => Array::try_from_op(|res| unsafe {
-                mlx_sys::mlx_cumprod(
-                    res,
-                    self.as_ptr(),
-                    axis,
-                    reverse.into().unwrap_or(false),
-                    inclusive.into().unwrap_or(true),
-                    stream.as_ptr(),
-                )
-            }),
-            None => {
-                let shape = &[-1];
-                let flat = self.reshape_device(shape, stream)?;
-                Array::try_from_op(|res| unsafe {
-                    mlx_sys::mlx_cumprod(
-                        res,
-                        flat.as_ptr(),
-                        0,
-                        reverse.into().unwrap_or(false),
-                        inclusive.into().unwrap_or(true),
-                        stream.as_ptr(),
-                    )
-                })
-            }
-        }
+        crate::with_stream(stream.as_ref(), || self.cumprod(axis, reverse, inclusive))
     }
 
     /// Return the cumulative sum of the elements along the given axis returning an error if the inputs are invalid.
@@ -186,7 +221,45 @@ impl Array {
     /// // result is [[5, 8], [9, 17]] -- cumulative min along the columns
     /// let result = array.cumsum(0, None, None).unwrap();
     /// ```
-    #[default_device]
+    pub fn cumsum(
+        &self,
+        axis: impl Into<Option<i32>>,
+        reverse: impl Into<Option<bool>>,
+        inclusive: impl Into<Option<bool>>,
+    ) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
+        let stream = stream.as_ref();
+
+        match axis.into() {
+            Some(axis) => Array::try_from_op(|res| unsafe {
+                mlx_sys::mlx_cumsum_axis(
+                    res,
+                    self.as_ptr(),
+                    axis,
+                    reverse.into().unwrap_or(false),
+                    inclusive.into().unwrap_or(true),
+                    optional_dtype_none(),
+                    stream.as_ptr(),
+                )
+            }),
+            None => Array::try_from_op(|res| unsafe {
+                mlx_sys::mlx_cumsum(
+                    res,
+                    self.as_ptr(),
+                    reverse.into().unwrap_or(false),
+                    inclusive.into().unwrap_or(true),
+                    optional_dtype_none(),
+                    stream.as_ptr(),
+                )
+            }),
+        }
+    }
+
+    /// Compatibility shim for [`cumsum`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `cumsum`"
+    )]
     pub fn cumsum_device(
         &self,
         axis: impl Into<Option<i32>>,
@@ -194,40 +267,26 @@ impl Array {
         inclusive: impl Into<Option<bool>>,
         stream: impl AsRef<Stream>,
     ) -> Result<Array> {
-        let stream = stream.as_ref();
-
-        match axis.into() {
-            Some(axis) => Array::try_from_op(|res| unsafe {
-                mlx_sys::mlx_cumsum(
-                    res,
-                    self.as_ptr(),
-                    axis,
-                    reverse.into().unwrap_or(false),
-                    inclusive.into().unwrap_or(true),
-                    stream.as_ptr(),
-                )
-            }),
-            None => {
-                let shape = &[-1];
-                let flat = self.reshape_device(shape, stream)?;
-                Array::try_from_op(|res| unsafe {
-                    mlx_sys::mlx_cumsum(
-                        res,
-                        flat.as_ptr(),
-                        0,
-                        reverse.into().unwrap_or(false),
-                        inclusive.into().unwrap_or(true),
-                        stream.as_ptr(),
-                    )
-                })
-            }
-        }
+        crate::with_stream(stream.as_ref(), || self.cumsum(axis, reverse, inclusive))
     }
 }
 
 /// See [`Array::cummax`]
-#[generate_macro]
-#[default_device]
+pub fn cummax(
+    a: impl AsRef<Array>,
+    axis: impl Into<Option<i32>>,
+    reverse: impl Into<Option<bool>>,
+    inclusive: impl Into<Option<bool>>,
+) -> Result<Array> {
+    a.as_ref().cummax(axis, reverse, inclusive)
+}
+
+/// Compatibility shim for [`cummax`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `cummax`"
+)]
 pub fn cummax_device(
     a: impl AsRef<Array>,
     #[optional] axis: impl Into<Option<i32>>,
@@ -235,12 +294,25 @@ pub fn cummax_device(
     #[optional] inclusive: impl Into<Option<bool>>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    a.as_ref().cummax_device(axis, reverse, inclusive, stream)
+    crate::with_stream(stream.as_ref(), || cummax(a, axis, reverse, inclusive))
 }
 
 /// See [`Array::cummin`]
-#[generate_macro]
-#[default_device]
+pub fn cummin(
+    a: impl AsRef<Array>,
+    axis: impl Into<Option<i32>>,
+    reverse: impl Into<Option<bool>>,
+    inclusive: impl Into<Option<bool>>,
+) -> Result<Array> {
+    a.as_ref().cummin(axis, reverse, inclusive)
+}
+
+/// Compatibility shim for [`cummin`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `cummin`"
+)]
 pub fn cummin_device(
     a: impl AsRef<Array>,
     #[optional] axis: impl Into<Option<i32>>,
@@ -248,12 +320,25 @@ pub fn cummin_device(
     #[optional] inclusive: impl Into<Option<bool>>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    a.as_ref().cummin_device(axis, reverse, inclusive, stream)
+    crate::with_stream(stream.as_ref(), || cummin(a, axis, reverse, inclusive))
 }
 
 /// See [`Array::cumprod`]
-#[generate_macro]
-#[default_device]
+pub fn cumprod(
+    a: impl AsRef<Array>,
+    axis: impl Into<Option<i32>>,
+    reverse: impl Into<Option<bool>>,
+    inclusive: impl Into<Option<bool>>,
+) -> Result<Array> {
+    a.as_ref().cumprod(axis, reverse, inclusive)
+}
+
+/// Compatibility shim for [`cumprod`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `cumprod`"
+)]
 pub fn cumprod_device(
     a: impl AsRef<Array>,
     #[optional] axis: impl Into<Option<i32>>,
@@ -261,12 +346,25 @@ pub fn cumprod_device(
     #[optional] inclusive: impl Into<Option<bool>>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    a.as_ref().cumprod_device(axis, reverse, inclusive, stream)
+    crate::with_stream(stream.as_ref(), || cumprod(a, axis, reverse, inclusive))
 }
 
 /// See [`Array::cumsum`]
-#[generate_macro]
-#[default_device]
+pub fn cumsum(
+    a: impl AsRef<Array>,
+    axis: impl Into<Option<i32>>,
+    reverse: impl Into<Option<bool>>,
+    inclusive: impl Into<Option<bool>>,
+) -> Result<Array> {
+    a.as_ref().cumsum(axis, reverse, inclusive)
+}
+
+/// Compatibility shim for [`cumsum`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `cumsum`"
+)]
 pub fn cumsum_device(
     a: impl AsRef<Array>,
     #[optional] axis: impl Into<Option<i32>>,
@@ -274,7 +372,7 @@ pub fn cumsum_device(
     #[optional] inclusive: impl Into<Option<bool>>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    a.as_ref().cumsum_device(axis, reverse, inclusive, stream)
+    crate::with_stream(stream.as_ref(), || cumsum(a, axis, reverse, inclusive))
 }
 
 #[cfg(test)]

@@ -1,0 +1,1827 @@
+{
+  "schema_version": 1,
+  "old_source_commit": "a1290d221f92bd020af805b7d14207eee4ec973b",
+  "target_source_commit": "c74db5307cc8ce122f48d97ef951b30578674e7f",
+  "behavioral_renames": [
+    {
+      "c_name": "mlx_concatenate_axis",
+      "python_name": "mlx.core.concatenate",
+      "rust_path": "mlx_rs::ops::concatenate",
+      "semantic_op": "concatenate"
+    },
+    {
+      "c_name": "mlx_concatenate",
+      "python_name": "mlx.core.concatenate",
+      "rust_path": "mlx_rs::ops::concatenate_flat",
+      "semantic_op": "concatenate_flat"
+    },
+    {
+      "c_name": "mlx_where",
+      "python_name": "mlx.core.where",
+      "rust_path": "mlx_rs::ops::select",
+      "semantic_op": "where"
+    },
+    {
+      "c_name": "mlx_split",
+      "python_name": "mlx.core.split",
+      "rust_path": "mlx_rs::ops::split_equal",
+      "semantic_op": "split"
+    },
+    {
+      "c_name": "mlx_split_sections",
+      "python_name": "mlx.core.split",
+      "rust_path": "mlx_rs::ops::split_at_indices",
+      "semantic_op": "split_sections"
+    },
+    {
+      "c_name": "mlx_stack_axis",
+      "python_name": "mlx.core.stack",
+      "rust_path": "mlx_rs::ops::stack",
+      "semantic_op": "stack"
+    }
+  ],
+  "entries": [
+    {
+      "change": "added",
+      "kind": "enum",
+      "name": "mlx_fft_norm",
+      "entry": {
+        "kind": "enum",
+        "name": "mlx_fft_norm",
+        "repr": "mlx_fft_norm_",
+        "variants": [
+          {
+            "name": "MLX_FFT_NORM_BACKWARD",
+            "value": "0"
+          },
+          {
+            "name": "MLX_FFT_NORM_ORTHO",
+            "value": "1"
+          },
+          {
+            "name": "MLX_FFT_NORM_FORWARD",
+            "value": "2"
+          }
+        ]
+      },
+      "disposition": "internal",
+      "rationale": "the compatibility layer fixes backward normalization privately until an FFT options cohort is admitted"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_bartlett",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_bartlett",
+        "signature": "fn(* mut mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::windows::bartlett",
+      "evidence": [
+        "api:path:mlx_rs::ops::windows::bartlett",
+        "conf:signal.001",
+        "conf:signal.002",
+        "conf:signal.003"
+      ]
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_blackman",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_blackman",
+        "signature": "fn(* mut mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::windows::blackman",
+      "evidence": [
+        "api:path:mlx_rs::ops::windows::blackman",
+        "conf:signal.004",
+        "conf:signal.005",
+        "conf:signal.006"
+      ]
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_compile_cache_free",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_compile_cache_free",
+        "signature": "fn(mlx_compile_cache)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "internal",
+      "rationale": "the bump owns this handle privately through the Compiled RAII cache binding",
+      "evidence": [
+        "state:test:mlx-tests/tests/state_compile.rs#failed_trace_rolls_back_and_caller_retry_recovers_growth"
+      ]
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_compile_cache_new",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_compile_cache_new",
+        "signature": "fn()->mlx_compile_cache"
+      },
+      "disposition": "internal",
+      "rationale": "the bump owns this handle privately through the Compiled RAII cache binding",
+      "evidence": [
+        "state:test:mlx-tests/tests/state_compile.rs#failed_trace_rolls_back_and_caller_retry_recovers_growth"
+      ]
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_count_nonzero",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_count_nonzero",
+        "signature": "fn(* mut mlx_array,mlx_array,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_count_nonzero_axes",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_count_nonzero_axes",
+        "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_count_nonzero_axis",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_count_nonzero_axis",
+        "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_cummax_axis",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_cummax_axis",
+        "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::cummax_device",
+      "evidence": [
+        "api:path:mlx_rs::ops::cummax_device",
+        "api:test:mlx-rs/src/ops/cumulative.rs#test_cummax"
+      ]
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_cummin_axis",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_cummin_axis",
+        "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::cummin_device",
+      "evidence": [
+        "api:path:mlx_rs::ops::cummin_device",
+        "api:test:mlx-rs/src/ops/cumulative.rs#test_cummin"
+      ]
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_cumprod_axis",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_cumprod_axis",
+        "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,bool,mlx_optional_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::cumprod_device",
+      "evidence": [
+        "api:path:mlx_rs::ops::cumprod_device",
+        "api:test:mlx-rs/src/ops/cumulative.rs#test_cumprod"
+      ]
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_cumsum_axis",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_cumsum_axis",
+        "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,bool,mlx_optional_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::cumsum_device",
+      "evidence": [
+        "api:path:mlx_rs::ops::cumsum_device",
+        "api:test:mlx-rs/src/ops/cumulative.rs#test_cumsum"
+      ]
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_detail_compile_cache",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_detail_compile_cache",
+        "signature": "fn(* mut mlx_compile_cache)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "internal",
+      "rationale": "the bump resolves this private handle when Compiled is created and for each explicit clear",
+      "evidence": [
+        "state:test:mlx-tests/tests/state_compile.rs#failed_trace_rolls_back_and_caller_retry_recovers_growth"
+      ]
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_diff",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_diff",
+        "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_distributed_group_free",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_distributed_group_free",
+        "signature": "fn(mlx_distributed_group)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_distributed_group_new",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_distributed_group_new",
+        "signature": "fn()->mlx_distributed_group"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_export_to_dot",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_export_to_dot",
+        "signature": "fn(* mut FILE,mlx_node_namer,mlx_vector_array)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_fast_cross_entropy",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_fast_cross_entropy",
+        "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_fft_fftfreq",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_fft_fftfreq",
+        "signature": "fn(* mut mlx_array,:: std :: os :: raw :: c_int,f64,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::fft::fftfreq",
+      "python_name": "mlx.core.fft.fftfreq",
+      "semantic_op": "fftfreq",
+      "evidence": [
+        "api:path:mlx_rs::fft::fftfreq",
+        "conf:signal.013",
+        "conf:signal.014",
+        "conf:signal.015",
+        "conf:signal.016"
+      ]
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_fft_rfftfreq",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_fft_rfftfreq",
+        "signature": "fn(* mut mlx_array,:: std :: os :: raw :: c_int,f64,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::fft::rfftfreq",
+      "python_name": "mlx.core.fft.rfftfreq",
+      "semantic_op": "rfftfreq",
+      "evidence": [
+        "api:path:mlx_rs::fft::rfftfreq",
+        "conf:signal.017",
+        "conf:signal.018",
+        "conf:signal.019",
+        "conf:signal.020"
+      ]
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_flip",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_flip",
+        "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_flip_axes",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_flip_axes",
+        "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_flip_axis",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_flip_axis",
+        "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_gather_qqmm",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_gather_qqmm",
+        "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,mlx_array,mlx_array,mlx_optional_int,mlx_optional_int,* const :: std :: os :: raw :: c_char,mlx_array,mlx_array,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_hamming",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_hamming",
+        "signature": "fn(* mut mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::windows::hamming",
+      "evidence": [
+        "api:path:mlx_rs::ops::windows::hamming",
+        "conf:signal.007",
+        "conf:signal.008",
+        "conf:signal.009"
+      ]
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_hanning",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_hanning",
+        "signature": "fn(* mut mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::windows::hann",
+      "evidence": [
+        "api:path:mlx_rs::ops::windows::hann",
+        "conf:signal.010",
+        "conf:signal.011",
+        "conf:signal.012"
+      ]
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_io_gguf_free",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_io_gguf_free",
+        "signature": "fn(mlx_io_gguf)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_io_gguf_get_array",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_io_gguf_get_array",
+        "signature": "fn(* mut mlx_array,mlx_io_gguf,* const :: std :: os :: raw :: c_char)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_io_gguf_get_keys",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_io_gguf_get_keys",
+        "signature": "fn(* mut mlx_vector_string,mlx_io_gguf)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_io_gguf_get_metadata_array",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_io_gguf_get_metadata_array",
+        "signature": "fn(* mut mlx_array,mlx_io_gguf,* const :: std :: os :: raw :: c_char)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_io_gguf_get_metadata_string",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_io_gguf_get_metadata_string",
+        "signature": "fn(* mut mlx_string,mlx_io_gguf,* const :: std :: os :: raw :: c_char)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_io_gguf_get_metadata_vector_string",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_io_gguf_get_metadata_vector_string",
+        "signature": "fn(* mut mlx_vector_string,mlx_io_gguf,* const :: std :: os :: raw :: c_char)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_io_gguf_has_metadata_array",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_io_gguf_has_metadata_array",
+        "signature": "fn(* mut bool,mlx_io_gguf,* const :: std :: os :: raw :: c_char)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_io_gguf_has_metadata_string",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_io_gguf_has_metadata_string",
+        "signature": "fn(* mut bool,mlx_io_gguf,* const :: std :: os :: raw :: c_char)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_io_gguf_has_metadata_vector_string",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_io_gguf_has_metadata_vector_string",
+        "signature": "fn(* mut bool,mlx_io_gguf,* const :: std :: os :: raw :: c_char)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_io_gguf_new",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_io_gguf_new",
+        "signature": "fn()->mlx_io_gguf"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_io_gguf_set_array",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_io_gguf_set_array",
+        "signature": "fn(mlx_io_gguf,* const :: std :: os :: raw :: c_char,mlx_array)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_io_gguf_set_metadata_array",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_io_gguf_set_metadata_array",
+        "signature": "fn(mlx_io_gguf,* const :: std :: os :: raw :: c_char,mlx_array)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_io_gguf_set_metadata_string",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_io_gguf_set_metadata_string",
+        "signature": "fn(mlx_io_gguf,* const :: std :: os :: raw :: c_char,* const :: std :: os :: raw :: c_char)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_io_gguf_set_metadata_vector_string",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_io_gguf_set_metadata_vector_string",
+        "signature": "fn(mlx_io_gguf,* const :: std :: os :: raw :: c_char,mlx_vector_string)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_linalg_det",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_linalg_det",
+        "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_linalg_slogdet",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_linalg_slogdet",
+        "signature": "fn(* mut mlx_array,* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_linspace_endpoint",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_linspace_endpoint",
+        "signature": "fn(* mut mlx_array,f64,f64,:: std :: os :: raw :: c_int,bool,mlx_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_load_gguf",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_load_gguf",
+        "signature": "fn(* mut mlx_io_gguf,* const :: std :: os :: raw :: c_char,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_logcumsumexp_axis",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_logcumsumexp_axis",
+        "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_logical_xor",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_logical_xor",
+        "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_median_axes",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_median_axes",
+        "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::median_axes_device",
+      "evidence": [
+        "api:path:mlx_rs::ops::median_axes_device",
+        "api:test:mlx-rs/src/ops/reduction.rs#test_median"
+      ]
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_median_axis",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_median_axis",
+        "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::median_axis_device",
+      "evidence": [
+        "api:path:mlx_rs::ops::median_axis_device",
+        "api:test:mlx-rs/src/ops/reduction.rs#test_median"
+      ]
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_metal_get_metallib_path",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_metal_get_metallib_path",
+        "signature": "fn(* mut mlx_string)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_metal_set_metallib_path",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_metal_set_metallib_path",
+        "signature": "fn(* const :: std :: os :: raw :: c_char)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_node_namer_free",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_node_namer_free",
+        "signature": "fn(mlx_node_namer)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_node_namer_get_name",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_node_namer_get_name",
+        "signature": "fn(* mut * const :: std :: os :: raw :: c_char,mlx_node_namer,mlx_array)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_node_namer_new",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_node_namer_new",
+        "signature": "fn()->mlx_node_namer"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_node_namer_set_name",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_node_namer_set_name",
+        "signature": "fn(mlx_node_namer,mlx_array,* const :: std :: os :: raw :: c_char)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_ones_like_dtype",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_ones_like_dtype",
+        "signature": "fn(* mut mlx_array,mlx_array,mlx_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_positive",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_positive",
+        "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_print_graph",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_print_graph",
+        "signature": "fn(* mut FILE,mlx_node_namer,mlx_vector_array)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_save_gguf",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_save_gguf",
+        "signature": "fn(* const :: std :: os :: raw :: c_char,mlx_io_gguf)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_searchsorted",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_searchsorted",
+        "signature": "fn(* mut mlx_array,mlx_array,mlx_array,* const :: std :: os :: raw :: c_char,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_slice_update_add",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_slice_update_add",
+        "signature": "fn(* mut mlx_array,mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_slice_update_max",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_slice_update_max",
+        "signature": "fn(* mut mlx_array,mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_slice_update_min",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_slice_update_min",
+        "signature": "fn(* mut mlx_array,mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_slice_update_prod",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_slice_update_prod",
+        "signature": "fn(* mut mlx_array,mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_stream_new_thread_unsafe",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_stream_new_thread_unsafe",
+        "signature": "fn(mlx_device)->mlx_stream"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_trace_axes",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_trace_axes",
+        "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_trunc",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_trunc",
+        "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_unstack",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_unstack",
+        "signature": "fn(* mut mlx_vector_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_unstack_axis",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_unstack_axis",
+        "signature": "fn(* mut mlx_vector_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_vecdot",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_vecdot",
+        "signature": "fn(* mut mlx_array,mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "function",
+      "name": "mlx_zeros_like_dtype",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_zeros_like_dtype",
+        "signature": "fn(* mut mlx_array,mlx_array,mlx_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "target symbol has no Rust wrapper at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "handle",
+      "name": "mlx_compile_cache",
+      "entry": {
+        "kind": "handle",
+        "name": "mlx_compile_cache",
+        "new": "mlx_compile_cache_new",
+        "free": "mlx_compile_cache_free"
+      },
+      "disposition": "internal",
+      "rationale": "the bump collapses the C handle family into one private Compiled-owned RAII abstraction",
+      "evidence": [
+        "state:test:mlx-tests/tests/state_compile.rs#failed_trace_rolls_back_and_caller_retry_recovers_growth"
+      ],
+      "risk_class": "ownership",
+      "ownership": {
+        "model": "owned_handle",
+        "constructor": "mlx_compile_cache_new",
+        "destructor": "mlx_compile_cache_free",
+        "rust_status": "internal"
+      }
+    },
+    {
+      "change": "added",
+      "kind": "handle",
+      "name": "mlx_io_gguf",
+      "entry": {
+        "kind": "handle",
+        "name": "mlx_io_gguf",
+        "new": "mlx_io_gguf_new",
+        "free": "mlx_io_gguf_free"
+      },
+      "disposition": "deferred",
+      "rationale": "target ABI entity is not represented in the Rust public API at the old pin",
+      "risk_class": "ownership",
+      "ownership": {
+        "model": "owned_handle",
+        "constructor": "mlx_io_gguf_new",
+        "destructor": "mlx_io_gguf_free",
+        "rust_status": "deferred"
+      }
+    },
+    {
+      "change": "added",
+      "kind": "handle",
+      "name": "mlx_node_namer",
+      "entry": {
+        "kind": "handle",
+        "name": "mlx_node_namer",
+        "new": "mlx_node_namer_new",
+        "free": "mlx_node_namer_free"
+      },
+      "disposition": "deferred",
+      "rationale": "target ABI entity is not represented in the Rust public API at the old pin",
+      "risk_class": "ownership",
+      "ownership": {
+        "model": "owned_handle",
+        "constructor": "mlx_node_namer_new",
+        "destructor": "mlx_node_namer_free",
+        "rust_status": "deferred"
+      }
+    },
+    {
+      "change": "added",
+      "kind": "struct",
+      "name": "mlx_compile_cache_",
+      "entry": {
+        "kind": "struct",
+        "name": "mlx_compile_cache_",
+        "fields": [
+          {
+            "name": "ctx",
+            "type": "* mut :: std :: os :: raw :: c_void"
+          }
+        ]
+      },
+      "disposition": "internal",
+      "rationale": "the backing C struct remains private behind the Compiled-owned RAII cache binding",
+      "evidence": [
+        "state:test:mlx-tests/tests/state_compile.rs#failed_trace_rolls_back_and_caller_retry_recovers_growth"
+      ]
+    },
+    {
+      "change": "added",
+      "kind": "struct",
+      "name": "mlx_io_gguf_",
+      "entry": {
+        "kind": "struct",
+        "name": "mlx_io_gguf_",
+        "fields": [
+          {
+            "name": "ctx",
+            "type": "* mut :: std :: os :: raw :: c_void"
+          }
+        ]
+      },
+      "disposition": "deferred",
+      "rationale": "target ABI entity is not represented in the Rust public API at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "struct",
+      "name": "mlx_node_namer_",
+      "entry": {
+        "kind": "struct",
+        "name": "mlx_node_namer_",
+        "fields": [
+          {
+            "name": "ctx",
+            "type": "* mut :: std :: os :: raw :: c_void"
+          }
+        ]
+      },
+      "disposition": "deferred",
+      "rationale": "target ABI entity is not represented in the Rust public API at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "type",
+      "name": "mlx_compile_cache",
+      "entry": {
+        "kind": "type",
+        "name": "mlx_compile_cache",
+        "definition": "mlx_compile_cache_"
+      },
+      "disposition": "internal",
+      "rationale": "the C typedef remains private behind the Compiled-owned RAII cache binding",
+      "evidence": [
+        "state:test:mlx-tests/tests/state_compile.rs#failed_trace_rolls_back_and_caller_retry_recovers_growth"
+      ]
+    },
+    {
+      "change": "added",
+      "kind": "type",
+      "name": "mlx_fft_norm",
+      "entry": {
+        "kind": "type",
+        "name": "mlx_fft_norm",
+        "definition": "mlx_fft_norm_"
+      },
+      "disposition": "internal",
+      "rationale": "the compatibility layer fixes backward normalization privately until an FFT options cohort is admitted"
+    },
+    {
+      "change": "added",
+      "kind": "type",
+      "name": "mlx_fft_norm_",
+      "entry": {
+        "kind": "type",
+        "name": "mlx_fft_norm_",
+        "definition": ":: std :: os :: raw :: c_uint"
+      },
+      "disposition": "internal",
+      "rationale": "the compatibility layer fixes backward normalization privately until an FFT options cohort is admitted"
+    },
+    {
+      "change": "added",
+      "kind": "type",
+      "name": "mlx_io_gguf",
+      "entry": {
+        "kind": "type",
+        "name": "mlx_io_gguf",
+        "definition": "mlx_io_gguf_"
+      },
+      "disposition": "deferred",
+      "rationale": "target ABI entity is not represented in the Rust public API at the old pin"
+    },
+    {
+      "change": "added",
+      "kind": "type",
+      "name": "mlx_node_namer",
+      "entry": {
+        "kind": "type",
+        "name": "mlx_node_namer",
+        "definition": "mlx_node_namer_"
+      },
+      "disposition": "deferred",
+      "rationale": "target ABI entity is not represented in the Rust public API at the old pin"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_cummax",
+      "before": {
+        "kind": "function",
+        "name": "mlx_cummax",
+        "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_cummax",
+        "signature": "fn(* mut mlx_array,mlx_array,bool,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::cummax_device",
+      "evidence": [
+        "api:path:mlx_rs::ops::cummax_device",
+        "api:test:mlx-rs/src/ops/cumulative.rs#test_cummax"
+      ],
+      "old_pin_affected": false,
+      "bump_impact": "signature update: use mlx_cummax for flattened calls and mlx_cummax_axis for explicit axes; semantic review: preserve reverse and inclusive defaults"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_cummin",
+      "before": {
+        "kind": "function",
+        "name": "mlx_cummin",
+        "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_cummin",
+        "signature": "fn(* mut mlx_array,mlx_array,bool,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::cummin_device",
+      "evidence": [
+        "api:path:mlx_rs::ops::cummin_device",
+        "api:test:mlx-rs/src/ops/cumulative.rs#test_cummin"
+      ],
+      "old_pin_affected": false,
+      "bump_impact": "signature update: use mlx_cummin for flattened calls and mlx_cummin_axis for explicit axes; semantic review: preserve reverse and inclusive defaults"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_cumprod",
+      "before": {
+        "kind": "function",
+        "name": "mlx_cumprod",
+        "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_cumprod",
+        "signature": "fn(* mut mlx_array,mlx_array,bool,bool,mlx_optional_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::cumprod_device",
+      "evidence": [
+        "api:path:mlx_rs::ops::cumprod_device",
+        "api:test:mlx-rs/src/ops/cumulative.rs#test_cumprod"
+      ],
+      "old_pin_affected": false,
+      "bump_impact": "signature update: use mlx_cumprod_axis for explicit axes and pass no dtype to both variants; semantic review: decide whether Rust exposes dtype selection"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_cumsum",
+      "before": {
+        "kind": "function",
+        "name": "mlx_cumsum",
+        "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_cumsum",
+        "signature": "fn(* mut mlx_array,mlx_array,bool,bool,mlx_optional_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::cumsum_device",
+      "evidence": [
+        "api:path:mlx_rs::ops::cumsum_device",
+        "api:test:mlx-rs/src/ops/cumulative.rs#test_cumsum"
+      ],
+      "old_pin_affected": false,
+      "bump_impact": "signature update: use mlx_cumsum_axis for explicit axes and pass no dtype to both variants; semantic review: decide whether Rust exposes dtype selection"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_dequantize",
+      "before": {
+        "kind": "function",
+        "name": "mlx_dequantize",
+        "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,mlx_optional_int,mlx_optional_int,* const :: std :: os :: raw :: c_char,mlx_optional_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_dequantize",
+        "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,mlx_optional_int,mlx_optional_int,* const :: std :: os :: raw :: c_char,mlx_array,mlx_optional_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::dequantize_device",
+      "evidence": [
+        "api:path:mlx_rs::ops::dequantize_device",
+        "api:test:mlx-rs/src/ops/quantization.rs#test_quantize_dequantize"
+      ],
+      "old_pin_affected": false,
+      "bump_impact": "signature update: pass the new optional global_scale array; semantic review: preserve affine quantization defaults"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_detail_compile_clear_cache",
+      "before": {
+        "kind": "function",
+        "name": "mlx_detail_compile_clear_cache",
+        "signature": "fn()->:: std :: os :: raw :: c_int"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_detail_compile_clear_cache",
+        "signature": "fn(mlx_compile_cache)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::transforms::compile::clear_cache",
+      "evidence": [
+        "api:path:mlx_rs::transforms::compile::clear_cache",
+        "state:test:mlx-tests/tests/state_compile.rs#clear_cache_resolves_the_current_thread_cache"
+      ],
+      "old_pin_affected": false,
+      "bump_impact": "signature update: create and retain the target compile-cache handle before clearing it; semantic review: define cache ownership and scope"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_detail_compile_erase",
+      "before": {
+        "kind": "function",
+        "name": "mlx_detail_compile_erase",
+        "signature": "fn(usize)->:: std :: os :: raw :: c_int"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_detail_compile_erase",
+        "signature": "fn(mlx_compile_cache,usize)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::transforms::compile::Compiled",
+      "evidence": [
+        "api:path:mlx_rs::transforms::compile::Compiled",
+        "state:test:mlx-tests/tests/test_compile_with_state.rs#test_compile_module"
+      ],
+      "old_pin_affected": false,
+      "bump_impact": "signature update: retain a compile-cache handle in Compiled and pass it during erase; semantic review: verify clone and drop ownership"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_distributed_group_split",
+      "before": {
+        "kind": "function",
+        "name": "mlx_distributed_group_split",
+        "signature": "fn(mlx_distributed_group,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int)->mlx_distributed_group"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_distributed_group_split",
+        "signature": "fn(* mut mlx_distributed_group,mlx_distributed_group,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "no Rust wrapper references this symbol at the old pin",
+      "old_pin_affected": false,
+      "bump_impact": "none: no Rust wrapper references this symbol"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_distributed_init",
+      "before": {
+        "kind": "function",
+        "name": "mlx_distributed_init",
+        "signature": "fn(bool)->mlx_distributed_group"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_distributed_init",
+        "signature": "fn(* mut mlx_distributed_group,bool,* const :: std :: os :: raw :: c_char)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "no Rust wrapper references this symbol at the old pin",
+      "old_pin_affected": false,
+      "bump_impact": "none: no Rust wrapper references this symbol"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_distributed_is_available",
+      "before": {
+        "kind": "function",
+        "name": "mlx_distributed_is_available",
+        "signature": "fn()->bool"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_distributed_is_available",
+        "signature": "fn(* const :: std :: os :: raw :: c_char)->bool"
+      },
+      "disposition": "deferred",
+      "rationale": "no Rust wrapper references this symbol at the old pin",
+      "old_pin_affected": false,
+      "bump_impact": "none: no Rust wrapper references this symbol"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_fast_scaled_dot_product_attention",
+      "before": {
+        "kind": "function",
+        "name": "mlx_fast_scaled_dot_product_attention",
+        "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,f32,* const :: std :: os :: raw :: c_char,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_fast_scaled_dot_product_attention",
+        "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,f32,* const :: std :: os :: raw :: c_char,mlx_array,mlx_array,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::fast::scaled_dot_product_attention_device",
+      "evidence": [
+        "api:path:mlx_rs::fast::scaled_dot_product_attention_device",
+        "api:test:mlx-rs/src/fast.rs#test_fast_sdpa"
+      ],
+      "old_pin_affected": false,
+      "bump_impact": "signature update: pass the new force_fused flag; semantic review: choose and test the Rust default"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_fft_fft",
+      "before": {
+        "kind": "function",
+        "name": "mlx_fft_fft",
+        "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_fft_fft",
+        "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_fft_norm,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::fft::fft",
+      "python_name": "mlx.core.fft.fft",
+      "semantic_op": "fft",
+      "evidence": [
+        "api:path:mlx_rs::fft::fft",
+        "api:test:mlx-rs/src/fft/fftn.rs#test_fft"
+      ],
+      "old_pin_affected": false,
+      "bump_impact": "signature update: pass MLX_FFT_NORM_BACKWARD; semantic review: decide whether to expose normalization"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_fft_fft2",
+      "before": {
+        "kind": "function",
+        "name": "mlx_fft_fft2",
+        "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_fft_fft2",
+        "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_fft_norm,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::fft::fft2",
+      "python_name": "mlx.core.fft.fft2",
+      "semantic_op": "fft2",
+      "evidence": [
+        "api:path:mlx_rs::fft::fft2",
+        "api:test:mlx-rs/src/fft/fftn.rs#test_fft2"
+      ],
+      "old_pin_affected": false,
+      "bump_impact": "signature update: pass MLX_FFT_NORM_BACKWARD; semantic review: decide whether to expose normalization"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_fft_fftn",
+      "before": {
+        "kind": "function",
+        "name": "mlx_fft_fftn",
+        "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_fft_fftn",
+        "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_fft_norm,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::fft::fftn",
+      "python_name": "mlx.core.fft.fftn",
+      "semantic_op": "fftn",
+      "evidence": [
+        "api:path:mlx_rs::fft::fftn",
+        "api:test:mlx-rs/src/fft/fftn.rs#test_fftn"
+      ],
+      "old_pin_affected": false,
+      "bump_impact": "signature update: pass MLX_FFT_NORM_BACKWARD; semantic review: decide whether to expose normalization"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_fft_ifft",
+      "before": {
+        "kind": "function",
+        "name": "mlx_fft_ifft",
+        "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_fft_ifft",
+        "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_fft_norm,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::fft::ifft",
+      "python_name": "mlx.core.fft.ifft",
+      "semantic_op": "ifft",
+      "evidence": [
+        "api:path:mlx_rs::fft::ifft",
+        "api:test:mlx-rs/src/fft/fftn.rs#test_fft"
+      ],
+      "old_pin_affected": false,
+      "bump_impact": "signature update: pass MLX_FFT_NORM_BACKWARD; semantic review: decide whether to expose normalization"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_fft_ifft2",
+      "before": {
+        "kind": "function",
+        "name": "mlx_fft_ifft2",
+        "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_fft_ifft2",
+        "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_fft_norm,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::fft::ifft2",
+      "python_name": "mlx.core.fft.ifft2",
+      "semantic_op": "ifft2",
+      "evidence": [
+        "api:path:mlx_rs::fft::ifft2",
+        "api:test:mlx-rs/src/fft/fftn.rs#test_fft2"
+      ],
+      "old_pin_affected": false,
+      "bump_impact": "signature update: pass MLX_FFT_NORM_BACKWARD; semantic review: decide whether to expose normalization"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_fft_ifftn",
+      "before": {
+        "kind": "function",
+        "name": "mlx_fft_ifftn",
+        "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_fft_ifftn",
+        "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_fft_norm,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::fft::ifftn",
+      "python_name": "mlx.core.fft.ifftn",
+      "semantic_op": "ifftn",
+      "evidence": [
+        "api:path:mlx_rs::fft::ifftn",
+        "api:test:mlx-rs/src/fft/fftn.rs#test_fftn"
+      ],
+      "old_pin_affected": false,
+      "bump_impact": "signature update: pass MLX_FFT_NORM_BACKWARD; semantic review: decide whether to expose normalization"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_fft_irfft",
+      "before": {
+        "kind": "function",
+        "name": "mlx_fft_irfft",
+        "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_fft_irfft",
+        "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_fft_norm,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::fft::irfft",
+      "python_name": "mlx.core.fft.irfft",
+      "semantic_op": "irfft",
+      "evidence": [
+        "api:path:mlx_rs::fft::irfft",
+        "api:test:mlx-rs/src/fft/rfftn.rs#test_rfft"
+      ],
+      "old_pin_affected": false,
+      "bump_impact": "signature update: pass MLX_FFT_NORM_BACKWARD; semantic review: decide whether to expose normalization"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_fft_irfft2",
+      "before": {
+        "kind": "function",
+        "name": "mlx_fft_irfft2",
+        "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_fft_irfft2",
+        "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_fft_norm,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::fft::irfft2",
+      "python_name": "mlx.core.fft.irfft2",
+      "semantic_op": "irfft2",
+      "evidence": [
+        "api:path:mlx_rs::fft::irfft2",
+        "api:test:mlx-rs/src/fft/rfftn.rs#test_rfft2"
+      ],
+      "old_pin_affected": false,
+      "bump_impact": "signature update: pass MLX_FFT_NORM_BACKWARD; semantic review: decide whether to expose normalization"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_fft_irfftn",
+      "before": {
+        "kind": "function",
+        "name": "mlx_fft_irfftn",
+        "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_fft_irfftn",
+        "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_fft_norm,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::fft::irfftn",
+      "python_name": "mlx.core.fft.irfftn",
+      "semantic_op": "irfftn",
+      "evidence": [
+        "api:path:mlx_rs::fft::irfftn",
+        "api:test:mlx-rs/src/fft/rfftn.rs#test_rfftn"
+      ],
+      "old_pin_affected": false,
+      "bump_impact": "signature update: pass MLX_FFT_NORM_BACKWARD; semantic review: decide whether to expose normalization"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_fft_rfft",
+      "before": {
+        "kind": "function",
+        "name": "mlx_fft_rfft",
+        "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_fft_rfft",
+        "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_fft_norm,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::fft::rfft",
+      "python_name": "mlx.core.fft.rfft",
+      "semantic_op": "rfft",
+      "evidence": [
+        "api:path:mlx_rs::fft::rfft",
+        "api:test:mlx-rs/src/fft/rfftn.rs#test_rfft"
+      ],
+      "old_pin_affected": false,
+      "bump_impact": "signature update: pass MLX_FFT_NORM_BACKWARD; semantic review: decide whether to expose normalization"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_fft_rfft2",
+      "before": {
+        "kind": "function",
+        "name": "mlx_fft_rfft2",
+        "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_fft_rfft2",
+        "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_fft_norm,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::fft::rfft2",
+      "python_name": "mlx.core.fft.rfft2",
+      "semantic_op": "rfft2",
+      "evidence": [
+        "api:path:mlx_rs::fft::rfft2",
+        "api:test:mlx-rs/src/fft/rfftn.rs#test_rfft2"
+      ],
+      "old_pin_affected": false,
+      "bump_impact": "signature update: pass MLX_FFT_NORM_BACKWARD; semantic review: decide whether to expose normalization"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_fft_rfftn",
+      "before": {
+        "kind": "function",
+        "name": "mlx_fft_rfftn",
+        "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_fft_rfftn",
+        "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_fft_norm,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::fft::rfftn",
+      "python_name": "mlx.core.fft.rfftn",
+      "semantic_op": "rfftn",
+      "evidence": [
+        "api:path:mlx_rs::fft::rfftn",
+        "api:test:mlx-rs/src/fft/rfftn.rs#test_rfftn"
+      ],
+      "old_pin_affected": false,
+      "bump_impact": "signature update: pass MLX_FFT_NORM_BACKWARD; semantic review: decide whether to expose normalization"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_logcumsumexp",
+      "before": {
+        "kind": "function",
+        "name": "mlx_logcumsumexp",
+        "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_logcumsumexp",
+        "signature": "fn(* mut mlx_array,mlx_array,bool,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "no Rust wrapper references this symbol at the old pin",
+      "old_pin_affected": false,
+      "bump_impact": "none: no Rust wrapper references this symbol"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_median",
+      "before": {
+        "kind": "function",
+        "name": "mlx_median",
+        "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_median",
+        "signature": "fn(* mut mlx_array,mlx_array,bool,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::median_device",
+      "evidence": [
+        "api:path:mlx_rs::ops::median_device",
+        "api:test:mlx-rs/src/ops/reduction.rs#test_median"
+      ],
+      "old_pin_affected": false,
+      "bump_impact": "signature update: use mlx_median for all elements and the new axis variants for selected axes; semantic review: preserve keep-dims behavior"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_qqmm",
+      "before": {
+        "kind": "function",
+        "name": "mlx_qqmm",
+        "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,mlx_optional_int,mlx_optional_int,* const :: std :: os :: raw :: c_char,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_qqmm",
+        "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,mlx_optional_int,mlx_optional_int,* const :: std :: os :: raw :: c_char,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::qqmm_device",
+      "evidence": [
+        "api:path:mlx_rs::ops::qqmm_device"
+      ],
+      "old_pin_affected": false,
+      "bump_impact": "signature update: pass the new optional global_scale_x and global_scale_w arrays; semantic review: preserve mode-specific defaults"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_quantize",
+      "before": {
+        "kind": "function",
+        "name": "mlx_quantize",
+        "signature": "fn(* mut mlx_vector_array,mlx_array,mlx_optional_int,mlx_optional_int,* const :: std :: os :: raw :: c_char,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_quantize",
+        "signature": "fn(* mut mlx_vector_array,mlx_array,mlx_optional_int,mlx_optional_int,* const :: std :: os :: raw :: c_char,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::quantize_device",
+      "evidence": [
+        "api:path:mlx_rs::ops::quantize_device",
+        "api:test:mlx-rs/src/ops/quantization.rs#test_quantize_dequantize"
+      ],
+      "old_pin_affected": false,
+      "bump_impact": "signature update: pass the new optional global_scale array; semantic review: preserve affine quantization defaults"
+    },
+    {
+      "change": "changed",
+      "kind": "function",
+      "name": "mlx_trace",
+      "before": {
+        "kind": "function",
+        "name": "mlx_trace",
+        "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "after": {
+        "kind": "function",
+        "name": "mlx_trace",
+        "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "deferred",
+      "rationale": "no Rust wrapper references this symbol at the old pin",
+      "old_pin_affected": false,
+      "bump_impact": "none: no Rust wrapper references this symbol"
+    },
+    {
+      "change": "changed",
+      "kind": "handle",
+      "name": "mlx_distributed_group",
+      "before": {
+        "kind": "handle",
+        "name": "mlx_distributed_group"
+      },
+      "after": {
+        "kind": "handle",
+        "name": "mlx_distributed_group",
+        "new": "mlx_distributed_group_new",
+        "free": "mlx_distributed_group_free"
+      },
+      "disposition": "deferred",
+      "rationale": "no Rust wrapper references this symbol at the old pin",
+      "old_pin_affected": false,
+      "bump_impact": "none: no Rust wrapper references this symbol",
+      "risk_class": "ownership",
+      "ownership": {
+        "model": "owned_handle",
+        "constructor": "mlx_distributed_group_new",
+        "destructor": "mlx_distributed_group_free",
+        "rust_status": "deferred"
+      }
+    }
+  ]
+}

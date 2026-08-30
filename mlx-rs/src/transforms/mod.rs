@@ -23,6 +23,11 @@
 //! argument to compute the gradient with respect to, use
 //! [`grad_with_argnums()`] or [`value_and_grad_with_argnums()`].
 //!
+//! # Panics
+//!
+//! A panic in a Rust transform closure is caught before it reaches MLX. After MLX returns through
+//! the C ABI, the panic resumes in Rust with its original payload.
+//!
 //! TODO: update the example once https://github.com/oxideai/mlx-rs/pull/218 is merged
 //!
 //! ```rust,ignore
@@ -39,10 +44,10 @@
 //! let x = Array::from(1.5);
 //!
 //! let dfdx = calculate_grad(f, &x).unwrap();
-//! assert_eq!(dfdx.item::<f32>(), 2.0 * 1.5);
+//! assert_eq!(dfdx.item_exact::<f32>(), 2.0 * 1.5);
 //!
 //! let dfdx2 = calculate_grad(|args| calculate_grad(f, args), &x).unwrap();
-//! assert_eq!(dfdx2.item::<f32>(), 2.0);
+//! assert_eq!(dfdx2.item_exact::<f32>(), 2.0);
 //! ```
 
 use mlx_sys::mlx_closure_value_and_grad;
@@ -272,8 +277,8 @@ mod tests {
         let x = array!(1.0f32);
         let y = array!(1.0f32);
         let (out, dout) = jvp(f, &[x, y], &[array!(1.0f32), array!(3.0f32)]).unwrap();
-        assert_eq!(out[0].item::<f32>(), 2.0f32);
-        assert_eq!(dout[0].item::<f32>(), 4.0f32);
+        assert_eq!(out[0].item_exact::<f32>(), 2.0f32);
+        assert_eq!(dout[0].item_exact::<f32>(), 4.0f32);
     }
 
     #[test]
@@ -286,8 +291,8 @@ mod tests {
         let x = array!(1.0f32);
         let y = array!(1.0f32);
         let (out, dout) = fallible_jvp(f, &[x, y], &[array!(1.0f32), array!(3.0f32)]).unwrap();
-        assert_eq!(out[0].item::<f32>(), 2.0f32);
-        assert_eq!(dout[0].item::<f32>(), 4.0f32);
+        assert_eq!(out[0].item_exact::<f32>(), 2.0f32);
+        assert_eq!(dout[0].item_exact::<f32>(), 4.0f32);
 
         // Error case
         // Use non-broadcastable shapes
@@ -309,8 +314,8 @@ mod tests {
         let primals = vec![x, y];
         let cotangents = vec![array!(1.0f32)];
         let (out, dout) = vjp(f, &primals, &cotangents).unwrap();
-        assert_eq!(out[0].item::<f32>(), 2.0f32);
-        assert_eq!(dout[0].item::<f32>(), 1.0f32);
+        assert_eq!(out[0].item_exact::<f32>(), 2.0f32);
+        assert_eq!(dout[0].item_exact::<f32>(), 1.0f32);
     }
 
     #[test]
@@ -325,8 +330,8 @@ mod tests {
         let primals = vec![x, y];
         let cotangents = vec![array!(1.0f32)];
         let (out, dout) = fallible_vjp(f, &primals, &cotangents).unwrap();
-        assert_eq!(out[0].item::<f32>(), 2.0f32);
-        assert_eq!(dout[0].item::<f32>(), 1.0f32);
+        assert_eq!(out[0].item_exact::<f32>(), 2.0f32);
+        assert_eq!(dout[0].item_exact::<f32>(), 1.0f32);
 
         // Error case
         // Use non-broadcastable shapes

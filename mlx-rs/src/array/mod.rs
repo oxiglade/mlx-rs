@@ -1,6 +1,6 @@
 use crate::{
     dtype::Dtype,
-    error::AsSliceError,
+    error::{AsSliceError, ConversionError},
     sealed::Sealed,
     utils::{guard::Guarded, SUCCESS},
     Stream,
@@ -71,28 +71,30 @@ impl Drop for Array {
     }
 }
 
+// SAFETY: MLX 0.32.2 supports moving array handles while operations use per-thread default streams.
 unsafe impl Send for Array {}
-
-impl PartialEq for Array {
-    /// Array equality check.
-    ///
-    /// Compare two arrays for equality. Returns `true` iff the arrays have
-    /// the same shape and their values are equal. The arrays need not have
-    /// the same type to be considered equal.
-    ///
-    /// If you're looking for element-wise equality, use the [Array::eq()] method.
-    fn eq(&self, other: &Self) -> bool {
-        self.array_eq(other, None).unwrap().item()
-    }
-}
 
 impl Array {
     /// Create a new array from an existing mlx_array pointer.
     ///
     /// # Safety
     ///
-    /// The caller must ensure the reference count of the array is properly incremented with
-    /// `mlx_sys::mlx_retain`.
+    /// `c_array` must be a valid, independently owned MLX array handle. [`Array`] takes ownership
+    /// of that handle and frees it on drop. A borrowed handle, such as one returned by
+    /// [`Array::as_ptr`], must first be duplicated into a fresh handle with
+    /// [`mlx_sys::mlx_array_set`].
+    ///
+    /// ```no_run
+    /// use mlx_rs::Array;
+    ///
+    /// let source = Array::from_int(1);
+    /// let duplicate = unsafe {
+    ///     let mut handle = mlx_sys::mlx_array_new();
+    ///     assert_eq!(mlx_sys::mlx_array_set(&mut handle, source.as_ptr()), 0);
+    ///     Array::from_ptr(handle)
+    /// };
+    /// assert_eq!(duplicate.item_exact::<i32>(), 1);
+    /// ```
     pub unsafe fn from_ptr(c_array: mlx_array) -> Array {
         Self { c_array }
     }
@@ -302,40 +304,101 @@ impl Array {
         <() as Guarded>::try_from_op(|_| unsafe { mlx_sys::mlx_array_eval(self.as_ptr()) })
     }
 
-    /// Access the value of a scalar array.
-    /// If `T` does not match the array's `dtype` this will convert the type first.
+    /// Access the value of a scalar array without dtype conversion.
     ///
-    /// _Note: This will evaluate the array._
-    pub fn item<T: ArrayElement>(&self) -> T {
-        self.try_item().unwrap()
+    /// This evaluates the array and panics if evaluation fails, the array is not scalar, or `T`
+    /// does not exactly match the array dtype.
+    pub fn item_exact<T: ArrayElement>(&self) -> T {
+        self.try_item_exact().unwrap()
     }
 
-    /// Access the value of a scalar array returning an error if the array is not a scalar.
-    /// If `T` does not match the array's `dtype` this will convert the type first.
+    /// Access the value of a scalar array without dtype conversion.
     ///
-    /// _Note: This will evaluate the array._
-    pub fn try_item<T: ArrayElement>(&self) -> crate::error::Result<T> {
-        self.eval()?;
-
-        // Evaluate the array, so we have content to work with in the conversion
-        self.eval()?;
-
-        // Though `mlx_array_item_<dtype>` returns a status code, it doesn't
-        // return any non-success status code even if the dtype doesn't match.
+    /// This evaluates the array and returns an error if evaluation fails, the array is not scalar,
+    /// or `T` does not exactly match the array dtype.
+    pub fn try_item_exact<T: ArrayElement>(&self) -> Result<T, ConversionError> {
+        if self.size() != 1 {
+            return Err(ConversionError::NotScalar {
+                actual: self.size(),
+            });
+        }
         if self.dtype() != T::DTYPE {
-            let new_array = Array::try_from_op(|res| unsafe {
-                mlx_sys::mlx_astype(
-                    res,
-                    self.as_ptr(),
-                    T::DTYPE.into(),
-                    Stream::default().as_ptr(),
-                )
-            })?;
-            new_array.eval()?;
-            return T::array_item(&new_array);
+            return Err(ConversionError::DtypeMismatch {
+                expected: T::DTYPE,
+                actual: self.dtype(),
+            });
+        }
+        self.eval()?;
+        Ok(T::array_item(self)?)
+    }
+
+    /// Access the value of a scalar array, converting it to `T` when necessary.
+    ///
+    /// This evaluates the array and panics if evaluation or conversion fails or the array is not
+    /// scalar.
+    pub fn item_cast<T: ArrayElement>(&self) -> T {
+        self.try_item_cast().unwrap()
+    }
+
+    /// Access the value of a scalar array, converting it to `T` when necessary.
+    ///
+    /// This evaluates the array and returns an error if evaluation or conversion fails or the
+    /// array is not scalar.
+    pub fn try_item_cast<T: ArrayElement>(&self) -> Result<T, ConversionError> {
+        if self.size() != 1 {
+            return Err(ConversionError::NotScalar {
+                actual: self.size(),
+            });
+        }
+        self.eval()?;
+
+        if self.dtype() != T::DTYPE {
+            return self.as_type::<T>()?.try_item_exact();
         }
 
-        T::array_item(self)
+        Ok(T::array_item(self)?)
+    }
+
+    /// Compatibility alias for [`Array::item_cast`].
+    #[deprecated(since = "0.26.0", note = "use `item_cast` or `item_exact`")]
+    pub fn item<T: ArrayElement>(&self) -> T {
+        self.item_cast()
+    }
+
+    /// Compatibility alias for [`Array::try_item_cast`].
+    #[deprecated(since = "0.26.0", note = "use `try_item_cast` or `try_item_exact`")]
+    pub fn try_item<T: ArrayElement>(&self) -> crate::error::Result<T> {
+        self.try_item_cast().map_err(|error| match error {
+            ConversionError::Exception(error) => error,
+            error => crate::error::Exception::custom(error.to_string()),
+        })
+    }
+
+    /// Copy contiguous row-major array values without dtype conversion.
+    ///
+    /// This evaluates the array and allocates a `Vec`. It returns an error if `T` does not exactly
+    /// match the array dtype or if the array is not contiguous row-major.
+    pub fn to_vec_exact<T: ArrayElement + Clone>(&self) -> Result<Vec<T>, ConversionError> {
+        if self.dtype() != T::DTYPE {
+            return Err(ConversionError::DtypeMismatch {
+                expected: T::DTYPE,
+                actual: self.dtype(),
+            });
+        }
+        Ok(self.try_as_slice::<T>()?.to_vec())
+    }
+
+    /// Copy contiguous row-major array values, converting them to `T` when necessary.
+    ///
+    /// This evaluates the array, may allocate a converted MLX array, and allocates a `Vec`. It
+    /// returns an error if evaluation or conversion fails or if the converted array is not
+    /// contiguous row-major.
+    pub fn to_vec_cast<T: ArrayElement + Clone>(&self) -> Result<Vec<T>, ConversionError> {
+        if self.dtype() == T::DTYPE {
+            return self.to_vec_exact();
+        }
+        let converted = self.as_type::<T>()?;
+        Ok(converted.try_as_slice::<T>()?.to_vec())
     }
 
     /// Returns a slice of the array data without validating the dtype.
@@ -368,7 +431,9 @@ impl Array {
         }
     }
 
-    /// Returns a slice of the array data returning an error if the dtype does not match the actual dtype.
+    /// Returns a slice of contiguous row-major array data.
+    ///
+    /// Returns an error if the dtype does not match or the array is a non-contiguous view.
     ///
     /// # Example
     ///
@@ -391,6 +456,13 @@ impl Array {
 
         self.eval()?;
 
+        let row_contiguous = bool::try_from_op(|res| unsafe {
+            mlx_sys::_mlx_array_is_row_contiguous(res, self.as_ptr())
+        })?;
+        if !row_contiguous {
+            return Err(AsSliceError::NotContiguous);
+        }
+
         unsafe {
             let size = self.size();
             let data = T::array_data(self);
@@ -402,12 +474,12 @@ impl Array {
         }
     }
 
-    /// Returns a slice of the array data.
-    /// This method requires a mutable reference (`&self`) because it evaluates the array.
+    /// Returns a slice of contiguous row-major array data.
     ///
     /// # Panics
     ///
-    /// Panics if the array is not evaluated or if the desired dtype does not match the actual dtype
+    /// Panics if evaluation fails, the desired dtype does not match the actual dtype, or the array
+    /// is not contiguous row-major. Materialize non-contiguous views with an MLX operation first.
     ///
     /// # Example
     ///
@@ -902,11 +974,22 @@ impl<T: FromSliceElement + Copy, const N: usize, const M: usize, const O: usize>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{array, ops::broadcast_to};
+
+    #[test]
+    fn broadcast_view_cannot_be_borrowed_as_slice() {
+        let broadcast = broadcast_to(&array!([1, 2]), &[3, 2]).unwrap();
+
+        assert_eq!(
+            broadcast.try_as_slice::<i32>(),
+            Err(AsSliceError::NotContiguous)
+        );
+    }
 
     #[test]
     fn new_scalar_array_from_bool() {
         let array = Array::from_bool(true);
-        assert!(array.item::<bool>());
+        assert!(array.item_exact::<bool>());
         assert_eq!(array.item_size(), 1);
         assert_eq!(array.size(), 1);
         assert!(array.strides().is_empty());
@@ -919,7 +1002,7 @@ mod tests {
     #[test]
     fn new_scalar_array_from_int() {
         let array = Array::from_int(42);
-        assert_eq!(array.item::<i32>(), 42);
+        assert_eq!(array.item_exact::<i32>(), 42);
         assert_eq!(array.item_size(), 4);
         assert_eq!(array.size(), 1);
         assert!(array.strides().is_empty());
@@ -932,7 +1015,7 @@ mod tests {
     #[test]
     fn new_scalar_array_from_f32() {
         let array = Array::from_f32(3.14);
-        assert_eq!(array.item::<f32>(), 3.14);
+        assert_eq!(array.item_exact::<f32>(), 3.14);
         assert_eq!(array.item_size(), 4);
         assert_eq!(array.size(), 1);
         assert!(array.strides().is_empty());
@@ -945,7 +1028,7 @@ mod tests {
     #[test]
     fn new_scalar_array_from_f64() {
         let array = Array::from_f64(3.14).as_dtype(Dtype::Float64).unwrap();
-        float_eq::assert_float_eq!(array.item::<f64>(), 3.14, abs <= 1e-5);
+        float_eq::assert_float_eq!(array.item_exact::<f64>(), 3.14, abs <= 1e-5);
         assert_eq!(array.item_size(), 8);
         assert_eq!(array.size(), 1);
         assert!(array.strides().is_empty());
@@ -972,7 +1055,7 @@ mod tests {
     fn new_scalar_array_from_complex() {
         let val = complex64::new(1.0, 2.0);
         let array = Array::from_complex(val);
-        assert_eq!(array.item::<complex64>(), val);
+        assert_eq!(array.item_exact::<complex64>(), val);
         assert_eq!(array.item_size(), 8);
         assert_eq!(array.size(), 1);
         assert!(array.strides().is_empty());
@@ -987,7 +1070,7 @@ mod tests {
         let data = [1i32];
         let array = Array::from_slice(&data, &[1]);
         assert_eq!(array.as_slice::<i32>(), &data[..]);
-        assert_eq!(array.item::<i32>(), 1);
+        assert_eq!(array.item_exact::<i32>(), 1);
         assert_eq!(array.item_size(), 4);
         assert_eq!(array.size(), 1);
         assert_eq!(array.strides(), &[1]);
@@ -1057,24 +1140,80 @@ mod tests {
         let array2 = Array::from_slice(&data, &[5]);
         let array3 = Array::from_slice(&[1i32, 2, 3, 4, 6], &[5]);
 
-        assert_eq!(&array1, &array2);
-        assert_ne!(&array1, &array3);
+        assert!(array1.eq_exact(&array2).unwrap());
+        assert!(!array1.eq_exact(&array3).unwrap());
     }
 
     #[test]
     fn test_array_item_non_scalar() {
         let data = [1i32, 2, 3, 4, 5];
         let array = Array::from_slice(&data, &[5]);
-        assert!(array.try_item::<i32>().is_err());
+        assert!(array.try_item_exact::<i32>().is_err());
     }
 
     #[test]
     fn test_item_type_conversion() {
         let array = Array::from_f32(1.0);
-        assert_eq!(array.item::<i32>(), 1);
-        assert_eq!(array.item::<complex64>(), complex64::new(1.0, 0.0));
-        assert_eq!(array.item::<u8>(), 1);
+        assert_eq!(array.item_cast::<i32>(), 1);
+        assert_eq!(array.item_cast::<complex64>(), complex64::new(1.0, 0.0));
+        assert_eq!(array.item_cast::<u8>(), 1);
 
         assert_eq!(array.as_slice::<f32>(), &[1.0]);
+    }
+
+    #[test]
+    fn exact_observers_reject_dtype_conversion() {
+        crate::with_device(crate::Device::cpu(), || {
+            let array = Array::from_slice(&[1_i32, 2, 3], &[3]);
+            let scalar = Array::from_int(1);
+
+            let vector_error = array.to_vec_exact::<f32>().unwrap_err();
+            assert!(
+                matches!(
+                    vector_error,
+                    crate::error::ConversionError::DtypeMismatch {
+                        expected: Dtype::Float32,
+                        actual: Dtype::Int32,
+                    }
+                ),
+                "{vector_error:?}; dtype={:?}",
+                array.dtype()
+            );
+            assert!(matches!(
+                scalar.try_item_exact::<f32>(),
+                Err(crate::error::ConversionError::DtypeMismatch {
+                    expected: Dtype::Float32,
+                    actual: Dtype::Int32,
+                })
+            ));
+        });
+    }
+
+    #[test]
+    fn casting_observers_convert_values() {
+        crate::with_device(crate::Device::cpu(), || {
+            let vector = Array::from_slice(&[1_i32, 2, 3], &[3]);
+            let scalar = Array::from_int(7);
+
+            assert_eq!(vector.to_vec_cast::<f32>().unwrap(), vec![1.0, 2.0, 3.0]);
+            assert_eq!(scalar.try_item_cast::<f32>().unwrap(), 7.0);
+        });
+    }
+
+    #[test]
+    fn explicit_array_comparisons_distinguish_dtype_and_values() {
+        crate::with_device(crate::Device::cpu(), || {
+            let integers = Array::from_slice(&[1_i32, 2, 3], &[3]);
+            let same_integers = Array::from_slice(&[1_i32, 2, 3], &[3]);
+            let floats = Array::from_slice(&[1.0_f32, 2.0, 3.0], &[3]);
+            let nearby = Array::from_slice(&[1.0_f32, 2.0, 3.000_001], &[3]);
+
+            assert!(integers.eq_exact(&same_integers).unwrap());
+            assert!(!integers.eq_exact(&floats).unwrap());
+            assert!(integers.eq_values(&floats).unwrap());
+            assert!(floats
+                .all_close(&nearby, Some(1e-5), Some(1e-8), Some(false))
+                .unwrap());
+        });
     }
 }

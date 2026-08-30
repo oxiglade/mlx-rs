@@ -1,0 +1,581 @@
+{
+  "cases": [
+    {
+      "id": "arithmetic.001",
+      "input_refs": [
+        "arithmetic.001.input.0",
+        "arithmetic.001.input.1"
+      ],
+      "input_sha256": "sha256:4b5bb334256b316590d42b7efa52d9aa302e7acb4c9812398e324307e54c18ce",
+      "recipe": "add",
+      "seed_hex": "a93793a7e80e62f493fad47cb69020f6",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000000400000404000000040000040400000e040",
+            "dtype": "F32",
+            "shape": [
+              5
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "arithmetic.002",
+      "input_refs": [
+        "arithmetic.002.input.0",
+        "arithmetic.002.input.1"
+      ],
+      "input_sha256": "sha256:22c196ad35b0bd3ab33ac3052fdc240b87c8587c04b0c21dfdc8c618addaf64d",
+      "recipe": "add",
+      "seed_hex": "cf502323ab96a5e8d8a2d18ed0913fe5",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "07000000",
+            "dtype": "I32",
+            "shape": []
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "arithmetic.003",
+      "input_refs": [
+        "arithmetic.003.input.0",
+        "arithmetic.003.input.1"
+      ],
+      "input_sha256": "sha256:78bed3bb830287112417d3210d90d4512263ace2c6bc78d6f954590b966afa75",
+      "recipe": "add",
+      "seed_hex": "6a5a3f0b9b8bed4d5183c6965bd60536",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "060002000800030004000200",
+            "dtype": "I16",
+            "shape": [
+              2,
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "arithmetic.004",
+      "input_refs": [
+        "arithmetic.004.input.0",
+        "arithmetic.004.input.1"
+      ],
+      "input_sha256": "sha256:f243590c4a9bb3afbcb0f8ebe51359619af83358d2b73b1a82aa9cbc34440556",
+      "recipe": "subtract",
+      "seed_hex": "161d91f9bf32f0d1836ccca930040308",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000a040000040c00000c04000001041000000c00000a040",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "arithmetic.005",
+      "input_refs": [
+        "arithmetic.005.input.0",
+        "arithmetic.005.input.1"
+      ],
+      "input_sha256": "sha256:fe61b964790aa720a4a7e5b78f71867ea44206b86d1424af184a1a101c321fc2",
+      "recipe": "multiply",
+      "seed_hex": "1f9c12a4512e5f06e65be3d530440013",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000803f000080c1000000800000803f0000a0c1000080c0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "arithmetic.006",
+      "input_refs": [
+        "arithmetic.006.input.0",
+        "arithmetic.006.input.1"
+      ],
+      "input_sha256": "sha256:9abd41d0a080ffaa26fd29f538a0125db8009c990fe7511517de16b35cf4ed4c",
+      "recipe": "divide",
+      "seed_hex": "3784e5aaae4dfd5ae37c40c01c1fcbcc",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000803f000000c0000040400000803e",
+            "dtype": "F32",
+            "shape": [
+              4
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "arithmetic.007",
+      "input_refs": [
+        "arithmetic.007.input.0"
+      ],
+      "input_sha256": "sha256:2278a8b8b376cf7954d97f59af9a7b55e352190df35252787d78e4a2974cddca",
+      "recipe": "negative",
+      "seed_hex": "9daebc3a68de215ab05e512128c1c054",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "ffffffffffffffff0200000000000000fdffffffffffffff0400000000000000",
+            "dtype": "I64",
+            "shape": [
+              4
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "arithmetic.008",
+      "input_refs": [
+        "arithmetic.008.input.0"
+      ],
+      "input_sha256": "sha256:a72663e85301283f0b2acd31c0cef7a69a325fb209008350f870ef833101a0cb",
+      "recipe": "abs",
+      "seed_hex": "ff40291335c1f48493220e018019fdd5",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000204000000000000000000000504000000041",
+            "dtype": "F32",
+            "shape": [
+              5
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "arithmetic.009",
+      "input_refs": [
+        "arithmetic.009.input.0"
+      ],
+      "input_sha256": "sha256:522db223f78cb6ececfed5e71f0933c8e9f55c1f1c933961905bd41c4ad4695c",
+      "recipe": "exp",
+      "seed_hex": "ed00d399561ed2988ebd13fe90478ca9",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "b25abc3e0000803f4d09d33f2573ec40",
+            "dtype": "F32",
+            "shape": [
+              4
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "arithmetic.010",
+      "input_refs": [
+        "arithmetic.010.input.0",
+        "arithmetic.010.input.1",
+        "arithmetic.010.input.2"
+      ],
+      "input_sha256": "sha256:acf127096f0ecf0aea27190ef8f94d1e24557f66a5dee68dcedc22aaade6c02c",
+      "recipe": "where",
+      "seed_hex": "f4ae1cbede68a71891e21c93750f925a",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000a040000080bf000040c0000080c0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "arithmetic.011",
+      "input_refs": [
+        "arithmetic.011.input.0",
+        "arithmetic.011.input.1"
+      ],
+      "input_sha256": "sha256:802b2ec1f680206647393693407a913819e1903b2c481badbe543fd8949e7497",
+      "max_error": 4.0,
+      "recipe": "divmod",
+      "seed_hex": "931be1e93242deea6a9bcac1dd7f86e1",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "02000000fdffffff030000000300000000000000",
+            "dtype": "I32",
+            "shape": [
+              5
+            ]
+          },
+          {
+            "data_hex": "0100000003000000010000000100000000000000",
+            "dtype": "I32",
+            "shape": [
+              5
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "value_changed"
+    },
+    {
+      "id": "arithmetic.012",
+      "input_refs": [
+        "arithmetic.012.input.0"
+      ],
+      "input_sha256": "sha256:b67d912fe469a344b87a3b8d0cad25e5a23795806d8c444c2da682cd75081592",
+      "recipe": "add_scalar",
+      "seed_hex": "7b37e1709ab3486963ccaac78ed0b3d0",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "01010101",
+            "dtype": "BOOL",
+            "shape": [
+              4
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "arithmetic.013",
+      "input_refs": [
+        "arithmetic.013.input.0"
+      ],
+      "input_sha256": "sha256:3ddf298a5dc3171f86ab687aed8f9cb21b08c4b6b6d5efd1cada571ee8281b8e",
+      "recipe": "add_scalar",
+      "seed_hex": "f64af5a2d3057ea65bc292256055303a",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "f7fffffff9fffffffdffffff02000000",
+            "dtype": "I32",
+            "shape": [
+              4
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "arithmetic.014",
+      "input_refs": [
+        "arithmetic.014.input.0"
+      ],
+      "input_sha256": "sha256:9a2e69539bdfbf7f177126147427513a620ae01d87ade4710e141bde609a55a8",
+      "recipe": "add_scalar",
+      "seed_hex": "a612db753b2ecd1449e4cb009bab96b6",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000a0bf0000403f0000984000001c41",
+            "dtype": "F32",
+            "shape": [
+              4
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "arithmetic.015",
+      "input_refs": [
+        "arithmetic.015.input.0.real",
+        "arithmetic.015.input.0.imag"
+      ],
+      "input_sha256": "sha256:4082eb224e0ced6204957c1a2688df59434f0271439687264a5d4bbc3c974ff9",
+      "recipe": "add_scalar",
+      "seed_hex": "a4b655caa4e73f7b26ec88695acdd688",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000c03f0000803f000020c0000000bf0000003f000000c0",
+            "dtype": "C64",
+            "shape": [
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "arithmetic.016",
+      "input_refs": [
+        "arithmetic.016.input.0",
+        "arithmetic.016.input.1"
+      ],
+      "input_sha256": "sha256:52ed3ec8097ee34fedac54976c5a775a8efaae250e6b99a6a645b4e92d4d552e",
+      "recipe": "add",
+      "seed_hex": "449f98f36ce66d1110465e7eb8a211cd",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00000040000040400000404000000040000080c000000040",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "arithmetic.017",
+      "input_refs": [
+        "arithmetic.017.input.0",
+        "arithmetic.017.input.1"
+      ],
+      "input_sha256": "sha256:bc7a99b02d5e1da302a77441505c7f93bb06a9dcc63a53cf2da00d3b4c1b8a04",
+      "recipe": "maximum",
+      "seed_hex": "469a45df36c62869af727c10ddf00ede",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00000000000000400000c07f0000c07f00000000",
+            "dtype": "F32",
+            "shape": [
+              5
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "arithmetic.018",
+      "input_refs": [
+        "arithmetic.018.input.0",
+        "arithmetic.018.input.1"
+      ],
+      "input_sha256": "sha256:3ac56af287cdabb726d875aef2afbb946db76b98ae62f25dc88f8109b26e3203",
+      "recipe": "power",
+      "seed_hex": "1a03b5ba16aece73d737055e70cb4936",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000803f0000004100000040398ee33d",
+            "dtype": "F32",
+            "shape": [
+              4
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "arithmetic.019",
+      "input_refs": [
+        "arithmetic.019.input.0",
+        "arithmetic.019.input.1"
+      ],
+      "input_sha256": "sha256:4da6dc4dcfe0033ef95bbf519e972d06b414a04a2eebea5d9603d533cc33cf88",
+      "recipe": "add",
+      "seed_hex": "b4a67ffa840901c2c20f75892ad853c8",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000c07f0000807f000080ff0000807f000080ff",
+            "dtype": "F32",
+            "shape": [
+              5
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "arithmetic.020",
+      "input_refs": [
+        "arithmetic.020.input.0"
+      ],
+      "input_sha256": "sha256:78ec735ff0cbae3d6f17c99250324f5e6ed7606c144263426c112b05a70590ec",
+      "recipe": "negative",
+      "seed_hex": "1ee18b93c0ac466f72c3f452806c7f88",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000008000000000",
+            "dtype": "F32",
+            "shape": [
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "arithmetic.021",
+      "input_refs": [
+        "arithmetic.021.input.0",
+        "arithmetic.021.input.1"
+      ],
+      "input_sha256": "sha256:9708b6ce089543aafe7fe34b5620c24566f7ea0f82d7104ff04494a7e797f92b",
+      "recipe": "add",
+      "seed_hex": "aa3edc9cf19007db79565339218ab4f3",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "",
+            "dtype": "F32",
+            "shape": [
+              0
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "arithmetic.022",
+      "input_refs": [
+        "arithmetic.022.input.0",
+        "arithmetic.022.input.1"
+      ],
+      "input_sha256": "sha256:704643eb34e46367ab435d0e4e976262b67d061c05e02b965954682d31cb900f",
+      "recipe": "add",
+      "seed_hex": "a4be3c0f219039199adaa41f84222c3e",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "1400000000000000",
+            "dtype": "U64",
+            "shape": []
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "arithmetic.023",
+      "input_refs": [
+        "arithmetic.023.input.0",
+        "arithmetic.023.input.1"
+      ],
+      "input_sha256": "sha256:cf468598002d1ce6a8e0628ee81bdbcb1f0976bf446625ed9a40ec9346b34206",
+      "recipe": "subtract",
+      "seed_hex": "cc7fc38fd5810642e104fd710baa5797",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "ffffffff0200000008000000ffffffff0300000003000000fefffffffdffffff01000000fbfffffffcffffff02000000faffffff0200000000000000",
+            "dtype": "I32",
+            "shape": [
+              3,
+              5
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "arithmetic.024",
+      "input_refs": [
+        "arithmetic.024.input.0",
+        "arithmetic.024.input.1"
+      ],
+      "input_sha256": "sha256:6e7947473cec40d947bf3ac606a9bf3029e67f93f91cbf9e86ab4b8814b26a0c",
+      "recipe": "multiply",
+      "seed_hex": "1a758c790a7fd10e4fb07dd68a05ed51",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000000000000084000000000000018400000000000000080000000000000224000000000000020c00000000000000000",
+            "dtype": "F64",
+            "shape": [
+              2,
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    }
+  ],
+  "old_environment": {
+    "architecture": "arm64",
+    "mlx_metal_package": "0.30.6",
+    "mlx_package": "0.30.6",
+    "mlx_runtime": "0.30.6",
+    "numpy": "2.2.6",
+    "python": "3.12.14"
+  },
+  "schema_version": 1,
+  "suite": "arithmetic",
+  "target_environment": {
+    "architecture": "arm64",
+    "device": "cpu",
+    "mlx": "0.32.2",
+    "mlx_metal": "0.32.2",
+    "mlx_runtime": "0.32.2",
+    "numpy": "2.2.6",
+    "python": "3.12.14",
+    "venv": "conformance/.venv-target"
+  }
+}

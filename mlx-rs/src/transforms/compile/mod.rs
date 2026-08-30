@@ -22,7 +22,7 @@
 //! use mlx_rs::{Array, array, transforms::compile::compile, error::Exception};
 //!
 //! let fun = |(x, y): (&Array, &Array)| -> Result<Array, Exception> {
-//!    mlx_rs::exp!(x.negative()?)?.add(y)
+//!    mlx_rs::ops::exp(x.negative()?)?.add(y)
 //! };
 //!
 //! let x = array!(1.0);
@@ -53,7 +53,7 @@
 //! use mlx_rs::{Array, array, transforms::compile::compile};
 //!
 //! let fun = |(x, y): (&Array, &Array)| {
-//!    mlx_rs::exp!(x.negative()?)?.add(y)
+//!    mlx_rs::ops::exp(x.negative()?)?.add(y)
 //! };
 //!
 //! let x = array!(1.0);
@@ -99,7 +99,7 @@
 //!
 //! let fun = |(x, y): (&Array, &Array)| {
 //!     let z = (x + y) * c;
-//!     mlx_rs::exp!(z)
+//!     mlx_rs::ops::exp(z)
 //! };
 //!
 //! let mut compiled = compile(fun, None);
@@ -121,7 +121,7 @@
 //!
 //! let fun = |state: &mut Vec<Array>, (x, y): (&Array, &Array)| {
 //!     let z = x + y;
-//!     let result = mlx_rs::exp!(&z);
+//!     let result = mlx_rs::ops::exp(&z);
 //!     state.push(z);
 //!     result
 //! };
@@ -142,11 +142,17 @@
 //! See mlx-rs/mlx-tests/tests/test_compile_with_state.rs for more examples.
 //!
 
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
+use std::{
+    marker::PhantomData,
+    rc::Rc,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
 use super::{Closure, Guarded, VectorArray};
-use crate::Array;
+use crate::{
+    error::Exception,
+    utils::{StateLayoutEntry, SUCCESS},
+};
 
 #[allow(clippy::module_inception)]
 mod compile;
@@ -175,48 +181,102 @@ pub fn disable_compile() {
 
 /// Clear the memory cache.
 pub fn clear_cache() {
-    unsafe {
-        mlx_sys::mlx_detail_compile_clear_cache();
+    if let Ok(cache) = CompileCache::current() {
+        cache.clear();
     }
 }
 
 /// A compiled function that can be called.
 #[derive(Debug, Clone)]
 pub struct Compiled<F, G> {
-    f_marker: std::marker::PhantomData<F>,
+    f_marker: PhantomData<(F, Rc<()>)>,
     state: CompiledState<G>,
 }
 
-#[derive(Debug, Clone)]
+struct CompileCache {
+    handle: mlx_sys::mlx_compile_cache,
+}
+
+type StateLayout = Vec<StateLayoutEntry>;
+
+impl std::fmt::Debug for CompileCache {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CompileCache").finish_non_exhaustive()
+    }
+}
+
+impl CompileCache {
+    fn current() -> Result<Self, Exception> {
+        crate::error::INIT_ERR_HANDLER.call_once(crate::error::setup_mlx_error_handler);
+        let mut cache = Self {
+            handle: unsafe { mlx_sys::mlx_compile_cache_new() },
+        };
+        let status = unsafe { mlx_sys::mlx_detail_compile_cache(&mut cache.handle) };
+        crate::error::resume_closure_panic();
+        if status == SUCCESS {
+            return Ok(cache);
+        }
+
+        Err(crate::error::exception_from_status(
+            status,
+            "resolving the current MLX compile cache",
+        ))
+    }
+
+    fn clear(&self) {
+        consume_status(unsafe { mlx_sys::mlx_detail_compile_clear_cache(self.handle) });
+    }
+
+    fn erase(&self, fun_id: usize) {
+        consume_status(unsafe { mlx_sys::mlx_detail_compile_erase(self.handle, fun_id) });
+    }
+}
+
+impl Drop for CompileCache {
+    fn drop(&mut self) {
+        consume_status(unsafe { mlx_sys::mlx_compile_cache_free(self.handle) });
+    }
+}
+
+fn consume_status(status: i32) {
+    if status != SUCCESS {
+        let _ = crate::error::get_and_clear_last_mlx_error();
+    }
+}
+
+#[derive(Debug)]
 struct CompiledState<F> {
     f: F,
     shapeless: bool,
     id: usize,
+    cache: CompileCache,
+    num_function_outputs: Option<usize>,
+    state_layout: Option<StateLayout>,
 }
 
-impl<F> Drop for CompiledState<F> {
-    fn drop(&mut self) {
-        unsafe {
-            // remove the compiled structure from the back end
-            mlx_sys::mlx_detail_compile_erase(self.id);
+static NEXT_COMPILE_ID: AtomicUsize = AtomicUsize::new(1);
+
+impl<F> CompiledState<F> {
+    fn new(f: F, shapeless: bool) -> Self {
+        Self {
+            f,
+            shapeless,
+            id: NEXT_COMPILE_ID.fetch_add(1, Ordering::Relaxed),
+            cache: CompileCache::current().expect("failed to capture the MLX compile cache"),
+            num_function_outputs: None,
+            state_layout: None,
         }
     }
 }
 
-fn type_id_to_usize<T>(_val: &T) -> usize
-where
-    T: 'static,
-{
-    // hash type id to usize
-    let type_id = std::any::TypeId::of::<T>();
-    let mut hasher = DefaultHasher::new();
-    type_id.hash(&mut hasher);
-    hasher.finish() as usize
+impl<F: Clone> Clone for CompiledState<F> {
+    fn clone(&self) -> Self {
+        Self::new(self.f.clone(), self.shapeless)
+    }
 }
 
-fn update_by_replace_with_ref_to_new_array(src: &mut Array, new_array: &Array) {
-    debug_assert_eq!(src.shape(), new_array.shape());
-    unsafe {
-        mlx_sys::mlx_array_set(&mut src.as_ptr() as *mut _, new_array.as_ptr());
+impl<F> Drop for CompiledState<F> {
+    fn drop(&mut self) {
+        self.cache.erase(self.id);
     }
 }

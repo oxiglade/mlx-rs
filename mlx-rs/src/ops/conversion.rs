@@ -1,4 +1,4 @@
-use mlx_internal_macros::{default_device, generate_macro};
+use mlx_internal_macros::generate_macro;
 
 use crate::{error::Result, utils::guard::Guarded, Array, ArrayElement, Dtype, Stream};
 
@@ -11,11 +11,20 @@ impl Array {
     /// # Returns
     ///
     /// An array with dtype uint8 containing the FP8 E4M3 encoded values.
-    #[default_device]
-    pub fn to_fp8_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+    pub fn to_fp8(&self) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_to_fp8(res, self.as_ptr(), stream.as_ref().as_ptr())
         })
+    }
+
+    /// Compatibility shim for [`to_fp8`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `to_fp8`"
+    )]
+    pub fn to_fp8_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.to_fp8())
     }
 
     /// Convert an FP8 (E4M3) encoded array back to a floating point type.
@@ -25,11 +34,20 @@ impl Array {
     /// # Params
     ///
     /// - `dtype`: The target floating point dtype (float32, float16, or bfloat16)
-    #[default_device]
-    pub fn from_fp8_device(&self, dtype: Dtype, stream: impl AsRef<Stream>) -> Result<Array> {
+    pub fn from_fp8(&self, dtype: Dtype) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_from_fp8(res, self.as_ptr(), dtype.into(), stream.as_ref().as_ptr())
         })
+    }
+
+    /// Compatibility shim for [`from_fp8`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `from_fp8`"
+    )]
+    pub fn from_fp8_device(&self, dtype: Dtype, stream: impl AsRef<Stream>) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.from_fp8(dtype))
     }
 
     /// Create a new array with the contents converted to the given [ArrayElement] type.
@@ -47,17 +65,34 @@ impl Array {
     /// assert_eq!(new_array.item_size(), 4);
     /// assert_eq!(new_array.as_slice::<f32>(), &[1.0,2.0,3.0]);
     /// ```
-    #[default_device]
+    pub fn as_type<T: ArrayElement>(&self) -> Result<Array> {
+        self.as_dtype(T::DTYPE)
+    }
+
+    /// Compatibility shim for [`as_type`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `as_type`"
+    )]
     pub fn as_type_device<T: ArrayElement>(&self, stream: impl AsRef<Stream>) -> Result<Array> {
-        self.as_dtype_device(T::DTYPE, stream)
+        crate::with_stream(stream.as_ref(), || self.as_type::<T>())
     }
 
     /// Same as `as_type` but with a [`Dtype`] argument.
-    #[default_device]
-    pub fn as_dtype_device(&self, dtype: Dtype, stream: impl AsRef<Stream>) -> Result<Array> {
+    pub fn as_dtype(&self, dtype: Dtype) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_astype(res, self.as_ptr(), dtype.into(), stream.as_ref().as_ptr())
         })
+    }
+
+    /// Compatibility shim for [`as_dtype`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `as_dtype`"
+    )]
+    pub fn as_dtype_device(&self, dtype: Dtype, stream: impl AsRef<Stream>) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.as_dtype(dtype))
     }
 
     /// View the array as a different type.
@@ -69,43 +104,76 @@ impl Array {
     /// their underlying data. The view only guarantees that the binary
     /// representation of each element (or group of elements) is the same._
     ///
-    #[default_device]
+    pub fn view<T: ArrayElement>(&self) -> Result<Array> {
+        self.view_dtype(T::DTYPE)
+    }
+
+    /// Compatibility shim for [`view`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `view`"
+    )]
     pub fn view_device<T: ArrayElement>(&self, stream: impl AsRef<Stream>) -> Result<Array> {
-        self.view_dtype_device(T::DTYPE, stream)
+        crate::with_stream(stream.as_ref(), || self.view::<T>())
     }
 
     /// Same as `view` but with a [`Dtype`] argument.
-    #[default_device]
-    pub fn view_dtype_device(&self, dtype: Dtype, stream: impl AsRef<Stream>) -> Result<Array> {
+    pub fn view_dtype(&self, dtype: Dtype) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_view(res, self.as_ptr(), dtype.into(), stream.as_ref().as_ptr())
         })
+    }
+
+    /// Compatibility shim for [`view_dtype`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `view_dtype`"
+    )]
+    pub fn view_dtype_device(&self, dtype: Dtype, stream: impl AsRef<Stream>) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.view_dtype(dtype))
     }
 }
 
 /// Convert an array to FP8 (E4M3) format.
 ///
 /// See [`Array::to_fp8`] for more details.
-#[generate_macro]
-#[default_device]
+pub fn to_fp8(a: impl AsRef<Array>) -> Result<Array> {
+    a.as_ref().to_fp8()
+}
+
+/// Compatibility shim for [`to_fp8`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `to_fp8`"
+)]
 pub fn to_fp8_device(
     a: impl AsRef<Array>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    a.as_ref().to_fp8_device(stream)
+    crate::with_stream(stream.as_ref(), || to_fp8(a))
 }
 
 /// Convert an FP8 (E4M3) encoded array back to a floating point type.
 ///
 /// See [`Array::from_fp8`] for more details.
-#[generate_macro]
-#[default_device]
+pub fn from_fp8(a: impl AsRef<Array>, dtype: Dtype) -> Result<Array> {
+    a.as_ref().from_fp8(dtype)
+}
+
+/// Compatibility shim for [`from_fp8`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `from_fp8`"
+)]
 pub fn from_fp8_device(
     a: impl AsRef<Array>,
     dtype: Dtype,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    a.as_ref().from_fp8_device(dtype, stream)
+    crate::with_stream(stream.as_ref(), || from_fp8(a, dtype))
 }
 
 #[cfg(test)]

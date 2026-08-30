@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "builds": [
+    {
+      "id": "macos-arm64-cpu-only",
+      "target_triple": "aarch64-apple-darwin",
+      "default_features": false,
+      "features": [
+        "accelerate"
+      ],
+      "verification": [
+        "build",
+        "test"
+      ],
+      "purpose": "CPU-only Accelerate configuration used by sandboxed verification"
+    },
+    {
+      "id": "macos-arm64-default",
+      "target_triple": "aarch64-apple-darwin",
+      "default_features": true,
+      "features": [
+        "accelerate",
+        "metal"
+      ],
+      "verification": [
+        "build",
+        "test"
+      ],
+      "purpose": "Default supported macOS arm64 configuration with Accelerate and Metal"
+    }
+  ]
+}

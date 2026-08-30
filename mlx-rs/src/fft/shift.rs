@@ -1,9 +1,9 @@
-use mlx_internal_macros::{default_device, generate_macro};
+use mlx_internal_macros::generate_macro;
 use smallvec::SmallVec;
 
 use crate::{
     array::Array, constants::DEFAULT_STACK_VEC_LEN, error::Result, utils::guard::Guarded,
-    utils::IntoOption, Stream,
+    utils::IntoOption, with_stream, Stream,
 };
 
 /// Resolve axes for shift operations - when None, returns all axes
@@ -33,15 +33,10 @@ fn resolve_axes(a: &Array, axes: Option<&[i32]>) -> SmallVec<[i32; DEFAULT_STACK
 /// let shifted = fftshift(&a, None).unwrap();
 /// // shifted contains: [-4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0]
 /// ```
-#[generate_macro(customize(root = "$crate::fft"))]
-#[default_device]
-pub fn fftshift_device<'a>(
-    a: impl AsRef<Array>,
-    #[optional] axes: impl IntoOption<&'a [i32]>,
-    #[optional] stream: impl AsRef<Stream>,
-) -> Result<Array> {
+pub fn fftshift<'a>(a: impl AsRef<Array>, axes: impl IntoOption<&'a [i32]>) -> Result<Array> {
     let a = a.as_ref();
     let axes = resolve_axes(a, axes.into_option());
+    let stream = Stream::thread_local_or_default();
 
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_fft_fftshift(
@@ -52,6 +47,20 @@ pub fn fftshift_device<'a>(
             stream.as_ref().as_ptr(),
         )
     })
+}
+
+/// Compatibility shim for [`fftshift`].
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::fft"))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `fftshift`"
+)]
+pub fn fftshift_device<'a>(
+    a: impl AsRef<Array>,
+    #[optional] axes: impl IntoOption<&'a [i32]>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    with_stream(stream.as_ref(), || fftshift(a, axes))
 }
 
 /// The inverse of `fftshift`.
@@ -72,15 +81,10 @@ pub fn fftshift_device<'a>(
 /// let unshifted = ifftshift(&a, None).unwrap();
 /// // unshifted contains: [0.0, 1.0, 2.0, 3.0, 4.0, -4.0, -3.0, -2.0, -1.0]
 /// ```
-#[generate_macro(customize(root = "$crate::fft"))]
-#[default_device]
-pub fn ifftshift_device<'a>(
-    a: impl AsRef<Array>,
-    #[optional] axes: impl IntoOption<&'a [i32]>,
-    #[optional] stream: impl AsRef<Stream>,
-) -> Result<Array> {
+pub fn ifftshift<'a>(a: impl AsRef<Array>, axes: impl IntoOption<&'a [i32]>) -> Result<Array> {
     let a = a.as_ref();
     let axes = resolve_axes(a, axes.into_option());
+    let stream = Stream::thread_local_or_default();
 
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_fft_ifftshift(
@@ -93,6 +97,20 @@ pub fn ifftshift_device<'a>(
     })
 }
 
+/// Compatibility shim for [`ifftshift`].
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::fft"))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `ifftshift`"
+)]
+pub fn ifftshift_device<'a>(
+    a: impl AsRef<Array>,
+    #[optional] axes: impl IntoOption<&'a [i32]>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    with_stream(stream.as_ref(), || ifftshift(a, axes))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -103,10 +121,7 @@ mod tests {
         let shifted = fftshift(a, axes).unwrap();
         let unshifted = ifftshift(&shifted, axes).unwrap();
         assert!(
-            unshifted
-                .all_close(a, 1e-5, 1e-6, None)
-                .unwrap()
-                .item::<bool>(),
+            unshifted.all_close(a, 1e-5, 1e-6, None).unwrap(),
             "ifftshift(fftshift(x)) should equal x"
         );
     }
@@ -155,10 +170,7 @@ mod tests {
         let shifted = ifftshift(&r, None).unwrap();
         let unshifted = fftshift(&shifted, None).unwrap();
         assert!(
-            unshifted
-                .all_close(&r, 1e-5, 1e-6, None)
-                .unwrap()
-                .item::<bool>(),
+            unshifted.all_close(&r, 1e-5, 1e-6, None).unwrap(),
             "fftshift(ifftshift(x)) should equal x"
         );
     }
@@ -173,10 +185,7 @@ mod tests {
             let shifted = ifftshift(&r, axes).unwrap();
             let unshifted = fftshift(&shifted, axes).unwrap();
             assert!(
-                unshifted
-                    .all_close(&r, 1e-5, 1e-6, None)
-                    .unwrap()
-                    .item::<bool>(),
+                unshifted.all_close(&r, 1e-5, 1e-6, None).unwrap(),
                 "fftshift(ifftshift(x)) should equal x for axes {:?}",
                 axes
             );
@@ -191,10 +200,7 @@ mod tests {
 
         let shifted = ifftshift(&r, &[-1]).unwrap();
         let unshifted = fftshift(&shifted, &[-1]).unwrap();
-        assert!(unshifted
-            .all_close(&r, 1e-5, 1e-6, None)
-            .unwrap()
-            .item::<bool>(),);
+        assert!(unshifted.all_close(&r, 1e-5, 1e-6, None).unwrap(),);
     }
 
     #[test]
@@ -205,17 +211,11 @@ mod tests {
 
         let shifted = ifftshift(&r, None).unwrap();
         let unshifted = fftshift(&shifted, None).unwrap();
-        assert!(unshifted
-            .all_close(&r, 1e-5, 1e-6, None)
-            .unwrap()
-            .item::<bool>(),);
+        assert!(unshifted.all_close(&r, 1e-5, 1e-6, None).unwrap(),);
 
         let shifted = ifftshift(&r, &[0]).unwrap();
         let unshifted = fftshift(&shifted, &[0]).unwrap();
-        assert!(unshifted
-            .all_close(&r, 1e-5, 1e-6, None)
-            .unwrap()
-            .item::<bool>(),);
+        assert!(unshifted.all_close(&r, 1e-5, 1e-6, None).unwrap(),);
     }
 
     #[test]
@@ -223,6 +223,6 @@ mod tests {
         // Test empty array (matches Python test)
         let x = Array::from_slice::<f32>(&[], &[0]);
         let shifted = fftshift(&x, None).unwrap();
-        assert!(shifted.array_eq(&x, None).unwrap().item::<bool>());
+        assert!(shifted.eq_exact(&x).unwrap());
     }
 }

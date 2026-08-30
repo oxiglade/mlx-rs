@@ -10,7 +10,7 @@ use mlx_rs::{
 /// A helper model for testing optimizers.
 ///
 /// This is adapted from the swift binding tests in `mlx-swift/Tests/MLXTests/OptimizerTests.swift`.
-#[derive(Debug, ModuleParameters)]
+#[derive(Clone, Debug, ModuleParameters)]
 pub struct LinearFunctionModel {
     #[param]
     pub m: Param<Array>,

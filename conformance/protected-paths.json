@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "protected_paths": [
+    "conformance/**",
+    "mlx-tests/tests/conformance.rs",
+    "mlx-tests/tests/conformance/oracle.rs",
+    "xtask/src/main.rs",
+    "xtask/src/verify_oracle_boundary.rs"
+  ],
+  "implementation_paths": [
+    "mlx-rs/src/**",
+    "mlx-tests/tests/conformance/adapters.rs"
+  ],
+  "staged_case_marker": "oracle-change:"
+}

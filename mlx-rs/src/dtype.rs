@@ -71,14 +71,17 @@ impl Dtype {
 
     /// Returns `true` if the data type is floating point.
     pub fn is_float(&self) -> bool {
-        matches!(self, Dtype::Float16 | Dtype::Float32 | Dtype::Bfloat16)
+        matches!(
+            self,
+            Dtype::Float16 | Dtype::Float32 | Dtype::Float64 | Dtype::Bfloat16
+        )
     }
 
-    /// Returns `true` if the data type is one of `f16`, `f32`, `bfloat16`, or `complex64`.
+    /// Returns `true` if the data type is one of `f16`, `f32`, `f64`, `bfloat16`, or `complex64`.
     pub fn is_inexact(&self) -> bool {
         matches!(
             self,
-            Dtype::Float16 | Dtype::Float32 | Dtype::Complex64 | Dtype::Bfloat16
+            Dtype::Float16 | Dtype::Float32 | Dtype::Float64 | Dtype::Complex64 | Dtype::Bfloat16
         )
     }
 

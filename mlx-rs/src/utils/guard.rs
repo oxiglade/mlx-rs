@@ -25,25 +25,17 @@ pub(crate) trait Guarded: Sized {
     where
         F: FnOnce(<Self::Guard as Guard<Self>>::MutRawPtr) -> Status,
     {
-        crate::error::INIT_ERR_HANDLER
-            .with(|init| init.call_once(crate::error::setup_mlx_error_handler));
+        crate::error::INIT_ERR_HANDLER.call_once(crate::error::setup_mlx_error_handler);
 
         let mut guard = Self::Guard::default();
         let status = f(guard.as_mut_raw_ptr());
+        crate::error::resume_closure_panic();
         match status {
             SUCCESS => {
                 guard.set_init_success(true);
                 guard.try_into_guarded()
             }
-            _ => {
-                // Err(crate::error::get_and_clear_last_mlx_error()
-                // .expect("MLX operation failed but no error was set"))
-                let what = crate::error::get_and_clear_last_mlx_error()
-                    .expect("MLX operation failed but no error was set")
-                    .what;
-                let location = std::panic::Location::caller();
-                Err(Exception { what, location })
-            }
+            _ => Err(crate::error::exception_from_status(status, "MLX operation")),
         }
     }
 }
@@ -641,5 +633,18 @@ impl Guard<complex64> for __BindgenComplex<f32> {
 
     fn try_into_guarded(self) -> Result<complex64, Exception> {
         Ok(complex64::new(self.re, self.im))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn failed_status_without_diagnostic_returns_exception() {
+        let _ = crate::error::get_and_clear_last_mlx_error();
+        let error = <() as Guarded>::try_from_op(|_| super::super::FAILURE).unwrap_err();
+
+        assert_eq!(error.what(), "MLX operation failed with status 1");
     }
 }

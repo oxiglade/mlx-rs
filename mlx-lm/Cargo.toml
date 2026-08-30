@@ -28,3 +28,5 @@ minijinja = "2"
 
 [dev-dependencies]
 lazy_static = "1"
+safetensors.workspace = true
+tempfile.workspace = true

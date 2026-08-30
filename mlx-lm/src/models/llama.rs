@@ -4,15 +4,15 @@ use std::{
 };
 
 use mlx_rs::{
-    argmax_axis, array,
+    array,
     builder::Builder,
-    categorical,
     error::Exception,
     macros::{ModuleParameters, Quantizable},
     module::{Module, ModuleParametersExt},
     nn,
-    ops::indexing::{IndexOp, NewAxis},
+    ops::indexing::{argmax_axis, IndexOp, NewAxis},
     quantization::MaybeQuantized,
+    random::categorical,
     Array,
 };
 use serde::Deserialize;
@@ -532,10 +532,10 @@ pub fn load_llama_model(model_dir: impl AsRef<Path>) -> Result<Model, Error> {
 
 pub fn sample(logits: &Array, temp: f32) -> Result<Array, Exception> {
     match temp {
-        0.0 => argmax_axis!(logits, -1),
+        0.0 => argmax_axis(logits, -1, None),
         _ => {
             let logits = logits.multiply(array!(1.0 / temp))?;
-            categorical!(logits)
+            categorical(logits, None, None, None)
         }
     }
 }
@@ -674,7 +674,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "requires local model files"]
+    #[ignore = "requires MLX_LM_FIXTURES_DIR pointing to local model files"]
     fn test_load_llama_model() {
         use mlx_rs::module::ModuleParameters;
 
@@ -728,7 +728,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "requires local model files"]
+    #[ignore = "requires MLX_LM_FIXTURES_DIR pointing to local model files"]
     fn test_load_tokenizer() {
         let tokenizer = load_llama_tokenizer(CACHED_TEST_MODEL_DIR.as_str()).unwrap();
 
@@ -736,7 +736,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "requires local model files"]
+    #[ignore = "requires MLX_LM_FIXTURES_DIR pointing to local model files"]
     fn test_load_and_run_llama_with_concat_cache() {
         let tokenizer = load_llama_tokenizer(CACHED_TEST_MODEL_DIR.as_str()).unwrap();
         let mut model = load_llama_model(CACHED_TEST_MODEL_DIR.as_str()).unwrap();
@@ -759,7 +759,7 @@ mod tests {
         for (token, _ntoks) in generate.zip(0..50) {
             let token = token.unwrap();
             eval([&token]).unwrap();
-            let token_id = token.item::<u32>();
+            let token_id = token.item_exact::<u32>();
             print!("[{}]", token_id);
             if token_id == eos_token_id || token_id == eot_token_id {
                 break;

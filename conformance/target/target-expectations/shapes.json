@@ -1,0 +1,419 @@
+{
+  "cases": [
+    {
+      "id": "shapes.001",
+      "input_refs": [
+        "shapes.001.input.0"
+      ],
+      "input_sha256": "sha256:86adbf52422f9839f84d7d2d10d27ee144a007bc0dee99bebd2141c54275ca1a",
+      "recipe": "reshape",
+      "seed_hex": "6624013e5c6d636691969961392326de",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "050000000100000003000000fdffffff04000000fcffffff",
+            "dtype": "I32",
+            "shape": [
+              3,
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "shapes.002",
+      "input_refs": [
+        "shapes.002.input.0"
+      ],
+      "input_sha256": "sha256:952e17a0cfdb4ad0f88a2b416a7892765723cd055fff4823831d2962b6f6a539",
+      "recipe": "reshape",
+      "seed_hex": "abb6023e0ffb9021c615fb3363914fba",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000004000008040000080bf000080400000804000000040",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "shapes.003",
+      "input_refs": [
+        "shapes.003.input.0"
+      ],
+      "input_sha256": "sha256:d137e976e3cde02ba1e30ceffb9db3b762aab2817b490b23e8c41cb273b0a17a",
+      "recipe": "transpose",
+      "seed_hex": "d04414a6b2a36be9d788499c9a6fbd39",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "030004000200030003000300",
+            "dtype": "I16",
+            "shape": [
+              3,
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "shapes.004",
+      "input_refs": [
+        "shapes.004.input.0"
+      ],
+      "input_sha256": "sha256:0e86b9271047c509d0a1c83e6842a1790a23dc2ae9cde222831af85c3ec6a701",
+      "recipe": "transpose_axes",
+      "seed_hex": "a762b3d762efd711d10596bb0be354b1",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00000000000080bf00000000000080c0000080bf000000c0000080bf000080c00000803f0000803f000000400000803f0000a0400000a040000080bf000040400000404000000040000080bf0000803f000040400000803f000080c0000080c0",
+            "dtype": "F32",
+            "shape": [
+              4,
+              2,
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "shapes.005",
+      "input_refs": [
+        "shapes.005.input.0"
+      ],
+      "input_sha256": "sha256:efe734b9f0acccec527faac33fddd1d6464e18c8c4e0a65eedfd73714f293957",
+      "recipe": "transpose_axes",
+      "seed_hex": "9a939cac8edcf333df5bd64afc926ed8",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "ffffffff0300000000000000fefffffffeffffff02000000",
+            "dtype": "I32",
+            "shape": [
+              3,
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "shapes.006",
+      "input_refs": [
+        "shapes.006.input.0"
+      ],
+      "input_sha256": "sha256:5cbfcf6d1041996d06084fc6e7d99ef85702b7159a8983058826765c7a3f544f",
+      "recipe": "split",
+      "seed_hex": "64dfd355d0645f3cacf4c6328027d7e0",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000000c00000a0400000803f000080bf00008040000080c0",
+            "dtype": "F32",
+            "shape": [
+              3,
+              2
+            ]
+          },
+          {
+            "data_hex": "000080c000004040000080c000000040000080bf0000a040",
+            "dtype": "F32",
+            "shape": [
+              3,
+              2
+            ]
+          },
+          {
+            "data_hex": "000080bf00000040000080c000000000000000c0000000c0",
+            "dtype": "F32",
+            "shape": [
+              3,
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "shapes.007",
+      "input_refs": [
+        "shapes.007.input.0"
+      ],
+      "input_sha256": "sha256:529fa14e9437508b769833c67756b31b879abe6f0689245f27a4877bf0d276b5",
+      "recipe": "split",
+      "seed_hex": "43a2ea3bab55459914856b0b95631d7e",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0300000003000000",
+            "dtype": "I32",
+            "shape": [
+              2
+            ]
+          },
+          {
+            "data_hex": "0100000002000000",
+            "dtype": "I32",
+            "shape": [
+              2
+            ]
+          },
+          {
+            "data_hex": "05000000fdffffff",
+            "dtype": "I32",
+            "shape": [
+              2
+            ]
+          },
+          {
+            "data_hex": "fcffffff01000000",
+            "dtype": "I32",
+            "shape": [
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "shapes.008",
+      "input_refs": [
+        "shapes.008.input.0"
+      ],
+      "input_sha256": "sha256:1edbff6d26a221ebb129f9c4be7e56b2ab2ed51cd98e61f4b0edb5ee7f6581d7",
+      "recipe": "split_sections",
+      "seed_hex": "7e552d76aacc080bdbfe47625c8883ee",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000000000000a040",
+            "dtype": "F32",
+            "shape": [
+              2,
+              1
+            ]
+          },
+          {
+            "data_hex": "000000c0000080c0000040c0000080c0000040c00000000000008040000040c0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              4
+            ]
+          },
+          {
+            "data_hex": "000000000000a04000000040000000c0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "shapes.009",
+      "input_refs": [
+        "shapes.009.input.0",
+        "shapes.009.input.1",
+        "shapes.009.input.2"
+      ],
+      "input_sha256": "sha256:6d57430dfbd4f9eb7ba28d2e942989c3bbabdd18ae910e832dbed444e56de593",
+      "recipe": "broadcast_arrays",
+      "seed_hex": "e1ed9c8cb5fc943dc90bc865367e6d29",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000080c0000080c0000080c00000a0400000a0400000a040",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ]
+          },
+          {
+            "data_hex": "0000803f00004040000080c00000803f00004040000080c0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ]
+          },
+          {
+            "data_hex": "000080400000804000008040000080400000804000008040",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "shapes.010",
+      "input_refs": [
+        "shapes.010.input.0"
+      ],
+      "input_sha256": "sha256:5cd1f8670c9fa1e034ee6c4238481bf3c31f9ebd28c4817f1f1d0d364486343f",
+      "recipe": "reshape",
+      "seed_hex": "d5494f6ab0c0b93dd649c26995944a10",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00000040",
+            "dtype": "F32",
+            "shape": [
+              1,
+              1
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "shapes.011",
+      "input_refs": [
+        "shapes.011.input.0"
+      ],
+      "input_sha256": "sha256:07783a2f588f94f11f3bf8d3bc45d0e8e42210fedb538a0a3563052ba6dd90fa",
+      "recipe": "reshape",
+      "seed_hex": "68bec012fe5f9946d3ab9feaa27311ac",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "",
+            "dtype": "I32",
+            "shape": [
+              3,
+              0
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "shapes.012",
+      "input_refs": [
+        "shapes.012.input.0"
+      ],
+      "input_sha256": "sha256:1fae882fd7cd1e9363e01683f4986c851b1bc798d38e8f33ceb7e128cedc9ad9",
+      "recipe": "transpose",
+      "seed_hex": "f12ec72669ade7439799751b53c8fbe3",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00000000000008c00000000000000840000000000000f0bf00000000000010c000000000000008c0000000000000004000000000000008c000000000000008c0000000000000f0bf0000000000000840",
+            "dtype": "F64",
+            "shape": [
+              5,
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "shapes.013",
+      "input_refs": [
+        "shapes.013.input.0"
+      ],
+      "input_sha256": "sha256:0e473b1b251ea1492a6f0b1da7efe6f69aff13240086ed84b63521fa12972a80",
+      "recipe": "expand_dims",
+      "seed_hex": "91a71b8489b1acbd42bd46c8d618778e",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "020202050002",
+            "dtype": "U8",
+            "shape": [
+              2,
+              3,
+              1
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "shapes.014",
+      "input_refs": [
+        "shapes.014.input.0",
+        "shapes.014.input.1"
+      ],
+      "input_sha256": "sha256:8ea354ba2fcd8e0df0fc1466b8cd99b7864e4adfa816669b789ec906802eba05",
+      "recipe": "concatenate",
+      "seed_hex": "c68c49e78773fb7b21fc4329e6cea224",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "fdffffff020000000300000001000000fcfffffffcffffff",
+            "dtype": "I32",
+            "shape": [
+              3,
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    }
+  ],
+  "old_environment": {
+    "architecture": "arm64",
+    "mlx_metal_package": "0.30.6",
+    "mlx_package": "0.30.6",
+    "mlx_runtime": "0.30.6",
+    "numpy": "2.2.6",
+    "python": "3.12.14"
+  },
+  "schema_version": 1,
+  "suite": "shapes",
+  "target_environment": {
+    "architecture": "arm64",
+    "device": "cpu",
+    "mlx": "0.32.2",
+    "mlx_metal": "0.32.2",
+    "mlx_runtime": "0.32.2",
+    "numpy": "2.2.6",
+    "python": "3.12.14",
+    "venv": "conformance/.venv-target"
+  }
+}

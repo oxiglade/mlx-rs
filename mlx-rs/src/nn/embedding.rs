@@ -85,22 +85,22 @@ mod tests {
         assert_eq!(a.shape(), &[2, 8, 8, 4]);
         assert_eq!(a.dtype(), crate::Dtype::Int32);
         float_eq!(
-            a.mean(None).unwrap().item::<f32>(),
+            a.mean(None).unwrap().item_exact::<f32>(),
             4.605_468_8,
             abs <= 0.092_109_375
         );
-        float_eq!(a.sum(None).unwrap().item::<f32>(), 2358.0, abs <= 47.16);
+        assert_eq!(a.sum(None).unwrap().item_exact::<i32>(), 2358);
 
         let result = Embedding::new(10, 8).unwrap().forward(&a).unwrap();
         assert_eq!(result.shape(), &[2, 8, 8, 4, 8]);
         assert_eq!(result.dtype(), crate::Dtype::Float32);
         float_eq!(
-            result.mean(None).unwrap().item::<f32>(),
+            result.mean(None).unwrap().item_exact::<f32>(),
             -0.001_197_346_3,
             abs <= 2.394_692_5e-5
         );
         float_eq!(
-            result.sum(None).unwrap().item::<f32>(),
+            result.sum(None).unwrap().item_exact::<f32>(),
             -4.904_330_3,
             abs <= 0.098_086_6
         );

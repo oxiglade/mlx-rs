@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "name": "errors",
+  "fixture": "fixtures/errors.safetensors",
+  "cases": [
+    {
+      "id": "errors.001",
+      "semantic_op": "add",
+      "recipe": "add",
+      "rust_call": "ops.add.array_array",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "errors.001.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "errors.001.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "error",
+        "allowed_stage": "invoke_or_eval",
+        "reason": "incompatible broadcast shapes",
+        "python_exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "control_case_id": "arithmetic.001",
+        "diagnostic": "[broadcast_shapes] Shapes (2) and (3) cannot be broadcast."
+      }
+    },
+    {
+      "id": "errors.002",
+      "semantic_op": "reshape",
+      "recipe": "reshape",
+      "rust_call": "ops.reshape",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "errors.002.input.0"
+        },
+        {
+          "name": "shape",
+          "kind": "shape",
+          "values": [
+            4,
+            2
+          ]
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "error",
+        "allowed_stage": "invoke_or_eval",
+        "reason": "reshape changes element count",
+        "python_exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "control_case_id": "shapes.001",
+        "diagnostic": "[reshape] Cannot reshape array of size 6 into shape (4,2)."
+      }
+    },
+    {
+      "id": "errors.003",
+      "semantic_op": "take",
+      "recipe": "take",
+      "rust_call": "ops.take_axis.array_indices_axis",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "errors.003.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "errors.003.input.1"
+        },
+        {
+          "name": "axis",
+          "kind": "axis",
+          "value": 2
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "error",
+        "allowed_stage": "invoke_or_eval",
+        "reason": "take axis exceeds input rank",
+        "python_exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "control_case_id": "arithmetic.001",
+        "diagnostic": "[take] Received invalid axis 2 for array with 1 dimensions."
+      }
+    },
+    {
+      "id": "errors.004",
+      "semantic_op": "negative",
+      "recipe": "negative",
+      "rust_call": "array.negative",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "errors.004.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "error",
+        "allowed_stage": "invoke_or_eval",
+        "reason": "boolean negation is unsupported",
+        "python_exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "control_case_id": "arithmetic.007",
+        "diagnostic": "[negative] Not supported for bool, use logical_not instead."
+      }
+    }
+  ]
+}

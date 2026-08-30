@@ -1,0 +1,151 @@
+{
+  "schema_version": 1,
+  "fixture": "tiny-llama",
+  "prompt": {
+    "text": "red blue green yellow",
+    "token_ids": [
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  "prefill_logits": {
+    "tensor": "prefill.final_logits",
+    "shape": [
+      24
+    ],
+    "dtype": "F32",
+    "policy": {
+      "atol": 0.0002,
+      "rtol": 0.0002
+    }
+  },
+  "decode": {
+    "steps": 8,
+    "token_ids": [
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9
+    ]
+  },
+  "prefill_cache": {
+    "layers": [
+      {
+        "keys": {
+          "shape": [
+            1,
+            1,
+            4,
+            4
+          ],
+          "dtype": "F32"
+        },
+        "values": {
+          "shape": [
+            1,
+            1,
+            4,
+            4
+          ],
+          "dtype": "F32"
+        }
+      },
+      {
+        "keys": {
+          "shape": [
+            1,
+            1,
+            4,
+            4
+          ],
+          "dtype": "F32"
+        },
+        "values": {
+          "shape": [
+            1,
+            1,
+            4,
+            4
+          ],
+          "dtype": "F32"
+        }
+      }
+    ]
+  },
+  "qualification": {
+    "weights": "model.perturbed.safetensors",
+    "tensor": "model.layers.0.self_attn.o_proj.weight",
+    "scale": -1.5,
+    "comparator_rejects": true,
+    "maximum_logit_difference": 3.553818702697754,
+    "token_ids": [
+      4,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10
+    ]
+  },
+  "provenance": {
+    "generator": "conformance/sentinel/generate_sentinel.py",
+    "seed": 1369956634,
+    "python": "3.12.14",
+    "architecture": "arm64",
+    "numpy": "2.2.6",
+    "mlx_package_pin_checked_without_import": "0.30.6",
+    "reference": "independent NumPy f32 Llama forward",
+    "semantics": [
+      "tied token embedding and output projection",
+      "RMSNorm over the final axis",
+      "split-half non-traditional RoPE",
+      "grouped-query scaled dot-product attention with an additive causal mask",
+      "SwiGLU MLP",
+      "concatenating KV cache on sequence axis -2"
+    ],
+    "mlx_lm_parameters": {
+      "rms_norm_eps_from_config": 1e-05,
+      "rope_theta_from_config": 10000.0,
+      "rope_traditional_hardcoded": false,
+      "rope_scale_default": 1.0,
+      "rope_scaling_type_default": "default",
+      "attention_scale": "queries multiplied by 1/sqrt(head_dim) before matmul",
+      "prefill_mask": "automatic additive causal mask when sequence length > 1"
+    },
+    "weight_names": [
+      "model.embed_tokens.weight",
+      "model.layers.0.input_layernorm.weight",
+      "model.layers.0.mlp.down_proj.weight",
+      "model.layers.0.mlp.gate_proj.weight",
+      "model.layers.0.mlp.up_proj.weight",
+      "model.layers.0.post_attention_layernorm.weight",
+      "model.layers.0.self_attn.k_proj.weight",
+      "model.layers.0.self_attn.o_proj.weight",
+      "model.layers.0.self_attn.q_proj.weight",
+      "model.layers.0.self_attn.v_proj.weight",
+      "model.layers.1.input_layernorm.weight",
+      "model.layers.1.mlp.down_proj.weight",
+      "model.layers.1.mlp.gate_proj.weight",
+      "model.layers.1.mlp.up_proj.weight",
+      "model.layers.1.post_attention_layernorm.weight",
+      "model.layers.1.self_attn.k_proj.weight",
+      "model.layers.1.self_attn.o_proj.weight",
+      "model.layers.1.self_attn.q_proj.weight",
+      "model.layers.1.self_attn.v_proj.weight",
+      "model.norm.weight"
+    ],
+    "artifact_sha256": {
+      "model.safetensors": "affd673ed939fc89d32165fdd1d685d201e145a4c580dad663b5a47f372472d2",
+      "model.perturbed.safetensors": "8940e135a9fdcd6595d59e73ade57b1b60215d00ee7d4957f0ea91cf7c659524",
+      "expectations.safetensors": "ef0c5fe293eda7033bf7cf2ae868a39269446f12d93dee73a864da263a33ec94"
+    }
+  }
+}

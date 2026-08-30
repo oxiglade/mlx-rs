@@ -1,0 +1,680 @@
+{
+  "schema_version": 1,
+  "name": "shapes",
+  "fixture": "fixtures/shapes.safetensors",
+  "cases": [
+    {
+      "id": "shapes.001",
+      "semantic_op": "reshape",
+      "recipe": "reshape",
+      "rust_call": "ops.reshape",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "shapes.001.input.0"
+        },
+        {
+          "name": "shape",
+          "kind": "shape",
+          "values": [
+            3,
+            2
+          ]
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "shapes.001.output.0",
+            "dtype": "I32",
+            "shape": [
+              3,
+              2
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "shapes.002",
+      "semantic_op": "reshape",
+      "recipe": "reshape",
+      "rust_call": "array.reshape",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "shapes.002.input.0"
+        },
+        {
+          "name": "shape",
+          "kind": "shape",
+          "values": [
+            2,
+            3
+          ]
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "shapes.002.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "shapes.003",
+      "semantic_op": "transpose",
+      "recipe": "transpose",
+      "rust_call": "array.transpose",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "shapes.003.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "shapes.003.output.0",
+            "dtype": "I16",
+            "shape": [
+              3,
+              2
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "shapes.004",
+      "semantic_op": "transpose_axes",
+      "recipe": "transpose_axes",
+      "rust_call": "ops.transpose.axes",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "shapes.004.input.0"
+        },
+        {
+          "name": "axes",
+          "kind": "axes",
+          "values": [
+            2,
+            0,
+            1
+          ]
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "shapes.004.output.0",
+            "dtype": "F32",
+            "shape": [
+              4,
+              2,
+              3
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "shapes.005",
+      "semantic_op": "transpose_axes",
+      "recipe": "transpose_axes",
+      "rust_call": "ops.transpose.axes",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "shapes.005.input.0"
+        },
+        {
+          "name": "axes",
+          "kind": "axes",
+          "values": [
+            -1,
+            -2
+          ]
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "shapes.005.output.0",
+            "dtype": "I32",
+            "shape": [
+              3,
+              2
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "shapes.006",
+      "semantic_op": "split",
+      "recipe": "split",
+      "rust_call": "ops.split.parts",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "shapes.006.input.0"
+        },
+        {
+          "name": "parts",
+          "kind": "scalar",
+          "type": "i32",
+          "value": 3
+        },
+        {
+          "name": "axis",
+          "kind": "optional_axis",
+          "value": 1
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "shapes.006.output.0",
+            "dtype": "F32",
+            "shape": [
+              3,
+              2
+            ],
+            "policy": "exact_bits"
+          },
+          {
+            "name": "output1",
+            "ref": "shapes.006.output.1",
+            "dtype": "F32",
+            "shape": [
+              3,
+              2
+            ],
+            "policy": "exact_bits"
+          },
+          {
+            "name": "output2",
+            "ref": "shapes.006.output.2",
+            "dtype": "F32",
+            "shape": [
+              3,
+              2
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "shapes.007",
+      "semantic_op": "split",
+      "recipe": "split",
+      "rust_call": "ops.split.parts",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "shapes.007.input.0"
+        },
+        {
+          "name": "parts",
+          "kind": "scalar",
+          "type": "i32",
+          "value": 4
+        },
+        {
+          "name": "axis",
+          "kind": "optional_axis",
+          "value": null
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "shapes.007.output.0",
+            "dtype": "I32",
+            "shape": [
+              2
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output1",
+            "ref": "shapes.007.output.1",
+            "dtype": "I32",
+            "shape": [
+              2
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output2",
+            "ref": "shapes.007.output.2",
+            "dtype": "I32",
+            "shape": [
+              2
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output3",
+            "ref": "shapes.007.output.3",
+            "dtype": "I32",
+            "shape": [
+              2
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "shapes.008",
+      "semantic_op": "split_sections",
+      "recipe": "split_sections",
+      "rust_call": "ops.split.sections",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "shapes.008.input.0"
+        },
+        {
+          "name": "indices",
+          "kind": "axes",
+          "values": [
+            1,
+            5
+          ]
+        },
+        {
+          "name": "axis",
+          "kind": "optional_axis",
+          "value": -1
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "shapes.008.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              1
+            ],
+            "policy": "exact_bits"
+          },
+          {
+            "name": "output1",
+            "ref": "shapes.008.output.1",
+            "dtype": "F32",
+            "shape": [
+              2,
+              4
+            ],
+            "policy": "exact_bits"
+          },
+          {
+            "name": "output2",
+            "ref": "shapes.008.output.2",
+            "dtype": "F32",
+            "shape": [
+              2,
+              2
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "shapes.009",
+      "semantic_op": "broadcast_arrays",
+      "recipe": "broadcast_arrays",
+      "rust_call": "ops.broadcast_arrays",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "shapes.009.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "shapes.009.input.1"
+        },
+        {
+          "name": "input2",
+          "kind": "tensor",
+          "ref": "shapes.009.input.2"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "shapes.009.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "exact_bits"
+          },
+          {
+            "name": "output1",
+            "ref": "shapes.009.output.1",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "exact_bits"
+          },
+          {
+            "name": "output2",
+            "ref": "shapes.009.output.2",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "shapes.010",
+      "semantic_op": "reshape",
+      "recipe": "reshape",
+      "rust_call": "array.reshape",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "shapes.010.input.0"
+        },
+        {
+          "name": "shape",
+          "kind": "shape",
+          "values": [
+            1,
+            1
+          ]
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "shapes.010.output.0",
+            "dtype": "F32",
+            "shape": [
+              1,
+              1
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "shapes.011",
+      "semantic_op": "reshape",
+      "recipe": "reshape",
+      "rust_call": "ops.reshape",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "shapes.011.input.0"
+        },
+        {
+          "name": "shape",
+          "kind": "shape",
+          "values": [
+            3,
+            0
+          ]
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "shapes.011.output.0",
+            "dtype": "I32",
+            "shape": [
+              3,
+              0
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "shapes.012",
+      "semantic_op": "transpose",
+      "recipe": "transpose",
+      "rust_call": "array.transpose",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "shapes.012.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "shapes.012.output.0",
+            "dtype": "F64",
+            "shape": [
+              5,
+              2
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "shapes.013",
+      "semantic_op": "expand_dims",
+      "recipe": "expand_dims",
+      "rust_call": "ops.expand_dims.axis",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "shapes.013.input.0"
+        },
+        {
+          "name": "axis",
+          "kind": "axis",
+          "value": -1
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "shapes.013.output.0",
+            "dtype": "U8",
+            "shape": [
+              2,
+              3,
+              1
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "shapes.014",
+      "semantic_op": "concatenate",
+      "recipe": "concatenate",
+      "rust_call": "ops.concatenate",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "shapes.014.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "shapes.014.input.1"
+        },
+        {
+          "name": "axis",
+          "kind": "axis",
+          "value": 0
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "shapes.014.output.0",
+            "dtype": "I32",
+            "shape": [
+              3,
+              2
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    }
+  ]
+}

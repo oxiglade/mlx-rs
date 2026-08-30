@@ -6,12 +6,12 @@ use crate::{
     constants::DEFAULT_STACK_VEC_LEN,
     error::Result,
     ops::{
-        broadcast_arrays_device, broadcast_to_device,
+        broadcast_arrays, broadcast_to,
         indexing::{count_non_new_axis_operations, expand_ellipsis_operations},
-        reshape_device,
+        reshape,
     },
     utils::{resolve_index_signed_unchecked, VectorArray},
-    Array, Stream,
+    with_stream, Array, Stream,
 };
 
 use super::{ArrayIndex, ArrayIndexOp, Guarded, RangeIndex, TryIndexMutOp};
@@ -87,7 +87,9 @@ fn update_slice(
     // If no non-None indices return the broadcasted update
     let non_new_axis_operation_count = count_non_new_axis_operations(&operations);
     if non_new_axis_operation_count == 0 {
-        return Ok(Some(broadcast_to_device(&update, src.shape(), &stream)?));
+        return Ok(Some(with_stream(stream.as_ref(), || {
+            broadcast_to(&update, src.shape())
+        })?));
     }
 
     // Process entries
@@ -147,7 +149,9 @@ fn update_slice(
     }
 
     if update.shape() != &update_reshape[..] {
-        update = Cow::Owned(reshape_device(update, &update_reshape, &stream)?);
+        update = Cow::Owned(with_stream(stream.as_ref(), || {
+            reshape(update, &update_reshape)
+        })?);
     }
 
     Ok(Some(src.slice_update_device(
@@ -166,7 +170,9 @@ fn remove_leading_singleton_dimensions(
         if new_shape.is_empty() {
             new_shape = vec![1];
         }
-        Ok(Cow::Owned(a.reshape_device(&new_shape, stream)?))
+        Ok(Cow::Owned(with_stream(stream.as_ref(), || {
+            a.reshape(&new_shape)
+        })?))
     } else {
         Ok(Cow::Borrowed(a))
     }
@@ -199,7 +205,7 @@ fn scatter_args<'a>(
             Slice(range_index) => scatter_args_slice(src, range_index, update, stream),
             ExpandDims => Ok(ScatterArgs {
                 indices: smallvec![],
-                update: broadcast_to_device(update, src.shape(), &stream)?,
+                update: with_stream(stream.as_ref(), || broadcast_to(update, src.shape()))?,
                 axes: smallvec![],
             }),
             Ellipsis => panic!("Unable to update array with ellipsis argument"),
@@ -229,7 +235,7 @@ fn scatter_args_index<'a>(
             index,
             src.dim(0)
         )))],
-        update: broadcast_to_device(&update, &shape, &stream)?,
+        update: with_stream(stream.as_ref(), || broadcast_to(&update, &shape))?,
         axes: smallvec![0],
     })
 }
@@ -252,10 +258,10 @@ fn scatter_args_array<'a>(
         .chain(src.shape().iter().skip(1))
         .cloned()
         .collect();
-    let update = broadcast_to_device(&update, &update_shape, &stream)?;
+    let update = with_stream(stream.as_ref(), || broadcast_to(&update, &update_shape))?;
 
     update_shape.insert(a.ndim(), 1);
-    let update = update.reshape_device(&update_shape, &stream)?;
+    let update = with_stream(stream.as_ref(), || update.reshape(&update_shape))?;
 
     Ok(ScatterArgs {
         indices: smallvec![a],
@@ -278,7 +284,7 @@ fn scatter_args_slice<'a>(
 
         return Ok(ScatterArgs {
             indices: smallvec![],
-            update: broadcast_to_device(&update, src.shape(), &stream)?,
+            update: with_stream(stream.as_ref(), || broadcast_to(&update, src.shape()))?,
             axes: smallvec![],
         });
     }
@@ -296,7 +302,9 @@ fn scatter_args_slice<'a>(
         let update_broadcast_shape: SmallVec<[i32; DEFAULT_STACK_VEC_LEN]> = (1..end - start)
             .chain(src.shape().iter().skip(1).cloned())
             .collect();
-        let update = broadcast_to_device(&update, &update_broadcast_shape, &stream)?;
+        let update = with_stream(stream.as_ref(), || {
+            broadcast_to(&update, &update_broadcast_shape)
+        })?;
 
         let indices = Array::from_slice(&[start], &[1]);
         Ok(ScatterArgs {
@@ -333,7 +341,7 @@ fn scatter_args_nd<'a>(
     if non_new_axis_operation_count == 0 {
         return Ok(ScatterArgs {
             indices: smallvec![],
-            update: broadcast_to_device(&update, shape, &stream)?,
+            update: with_stream(stream.as_ref(), || broadcast_to(&update, shape))?,
             axes: smallvec![],
         });
     }
@@ -426,7 +434,9 @@ fn scatter_args_nd<'a>(
                 new_shape[start + j] = $indices.dim(j as i32);
             }
 
-            array_indices.push($indices.reshape_device(&new_shape, &stream)?);
+            array_indices.push(with_stream(stream.as_ref(), || {
+                $indices.reshape(&new_shape)
+            })?);
             array_number = array_number.saturating_add(1);
 
             if !arrays_first && array_number == count_arrays {
@@ -458,7 +468,9 @@ fn scatter_args_nd<'a>(
 
                 // If it's a simple slice, we only need to add the start index
                 if array_number >= count_arrays && count_strided_slices <= 0 && stride == 1 {
-                    let index = Array::from_int(start).reshape_device(&index_shape, &stream)?;
+                    let index = with_stream(stream.as_ref(), || {
+                        Array::from_int(start).reshape(&index_shape)
+                    })?;
                     let slice_shape_entry = end - start;
                     slice_shapes.push(slice_shape_entry);
                     array_indices.push(index);
@@ -475,7 +487,9 @@ fn scatter_args_nd<'a>(
                         slice_number
                     };
                     index_shape[location as usize] = index.size() as i32;
-                    array_indices.push(index.reshape_device(&index_shape, &stream)?);
+                    array_indices.push(with_stream(stream.as_ref(), || {
+                        index.reshape(&index_shape)
+                    })?);
 
                     slice_number = slice_number.saturating_add(1);
                     count_strided_slices = count_strided_slices.saturating_sub(1);
@@ -498,7 +512,7 @@ fn scatter_args_nd<'a>(
     }
 
     // Broadcast the update to the indices and slices
-    let array_indices = broadcast_arrays_device(&array_indices, &stream)?;
+    let array_indices = with_stream(stream.as_ref(), || broadcast_arrays(&array_indices))?;
     let update_shape_broadcast: Vec<_> = array_indices[0]
         .shape()
         .iter()
@@ -506,7 +520,9 @@ fn scatter_args_nd<'a>(
         .chain(src.shape().iter().skip(non_new_axis_operation_count))
         .cloned()
         .collect();
-    let update = broadcast_to_device(&update, &update_shape_broadcast, &stream)?;
+    let update = with_stream(stream.as_ref(), || {
+        broadcast_to(&update, &update_shape_broadcast)
+    })?;
 
     // Reshape the update with the size-1 dims for the int and array indices
     let update_reshape: Vec<_> = array_indices[0]
@@ -517,7 +533,7 @@ fn scatter_args_nd<'a>(
         .cloned()
         .collect();
 
-    let update = update.reshape_device(&update_reshape, &stream)?;
+    let update = with_stream(stream.as_ref(), || update.reshape(&update_reshape))?;
 
     let array_indices_len = array_indices.len();
 
@@ -1359,9 +1375,9 @@ mod tests {
 
         a.index_mut((i1, i2), Array::from_slice(&[100, 200, 300], &[3]));
 
-        assert_eq!(a.index((0, 0)).item::<i32>(), 100i32);
-        assert_eq!(a.index((2, 1)).item::<i32>(), 200i32);
-        assert_eq!(a.index((4, 2)).item::<i32>(), 300i32);
+        assert_eq!(a.index((0, 0)).item_exact::<i32>(), 100i32);
+        assert_eq!(a.index((2, 1)).item_exact::<i32>(), 200i32);
+        assert_eq!(a.index((4, 2)).item_exact::<i32>(), 300i32);
     }
 
     #[test]
@@ -1373,7 +1389,7 @@ mod tests {
             let mut a = Array::from_iter(0..60, &[3, 4, 5]);
 
             a.index_mut(index, Array::from_int(1));
-            let sum = a.sum(None).unwrap().item::<i32>();
+            let sum = a.sum(None).unwrap().item_exact::<i32>();
             assert_eq!(sum, expected_sum);
         }
 
@@ -1404,7 +1420,7 @@ mod tests {
                     let mut a = Array::from_iter(0..360, &[2, 3, 4, 5, 3]);
 
                     a.index_mut(($($i),*), Array::from_int(1));
-                    let sum = a.sum(None).unwrap().item::<i32>();
+                    let sum = a.sum(None).unwrap().item_exact::<i32>();
                     assert_eq!(sum, $sum);
                 }
             };
@@ -1452,7 +1468,7 @@ mod tests {
                     let mut a = Array::from_iter(0..540, &[3, 3, 4, 5, 3]);
 
                     a.index_mut(($($i),*), Array::from_int(1));
-                    let sum = a.sum(None).unwrap().item::<i32>();
+                    let sum = a.sum(None).unwrap().item_exact::<i32>();
                     assert_eq!(sum, $sum);
                 }
             };

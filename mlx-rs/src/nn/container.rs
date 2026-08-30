@@ -118,7 +118,7 @@ mod tests {
                 .unwrap()
                 .sum(None)
                 .unwrap()
-                .item::<f32>()
+                .item_exact::<f32>()
                 - 0.0
                 > 1e-6
         );
@@ -133,7 +133,7 @@ mod tests {
         let first_layer = &model.layers[0];
         let linear_params = first_layer.parameters().flatten();
         let weight = linear_params["weight"];
-        assert!(weight.abs().unwrap().sum(None).unwrap().item::<f32>() - 0.0 < 1e-6);
+        assert!(weight.abs().unwrap().sum(None).unwrap().item_exact::<f32>() - 0.0 < 1e-6);
     }
 
     #[test]
@@ -178,7 +178,7 @@ mod tests {
 
             eval_params(model.parameters()).unwrap();
 
-            losses.push(loss.item::<f32>());
+            losses.push(loss.item_exact::<f32>());
         }
 
         // Check that it converges

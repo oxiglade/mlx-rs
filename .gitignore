@@ -2,6 +2,9 @@
 # will have compiled files and executables
 debug/
 target/
+!conformance/target/
+!conformance/target/**
+conformance/**/__pycache__/
 
 # Remove Cargo.lock from gitignore if creating an executable, leave it for libraries
 # More information here https://doc.rust-lang.org/cargo/guide/cargo-toml-vs-cargo-lock.html
@@ -22,3 +25,10 @@ cache/
 
 # Inspiration
 inspiration/
+
+# devenv / direnv
+.devenv*
+devenv.local.nix
+.direnv
+conformance/.venv/
+conformance/.venv-target/

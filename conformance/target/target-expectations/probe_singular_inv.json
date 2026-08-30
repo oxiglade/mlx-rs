@@ -1,0 +1,44 @@
+{
+  "cases": [
+    {
+      "id": "probe.singular_inv",
+      "input_refs": [
+        "dtypes.012.input.1"
+      ],
+      "input_sha256": "sha256:de07aac52703c2ce6e2c2de5ef211da30da4ed3476a2c02c682b65ce59c6b377",
+      "old_behavior": "process_abort",
+      "recipe": "inv_broadcast_committed_zero",
+      "seed_hex": null,
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "target_behavior": "error",
+      "verdict": "error_behavior_changed"
+    }
+  ],
+  "old_environment": {
+    "architecture": "arm64",
+    "mlx_metal_package": "0.30.6",
+    "mlx_package": "0.30.6",
+    "mlx_runtime": "0.30.6",
+    "numpy": "2.2.6",
+    "python": "3.12.14"
+  },
+  "schema_version": 1,
+  "suite": "probe_singular_inv",
+  "target_environment": {
+    "architecture": "arm64",
+    "device": "cpu",
+    "mlx": "0.32.2",
+    "mlx_metal": "0.32.2",
+    "mlx_runtime": "0.32.2",
+    "numpy": "2.2.6",
+    "python": "3.12.14",
+    "venv": "conformance/.venv-target"
+  }
+}

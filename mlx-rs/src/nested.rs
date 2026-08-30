@@ -83,7 +83,10 @@ impl<K, V> NestedHashMap<K, V> {
 
 #[cfg(test)]
 mod tests {
-    use crate::array;
+    use crate::{
+        array,
+        test_utils::{assert_array_eq, tolerances},
+    };
 
     use super::*;
 
@@ -109,9 +112,24 @@ mod tests {
         let flattened = map.flatten();
 
         assert_eq!(flattened.len(), 3);
-        assert_eq!(flattened["first"], array!([1, 2, 3]));
-        assert_eq!(flattened["second.a"], array!([4, 5, 6]));
-        assert_eq!(flattened["second.b"], array!([7, 8, 9]));
+        assert_array_eq(
+            &flattened["first"],
+            array!([1, 2, 3]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
+        assert_array_eq(
+            &flattened["second.a"],
+            array!([4, 5, 6]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
+        assert_array_eq(
+            &flattened["second.b"],
+            array!([7, 8, 9]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]
@@ -140,9 +158,24 @@ mod tests {
         let flattened = map.flatten();
 
         assert_eq!(flattened.len(), 3);
-        assert_eq!(flattened["first"], &first_entry_content);
-        assert_eq!(flattened["second.a"], &second_entry_content_a);
-        assert_eq!(flattened["second.b"], &second_entry_content_b);
+        assert_array_eq(
+            &**flattened.get("first").unwrap(),
+            &first_entry_content,
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
+        assert_array_eq(
+            &**flattened.get("second.a").unwrap(),
+            &second_entry_content_a,
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
+        assert_array_eq(
+            &**flattened.get("second.b").unwrap(),
+            &second_entry_content_b,
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]
@@ -171,9 +204,24 @@ mod tests {
         let flattened = map.flatten();
 
         assert_eq!(flattened.len(), 3);
-        assert_eq!(flattened["first"], &mut array!([1, 2, 3]));
-        assert_eq!(flattened["second.a"], &mut array!([4, 5, 6]));
-        assert_eq!(flattened["second.b"], &mut array!([7, 8, 9]));
+        assert_array_eq(
+            &**flattened.get("first").unwrap(),
+            &mut array!([1, 2, 3]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
+        assert_array_eq(
+            &**flattened.get("second.a").unwrap(),
+            &mut array!([4, 5, 6]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
+        assert_array_eq(
+            &**flattened.get("second.b").unwrap(),
+            &mut array!([7, 8, 9]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]

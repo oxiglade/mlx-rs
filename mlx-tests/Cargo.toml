@@ -9,4 +9,10 @@ authors.workspace = true
 [dev-dependencies]
 mlx-internal-macros.workspace = true
 mlx-rs.workspace = true
+mlx-sys.workspace = true
 tempfile.workspace = true
+half.workspace = true
+num-complex.workspace = true
+safetensors.workspace = true
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

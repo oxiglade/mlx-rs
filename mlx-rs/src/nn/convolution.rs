@@ -464,12 +464,12 @@ mod tests {
         assert_eq!(a.shape(), &[2, 8, 16]);
         assert_eq!(a.dtype(), Dtype::Float32);
         assert_float_eq!(
-            a.mean(None).unwrap().item::<f32>(),
+            a.mean(None).unwrap().item_exact::<f32>(),
             0.512_987_5,
             abs <= 0.010_259_75
         );
         assert_float_eq!(
-            a.sum(None).unwrap().item::<f32>(),
+            a.sum(None).unwrap().item_exact::<f32>(),
             131.324_8,
             abs <= 2.626_496
         );
@@ -477,12 +477,12 @@ mod tests {
         assert_eq!(result.shape(), &[2, 1, 2]);
         assert_eq!(result.dtype(), Dtype::Float32);
         assert_float_eq!(
-            result.mean(None).unwrap().item::<f32>(),
+            result.mean(None).unwrap().item_exact::<f32>(),
             0.264_865_2,
             abs <= 0.005_297_303_7
         );
         assert_float_eq!(
-            result.sum(None).unwrap().item::<f32>(),
+            result.sum(None).unwrap().item_exact::<f32>(),
             1.059_460_8,
             abs <= 0.021_189_215
         );
@@ -495,12 +495,12 @@ mod tests {
         assert_eq!(a.shape(), &[2, 8, 8, 4]);
         assert_eq!(a.dtype(), Dtype::Float32);
         assert_float_eq!(
-            a.mean(None).unwrap().item::<f32>(),
+            a.mean(None).unwrap().item_exact::<f32>(),
             0.522_504_27,
             abs <= 0.010_450_086
         );
         assert_float_eq!(
-            a.sum(None).unwrap().item::<f32>(),
+            a.sum(None).unwrap().item_exact::<f32>(),
             267.522_2,
             abs <= 5.350_444
         );
@@ -511,12 +511,12 @@ mod tests {
         assert_eq!(result.shape(), &[2, 1, 1, 2]);
         assert_eq!(result.dtype(), Dtype::Float32);
         assert_float_eq!(
-            result.mean(None).unwrap().item::<f32>(),
+            result.mean(None).unwrap().item_exact::<f32>(),
             -0.279_321_5,
             abs <= 0.005_586_43
         );
         assert_float_eq!(
-            result.sum(None).unwrap().item::<f32>(),
+            result.sum(None).unwrap().item_exact::<f32>(),
             -1.117_286,
             abs <= 0.022_345_72
         );

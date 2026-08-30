@@ -345,7 +345,7 @@ fn scaled_indices(
 
 #[cfg(test)]
 mod tests {
-    use crate::assert_array_eq;
+    use crate::test_utils::{assert_array_eq, tolerances};
 
     use super::*;
 
@@ -370,7 +370,12 @@ mod tests {
         )
         .as_type::<i32>()
         .unwrap();
-        assert_eq!(result, expected);
+        assert_array_eq(
+            result,
+            expected,
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     // The unit test below is adapted from the swift binding.
@@ -402,7 +407,12 @@ mod tests {
         )
         .as_type::<f32>()
         .unwrap();
-        assert_eq!(result, expected);
+        assert_array_eq(
+            result,
+            expected,
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     // The expected output for the test case below is obtained from the python binding.
@@ -436,6 +446,11 @@ mod tests {
         .as_type::<f32>()
         .unwrap();
 
-        assert_array_eq!(result, expected, 1e-5);
+        assert_array_eq(
+            result,
+            expected,
+            tolerances::STANDARD.rtol,
+            tolerances::STANDARD.atol,
+        );
     }
 }

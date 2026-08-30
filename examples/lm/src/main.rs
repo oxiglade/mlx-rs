@@ -63,14 +63,14 @@ fn qwen3() -> anyhow::Result<()> {
 
         if tokens.len() % 20 == 0 {
             eval(&tokens).unwrap();
-            let slice: Vec<u32> = tokens.drain(..).map(|t| t.item::<u32>()).collect();
+            let slice: Vec<u32> = tokens.drain(..).map(|t| t.item_exact::<u32>()).collect();
             let s = tokenizer.decode(&slice, true).unwrap();
             print!("{s}");
         }
     }
 
     eval(&tokens).unwrap();
-    let slice: Vec<u32> = tokens.drain(..).map(|t| t.item::<u32>()).collect();
+    let slice: Vec<u32> = tokens.drain(..).map(|t| t.item_exact::<u32>()).collect();
     let s = tokenizer.decode(&slice, true).unwrap();
     println!("{s}");
 
