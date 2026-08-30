@@ -8,7 +8,7 @@
     "byte_order": "little"
   },
   "canonical_device": "cpu",
-  "generator_digest": "sha256:443045093c843581e2e3f21a83f7b8fcd543327175aa3eff67deaaf293d5201a",
+  "generator_digest": "sha256:9c7e31cd713a8a57c959eb4d57e1a974cf5309ae9892328dafb083a167e4df2b",
   "fixture_shards": {
     "fixtures/arithmetic.safetensors": "sha256:5fa6774f678d1dba5d344fde47c179024a4a4ecd9dd01b88f141b497325dd8b9",
     "fixtures/dtypes.safetensors": "sha256:b213e2abd47acc21af65eefdb71b9acf5f904dea5a0fec56144da3d1fc06462f",
@@ -16,7 +16,50 @@
     "fixtures/execution.safetensors": "sha256:9638a653e7e4a3a25313014f979ea8b0cb4f4a599de28c0dcf4b3b5f78d4dd43",
     "fixtures/reductions.safetensors": "sha256:1b2f1c711388bbc454c6d3697c4116606f0ed435ecdb220ce0bb62e6802ff622",
     "fixtures/shapes.safetensors": "sha256:5227be057c1e0f6f31e8c9d799eecbda0ef596342761d310ea570c2b016240df",
-    "fixtures/signal.safetensors": "sha256:46ebd2b4cda1bd685a309d3f814c82da8e3cd9b68f6c94da05ab0d0133140c7d"
+    "fixtures/signal.safetensors": "sha256:46ebd2b4cda1bd685a309d3f814c82da8e3cd9b68f6c94da05ab0d0133140c7d",
+    "fixtures/gguf.safetensors": "sha256:4efbfe84ec8f74aeee413c8c4fc9db4a4ca8cae3a1330bb0f0b88cc7c3a84e1b"
+  },
+  "gguf_fixtures": {
+    "fixtures/gguf/basic.gguf": {
+      "sha256": "sha256:75e636981bb423f30d5ef371d0c4ba0fe5e8c14223f8cf013a1f16fe53ea46b2",
+      "recipe": "mlx.core.save_gguf"
+    },
+    "fixtures/gguf/empty.gguf": {
+      "sha256": "sha256:a4e5e156ddec27e286f75328784d7106b60a4eb1d246e950a001a3f944fbda99",
+      "recipe": "mlx.core.save_gguf"
+    },
+    "fixtures/gguf/large-asymmetric.gguf": {
+      "sha256": "sha256:277c628118eddbeba2d8f4427e86f06d1859fcd26dcbdbb79599274eab31f137",
+      "recipe": "mlx.core.save_gguf"
+    },
+    "fixtures/gguf/metadata.gguf": {
+      "sha256": "sha256:3f603bedf70a86ffd5e1a9ba290118a3c69852477b5bfb5b96ae0cbcc07f229a",
+      "recipe": "mlx.core.save_gguf"
+    },
+    "fixtures/gguf/not-gguf.gguf": {
+      "sha256": "sha256:7a3262a90af12c8468e7bd09826b5d0158e481fb4327deaccf22ea97db8afd4c",
+      "recipe": "raw_non_gguf"
+    },
+    "fixtures/gguf/q4-0.gguf": {
+      "sha256": "sha256:6e1ac302b7123aa67fa7cfc8b9369c748b371df51d1e0485dd0abe600be89048",
+      "recipe": "manual_gguf_quantized"
+    },
+    "fixtures/gguf/q4-1.gguf": {
+      "sha256": "sha256:235653707fdce1848ef116cd8fb998a22f97de855a36f8ad985ac59d235cff04",
+      "recipe": "manual_gguf_quantized"
+    },
+    "fixtures/gguf/q5-0-unsupported.gguf": {
+      "sha256": "sha256:d06a68c03d4f58e80d5f32aa7a3b3c141f3df3d1fa101b42e6dbd746f16e2938",
+      "recipe": "manual_gguf_quantized"
+    },
+    "fixtures/gguf/q8-0.gguf": {
+      "sha256": "sha256:f43734ee3fb34e75673bbc73fed095bc0678b30db941d00dd919015f3c9bc48e",
+      "recipe": "manual_gguf_quantized"
+    },
+    "fixtures/gguf/unicode.gguf": {
+      "sha256": "sha256:08896fc74f28840bc1a4144cc850dbdf6ff93e1ccd389937090b2890dd9c81d8",
+      "recipe": "mlx.core.save_gguf"
+    }
   },
   "environment": {
     "python": "3.12.14",
@@ -74,6 +117,7 @@
     "suites/execution.json",
     "suites/reductions.json",
     "suites/shapes.json",
-    "suites/signal.json"
+    "suites/signal.json",
+    "suites/gguf.json"
   ]
 }

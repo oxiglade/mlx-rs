@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "artifact": "qualification/rust-save-qualified.gguf",
+  "artifact_sha256": null,
+  "producer_revision": null,
+  "python": "3.12.14",
+  "mlx": "0.32.2",
+  "compared_fields": [
+    "array_keys",
+    "metadata_kinds",
+    "dtypes",
+    "shapes",
+    "values"
+  ],
+  "verdict": "pending"
+}
