@@ -194,6 +194,8 @@ struct CompileCache {
     handle: mlx_sys::mlx_compile_cache,
 }
 
+type StateLayout = Vec<(Rc<str>, crate::Dtype, Vec<i32>)>;
+
 impl std::fmt::Debug for CompileCache {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CompileCache").finish_non_exhaustive()
@@ -246,7 +248,7 @@ struct CompiledState<F> {
     id: usize,
     cache: CompileCache,
     num_function_outputs: Option<usize>,
-    state_layout: Option<Vec<(Rc<str>, crate::Dtype, Vec<i32>)>>,
+    state_layout: Option<StateLayout>,
 }
 
 static NEXT_COMPILE_ID: AtomicUsize = AtomicUsize::new(1);

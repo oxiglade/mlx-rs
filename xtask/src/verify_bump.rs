@@ -1698,6 +1698,213 @@ mod tests {
         .unwrap()
     }
 
+    fn write_replay_fixture_file(root: &Path, relative: &str, contents: &[u8]) {
+        let path = root.join(relative);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, contents).unwrap();
+    }
+
+    fn write_replay_fixture_json(root: &Path, relative: &str, value: &Value) {
+        write_replay_fixture_file(root, relative, &serde_json::to_vec_pretty(value).unwrap());
+    }
+
+    fn run_replay_fixture_git(root: &Path, args: &[&str]) {
+        let status = Command::new("git")
+            .args(args)
+            .current_dir(root)
+            .env("GIT_CONFIG_NOSYSTEM", "1")
+            .env("GIT_CONFIG_GLOBAL", "/dev/null")
+            .env("GIT_CONFIG_COUNT", "0")
+            .status()
+            .unwrap();
+        assert!(status.success());
+    }
+
+    fn replay_provenance_documents(post_migration: bool) -> (Value, Value) {
+        if post_migration {
+            return (
+                json!({
+                    "environment": {
+                        "python": "3.12.14", "architecture": "arm64",
+                        "mlx_package": TARGET_MLX, "mlx_metal_package": TARGET_MLX,
+                        "mlx_runtime": TARGET_MLX, "numpy": "2.2.6"
+                    },
+                    "suites": [],
+                    "fixture_shards": {}
+                }),
+                json!({
+                    "provenance": {"environment": {
+                        "python": "3.12.14", "architecture": "arm64",
+                        "pinned_venv": "conformance/.venv", "mlx": TARGET_MLX,
+                        "mlx_metal": TARGET_MLX, "numpy": "2.2.6"
+                    }},
+                    "trajectories": [{"id": "adam"}]
+                }),
+            );
+        }
+
+        (
+            json!({
+                "environment": {
+                    "python": "3.12.11", "architecture": "arm64",
+                    "mlx_package": "0.31.0", "mlx_metal_package": "0.31.0",
+                    "mlx_runtime": "0.31.0", "numpy": "2.1.3"
+                },
+                "suites": [],
+                "fixture_shards": {}
+            }),
+            json!({
+                "provenance": {"environment": {
+                    "python": "3.12.11", "architecture": "arm64",
+                    "pinned_venv": "conformance/.venv", "mlx": "0.31.0",
+                    "mlx_metal": "0.31.0", "numpy": "2.1.3"
+                }},
+                "trajectories": [{"id": "adam"}]
+            }),
+        )
+    }
+
+    fn replay_provenance_tree() -> (tempfile::TempDir, Value) {
+        let root = tempfile::tempdir().unwrap();
+        let (corpus, manifest) = replay_provenance_documents(false);
+        write_replay_fixture_json(root.path(), "conformance/corpus.json", &corpus);
+        write_replay_fixture_json(root.path(), "conformance/state/manifest.json", &manifest);
+        for relative in [
+            "conformance/generate.py",
+            "conformance/state/generate_state.py",
+            "conformance/state/state.safetensors",
+            "conformance/target/replay_target.py",
+            "conformance/target/requirements-target.lock",
+        ] {
+            write_replay_fixture_file(root.path(), relative, relative.as_bytes());
+        }
+
+        let target_environment = json!({
+            "python": "3.12.14", "architecture": "arm64",
+            "venv": "conformance/.venv-target", "mlx": TARGET_MLX,
+            "mlx_metal": TARGET_MLX, "numpy": "2.2.6",
+            "mlx_runtime": TARGET_MLX, "device": "cpu"
+        });
+        let suites = [
+            ("state", vec!["state.adam"]),
+            (
+                "transforms",
+                vec![
+                    "transforms.nonlinear_value_and_grad",
+                    "transforms.argnums_selection",
+                    "transforms.jvp",
+                    "transforms.vjp",
+                    "transforms.module_value_and_grad",
+                ],
+            ),
+            ("probe_oob_take", vec!["probe.oob_take"]),
+            ("probe_singular_inv", vec!["probe.singular_inv"]),
+        ];
+        let mut replay_shards = BTreeMap::new();
+        let mut replay_suites = Vec::new();
+        for (id, case_ids) in suites {
+            let old_environment = if matches!(id, "state" | "transforms") {
+                &manifest["provenance"]["environment"]
+            } else {
+                &corpus["environment"]
+            };
+            let cases = case_ids
+                .into_iter()
+                .map(|case_id| {
+                    json!({
+                        "id": case_id,
+                        "verdict": "identical",
+                        "recipe": "fixture",
+                        "input_sha256": "sha256:fixture",
+                        "input_refs": ["fixture"]
+                    })
+                })
+                .collect::<Vec<_>>();
+            let shard = json!({
+                "schema_version": 1,
+                "suite": id,
+                "old_environment": old_environment,
+                "target_environment": target_environment,
+                "cases": cases
+            });
+            let relative = format!("target-expectations/{id}.json");
+            let path = format!("conformance/target/{relative}");
+            write_replay_fixture_json(root.path(), &path, &shard);
+            replay_suites.push(json!({
+                "id": id,
+                "expectation_shard": relative,
+                "sha256": hash_file(&root.path().join(path)).unwrap(),
+                "case_count": shard["cases"].as_array().unwrap().len(),
+                "verdict_counts": {"identical": shard["cases"].as_array().unwrap().len()},
+                "verdict": "pass"
+            }));
+            replay_shards.insert(id.to_owned(), shard);
+        }
+
+        let source_artifacts = [
+            "conformance/generate.py",
+            "conformance/corpus.json",
+            "conformance/state/generate_state.py",
+            "conformance/state/manifest.json",
+            "conformance/state/state.safetensors",
+            "conformance/target/replay_target.py",
+            "conformance/target/requirements-target.lock",
+        ]
+        .into_iter()
+        .map(|relative| {
+            (
+                relative.to_owned(),
+                json!(hash_file(&root.path().join(relative)).unwrap()),
+            )
+        })
+        .collect::<serde_json::Map<_, _>>();
+        let payload = json!({
+            "handshake": target_environment,
+            "isolation": {
+                "process_scope": "fresh_subprocess_per_suite",
+                "state_reset": "new_model_and_optimizer_per_trajectory"
+            },
+            "source_artifacts": source_artifacts,
+            "suites": replay_suites
+        });
+        let double_run_sha256 = hash_json(&json!({
+            "payload": payload,
+            "shards": replay_shards
+        }))
+        .unwrap();
+        let report = json!({
+            "schema_version": 1,
+            "command": "target-replay",
+            "verdict": "pass",
+            "payload_sha256": hash_json(&payload).unwrap(),
+            "payload": payload,
+            "double_run": {
+                "first_run_sha256": double_run_sha256,
+                "second_run_sha256": double_run_sha256,
+                "identical": true
+            }
+        });
+        write_replay_fixture_json(
+            root.path(),
+            "conformance/target/replay-report.json",
+            &report,
+        );
+
+        run_replay_fixture_git(root.path(), &["init", "--quiet"]);
+        run_replay_fixture_git(
+            root.path(),
+            &["config", "user.email", "qualification@example.invalid"],
+        );
+        run_replay_fixture_git(root.path(), &["config", "user.name", "Qualification"]);
+        run_replay_fixture_git(root.path(), &["add", "conformance"]);
+        run_replay_fixture_git(
+            root.path(),
+            &["commit", "--quiet", "-m", "test: add replay report"],
+        );
+
+        (root, report)
+    }
+
     #[test]
     fn sha256_matches_known_vector() {
         assert_eq!(
@@ -1848,10 +2055,29 @@ mod tests {
     }
 
     #[test]
-    fn canonical_replay_reports_post_migration_provenance() {
-        let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-        let replay_root = repo_root.join("conformance/target");
-        let report = read_json(&replay_root.join("replay-report.json")).unwrap();
+    fn strict_replay_accepts_pre_and_post_migration_provenance() {
+        let (root, report) = replay_provenance_tree();
+        let replay_root = root.path().join("conformance/target");
+
+        let evidence = validate_replay_document(&replay_root, &report, true).unwrap();
+        assert_eq!(
+            evidence["committed_provenance"],
+            json!({
+                "pre_migration": [
+                    "state", "transforms", "probe_oob_take", "probe_singular_inv"
+                ],
+                "post_migration": []
+            })
+        );
+
+        let (corpus, manifest) = replay_provenance_documents(true);
+        write_replay_fixture_json(root.path(), "conformance/corpus.json", &corpus);
+        write_replay_fixture_json(root.path(), "conformance/state/manifest.json", &manifest);
+        run_replay_fixture_git(root.path(), &["add", "conformance"]);
+        run_replay_fixture_git(
+            root.path(),
+            &["commit", "--quiet", "-m", "test: migrate provenance"],
+        );
 
         let evidence = validate_replay_document(&replay_root, &report, true).unwrap();
 
@@ -1860,7 +2086,6 @@ mod tests {
             json!({
                 "pre_migration": [],
                 "post_migration": [
-                    "arithmetic", "dtypes", "errors", "execution", "reductions", "shapes",
                     "state", "transforms", "probe_oob_take", "probe_singular_inv"
                 ]
             })

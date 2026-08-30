@@ -15,7 +15,7 @@ use std::{
 
 use crate::{error::Exception, transforms::compile::CompiledState, utils::Updatable, Array};
 
-use super::{Closure, Compiled, Guarded, VectorArray};
+use super::{Closure, Compiled, Guarded, StateLayout, VectorArray};
 
 /// Similar to [`crate::transforms::compile`] but allows for functions that take
 /// a mutable reference to a state `U`.
@@ -356,7 +356,7 @@ fn call_mut_with_state_inner<U>(
     state: Rc<RefCell<&mut U>>,
     args: &[impl AsRef<Array>],
     num_function_outputs: Rc<Cell<Option<usize>>>,
-    state_layout: Rc<RefCell<Option<Vec<(Rc<str>, crate::Dtype, Vec<i32>)>>>>,
+    state_layout: Rc<RefCell<Option<StateLayout>>>,
 ) -> crate::error::Result<Vec<Array>>
 where
     U: Updatable,
