@@ -1,6 +1,6 @@
 use std::ffi::CStr;
 
-use mlx_internal_macros::{default_device, generate_macro};
+use mlx_internal_macros::generate_macro;
 
 use crate::{
     error::Result,
@@ -45,14 +45,12 @@ fn optional_dtype_none() -> mlx_sys::mlx_optional_dtype {
 /// - `group_size`: The size of the group in `w` that shares a scale and bias. (default: `64`)
 /// - `bits`: The number of bits occupied by each element of w in the returned quantized matrix.
 ///   (default: 4)
-#[generate_macro]
-#[default_device]
-pub fn quantize_device(
+pub fn quantize(
     w: impl AsRef<Array>,
-    #[optional] group_size: impl Into<Option<i32>>,
-    #[optional] bits: impl Into<Option<i32>>,
-    #[optional] stream: impl AsRef<Stream>,
+    group_size: impl Into<Option<i32>>,
+    bits: impl Into<Option<i32>>,
 ) -> Result<(Array, Array, Array)> {
+    let stream = Stream::thread_local_or_default();
     let group_size = optional_int(group_size.into(), DEFAULT_GROUP_SIZE);
     let bits = optional_int(bits.into(), DEFAULT_BITS);
     let global_scale = unsafe { Array::from_ptr(mlx_sys::mlx_array_new()) };
@@ -84,22 +82,35 @@ pub fn quantize_device(
     ))
 }
 
+/// Compatibility shim for [`quantize`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `quantize`"
+)]
+pub fn quantize_device(
+    w: impl AsRef<Array>,
+    #[optional] group_size: impl Into<Option<i32>>,
+    #[optional] bits: impl Into<Option<i32>>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<(Array, Array, Array)> {
+    crate::with_stream(stream.as_ref(), || quantize(w, group_size, bits))
+}
+
 /// Perform the matrix multiplication with the quantized matrix `w`. The quantization uses one
 /// floating point scale and bias per `group_size` of elements. Each element in `w` takes `bits`
 /// bits and is packed in an unsigned 32 bit integer.
 #[allow(clippy::too_many_arguments)]
-#[generate_macro]
-#[default_device]
-pub fn quantized_matmul_device<'a>(
+pub fn quantized_matmul<'a>(
     x: impl AsRef<Array>,
     w: impl AsRef<Array>,
     scales: impl AsRef<Array>,
-    #[optional] biases: impl Into<Option<&'a Array>>,
-    #[optional] transpose: impl Into<Option<bool>>,
-    #[optional] group_size: impl Into<Option<i32>>,
-    #[optional] bits: impl Into<Option<i32>>,
-    #[optional] stream: impl AsRef<Stream>,
+    biases: impl Into<Option<&'a Array>>,
+    transpose: impl Into<Option<bool>>,
+    group_size: impl Into<Option<i32>>,
+    bits: impl Into<Option<i32>>,
 ) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let transpose = transpose.into().unwrap_or(false);
     let group_size = optional_int(group_size.into(), DEFAULT_GROUP_SIZE);
     let bits = optional_int(bits.into(), DEFAULT_BITS);
@@ -123,21 +134,41 @@ pub fn quantized_matmul_device<'a>(
     })
 }
 
+/// Compatibility shim for [`quantized_matmul`].
+#[allow(clippy::too_many_arguments)]
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `quantized_matmul`"
+)]
+pub fn quantized_matmul_device<'a>(
+    x: impl AsRef<Array>,
+    w: impl AsRef<Array>,
+    scales: impl AsRef<Array>,
+    #[optional] biases: impl Into<Option<&'a Array>>,
+    #[optional] transpose: impl Into<Option<bool>>,
+    #[optional] group_size: impl Into<Option<i32>>,
+    #[optional] bits: impl Into<Option<i32>>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || {
+        quantized_matmul(x, w, scales, biases, transpose, group_size, bits)
+    })
+}
+
 /// Dequantize the matrix `w` using the provided `scales` and `biases` and the `group_size` and
 /// `bits` configuration.
 ///
 /// For details, please see [this
 /// documentation](https://ml-explore.github.io/mlx/build/html/python/_autosummary/mlx.core.dequantize.html)
-#[generate_macro]
-#[default_device]
-pub fn dequantize_device<'a>(
+pub fn dequantize<'a>(
     w: impl AsRef<Array>,
     scales: impl AsRef<Array>,
-    #[optional] biases: impl Into<Option<&'a Array>>,
-    #[optional] group_size: impl Into<Option<i32>>,
-    #[optional] bits: impl Into<Option<i32>>,
-    #[optional] stream: impl AsRef<Stream>,
+    biases: impl Into<Option<&'a Array>>,
+    group_size: impl Into<Option<i32>>,
+    bits: impl Into<Option<i32>>,
 ) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let group_size = optional_int(group_size.into(), DEFAULT_GROUP_SIZE);
     let bits = optional_int(bits.into(), DEFAULT_BITS);
     let global_scale = unsafe { Array::from_ptr(mlx_sys::mlx_array_new()) };
@@ -161,6 +192,25 @@ pub fn dequantize_device<'a>(
     })
 }
 
+/// Compatibility shim for [`dequantize`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `dequantize`"
+)]
+pub fn dequantize_device<'a>(
+    w: impl AsRef<Array>,
+    scales: impl AsRef<Array>,
+    #[optional] biases: impl Into<Option<&'a Array>>,
+    #[optional] group_size: impl Into<Option<i32>>,
+    #[optional] bits: impl Into<Option<i32>>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || {
+        dequantize(w, scales, biases, group_size, bits)
+    })
+}
+
 /// Perform quantized matrix multiplication with gathered indices.
 ///
 /// This combines the functionality of `gather_mm` and `quantized_matmul`, allowing
@@ -179,21 +229,19 @@ pub fn dequantize_device<'a>(
 /// - `bits`: The number of bits per element (default: 4)
 /// - `sorted_indices`: If true, indicates the indices are sorted (default: false)
 #[allow(clippy::too_many_arguments)]
-#[generate_macro]
-#[default_device]
-pub fn gather_qmm_device<'b, 'lhs, 'rhs>(
+pub fn gather_qmm<'b, 'lhs, 'rhs>(
     x: impl AsRef<Array>,
     w: impl AsRef<Array>,
     scales: impl AsRef<Array>,
-    #[optional] biases: impl Into<Option<&'b Array>>,
-    #[optional] lhs_indices: impl Into<Option<&'lhs Array>>,
-    #[optional] rhs_indices: impl Into<Option<&'rhs Array>>,
-    #[optional] transpose: impl Into<Option<bool>>,
-    #[optional] group_size: impl Into<Option<i32>>,
-    #[optional] bits: impl Into<Option<i32>>,
-    #[optional] sorted_indices: impl Into<Option<bool>>,
-    #[optional] stream: impl AsRef<Stream>,
+    biases: impl Into<Option<&'b Array>>,
+    lhs_indices: impl Into<Option<&'lhs Array>>,
+    rhs_indices: impl Into<Option<&'rhs Array>>,
+    transpose: impl Into<Option<bool>>,
+    group_size: impl Into<Option<i32>>,
+    bits: impl Into<Option<i32>>,
+    sorted_indices: impl Into<Option<bool>>,
 ) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let transpose = transpose.into().unwrap_or(true);
     let group_size = optional_int(group_size.into(), DEFAULT_GROUP_SIZE);
     let bits = optional_int(bits.into(), DEFAULT_BITS);
@@ -233,6 +281,42 @@ pub fn gather_qmm_device<'b, 'lhs, 'rhs>(
     }
 }
 
+/// Compatibility shim for [`gather_qmm`].
+#[allow(clippy::too_many_arguments)]
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `gather_qmm`"
+)]
+pub fn gather_qmm_device<'b, 'lhs, 'rhs>(
+    x: impl AsRef<Array>,
+    w: impl AsRef<Array>,
+    scales: impl AsRef<Array>,
+    #[optional] biases: impl Into<Option<&'b Array>>,
+    #[optional] lhs_indices: impl Into<Option<&'lhs Array>>,
+    #[optional] rhs_indices: impl Into<Option<&'rhs Array>>,
+    #[optional] transpose: impl Into<Option<bool>>,
+    #[optional] group_size: impl Into<Option<i32>>,
+    #[optional] bits: impl Into<Option<i32>>,
+    #[optional] sorted_indices: impl Into<Option<bool>>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || {
+        gather_qmm(
+            x,
+            w,
+            scales,
+            biases,
+            lhs_indices,
+            rhs_indices,
+            transpose,
+            group_size,
+            bits,
+            sorted_indices,
+        )
+    })
+}
+
 /// Quantized matrix multiplication with quantization of both inputs.
 ///
 /// Performs matrix multiplication where `x` is dynamically quantized and `w` is pre-quantized.
@@ -251,17 +335,15 @@ pub fn gather_qmm_device<'b, 'lhs, 'rhs>(
 /// - `mode`: Quantization mode - either "nvfp4" or "mxfp8" (default: "nvfp4")
 #[cfg(not(target_os = "macos"))]
 #[allow(clippy::too_many_arguments)]
-#[generate_macro]
-#[default_device]
-pub fn qqmm_device<'a>(
+pub fn qqmm<'a>(
     x: impl AsRef<Array>,
     w: impl AsRef<Array>,
-    #[optional] w_scales: impl Into<Option<&'a Array>>,
-    #[optional] group_size: impl Into<Option<i32>>,
-    #[optional] bits: impl Into<Option<i32>>,
-    #[optional] mode: impl Into<Option<&'a str>>,
-    #[optional] stream: impl AsRef<Stream>,
+    w_scales: impl Into<Option<&'a Array>>,
+    group_size: impl Into<Option<i32>>,
+    bits: impl Into<Option<i32>>,
+    mode: impl Into<Option<&'a str>>,
 ) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let mode_str = mode.into().unwrap_or("nvfp4");
     let mode_cstr = std::ffi::CString::new(mode_str).expect("Invalid mode string");
 
@@ -293,6 +375,28 @@ pub fn qqmm_device<'a>(
             global_scale_w.as_ptr(),
             stream.as_ref().as_ptr(),
         )
+    })
+}
+
+/// Compatibility shim for [`qqmm`].
+#[cfg(not(target_os = "macos"))]
+#[allow(clippy::too_many_arguments)]
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `qqmm`"
+)]
+pub fn qqmm_device<'a>(
+    x: impl AsRef<Array>,
+    w: impl AsRef<Array>,
+    #[optional] w_scales: impl Into<Option<&'a Array>>,
+    #[optional] group_size: impl Into<Option<i32>>,
+    #[optional] bits: impl Into<Option<i32>>,
+    #[optional] mode: impl Into<Option<&'a str>>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || {
+        qqmm(x, w, w_scales, group_size, bits, mode)
     })
 }
 

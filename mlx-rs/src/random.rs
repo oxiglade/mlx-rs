@@ -5,7 +5,7 @@ use crate::utils::guard::Guarded;
 use crate::utils::IntoOption;
 use crate::{error::Result, Array, ArrayElement, Stream};
 use mach_sys::mach_time;
-use mlx_internal_macros::{default_device, generate_macro};
+use mlx_internal_macros::generate_macro;
 use std::borrow::Cow;
 use std::cell::RefCell;
 
@@ -125,11 +125,9 @@ impl crate::utils::Updatable for RandomState {
     fn updatable_states_len(&self) -> usize {
         1
     }
-
     fn updatable_states(&self) -> impl IntoIterator<Item = &Array> {
         std::iter::once(&self.state)
     }
-
     fn updatable_states_mut(&mut self) -> impl IntoIterator<Item = &mut Array> {
         std::iter::once(&mut self.state)
     }
@@ -140,7 +138,6 @@ impl crate::utils::Updatable for RandomState {
 fn resolve_thread_local_override_key() -> Option<Result<Array>> {
     THREAD_LOCAL_OVERRIDE_STATE.with_borrow_mut(|state| state.as_mut().map(|s| s.next()))
 }
-
 fn resolve_thread_local_default_key() -> Result<Array> {
     THREAD_LOCAL_DEFAULT_STATE.with_borrow_mut(RandomState::next)
 }
@@ -188,17 +185,26 @@ pub fn key(seed: u64) -> Result<Array> {
 }
 
 /// Split a PRNG key into two keys and return a tuple.
-#[default_device]
-pub fn split_device(
-    key: impl AsRef<Array>,
-    num: i32,
-    stream: impl AsRef<Stream>,
-) -> Result<(Array, Array)> {
+pub fn split(key: impl AsRef<Array>, num: i32) -> Result<(Array, Array)> {
+    let stream = Stream::thread_local_or_default();
     let keys = Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_random_split_num(res, key.as_ref().as_ptr(), num, stream.as_ref().as_ptr())
     })?;
 
     Ok((keys.try_index(0)?, keys.try_index(1)?))
+}
+
+/// Compatibility shim for [`split`].
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `split`"
+)]
+pub fn split_device(
+    key: impl AsRef<Array>,
+    num: i32,
+    stream: impl AsRef<Stream>,
+) -> Result<(Array, Array)> {
+    crate::with_stream(stream.as_ref(), || split(key, num))
 }
 
 /// Generate uniformly distributed random numbers.
@@ -221,15 +227,13 @@ pub fn split_device(
 /// // same, but in range [0.5, 1)
 /// let array = mlx_rs::random::uniform::<_, f32>(0.5f32, 1f32, &[50], &key);
 /// ```
-#[generate_macro(customize(root = "$crate::random"))]
-#[default_device]
-pub fn uniform_device<'a, E: Into<Array>, T: ArrayElement>(
+pub fn uniform<'a, E: Into<Array>, T: ArrayElement>(
     lower: E,
     upper: E,
-    #[optional] shape: impl IntoOption<&'a [i32]>,
-    #[optional] key: impl Into<Option<&'a Array>>,
-    #[optional] stream: impl AsRef<Stream>,
+    shape: impl IntoOption<&'a [i32]>,
+    key: impl Into<Option<&'a Array>>,
 ) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let lb: Array = lower.into();
     let ub: Array = upper.into();
     let shape = shape.into_option().unwrap_or(&[]);
@@ -246,6 +250,24 @@ pub fn uniform_device<'a, E: Into<Array>, T: ArrayElement>(
             key.as_ptr(),
             stream.as_ref().as_ptr(),
         )
+    })
+}
+
+/// Compatibility shim for [`uniform`].
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::random"))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `uniform`"
+)]
+pub fn uniform_device<'a, E: Into<Array>, T: ArrayElement>(
+    lower: E,
+    upper: E,
+    #[optional] shape: impl IntoOption<&'a [i32]>,
+    #[optional] key: impl Into<Option<&'a Array>>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || {
+        uniform::<E, T>(lower, upper, shape, key)
     })
 }
 
@@ -272,15 +294,13 @@ pub fn uniform_device<'a, E: Into<Array>, T: ArrayElement>(
 /// // generate an array of f32 with normal distribution in shape [10, 5]
 /// let array = mlx_rs::random::normal::<f32>(&[10, 5], None, None, &key);
 /// ```
-#[generate_macro(customize(root = "$crate::random"))]
-#[default_device]
-pub fn normal_device<'a, T: ArrayElement>(
-    #[optional] shape: impl IntoOption<&'a [i32]>,
-    #[optional] loc: impl Into<Option<f32>>,
-    #[optional] scale: impl Into<Option<f32>>,
-    #[optional] key: impl Into<Option<&'a Array>>,
-    #[optional] stream: impl AsRef<Stream>,
+pub fn normal<'a, T: ArrayElement>(
+    shape: impl IntoOption<&'a [i32]>,
+    loc: impl Into<Option<f32>>,
+    scale: impl Into<Option<f32>>,
+    key: impl Into<Option<&'a Array>>,
 ) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let shape = shape.into_option().unwrap_or(&[]);
     let key = resolve(key)?;
 
@@ -298,6 +318,22 @@ pub fn normal_device<'a, T: ArrayElement>(
     })
 }
 
+/// Compatibility shim for [`normal`].
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::random"))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `normal`"
+)]
+pub fn normal_device<'a, T: ArrayElement>(
+    #[optional] shape: impl IntoOption<&'a [i32]>,
+    #[optional] loc: impl Into<Option<f32>>,
+    #[optional] scale: impl Into<Option<f32>>,
+    #[optional] key: impl Into<Option<&'a Array>>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || normal::<T>(shape, loc, scale, key))
+}
+
 /// Generate jointly-normal random samples given a mean and covariance.
 ///
 /// The matrix `covariance` must be positive semi-definite. The behavior is
@@ -308,15 +344,14 @@ pub fn normal_device<'a, T: ArrayElement>(
 /// - `covariance`: array  of shape `[..., n, n]`, the covariance matrix of the distribution. The batch shape `...` must be broadcast-compatible with that of `mean`.
 /// - `shape`: The output shape must be broadcast-compatible with `&mean.shape[..mean.shape.len()-1]` and `&covariance.shape[..covariance.shape.len()-2]`. If empty, the result shape is determined by broadcasting the batch shapes of `mean` and `covariance`.
 /// - `key`: PRNG key.
-#[generate_macro(customize(root = "$crate::random"))]
-#[default_device(device = "cpu")] // TODO: not supported on GPU yet
-pub fn multivariate_normal_device<'a, T: ArrayElement>(
+// TODO: not supported on GPU yet
+pub fn multivariate_normal<'a, T: ArrayElement>(
     mean: impl AsRef<Array>,
     covariance: impl AsRef<Array>,
-    #[optional] shape: impl IntoOption<&'a [i32]>,
-    #[optional] key: impl Into<Option<&'a Array>>,
-    #[optional] stream: impl AsRef<Stream>,
+    shape: impl IntoOption<&'a [i32]>,
+    key: impl Into<Option<&'a Array>>,
 ) -> Result<Array> {
+    let stream = Stream::thread_local_or_cpu();
     let shape = shape.into_option().unwrap_or(&[]);
     let key = resolve(key)?;
 
@@ -334,6 +369,24 @@ pub fn multivariate_normal_device<'a, T: ArrayElement>(
     })
 }
 
+/// Compatibility shim for [`multivariate_normal`].
+#[generate_macro(customize(root = "$crate::random"))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `multivariate_normal`"
+)]
+pub fn multivariate_normal_device<'a, T: ArrayElement>(
+    mean: impl AsRef<Array>,
+    covariance: impl AsRef<Array>,
+    #[optional] shape: impl IntoOption<&'a [i32]>,
+    #[optional] key: impl Into<Option<&'a Array>>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || {
+        multivariate_normal::<T>(mean, covariance, shape, key)
+    })
+}
+
 /// Generate random integers from the given interval (`lower:` and `upper:`).
 ///
 /// The values are sampled with equal probability from the integers in
@@ -348,15 +401,13 @@ pub fn multivariate_normal_device<'a, T: ArrayElement>(
 /// // generate an array of Int values, one in the range [0, 20) and one in the range [10, 100)
 /// let array = random::randint::<_, i32>(array!([0, 20]), array!([10, 100]), None, &key);
 /// ```
-#[generate_macro(customize(root = "$crate::random"))]
-#[default_device]
-pub fn randint_device<'a, E: Into<Array>, T: ArrayElement>(
+pub fn randint<'a, E: Into<Array>, T: ArrayElement>(
     lower: E,
     upper: E,
-    #[optional] shape: impl IntoOption<&'a [i32]>,
-    #[optional] key: impl Into<Option<&'a Array>>,
-    #[optional] stream: impl AsRef<Stream>,
+    shape: impl IntoOption<&'a [i32]>,
+    key: impl Into<Option<&'a Array>>,
 ) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let lb: Array = lower.into();
     let ub: Array = upper.into();
     let shape = shape.into_option().unwrap_or(lb.shape());
@@ -373,6 +424,24 @@ pub fn randint_device<'a, E: Into<Array>, T: ArrayElement>(
             key.as_ptr(),
             stream.as_ref().as_ptr(),
         )
+    })
+}
+
+/// Compatibility shim for [`randint`].
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::random"))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `randint`"
+)]
+pub fn randint_device<'a, E: Into<Array>, T: ArrayElement>(
+    lower: E,
+    upper: E,
+    #[optional] shape: impl IntoOption<&'a [i32]>,
+    #[optional] key: impl Into<Option<&'a Array>>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || {
+        randint::<E, T>(lower, upper, shape, key)
     })
 }
 
@@ -397,14 +466,12 @@ pub fn randint_device<'a, E: Into<Array>, T: ArrayElement>(
 /// // generate an array of [3] Bool with the given p values
 /// let array = random::bernoulli(&array!([0.1, 0.5, 0.8]), None, &key);
 /// ```
-#[generate_macro(customize(root = "$crate::random"))]
-#[default_device]
-pub fn bernoulli_device<'a>(
-    #[optional] p: impl Into<Option<&'a Array>>,
-    #[optional] shape: impl IntoOption<&'a [i32]>,
-    #[optional] key: impl Into<Option<&'a Array>>,
-    #[optional] stream: impl AsRef<Stream>,
+pub fn bernoulli<'a>(
+    p: impl Into<Option<&'a Array>>,
+    shape: impl IntoOption<&'a [i32]>,
+    key: impl Into<Option<&'a Array>>,
 ) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let default_array = Array::from_f32(0.5);
     let p = p.into().unwrap_or(&default_array);
 
@@ -423,6 +490,21 @@ pub fn bernoulli_device<'a>(
     })
 }
 
+/// Compatibility shim for [`bernoulli`].
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::random"))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `bernoulli`"
+)]
+pub fn bernoulli_device<'a>(
+    #[optional] p: impl Into<Option<&'a Array>>,
+    #[optional] shape: impl IntoOption<&'a [i32]>,
+    #[optional] key: impl Into<Option<&'a Array>>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || bernoulli(p, shape, key))
+}
+
 /// Generate values from a truncated normal distribution between `low` and `high`.
 ///
 /// The values are sampled from the truncated normal distribution
@@ -438,15 +520,13 @@ pub fn bernoulli_device<'a>(
 /// // and one in the range 10 ..< 100
 /// let value = random::truncated_normal::<_, f32>(array!([0, 10]), array!([10, 100]), None, &key);
 /// ```
-#[generate_macro(customize(root = "$crate::random"))]
-#[default_device]
-pub fn truncated_normal_device<'a, E: Into<Array>, T: ArrayElement>(
+pub fn truncated_normal<'a, E: Into<Array>, T: ArrayElement>(
     lower: E,
     upper: E,
-    #[optional] shape: impl IntoOption<&'a [i32]>,
-    #[optional] key: impl Into<Option<&'a Array>>,
-    #[optional] stream: impl AsRef<Stream>,
+    shape: impl IntoOption<&'a [i32]>,
+    key: impl Into<Option<&'a Array>>,
 ) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let lb: Array = lower.into();
     let ub: Array = upper.into();
     let shape = shape.into_option().unwrap_or(lb.shape());
@@ -466,6 +546,24 @@ pub fn truncated_normal_device<'a, E: Into<Array>, T: ArrayElement>(
     })
 }
 
+/// Compatibility shim for [`truncated_normal`].
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::random"))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `truncated_normal`"
+)]
+pub fn truncated_normal_device<'a, E: Into<Array>, T: ArrayElement>(
+    lower: E,
+    upper: E,
+    #[optional] shape: impl IntoOption<&'a [i32]>,
+    #[optional] key: impl Into<Option<&'a Array>>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || {
+        truncated_normal::<E, T>(lower, upper, shape, key)
+    })
+}
+
 /// Sample from the standard Gumbel distribution.
 ///
 /// The values are sampled from a standard Gumbel distribution
@@ -480,13 +578,11 @@ pub fn truncated_normal_device<'a, E: Into<Array>, T: ArrayElement>(
 /// // generate an array of Float with Gumbel distribution in shape [10, 5]
 /// let array = mlx_rs::random::gumbel::<f32>(&[10, 5], &key);
 /// ```
-#[generate_macro(customize(root = "$crate::random"))]
-#[default_device]
-pub fn gumbel_device<'a, T: ArrayElement>(
-    #[optional] shape: impl IntoOption<&'a [i32]>,
-    #[optional] key: impl Into<Option<&'a Array>>,
-    #[optional] stream: impl AsRef<Stream>,
+pub fn gumbel<'a, T: ArrayElement>(
+    shape: impl IntoOption<&'a [i32]>,
+    key: impl Into<Option<&'a Array>>,
 ) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let shape = shape.into_option().unwrap_or(&[]);
     let key = resolve(key)?;
 
@@ -500,6 +596,20 @@ pub fn gumbel_device<'a, T: ArrayElement>(
             stream.as_ref().as_ptr(),
         )
     })
+}
+
+/// Compatibility shim for [`gumbel`].
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::random"))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `gumbel`"
+)]
+pub fn gumbel_device<'a, T: ArrayElement>(
+    #[optional] shape: impl IntoOption<&'a [i32]>,
+    #[optional] key: impl Into<Option<&'a Array>>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || gumbel::<T>(shape, key))
 }
 
 /// Shape or count for the categorical distribution.
@@ -539,15 +649,13 @@ pub enum ShapeOrCount<'a> {
 /// // produces Array of u32 shape &[5]
 /// let result = mlx_rs::random::categorical(&logits, None, None, &key);
 /// ```
-#[generate_macro(customize(root = "$crate::random"))]
-#[default_device]
-pub fn categorical_device<'a>(
+pub fn categorical<'a>(
     logits: impl AsRef<Array>,
-    #[optional] axis: impl Into<Option<i32>>,
-    #[optional] shape_or_count: impl Into<Option<ShapeOrCount<'a>>>,
-    #[optional] key: impl Into<Option<&'a Array>>,
-    #[optional] stream: impl AsRef<Stream>,
+    axis: impl Into<Option<i32>>,
+    shape_or_count: impl Into<Option<ShapeOrCount<'a>>>,
+    key: impl Into<Option<&'a Array>>,
 ) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let axis = axis.into().unwrap_or(-1);
     let key = resolve(key)?;
 
@@ -583,6 +691,24 @@ pub fn categorical_device<'a>(
             )
         }),
     }
+}
+
+/// Compatibility shim for [`categorical`].
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::random"))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `categorical`"
+)]
+pub fn categorical_device<'a>(
+    logits: impl AsRef<Array>,
+    #[optional] axis: impl Into<Option<i32>>,
+    #[optional] shape_or_count: impl Into<Option<ShapeOrCount<'a>>>,
+    #[optional] key: impl Into<Option<&'a Array>>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || {
+        categorical(logits, axis, shape_or_count, key)
+    })
 }
 
 #[cfg(test)]

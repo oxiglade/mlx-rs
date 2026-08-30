@@ -699,6 +699,127 @@ mod tests {
     }
 
     #[test]
+    fn ops_sweep_surface_is_canonical_with_deprecated_compatibility() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .to_path_buf();
+        let api = super::generate(&repo_root.join("mlx-rs"), "mlx_rs").unwrap();
+        let entry = |path: &str| api.entries.iter().find(|entry| entry.path == path).unwrap();
+
+        for (canonical_path, compatibility_path, macro_path) in [
+            (
+                "mlx_rs::ops::add",
+                "mlx_rs::ops::add_device",
+                Some("mlx_rs::add"),
+            ),
+            (
+                "mlx_rs::ops::sum",
+                "mlx_rs::ops::sum_device",
+                Some("mlx_rs::sum"),
+            ),
+            (
+                "mlx_rs::ops::cumsum",
+                "mlx_rs::ops::cumsum_device",
+                Some("mlx_rs::cumsum"),
+            ),
+            (
+                "mlx_rs::ops::reshape",
+                "mlx_rs::ops::reshape_device",
+                Some("mlx_rs::reshape"),
+            ),
+            (
+                "mlx_rs::ops::sort",
+                "mlx_rs::ops::sort_device",
+                Some("mlx_rs::sort"),
+            ),
+            (
+                "mlx_rs::ops::any",
+                "mlx_rs::ops::any_device",
+                Some("mlx_rs::any"),
+            ),
+            (
+                "mlx_rs::ops::to_fp8",
+                "mlx_rs::ops::to_fp8_device",
+                Some("mlx_rs::to_fp8"),
+            ),
+            (
+                "mlx_rs::Array::zeros",
+                "mlx_rs::Array::zeros_device",
+                Some("mlx_rs::zeros"),
+            ),
+            (
+                "mlx_rs::ops::indexing::take",
+                "mlx_rs::ops::indexing::take_device",
+                Some("mlx_rs::take"),
+            ),
+            (
+                "mlx_rs::ops::quantize",
+                "mlx_rs::ops::quantize_device",
+                Some("mlx_rs::quantize"),
+            ),
+            (
+                "mlx_rs::Array::load_numpy",
+                "mlx_rs::Array::load_numpy_device",
+                None,
+            ),
+            (
+                "mlx_rs::ops::conv1d",
+                "mlx_rs::ops::conv1d_device",
+                Some("mlx_rs::conv1d"),
+            ),
+            (
+                "mlx_rs::ops::diag",
+                "mlx_rs::ops::diag_device",
+                Some("mlx_rs::diag"),
+            ),
+            (
+                "mlx_rs::random::normal",
+                "mlx_rs::random::normal_device",
+                Some("mlx_rs::normal"),
+            ),
+            (
+                "mlx_rs::linalg::qr",
+                "mlx_rs::linalg::qr_device",
+                Some("mlx_rs::qr"),
+            ),
+            (
+                "mlx_rs::fast::rms_norm",
+                "mlx_rs::fast::rms_norm_device",
+                Some("mlx_rs::rms_norm"),
+            ),
+        ] {
+            let canonical = entry(canonical_path);
+            assert_eq!(canonical.deprecated, None);
+            assert_eq!(canonical.generated_by, None);
+
+            let compatibility = entry(compatibility_path);
+            assert_eq!(
+                compatibility.deprecated.as_ref().unwrap().since.as_deref(),
+                Some("0.26.0")
+            );
+
+            if let Some(macro_path) = macro_path {
+                let compatibility_macro = entry(macro_path);
+                assert_eq!(compatibility_macro.kind, "macro");
+                assert_eq!(
+                    compatibility_macro.generated_by.as_deref(),
+                    Some("generate_macro")
+                );
+                assert!(compatibility_macro.deprecated.is_some());
+            }
+        }
+
+        entry("mlx_rs::linalg::NormOptions");
+        assert!(entry("mlx_rs::linalg::norm")
+            .signature
+            .contains("options : NormOptions"));
+        assert!(entry("mlx_rs::linalg::norm_l2")
+            .signature
+            .contains("options : NormOptions"));
+    }
+
+    #[test]
     fn inventory_resolves_reexports_and_default_device_twins() {
         let root = tempfile::tempdir().unwrap();
         let src = root.path().join("src");

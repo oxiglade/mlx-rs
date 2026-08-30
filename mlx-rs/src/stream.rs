@@ -47,11 +47,11 @@ pub fn thread_local_default_stream() -> Option<Stream> {
 /// To select a stream for one operation, put only that operation in the closure:
 ///
 /// ```rust
-/// use mlx_rs::{fft, with_stream, Array, Stream};
+/// use mlx_rs::{with_stream, Array, Stream};
 ///
 /// let input = Array::from_slice(&[1.0_f32, 2.0, 3.0, 4.0], &[4]);
 /// let stream = Stream::cpu();
-/// let output = with_stream(&stream, || fft::fft(&input, None, None)).unwrap();
+/// let output = with_stream(&stream, || mlx_rs::fft::fft(&input, None, None)).unwrap();
 /// assert_eq!(output.shape(), &[4]);
 /// ```
 pub fn with_stream<F, T>(stream: &Stream, f: F) -> T

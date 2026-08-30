@@ -1,6 +1,6 @@
 use std::ffi::CString;
 
-use mlx_internal_macros::{default_device, generate_macro};
+use mlx_internal_macros::generate_macro;
 
 use crate::utils::guard::Guarded;
 use crate::utils::VectorArray;
@@ -19,12 +19,8 @@ impl Array {
     ///
     /// - `k`: the diagonal to extract or construct
     /// - `stream`: stream or device to evaluate on
-    #[default_device]
-    pub fn diag_device(
-        &self,
-        k: impl Into<Option<i32>>,
-        stream: impl AsRef<Stream>,
-    ) -> Result<Array> {
+    pub fn diag(&self, k: impl Into<Option<i32>>) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_diag(
                 res,
@@ -33,6 +29,19 @@ impl Array {
                 stream.as_ref().as_ptr(),
             )
         })
+    }
+
+    /// Compatibility shim for [`diag`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `diag`"
+    )]
+    pub fn diag_device(
+        &self,
+        k: impl Into<Option<i32>>,
+        stream: impl AsRef<Stream>,
+    ) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.diag(k))
     }
 
     /// Return specified diagonals.
@@ -49,14 +58,13 @@ impl Array {
     /// - `axis1`: first axis of the 2-D sub-array from which the diagonals should be taken
     /// - `axis2`: second axis of the 2-D sub-array from which the diagonals should be taken
     /// - `stream`: stream or device to evaluate on
-    #[default_device]
-    pub fn diagonal_device(
+    pub fn diagonal(
         &self,
         offset: impl Into<Option<i32>>,
         axis1: impl Into<Option<i32>>,
         axis2: impl Into<Option<i32>>,
-        stream: impl AsRef<Stream>,
     ) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_diagonal(
                 res,
@@ -69,6 +77,21 @@ impl Array {
         })
     }
 
+    /// Compatibility shim for [`diagonal`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `diagonal`"
+    )]
+    pub fn diagonal_device(
+        &self,
+        offset: impl Into<Option<i32>>,
+        axis1: impl Into<Option<i32>>,
+        axis2: impl Into<Option<i32>>,
+        stream: impl AsRef<Stream>,
+    ) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.diagonal(offset, axis1, axis2))
+    }
+
     /// Perform the Walsh-Hadamard transform along the final axis.
     ///
     /// Supports sizes `n = m*2^k` for `m` in `(1, 12, 20, 28)` and `2^k <= 8192`
@@ -77,12 +100,8 @@ impl Array {
     /// # Params
     /// - scale: scale the output by this factor -- default is `1.0/sqrt(array.dim(-1))`
     /// - stream: stream to evaluate on.
-    #[default_device]
-    pub fn hadamard_transform_device(
-        &self,
-        scale: impl Into<Option<f32>>,
-        stream: impl AsRef<Stream>,
-    ) -> Result<Array> {
+    pub fn hadamard_transform(&self, scale: impl Into<Option<f32>>) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         let scale = scale.into();
         let scale = mlx_sys::mlx_optional_float {
             value: scale.unwrap_or(0.0),
@@ -93,22 +112,56 @@ impl Array {
             mlx_sys::mlx_hadamard_transform(res, self.as_ptr(), scale, stream.as_ref().as_ptr())
         })
     }
+
+    /// Compatibility shim for [`hadamard_transform`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `hadamard_transform`"
+    )]
+    pub fn hadamard_transform_device(
+        &self,
+        scale: impl Into<Option<f32>>,
+        stream: impl AsRef<Stream>,
+    ) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.hadamard_transform(scale))
+    }
 }
 
 /// See [`Array::diag`]
-#[generate_macro]
-#[default_device]
+pub fn diag(a: impl AsRef<Array>, k: impl Into<Option<i32>>) -> Result<Array> {
+    a.as_ref().diag(k)
+}
+
+/// Compatibility shim for [`diag`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `diag`"
+)]
 pub fn diag_device(
     a: impl AsRef<Array>,
     #[optional] k: impl Into<Option<i32>>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    a.as_ref().diag_device(k, stream)
+    crate::with_stream(stream.as_ref(), || diag(a, k))
 }
 
 /// See [`Array::diagonal`]
-#[generate_macro]
-#[default_device]
+pub fn diagonal(
+    a: impl AsRef<Array>,
+    offset: impl Into<Option<i32>>,
+    axis1: impl Into<Option<i32>>,
+    axis2: impl Into<Option<i32>>,
+) -> Result<Array> {
+    a.as_ref().diagonal(offset, axis1, axis2)
+}
+
+/// Compatibility shim for [`diagonal`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `diagonal`"
+)]
 pub fn diagonal_device(
     a: impl AsRef<Array>,
     #[optional] offset: impl Into<Option<i32>>,
@@ -116,7 +169,7 @@ pub fn diagonal_device(
     #[optional] axis2: impl Into<Option<i32>>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    a.as_ref().diagonal_device(offset, axis1, axis2, stream)
+    crate::with_stream(stream.as_ref(), || diagonal(a, offset, axis1, axis2))
 }
 
 /// Perform the Einstein summation convention on the operands.
@@ -126,13 +179,11 @@ pub fn diagonal_device(
 /// - subscripts: Einstein summation convention equation
 /// - operands: input arrays
 /// - stream: stream or device to evaluate on
-#[generate_macro]
-#[default_device]
-pub fn einsum_device<'a>(
+pub fn einsum<'a>(
     subscripts: &str,
     operands: impl IntoIterator<Item = &'a Array>,
-    #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let c_subscripts =
         CString::new(subscripts).map_err(|_| Exception::from("Invalid subscripts"))?;
     let c_operands = VectorArray::try_from_iter(operands.into_iter())?;
@@ -147,6 +198,20 @@ pub fn einsum_device<'a>(
     })
 }
 
+/// Compatibility shim for [`einsum`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `einsum`"
+)]
+pub fn einsum_device<'a>(
+    subscripts: &str,
+    operands: impl IntoIterator<Item = &'a Array>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || einsum(subscripts, operands))
+}
+
 /// Perform the Kronecker product of two arrays.
 ///
 /// # Params
@@ -154,13 +219,8 @@ pub fn einsum_device<'a>(
 /// - `a`: first array
 /// - `b`: second array
 /// - `stream`: stream or device to evaluate on
-#[generate_macro]
-#[default_device]
-pub fn kron_device(
-    a: impl AsRef<Array>,
-    b: impl AsRef<Array>,
-    #[optional] stream: impl AsRef<Stream>,
-) -> Result<Array> {
+pub fn kron(a: impl AsRef<Array>, b: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_kron(
             res,
@@ -169,6 +229,20 @@ pub fn kron_device(
             stream.as_ref().as_ptr(),
         )
     })
+}
+
+/// Compatibility shim for [`kron`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `kron`"
+)]
+pub fn kron_device(
+    a: impl AsRef<Array>,
+    b: impl AsRef<Array>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || kron(a, b))
 }
 
 #[cfg(test)]

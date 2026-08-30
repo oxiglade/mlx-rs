@@ -1,19 +1,28 @@
-#![allow(unused_variables)]
+#![allow(deprecated, unused_variables)]
 
-use mlx_internal_macros::{default_device, generate_macro};
-use mlx_rs::Stream;
+use mlx_internal_macros::generate_macro;
+use mlx_rs::{with_stream, Stream};
 
 // Test generate_macro for functions with no generic type arguments.
-#[generate_macro(customize(root = "$crate"))]
-#[default_device]
-fn foo_device(
-    a: i32,                                 // Mandatory argument
-    b: i32,                                 // Mandatory argument
-    #[optional] c: Option<i32>,             // Optional argument
-    #[optional] d: impl Into<Option<i32>>,  // Optional argument but impl Trait
-    #[optional] stream: impl AsRef<Stream>, // stream always optional and placed at the end
+fn foo(
+    a: i32,                    // Mandatory argument
+    b: i32,                    // Mandatory argument
+    c: Option<i32>,            // Optional argument
+    d: impl Into<Option<i32>>, // Optional argument but impl Trait
 ) -> i32 {
     a + b + c.unwrap_or(0) + d.into().unwrap_or(0)
+}
+
+#[generate_macro(customize(root = "$crate", forwarding_shim = true))]
+#[deprecated(since = "0.26.0", note = "use `foo`")]
+fn foo_device(
+    a: i32,
+    b: i32,
+    #[optional] c: Option<i32>,
+    #[optional] d: impl Into<Option<i32>>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> i32 {
+    with_stream(stream.as_ref(), || foo(a, b, c, d))
 }
 
 #[test]
@@ -32,23 +41,33 @@ fn test_foo() {
 }
 
 // Test generate_macro for functions with generic type arguments.
-#[generate_macro(customize(
-    root = "$crate",
-    default_dtype = i32,
-))]
-#[default_device]
-fn bar_device<T: Into<i32>>(
-    a: T,                                   // Mandatory argument
-    b: T,                                   // Mandatory argument
-    #[optional] c: Option<T>,               // Optional argument
-    #[optional] d: impl Into<Option<T>>,    // Optional argument but impl Trait
-    #[optional] stream: impl AsRef<Stream>, // stream always optional and placed at the end
+fn bar<T: Into<i32>>(
+    a: T,                    // Mandatory argument
+    b: T,                    // Mandatory argument
+    c: Option<T>,            // Optional argument
+    d: impl Into<Option<T>>, // Optional argument but impl Trait
 ) -> i32 {
     let a = a.into();
     let b = b.into();
     let c = c.map(Into::into);
     let d = d.into().map(Into::into);
     a + b + c.unwrap_or(0) + d.unwrap_or(0)
+}
+
+#[generate_macro(customize(
+    root = "$crate",
+    default_dtype = i32,
+    forwarding_shim = true,
+))]
+#[deprecated(since = "0.26.0", note = "use `bar`")]
+fn bar_device<T: Into<i32>>(
+    a: T,
+    b: T,
+    #[optional] c: Option<T>,
+    #[optional] d: impl Into<Option<T>>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> i32 {
+    with_stream(stream.as_ref(), || bar(a, b, c, d))
 }
 
 #[test]
@@ -120,15 +139,23 @@ fn test_bar() {
 }
 
 // Test named mandatory arguments.
-#[generate_macro(customize(root = "$crate"))]
-#[default_device]
-fn baz_device(
-    #[optional] a: Option<i32>,             // Optinal argument
-    #[named] b: i32,                        // Mandatory argument
-    #[optional] c: Option<i32>,             // Optional argument
-    #[optional] stream: impl AsRef<Stream>, // stream always optional and placed at the end
+fn baz(
+    a: Option<i32>, // Optinal argument
+    b: i32,         // Mandatory argument
+    c: Option<i32>, // Optional argument
 ) -> i32 {
     a.unwrap_or(0) + b + c.unwrap_or(0)
+}
+
+#[generate_macro(customize(root = "$crate", forwarding_shim = true))]
+#[deprecated(since = "0.26.0", note = "use `baz`")]
+fn baz_device(
+    #[optional] a: Option<i32>,
+    #[named] b: i32,
+    #[optional] c: Option<i32>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> i32 {
+    with_stream(stream.as_ref(), || baz(a, b, c))
 }
 
 #[test]

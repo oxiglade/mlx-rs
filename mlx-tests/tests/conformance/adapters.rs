@@ -1,5 +1,5 @@
 use super::oracle::{dtype_from_name, mlx_error, Arg, Args, Case, ScalarValue};
-use mlx_rs::{fft, ops, Array, StreamOrDevice};
+use mlx_rs::{ops, with_device, Array, Device};
 use safetensors::SafeTensors;
 
 pub(super) const ADAPTERS: &[&str] = &[
@@ -157,7 +157,7 @@ pub(super) fn dispatch(case: &Case, safe: &SafeTensors<'_>) -> Result<Vec<Array>
             let a = args.tensor("input0")?;
             let b = args.tensor("input1")?;
             args.execution()?;
-            vec![mlx_error(ops::add_device(&a, &b, StreamOrDevice::cpu()))?]
+            vec![mlx_error(with_device(Device::cpu(), || ops::add(&a, &b)))?]
         }
         "ops.maximum.array_array" => {
             let a = args.tensor("input0")?;
@@ -293,19 +293,19 @@ pub(super) fn dispatch(case: &Case, safe: &SafeTensors<'_>) -> Result<Vec<Array>
         "ops.exp.explicit_cpu" => {
             let a = args.tensor("input0")?;
             args.execution()?;
-            vec![mlx_error(ops::exp_device(&a, StreamOrDevice::cpu()))?]
+            vec![mlx_error(with_device(Device::cpu(), || ops::exp(&a)))?]
         }
         "array.reshape.explicit_cpu" => {
             let a = args.tensor("input0")?;
             let shape = args.shape("shape")?;
             args.execution()?;
-            vec![mlx_error(a.reshape_device(&shape, StreamOrDevice::cpu()))?]
+            vec![mlx_error(with_device(Device::cpu(), || a.reshape(&shape)))?]
         }
         "ops.divmod.explicit_cpu" => {
             let a = args.tensor("input0")?;
             let b = args.tensor("input1")?;
             args.execution()?;
-            let (q, r) = mlx_error(ops::divmod_device(&a, &b, StreamOrDevice::cpu()))?;
+            let (q, r) = mlx_error(with_device(Device::cpu(), || ops::divmod(&a, &b)))?;
             vec![q, r]
         }
         "ops.windows.bartlett" => {
@@ -352,7 +352,7 @@ pub(super) fn dispatch(case: &Case, safe: &SafeTensors<'_>) -> Result<Vec<Array>
                 return Err("d scalar type mismatch".into());
             };
             args.execution()?;
-            vec![mlx_error(fft::fftfreq(
+            vec![mlx_error(mlx_rs::fft::fftfreq(
                 usize::try_from(n).map_err(|_| "n must be nonnegative")?,
                 f64::from(d),
             ))?]
@@ -365,7 +365,7 @@ pub(super) fn dispatch(case: &Case, safe: &SafeTensors<'_>) -> Result<Vec<Array>
                 return Err("d scalar type mismatch".into());
             };
             args.execution()?;
-            vec![mlx_error(fft::rfftfreq(
+            vec![mlx_error(mlx_rs::fft::rfftfreq(
                 usize::try_from(n).map_err(|_| "n must be nonnegative")?,
                 f64::from(d),
             ))?]

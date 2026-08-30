@@ -218,11 +218,8 @@
 //! location:
 //!
 //! ```rust
-//! // let a = mlx_rs::random::normal(&[100], None, None, None, None).unwrap();
-//! // let b = mlx_rs::random::normal(&[100], None, None, None, None).unwrap();
-//!
-//! let a = mlx_rs::normal!(shape=&[100]).unwrap();
-//! let b = mlx_rs::normal!(shape=&[100]).unwrap();
+//! let a = mlx_rs::random::normal::<f32>(&[100], None, None, None).unwrap();
+//! let b = mlx_rs::random::normal::<f32>(&[100], None, None, None).unwrap();
 //! ```
 //!
 //! Both `a` and `b` live in unified memory.
@@ -233,11 +230,8 @@
 //! example:
 //!
 //! ```rust,ignore
-//! // mlx_rs::ops::add_device(&a, &b, StreamOrDevice::cpu()).unwrap();
-//! // mlx_rs::ops::add_device(&a, &b, StreamOrDevice::gpu()).unwrap();
-//!
-//! mlx_rs::add!(&a, &b, stream=StreamOrDevice::cpu()).unwrap();
-//! mlx_rs::add!(&a, &b, stream=StreamOrDevice::gpu()).unwrap();
+//! mlx_rs::with_device(mlx_rs::Device::cpu(), || mlx_rs::ops::add(&a, &b)).unwrap();
+//! mlx_rs::with_device(mlx_rs::Device::gpu(), || mlx_rs::ops::add(&a, &b)).unwrap();
 //! ```
 //!
 //! In the above, both the CPU and the GPU will perform the same add operation.

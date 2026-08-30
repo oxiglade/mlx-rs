@@ -12,7 +12,7 @@ use crate::{
     error::Result,
     ops::indexing::expand_ellipsis_operations,
     utils::{resolve_index_unchecked, VectorArray},
-    Array, Stream,
+    with_stream, Array, Stream,
 };
 
 use super::{
@@ -896,7 +896,7 @@ fn gather_nd<'a>(
 #[inline]
 fn get_item_index(src: &Array, index: i32, axis: i32, stream: impl AsRef<Stream>) -> Result<Array> {
     let index = resolve_index_unchecked(index, src.dim(axis) as usize) as i32;
-    src.take_axis_device(array!(index), axis, stream)
+    with_stream(stream.as_ref(), || src.take_axis(array!(index), axis))
 }
 
 #[inline]
@@ -906,7 +906,7 @@ fn get_item_array(
     axis: i32,
     stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    src.take_axis_device(indices, axis, stream)
+    with_stream(stream.as_ref(), || src.take_axis(indices, axis))
 }
 
 #[inline]
@@ -939,7 +939,7 @@ fn get_item<'a>(
         TakeArray { indices } => get_item_array(src, &indices, 0, stream),
         TakeArrayRef { indices } => get_item_array(src, indices, 0, stream),
         Slice(range) => get_item_slice(src, range, stream),
-        ExpandDims => src.expand_dims_device(0, stream),
+        ExpandDims => with_stream(stream.as_ref(), || src.expand_dims(0)),
     }
 }
 

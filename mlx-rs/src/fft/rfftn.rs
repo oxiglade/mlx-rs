@@ -47,7 +47,7 @@ pub fn rfft(
 }
 
 /// Compatibility shim for [`rfft`].
-#[generate_macro(customize(root = "$crate::fft", forwarding_shim = true))]
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::fft"))]
 #[deprecated(
     since = "0.26.0",
     note = "use `with_stream` or `with_device` around `rfft`"
@@ -105,7 +105,7 @@ pub fn rfft2<'a>(
 }
 
 /// Compatibility shim for [`rfft2`].
-#[generate_macro(customize(root = "$crate::fft", forwarding_shim = true))]
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::fft"))]
 #[deprecated(
     since = "0.26.0",
     note = "use `with_stream` or `with_device` around `rfft2`"
@@ -156,7 +156,7 @@ pub fn rfftn(a: impl AsRef<Array>, options: FftnOptions) -> Result<Array> {
 }
 
 /// Compatibility shim for [`rfftn`].
-#[generate_macro(customize(root = "$crate::fft", forwarding_shim = true))]
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::fft"))]
 #[deprecated(
     since = "0.26.0",
     note = "use `with_stream` or `with_device` around `rfftn` with `FftnOptions`"
@@ -209,7 +209,7 @@ pub fn irfft(
 }
 
 /// Compatibility shim for [`irfft`].
-#[generate_macro(customize(root = "$crate::fft", forwarding_shim = true))]
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::fft"))]
 #[deprecated(
     since = "0.26.0",
     note = "use `with_stream` or `with_device` around `irfft`"
@@ -275,7 +275,7 @@ pub fn irfft2<'a>(
 }
 
 /// Compatibility shim for [`irfft2`].
-#[generate_macro(customize(root = "$crate::fft", forwarding_shim = true))]
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::fft"))]
 #[deprecated(
     since = "0.26.0",
     note = "use `with_stream` or `with_device` around `irfft2`"
@@ -333,7 +333,7 @@ pub fn irfftn(a: impl AsRef<Array>, options: FftnOptions) -> Result<Array> {
 }
 
 /// Compatibility shim for [`irfftn`].
-#[generate_macro(customize(root = "$crate::fft", forwarding_shim = true))]
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::fft"))]
 #[deprecated(
     since = "0.26.0",
     note = "use `with_stream` or `with_device` around `irfftn` with `FftnOptions`"

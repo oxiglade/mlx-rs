@@ -50,7 +50,7 @@ pub fn fftshift<'a>(a: impl AsRef<Array>, axes: impl IntoOption<&'a [i32]>) -> R
 }
 
 /// Compatibility shim for [`fftshift`].
-#[generate_macro(customize(root = "$crate::fft", forwarding_shim = true))]
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::fft"))]
 #[deprecated(
     since = "0.26.0",
     note = "use `with_stream` or `with_device` around `fftshift`"
@@ -98,7 +98,7 @@ pub fn ifftshift<'a>(a: impl AsRef<Array>, axes: impl IntoOption<&'a [i32]>) -> 
 }
 
 /// Compatibility shim for [`ifftshift`].
-#[generate_macro(customize(root = "$crate::fft", forwarding_shim = true))]
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::fft"))]
 #[deprecated(
     since = "0.26.0",
     note = "use `with_stream` or `with_device` around `ifftshift`"

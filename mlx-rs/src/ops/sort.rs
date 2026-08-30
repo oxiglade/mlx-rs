@@ -1,6 +1,6 @@
 //! Implements bindings for the sorting ops.
 
-use mlx_internal_macros::{default_device, generate_macro};
+use mlx_internal_macros::generate_macro;
 
 use crate::{error::Result, utils::guard::Guarded, Array, Stream};
 
@@ -20,16 +20,25 @@ use crate::{error::Result, utils::guard::Guarded, Array, Stream};
 /// let axis = 0;
 /// let result = sort_axis(&a, axis);
 /// ```
-#[generate_macro]
-#[default_device]
+pub fn sort_axis(a: impl AsRef<Array>, axis: i32) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
+    Array::try_from_op(|res| unsafe {
+        mlx_sys::mlx_sort_axis(res, a.as_ref().as_ptr(), axis, stream.as_ref().as_ptr())
+    })
+}
+
+/// Compatibility shim for [`sort_axis`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `sort_axis`"
+)]
 pub fn sort_axis_device(
     a: impl AsRef<Array>,
     axis: i32,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    Array::try_from_op(|res| unsafe {
-        mlx_sys::mlx_sort_axis(res, a.as_ref().as_ptr(), axis, stream.as_ref().as_ptr())
-    })
+    crate::with_stream(stream.as_ref(), || sort_axis(a, axis))
 }
 
 /// Returns a sorted copy of the flattened array. Returns an error if the arguments are invalid.
@@ -46,12 +55,21 @@ pub fn sort_axis_device(
 /// let a = Array::from_slice(&[3, 2, 1], &[3]);
 /// let result = sort(&a);
 /// ```
-#[generate_macro]
-#[default_device]
-pub fn sort_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+pub fn sort(a: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_sort(res, a.as_ref().as_ptr(), stream.as_ref().as_ptr())
     })
+}
+
+/// Compatibility shim for [`sort`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `sort`"
+)]
+pub fn sort_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || sort(a))
 }
 
 /// Returns the indices that sort the array. Returns an error if the arguments are invalid.
@@ -70,16 +88,25 @@ pub fn sort_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>)
 /// let axis = 0;
 /// let result = argsort_axis(&a, axis);
 /// ```
-#[generate_macro]
-#[default_device]
+pub fn argsort_axis(a: impl AsRef<Array>, axis: i32) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
+    Array::try_from_op(|res| unsafe {
+        mlx_sys::mlx_argsort_axis(res, a.as_ref().as_ptr(), axis, stream.as_ref().as_ptr())
+    })
+}
+
+/// Compatibility shim for [`argsort_axis`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `argsort_axis`"
+)]
 pub fn argsort_axis_device(
     a: impl AsRef<Array>,
     axis: i32,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    Array::try_from_op(|res| unsafe {
-        mlx_sys::mlx_argsort_axis(res, a.as_ref().as_ptr(), axis, stream.as_ref().as_ptr())
-    })
+    crate::with_stream(stream.as_ref(), || argsort_axis(a, axis))
 }
 
 /// Returns the indices that sort the flattened array. Returns an error if the arguments are
@@ -97,15 +124,24 @@ pub fn argsort_axis_device(
 /// let a = Array::from_slice(&[3, 2, 1], &[3]);
 /// let result = argsort(&a);
 /// ```
-#[generate_macro]
-#[default_device]
+pub fn argsort(a: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
+    Array::try_from_op(|res| unsafe {
+        mlx_sys::mlx_argsort(res, a.as_ref().as_ptr(), stream.as_ref().as_ptr())
+    })
+}
+
+/// Compatibility shim for [`argsort`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `argsort`"
+)]
 pub fn argsort_device(
     a: impl AsRef<Array>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    Array::try_from_op(|res| unsafe {
-        mlx_sys::mlx_argsort(res, a.as_ref().as_ptr(), stream.as_ref().as_ptr())
-    })
+    crate::with_stream(stream.as_ref(), || argsort(a))
 }
 
 /// Returns a partitioned copy of the array such that the smaller `kth` elements are first.
@@ -131,14 +167,8 @@ pub fn argsort_device(
 /// let axis = 0;
 /// let result = partition_axis(&a, kth, axis);
 /// ```
-#[generate_macro]
-#[default_device]
-pub fn partition_axis_device(
-    a: impl AsRef<Array>,
-    kth: i32,
-    axis: i32,
-    #[optional] stream: impl AsRef<Stream>,
-) -> Result<Array> {
+pub fn partition_axis(a: impl AsRef<Array>, kth: i32, axis: i32) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_partition_axis(
             res,
@@ -148,6 +178,21 @@ pub fn partition_axis_device(
             stream.as_ref().as_ptr(),
         )
     })
+}
+
+/// Compatibility shim for [`partition_axis`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `partition_axis`"
+)]
+pub fn partition_axis_device(
+    a: impl AsRef<Array>,
+    kth: i32,
+    axis: i32,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || partition_axis(a, kth, axis))
 }
 
 /// Returns a partitioned copy of the flattened array such that the smaller `kth` elements are
@@ -171,16 +216,25 @@ pub fn partition_axis_device(
 /// let kth = 1;
 /// let result = partition(&a, kth);
 /// ```
-#[generate_macro]
-#[default_device]
+pub fn partition(a: impl AsRef<Array>, kth: i32) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
+    Array::try_from_op(|res| unsafe {
+        mlx_sys::mlx_partition(res, a.as_ref().as_ptr(), kth, stream.as_ref().as_ptr())
+    })
+}
+
+/// Compatibility shim for [`partition`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `partition`"
+)]
 pub fn partition_device(
     a: impl AsRef<Array>,
     kth: i32,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    Array::try_from_op(|res| unsafe {
-        mlx_sys::mlx_partition(res, a.as_ref().as_ptr(), kth, stream.as_ref().as_ptr())
-    })
+    crate::with_stream(stream.as_ref(), || partition(a, kth))
 }
 
 /// Returns the indices that partition the array. Returns an error if the arguments are invalid.
@@ -206,14 +260,8 @@ pub fn partition_device(
 /// let axis = 0;
 /// let result = argpartition_axis(&a, kth, axis);
 /// ```
-#[generate_macro]
-#[default_device]
-pub fn argpartition_axis_device(
-    a: impl AsRef<Array>,
-    kth: i32,
-    axis: i32,
-    #[optional] stream: impl AsRef<Stream>,
-) -> Result<Array> {
+pub fn argpartition_axis(a: impl AsRef<Array>, kth: i32, axis: i32) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_argpartition_axis(
             res,
@@ -223,6 +271,21 @@ pub fn argpartition_axis_device(
             stream.as_ref().as_ptr(),
         )
     })
+}
+
+/// Compatibility shim for [`argpartition_axis`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `argpartition_axis`"
+)]
+pub fn argpartition_axis_device(
+    a: impl AsRef<Array>,
+    kth: i32,
+    axis: i32,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || argpartition_axis(a, kth, axis))
 }
 
 /// Returns the indices that partition the flattened array. Returns an error if the arguments are
@@ -247,16 +310,25 @@ pub fn argpartition_axis_device(
 /// let kth = 1;
 /// let result = argpartition(&a, kth);
 /// ```
-#[generate_macro]
-#[default_device]
+pub fn argpartition(a: impl AsRef<Array>, kth: i32) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
+    Array::try_from_op(|res| unsafe {
+        mlx_sys::mlx_argpartition(res, a.as_ref().as_ptr(), kth, stream.as_ref().as_ptr())
+    })
+}
+
+/// Compatibility shim for [`argpartition`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `argpartition`"
+)]
 pub fn argpartition_device(
     a: impl AsRef<Array>,
     kth: i32,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    Array::try_from_op(|res| unsafe {
-        mlx_sys::mlx_argpartition(res, a.as_ref().as_ptr(), kth, stream.as_ref().as_ptr())
-    })
+    crate::with_stream(stream.as_ref(), || argpartition(a, kth))
 }
 
 #[cfg(test)]

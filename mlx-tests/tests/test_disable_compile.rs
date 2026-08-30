@@ -1,7 +1,7 @@
 use mlx_rs::{
     array,
     error::Exception,
-    exp, negative,
+    ops::{exp, negative},
     transforms::compile::{compile, disable_compile, enable_compile},
     Array,
 };
@@ -11,12 +11,12 @@ fn test_disable_compile() {
     disable_compile();
 
     let f = |x: &Array| -> Result<Array, Exception> {
-        let z = negative!(x)?;
+        let z = negative(x)?;
 
         // this will crash is compile is enabled
         println!("{z:?}");
 
-        exp!(z)
+        exp(z)
     };
 
     let x = array!(10.0);

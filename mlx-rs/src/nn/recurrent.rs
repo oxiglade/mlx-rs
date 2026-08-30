@@ -7,10 +7,10 @@ use crate::{
     ops::{
         addmm,
         indexing::{Ellipsis, IndexOp},
-        matmul, sigmoid, split, stack_axis, tanh, tanh_device,
+        matmul, sigmoid, split, stack_axis, tanh,
     },
     random::uniform,
-    Array, Stream,
+    with_stream, Array, Stream,
 };
 use mlx_internal_macros::{generate_builder, Buildable, Builder};
 use mlx_macros::ModuleParameters;
@@ -86,7 +86,7 @@ fn build_rnn(builder: RnnBuilder) -> Result<Rnn, Exception> {
     let hidden_size = builder.hidden_size;
     let non_linearity = builder
         .non_linearity
-        .unwrap_or_else(|| Arc::new(|x, d| tanh_device(x, d)));
+        .unwrap_or_else(|| Arc::new(|x, d| with_stream(d, || tanh(x))));
 
     let scale = 1.0 / (input_size as f32).sqrt();
     let wxh = uniform::<_, f32>(-scale, scale, &[hidden_size, input_size], None)?;
@@ -580,7 +580,7 @@ where
 // The uint tests below are ported from the python codebase
 #[cfg(test)]
 mod tests {
-    use crate::{builder::Builder, ops::maximum_device, random::normal};
+    use crate::{builder::Builder, ops::maximum, random::normal};
 
     use super::*;
 
@@ -592,7 +592,7 @@ mod tests {
         let h_out = layer.forward(RnnInput::from(&inp)).unwrap();
         assert_eq!(h_out.shape(), &[2, 25, 12]);
 
-        let nonlinearity = |x: &Array, d: &Stream| maximum_device(x, array!(0.0), d);
+        let nonlinearity = |x: &Array, d: &Stream| with_stream(d, || maximum(x, array!(0.0)));
         let mut layer = RnnBuilder::new(5, 12)
             .bias(false)
             .non_linearity(Arc::new(nonlinearity) as Arc<NonLinearity>)

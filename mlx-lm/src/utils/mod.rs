@@ -1,9 +1,8 @@
 use mlx_rs::{
-    arange,
     error::Exception,
     fast::ScaledDotProductAttentionMask,
     ops::{
-        expand_dims,
+        arange, expand_dims,
         indexing::{IndexOp, NewAxis},
         quantized_matmul, reshape, softmax_axis,
     },
@@ -275,8 +274,8 @@ pub(crate) fn create_causal_mask(
 ) -> Result<Array, Exception> {
     let offset = offset.unwrap_or(0);
 
-    let rinds = arange!(stop = offset + N)?;
-    let linds = arange!(start = offset, stop = offset + N)?;
+    let rinds = arange::<_, f32>(None, offset + N, None)?;
+    let linds = arange::<_, f32>(offset, offset + N, None)?;
     let linds = linds.index((.., NewAxis));
     let rinds = rinds.index(NewAxis);
 

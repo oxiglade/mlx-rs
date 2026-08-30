@@ -1,6 +1,6 @@
 use std::ffi::CStr;
 
-use mlx_rs::{linalg::inv_device, Array, Stream};
+use mlx_rs::{linalg::inv, with_stream, Array, Stream};
 
 #[test]
 fn linked_mlx_runtime_is_0_32_2() {
@@ -22,7 +22,8 @@ fn singular_inverse_is_catchable_at_eval() {
     // internal eval, so the Rust contract is: lazy construction, catchable
     // eval error.
     let singular = Array::zeros::<f32>(&[2, 2]).unwrap();
-    let out = inv_device(&singular, Stream::cpu()).unwrap();
+    let stream = Stream::cpu();
+    let out = with_stream(&stream, || inv(&singular)).unwrap();
     let error = mlx_rs::transforms::eval([&out]).unwrap_err();
     assert!(!error.what().is_empty());
 }

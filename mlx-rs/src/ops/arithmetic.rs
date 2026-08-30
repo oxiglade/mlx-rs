@@ -5,7 +5,7 @@ use crate::sealed::Sealed;
 use crate::utils::guard::Guarded;
 use crate::utils::{IntoOption, ScalarOrArray, VectorArray};
 use crate::Stream;
-use mlx_internal_macros::{default_device, generate_macro};
+use mlx_internal_macros::generate_macro;
 use smallvec::SmallVec;
 
 impl Array {
@@ -21,11 +21,20 @@ impl Array {
     /// let data: &[i32] = result.as_slice();
     /// // data == [1, 2, 3, 4, 5]
     /// ```
-    #[default_device]
-    pub fn abs_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+    pub fn abs(&self) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_abs(res, self.as_ptr(), stream.as_ref().as_ptr())
         })
+    }
+
+    /// Compatibility shim for [`abs`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `abs`"
+    )]
+    pub fn abs_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.abs())
     }
 
     /// Element-wise addition returning an error if arrays are not broadcastable.
@@ -47,12 +56,8 @@ impl Array {
     /// let c_data: &[f32] = c.as_slice();
     /// // c_data == [5.0, 7.0, 9.0]
     /// ```
-    #[default_device]
-    pub fn add_device(
-        &self,
-        other: impl AsRef<Array>,
-        stream: impl AsRef<Stream>,
-    ) -> Result<Array> {
+    pub fn add(&self, other: impl AsRef<Array>) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_add(
                 res,
@@ -61,6 +66,19 @@ impl Array {
                 stream.as_ref().as_ptr(),
             )
         })
+    }
+
+    /// Compatibility shim for [`add`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `add`"
+    )]
+    pub fn add_device(
+        &self,
+        other: impl AsRef<Array>,
+        stream: impl AsRef<Stream>,
+    ) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.add(other))
     }
 
     /// Element-wise subtraction returning an error if arrays are not broadcastable.
@@ -82,12 +100,8 @@ impl Array {
     /// let c_data: &[f32] = c.as_slice();
     /// // c_data == [-3.0, -3.0, -3.0]
     /// ```
-    #[default_device]
-    pub fn subtract_device(
-        &self,
-        other: impl AsRef<Array>,
-        stream: impl AsRef<Stream>,
-    ) -> Result<Array> {
+    pub fn subtract(&self, other: impl AsRef<Array>) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_subtract(
                 res,
@@ -96,6 +110,19 @@ impl Array {
                 stream.as_ref().as_ptr(),
             )
         })
+    }
+
+    /// Compatibility shim for [`subtract`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `subtract`"
+    )]
+    pub fn subtract_device(
+        &self,
+        other: impl AsRef<Array>,
+        stream: impl AsRef<Stream>,
+    ) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.subtract(other))
     }
 
     /// Unary element-wise negation. Returns an error if the array is of type bool.
@@ -112,11 +139,20 @@ impl Array {
     /// let b_data: &[f32] = b.as_slice();
     /// // b_data == [-1.0, -2.0, -3.0]
     /// ```
-    #[default_device]
-    pub fn negative_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+    pub fn negative(&self) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_negative(res, self.as_ptr(), stream.as_ref().as_ptr())
         })
+    }
+
+    /// Compatibility shim for [`negative`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `negative`"
+    )]
+    pub fn negative_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.negative())
     }
 
     /// Element-wise multiplication returning an error if arrays are not broadcastable.
@@ -134,12 +170,8 @@ impl Array {
     /// let c_data: &[f32] = c.as_slice();
     /// // c_data == [4.0, 10.0, 18.0]
     /// ```
-    #[default_device]
-    pub fn multiply_device(
-        &self,
-        other: impl AsRef<Array>,
-        stream: impl AsRef<Stream>,
-    ) -> Result<Array> {
+    pub fn multiply(&self, other: impl AsRef<Array>) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_multiply(
                 res,
@@ -150,23 +182,35 @@ impl Array {
         })
     }
 
+    /// Compatibility shim for [`multiply`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `multiply`"
+    )]
+    pub fn multiply_device(
+        &self,
+        other: impl AsRef<Array>,
+        stream: impl AsRef<Stream>,
+    ) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.multiply(other))
+    }
+
     /// Replace NaN and Inf values with finite numbers.
     ///
     /// # Params
     /// - nan: value to replace NaN with
     /// - posInf: value to replace positive inifinites with.  If not specified will use
-    ///     the largest finite value for the given dtype.
+    ///   the largest finite value for the given dtype.
     /// - negInf: value to replace negative inifinites with.  If not specified will use
-    ///     the negative of the largest finite value for the given dtype.
+    ///   the negative of the largest finite value for the given dtype.
     /// - stream: stream or device to evaluate on
-    #[default_device]
-    pub fn nan_to_num_device(
+    pub fn nan_to_num(
         &self,
         nan: impl IntoOption<f32>,
         pos_inf: impl IntoOption<f32>,
         neg_inf: impl IntoOption<f32>,
-        stream: impl AsRef<Stream>,
     ) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         let pos_inf = pos_inf.into_option();
         let neg_inf = neg_inf.into_option();
 
@@ -191,6 +235,21 @@ impl Array {
         })
     }
 
+    /// Compatibility shim for [`nan_to_num`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `nan_to_num`"
+    )]
+    pub fn nan_to_num_device(
+        &self,
+        nan: impl IntoOption<f32>,
+        pos_inf: impl IntoOption<f32>,
+        neg_inf: impl IntoOption<f32>,
+        stream: impl AsRef<Stream>,
+    ) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.nan_to_num(nan, pos_inf, neg_inf))
+    }
+
     /// Element-wise division returning an error if arrays are not broadcastable.
     ///
     /// Divide two arrays with [broadcasting](https://swiftpackageindex.com/ml-explore/mlx-swift/main/documentation/mlx/broadcasting).
@@ -210,12 +269,8 @@ impl Array {
     /// let c_data: &[f32] = c.as_slice();
     /// // c_data == [0.25, 0.4, 0.5]
     /// ```
-    #[default_device]
-    pub fn divide_device(
-        &self,
-        other: impl AsRef<Array>,
-        stream: impl AsRef<Stream>,
-    ) -> Result<Array> {
+    pub fn divide(&self, other: impl AsRef<Array>) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_divide(
                 res,
@@ -224,6 +279,19 @@ impl Array {
                 stream.as_ref().as_ptr(),
             )
         })
+    }
+
+    /// Compatibility shim for [`divide`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `divide`"
+    )]
+    pub fn divide_device(
+        &self,
+        other: impl AsRef<Array>,
+        stream: impl AsRef<Stream>,
+    ) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.divide(other))
     }
 
     /// Element-wise power operation returning an error if arrays are not broadcastable if they have different shapes.
@@ -245,12 +313,8 @@ impl Array {
     /// let c_data: &[f32] = c.as_slice();
     /// // c_data == [1.0, 8.0, 81.0]
     /// ```
-    #[default_device]
-    pub fn power_device(
-        &self,
-        other: impl AsRef<Array>,
-        stream: impl AsRef<Stream>,
-    ) -> Result<Array> {
+    pub fn power(&self, other: impl AsRef<Array>) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_power(
                 res,
@@ -259,6 +323,19 @@ impl Array {
                 stream.as_ref().as_ptr(),
             )
         })
+    }
+
+    /// Compatibility shim for [`power`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `power`"
+    )]
+    pub fn power_device(
+        &self,
+        other: impl AsRef<Array>,
+        stream: impl AsRef<Stream>,
+    ) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.power(other))
     }
 
     /// Element-wise remainder of division returning an error if arrays are not broadcastable.
@@ -280,12 +357,8 @@ impl Array {
     /// let c_data: &[f32] = c.as_slice();
     /// // c_data == [1.0, 3.0, 2.0]
     /// ```
-    #[default_device]
-    pub fn remainder_device(
-        &self,
-        other: impl AsRef<Array>,
-        stream: impl AsRef<Stream>,
-    ) -> Result<Array> {
+    pub fn remainder(&self, other: impl AsRef<Array>) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_remainder(
                 res,
@@ -294,6 +367,19 @@ impl Array {
                 stream.as_ref().as_ptr(),
             )
         })
+    }
+
+    /// Compatibility shim for [`remainder`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `remainder`"
+    )]
+    pub fn remainder_device(
+        &self,
+        other: impl AsRef<Array>,
+        stream: impl AsRef<Stream>,
+    ) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.remainder(other))
     }
 
     /// Element-wise square root
@@ -308,11 +394,20 @@ impl Array {
     /// let b_data: &[f32] = b.as_slice();
     /// // b_data == [1.0, 2.0, 3.0]
     /// ```
-    #[default_device]
-    pub fn sqrt_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+    pub fn sqrt(&self) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_sqrt(res, self.as_ptr(), stream.as_ref().as_ptr())
         })
+    }
+
+    /// Compatibility shim for [`sqrt`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `sqrt`"
+    )]
+    pub fn sqrt_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.sqrt())
     }
 
     /// Element-wise cosine
@@ -327,11 +422,20 @@ impl Array {
     /// let b_data: &[f32] = b.as_slice();
     /// // b_data == [1.0, 0.54030234, -0.41614687]
     /// ```
-    #[default_device]
-    pub fn cos_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+    pub fn cos(&self) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_cos(res, self.as_ptr(), stream.as_ref().as_ptr())
         })
+    }
+
+    /// Compatibility shim for [`cos`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `cos`"
+    )]
+    pub fn cos_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.cos())
     }
 
     /// Element-wise exponential.
@@ -348,11 +452,20 @@ impl Array {
     /// let b_data: &[f32] = b.as_slice();
     /// // b_data == [1.0, 2.7182817, 7.389056]
     /// ```
-    #[default_device]
-    pub fn exp_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+    pub fn exp(&self) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_exp(res, self.as_ptr(), stream.as_ref().as_ptr())
         })
+    }
+
+    /// Compatibility shim for [`exp`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `exp`"
+    )]
+    pub fn exp_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.exp())
     }
 
     /// Element-wise floor returning an error if the array is of type complex64.
@@ -367,11 +480,20 @@ impl Array {
     /// let b_data: &[f32] = b.as_slice();
     /// // b_data == [0.0, 1.0, 2.0]
     /// ```
-    #[default_device]
-    pub fn floor_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+    pub fn floor(&self) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_floor(res, self.as_ptr(), stream.as_ref().as_ptr())
         })
+    }
+
+    /// Compatibility shim for [`floor`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `floor`"
+    )]
+    pub fn floor_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.floor())
     }
 
     /// Element-wise integer division returning an error if arrays are not broadcastable.
@@ -397,12 +519,8 @@ impl Array {
     /// let c_data: &[f32] = c.as_slice();
     /// // c_data == [0.25, 0.4, 0.5]
     /// ```
-    #[default_device]
-    pub fn floor_divide_device(
-        &self,
-        other: impl AsRef<Array>,
-        stream: impl AsRef<Stream>,
-    ) -> Result<Array> {
+    pub fn floor_divide(&self, other: impl AsRef<Array>) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_floor_divide(
                 res,
@@ -413,59 +531,117 @@ impl Array {
         })
     }
 
+    /// Compatibility shim for [`floor_divide`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `floor_divide`"
+    )]
+    pub fn floor_divide_device(
+        &self,
+        other: impl AsRef<Array>,
+        stream: impl AsRef<Stream>,
+    ) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.floor_divide(other))
+    }
+
     /// Return a boolean array indicating which elements are NaN.
     ///
     /// # Params
     /// - stream: stream or device to evaluate on
-    #[default_device]
-    pub fn is_nan_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+    pub fn is_nan(&self) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_isnan(res, self.as_ptr(), stream.as_ref().as_ptr())
         })
+    }
+
+    /// Compatibility shim for [`is_nan`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `is_nan`"
+    )]
+    pub fn is_nan_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.is_nan())
     }
 
     /// Return a boolean array indicating which elements are infinity.
     ///
     /// # Params
     /// - stream: stream or device to evaluate on
-    #[default_device]
-    pub fn is_inf_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+    pub fn is_inf(&self) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_isinf(res, self.as_ptr(), stream.as_ref().as_ptr())
         })
+    }
+
+    /// Compatibility shim for [`is_inf`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `is_inf`"
+    )]
+    pub fn is_inf_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.is_inf())
     }
 
     /// Return a boolean array indicating which elements are finite.
     ///
     /// # Params
     /// - stream: stream or device to evaluate on
-    #[default_device]
-    pub fn is_finite_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+    pub fn is_finite(&self) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_isfinite(res, self.as_ptr(), stream.as_ref().as_ptr())
         })
+    }
+
+    /// Compatibility shim for [`is_finite`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `is_finite`"
+    )]
+    pub fn is_finite_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.is_finite())
     }
 
     /// Return a boolean array indicating which elements are negative infinity.
     ///
     /// # Params
     /// - stream: stream or device to evaluate on
-    #[default_device]
-    pub fn is_neg_inf_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+    pub fn is_neg_inf(&self) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_isneginf(res, self.as_ptr(), stream.as_ref().as_ptr())
         })
+    }
+
+    /// Compatibility shim for [`is_neg_inf`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `is_neg_inf`"
+    )]
+    pub fn is_neg_inf_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.is_neg_inf())
     }
 
     /// Return a boolean array indicating which elements are positive infinity.
     ///
     /// # Params
     /// - stream: stream or device to evaluate on
-    #[default_device]
-    pub fn is_pos_inf_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+    pub fn is_pos_inf(&self) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_isposinf(res, self.as_ptr(), stream.as_ref().as_ptr())
         })
+    }
+
+    /// Compatibility shim for [`is_pos_inf`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `is_pos_inf`"
+    )]
+    pub fn is_pos_inf_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.is_pos_inf())
     }
 
     /// Element-wise natural logarithm.
@@ -480,11 +656,20 @@ impl Array {
     /// let b_data: &[f32] = b.as_slice();
     /// // b_data == [0.0, 0.6931472, 1.0986123]
     /// ```
-    #[default_device]
-    pub fn log_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+    pub fn log(&self) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_log(res, self.as_ptr(), stream.as_ref().as_ptr())
         })
+    }
+
+    /// Compatibility shim for [`log`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `log`"
+    )]
+    pub fn log_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.log())
     }
 
     /// Element-wise base-2 logarithm.
@@ -499,11 +684,20 @@ impl Array {
     /// let b_data: &[f32] = b.as_slice();
     /// // b_data == [0.0, 1.0, 2.0, 3.0]
     /// ```
-    #[default_device]
-    pub fn log2_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+    pub fn log2(&self) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_log2(res, self.as_ptr(), stream.as_ref().as_ptr())
         })
+    }
+
+    /// Compatibility shim for [`log2`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `log2`"
+    )]
+    pub fn log2_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.log2())
     }
 
     /// Element-wise base-10 logarithm.
@@ -518,11 +712,20 @@ impl Array {
     /// let b_data: &[f32] = b.as_slice();
     /// // b_data == [0.0, 1.0, 2.0]
     /// ```
-    #[default_device]
-    pub fn log10_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+    pub fn log10(&self) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_log10(res, self.as_ptr(), stream.as_ref().as_ptr())
         })
+    }
+
+    /// Compatibility shim for [`log10`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `log10`"
+    )]
+    pub fn log10_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.log10())
     }
 
     /// Element-wise natural log of one plus the array.
@@ -537,11 +740,20 @@ impl Array {
     /// let b_data: &[f32] = b.as_slice();
     /// // b_data == [0.6931472, 1.0986123, 1.3862944]
     /// ```
-    #[default_device]
-    pub fn log1p_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+    pub fn log1p(&self) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_log1p(res, self.as_ptr(), stream.as_ref().as_ptr())
         })
+    }
+
+    /// Compatibility shim for [`log1p`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `log1p`"
+    )]
+    pub fn log1p_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.log1p())
     }
 
     /// Matrix multiplication returning an error if inputs are not valid.
@@ -573,12 +785,8 @@ impl Array {
     /// // produces a [2, 3] result
     /// let mut c = a.matmul(&b);
     /// ```
-    #[default_device]
-    pub fn matmul_device(
-        &self,
-        other: impl AsRef<Array>,
-        stream: impl AsRef<Stream>,
-    ) -> Result<Array> {
+    pub fn matmul(&self, other: impl AsRef<Array>) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_matmul(
                 res,
@@ -587,6 +795,19 @@ impl Array {
                 stream.as_ref().as_ptr(),
             )
         })
+    }
+
+    /// Compatibility shim for [`matmul`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `matmul`"
+    )]
+    pub fn matmul_device(
+        &self,
+        other: impl AsRef<Array>,
+        stream: impl AsRef<Stream>,
+    ) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.matmul(other))
     }
 
     /// Element-wise reciprocal.
@@ -601,11 +822,20 @@ impl Array {
     /// let b_data: &[f32] = b.as_slice();
     /// // b_data == [1.0, 0.5, 0.25]
     /// ```
-    #[default_device]
-    pub fn reciprocal_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+    pub fn reciprocal(&self) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_reciprocal(res, self.as_ptr(), stream.as_ref().as_ptr())
         })
+    }
+
+    /// Compatibility shim for [`reciprocal`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `reciprocal`"
+    )]
+    pub fn reciprocal_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.reciprocal())
     }
 
     /// Round to the given number of decimals.
@@ -613,12 +843,8 @@ impl Array {
     /// # Params
     ///
     /// - decimals: number of decimals to round to - default is 0 if not provided
-    #[default_device]
-    pub fn round_device(
-        &self,
-        decimals: impl Into<Option<i32>>,
-        stream: impl AsRef<Stream>,
-    ) -> Result<Array> {
+    pub fn round(&self, decimals: impl Into<Option<i32>>) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_round(
                 res,
@@ -629,44 +855,102 @@ impl Array {
         })
     }
 
+    /// Compatibility shim for [`round`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `round`"
+    )]
+    pub fn round_device(
+        &self,
+        decimals: impl Into<Option<i32>>,
+        stream: impl AsRef<Stream>,
+    ) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.round(decimals))
+    }
+
     /// Element-wise reciprocal and square root.
-    #[default_device]
-    pub fn rsqrt_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+    pub fn rsqrt(&self) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_rsqrt(res, self.as_ptr(), stream.as_ref().as_ptr())
         })
     }
 
+    /// Compatibility shim for [`rsqrt`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `rsqrt`"
+    )]
+    pub fn rsqrt_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.rsqrt())
+    }
+
     /// Element-wise sine.
-    #[default_device]
-    pub fn sin_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+    pub fn sin(&self) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_sin(res, self.as_ptr(), stream.as_ref().as_ptr())
         })
     }
 
+    /// Compatibility shim for [`sin`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `sin`"
+    )]
+    pub fn sin_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.sin())
+    }
+
     /// Element-wise square.
-    #[default_device]
-    pub fn square_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+    pub fn square(&self) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_square(res, self.as_ptr(), stream.as_ref().as_ptr())
         })
     }
 
+    /// Compatibility shim for [`square`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `square`"
+    )]
+    pub fn square_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.square())
+    }
+
     /// Element-wise real part from a complex array.
-    #[default_device]
-    pub fn real_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+    pub fn real(&self) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_real(res, self.as_ptr(), stream.as_ref().as_ptr())
         })
     }
 
+    /// Compatibility shim for [`real`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `real`"
+    )]
+    pub fn real_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.real())
+    }
+
     /// Element-wise imag part from a complex array.
-    #[default_device]
-    pub fn imag_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+    pub fn imag(&self) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_imag(res, self.as_ptr(), stream.as_ref().as_ptr())
         })
+    }
+
+    /// Compatibility shim for [`imag`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `imag`"
+    )]
+    pub fn imag_device(&self, stream: impl AsRef<Stream>) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || self.imag())
     }
 }
 
@@ -680,76 +964,132 @@ impl Array {
 /// let array = Array::from_slice(&[1i32, 2, -3, -4, -5], &[5]);
 /// let result = ops::abs(&array).unwrap();
 /// ```
-#[generate_macro]
-#[default_device]
+pub fn abs(a: impl AsRef<Array>) -> Result<Array> {
+    a.as_ref().abs()
+}
+
+/// Compatibility shim for [`abs`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `abs`"
+)]
 pub fn abs_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
-    a.as_ref().abs_device(stream)
+    crate::with_stream(stream.as_ref(), || abs(a))
 }
 
 /// Element-wise inverse cosine.
-#[generate_macro]
-#[default_device]
-pub fn acos_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+pub fn acos(a: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_arccos(res, a.as_ref().as_ptr(), stream.as_ref().as_ptr())
     })
 }
 
+/// Compatibility shim for [`acos`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `acos`"
+)]
+pub fn acos_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || acos(a))
+}
+
 /// Element-wise inverse hyperbolic cosine.
-#[generate_macro]
-#[default_device]
-pub fn acosh_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+pub fn acosh(a: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_arccosh(res, a.as_ref().as_ptr(), stream.as_ref().as_ptr())
     })
 }
 
+/// Compatibility shim for [`acosh`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `acosh`"
+)]
+pub fn acosh_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || acosh(a))
+}
+
 /// See [`Array::add`].
-#[generate_macro]
-#[default_device]
+pub fn add(lhs: impl AsRef<Array>, rhs: impl AsRef<Array>) -> Result<Array> {
+    lhs.as_ref().add(rhs)
+}
+
+/// Compatibility shim for [`add`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `add`"
+)]
 pub fn add_device(
     lhs: impl AsRef<Array>,
     rhs: impl AsRef<Array>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    lhs.as_ref().add_device(rhs, stream)
+    crate::with_stream(stream.as_ref(), || add(lhs, rhs))
 }
 
 /// Element-wise inverse sine.
-#[generate_macro]
-#[default_device]
-pub fn asin_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+pub fn asin(a: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_arcsin(res, a.as_ref().as_ptr(), stream.as_ref().as_ptr())
     })
 }
 
+/// Compatibility shim for [`asin`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `asin`"
+)]
+pub fn asin_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || asin(a))
+}
+
 /// Element-wise inverse hyperbolic sine.
-#[generate_macro]
-#[default_device]
-pub fn asinh_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+pub fn asinh(a: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_arcsinh(res, a.as_ref().as_ptr(), stream.as_ref().as_ptr())
     })
 }
 
+/// Compatibility shim for [`asinh`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `asinh`"
+)]
+pub fn asinh_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || asinh(a))
+}
+
 /// Element-wise inverse tangent.
-#[generate_macro]
-#[default_device]
-pub fn atan_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+pub fn atan(a: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_arctan(res, a.as_ref().as_ptr(), stream.as_ref().as_ptr())
     })
 }
 
+/// Compatibility shim for [`atan`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `atan`"
+)]
+pub fn atan_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || atan(a))
+}
+
 /// Element-wise inverse tangent of b/a choosing the quadrant correctly.
-#[generate_macro]
-#[default_device]
-pub fn atan2_device(
-    a: impl AsRef<Array>,
-    b: impl AsRef<Array>,
-    #[optional] stream: impl AsRef<Stream>,
-) -> Result<Array> {
+pub fn atan2(a: impl AsRef<Array>, b: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let a = a.as_ref();
     let b = b.as_ref();
 
@@ -758,22 +1098,54 @@ pub fn atan2_device(
     })
 }
 
+/// Compatibility shim for [`atan2`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `atan2`"
+)]
+pub fn atan2_device(
+    a: impl AsRef<Array>,
+    b: impl AsRef<Array>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || atan2(a, b))
+}
+
 /// Element-wise inverse hyperbolic tangent.
-#[generate_macro]
-#[default_device]
-pub fn atanh_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+pub fn atanh(a: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_arctanh(res, a.as_ref().as_ptr(), stream.as_ref().as_ptr())
     })
 }
 
+/// Compatibility shim for [`atanh`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `atanh`"
+)]
+pub fn atanh_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || atanh(a))
+}
+
 /// Element-wise ceiling.
-#[generate_macro]
-#[default_device]
-pub fn ceil_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+pub fn ceil(a: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_ceil(res, a.as_ref().as_ptr(), stream.as_ref().as_ptr())
     })
+}
+
+/// Compatibility shim for [`ceil`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `ceil`"
+)]
+pub fn ceil_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || ceil(a))
 }
 
 /// A custom trait for the bound of the clip operation.
@@ -854,13 +1226,8 @@ where
 /// let clipped = clip(&a, (2.0, 6.0)).unwrap();
 /// assert_eq!(clipped, expected);
 /// ```
-#[generate_macro]
-#[default_device]
-pub fn clip_device<'min, 'max>(
-    a: impl AsRef<Array>,
-    bound: impl ClipBound<'min, 'max>,
-    #[optional] stream: impl AsRef<Stream>,
-) -> Result<Array> {
+pub fn clip<'min, 'max>(a: impl AsRef<Array>, bound: impl ClipBound<'min, 'max>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let (a_min, a_max) = bound.into_min_max();
 
     // This is needed to keep the lifetime of the min/max arrays in scope.
@@ -889,43 +1256,91 @@ pub fn clip_device<'min, 'max>(
     }
 }
 
+/// Compatibility shim for [`clip`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `clip`"
+)]
+pub fn clip_device<'min, 'max>(
+    a: impl AsRef<Array>,
+    bound: impl ClipBound<'min, 'max>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || clip(a, bound))
+}
+
 /// Element-wise cosine.
-#[generate_macro]
-#[default_device]
+pub fn cos(a: impl AsRef<Array>) -> Result<Array> {
+    a.as_ref().cos()
+}
+
+/// Compatibility shim for [`cos`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `cos`"
+)]
 pub fn cos_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
-    a.as_ref().cos_device(stream)
+    crate::with_stream(stream.as_ref(), || cos(a))
 }
 
 /// Element-wise hyperbolic cosine.
-#[generate_macro]
-#[default_device]
-pub fn cosh_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+pub fn cosh(a: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_cosh(res, a.as_ref().as_ptr(), stream.as_ref().as_ptr())
     })
 }
 
+/// Compatibility shim for [`cosh`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `cosh`"
+)]
+pub fn cosh_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || cosh(a))
+}
+
 /// Convert angles from radians to degrees.
-#[generate_macro]
-#[default_device]
-pub fn degrees_device(
-    a: impl AsRef<Array>,
-    #[optional] stream: impl AsRef<Stream>,
-) -> Result<Array> {
+pub fn degrees(a: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_degrees(res, a.as_ref().as_ptr(), stream.as_ref().as_ptr())
     })
 }
 
+/// Compatibility shim for [`degrees`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `degrees`"
+)]
+pub fn degrees_device(
+    a: impl AsRef<Array>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || degrees(a))
+}
+
 /// See [`Array::divide`].
-#[generate_macro]
-#[default_device]
+pub fn divide(a: impl AsRef<Array>, b: impl AsRef<Array>) -> Result<Array> {
+    a.as_ref().divide(b)
+}
+
+/// Compatibility shim for [`divide`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `divide`"
+)]
 pub fn divide_device(
     a: impl AsRef<Array>,
     b: impl AsRef<Array>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    a.as_ref().divide_device(b, stream)
+    crate::with_stream(stream.as_ref(), || divide(a, b))
 }
 
 /// Element-wise quotient and remainder.
@@ -934,13 +1349,8 @@ pub fn divide_device(
 /// numpy-style broadcasting semantics. Either or both input arrays can also be scalars.
 ///
 /// Returns Ok((quotient, remainder)) if the operation was successful.
-#[generate_macro]
-#[default_device]
-pub fn divmod_device(
-    a: impl AsRef<Array>,
-    b: impl AsRef<Array>,
-    #[optional] stream: impl AsRef<Stream>,
-) -> Result<(Array, Array)> {
+pub fn divmod(a: impl AsRef<Array>, b: impl AsRef<Array>) -> Result<(Array, Array)> {
+    let stream = Stream::thread_local_or_default();
     let a_ptr = a.as_ref().as_ptr();
     let b_ptr = b.as_ref().as_ptr();
 
@@ -956,87 +1366,184 @@ pub fn divmod_device(
     Ok((quotient, remainder))
 }
 
+/// Compatibility shim for [`divmod`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `divmod`"
+)]
+pub fn divmod_device(
+    a: impl AsRef<Array>,
+    b: impl AsRef<Array>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<(Array, Array)> {
+    crate::with_stream(stream.as_ref(), || divmod(a, b))
+}
+
 /// Element-wise error function.
-#[generate_macro]
-#[default_device]
-pub fn erf_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+pub fn erf(a: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_erf(res, a.as_ref().as_ptr(), stream.as_ref().as_ptr())
     })
 }
 
+/// Compatibility shim for [`erf`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `erf`"
+)]
+pub fn erf_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || erf(a))
+}
+
 /// Element-wise inverse error function.
-#[generate_macro]
-#[default_device]
-pub fn erfinv_device(
-    a: impl AsRef<Array>,
-    #[optional] stream: impl AsRef<Stream>,
-) -> Result<Array> {
+pub fn erfinv(a: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_erfinv(res, a.as_ref().as_ptr(), stream.as_ref().as_ptr())
     })
 }
 
+/// Compatibility shim for [`erfinv`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `erfinv`"
+)]
+pub fn erfinv_device(
+    a: impl AsRef<Array>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || erfinv(a))
+}
+
 /// See [`Array::exp`].
-#[generate_macro]
-#[default_device]
+pub fn exp(a: impl AsRef<Array>) -> Result<Array> {
+    a.as_ref().exp()
+}
+
+/// Compatibility shim for [`exp`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `exp`"
+)]
 pub fn exp_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
-    a.as_ref().exp_device(stream)
+    crate::with_stream(stream.as_ref(), || exp(a))
 }
 
 /// Element-wise exponential minus 1.
-#[generate_macro]
-#[default_device]
-pub fn expm1_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+pub fn expm1(a: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_expm1(res, a.as_ref().as_ptr(), stream.as_ref().as_ptr())
     })
 }
 
+/// Compatibility shim for [`expm1`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `expm1`"
+)]
+pub fn expm1_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || expm1(a))
+}
+
 /// See [`Array::floor`].
-#[generate_macro]
-#[default_device]
+pub fn floor(a: impl AsRef<Array>) -> Result<Array> {
+    a.as_ref().floor()
+}
+
+/// Compatibility shim for [`floor`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `floor`"
+)]
 pub fn floor_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
-    a.as_ref().floor_device(stream)
+    crate::with_stream(stream.as_ref(), || floor(a))
 }
 
 /// See [`Array::floor_divide`].
-#[generate_macro]
-#[default_device]
+pub fn floor_divide(a: impl AsRef<Array>, other: impl AsRef<Array>) -> Result<Array> {
+    a.as_ref().floor_divide(other)
+}
+
+/// Compatibility shim for [`floor_divide`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `floor_divide`"
+)]
 pub fn floor_divide_device(
     a: impl AsRef<Array>,
     other: impl AsRef<Array>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    a.as_ref().floor_divide_device(other, stream)
+    crate::with_stream(stream.as_ref(), || floor_divide(a, other))
 }
 
 /// See [`Array::log`].
-#[generate_macro]
-#[default_device]
+pub fn log(a: impl AsRef<Array>) -> Result<Array> {
+    a.as_ref().log()
+}
+
+/// Compatibility shim for [`log`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `log`"
+)]
 pub fn log_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
-    a.as_ref().log_device(stream)
+    crate::with_stream(stream.as_ref(), || log(a))
 }
 
 /// See [`Array::log10`].
-#[generate_macro]
-#[default_device]
+pub fn log10(a: impl AsRef<Array>) -> Result<Array> {
+    a.as_ref().log10()
+}
+
+/// Compatibility shim for [`log10`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `log10`"
+)]
 pub fn log10_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
-    a.as_ref().log10_device(stream)
+    crate::with_stream(stream.as_ref(), || log10(a))
 }
 
 /// See [`Array::log1p`].
-#[generate_macro]
-#[default_device]
+pub fn log1p(a: impl AsRef<Array>) -> Result<Array> {
+    a.as_ref().log1p()
+}
+
+/// Compatibility shim for [`log1p`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `log1p`"
+)]
 pub fn log1p_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
-    a.as_ref().log1p_device(stream)
+    crate::with_stream(stream.as_ref(), || log1p(a))
 }
 
 /// See [`Array::log2`].
-#[generate_macro]
-#[default_device]
+pub fn log2(a: impl AsRef<Array>) -> Result<Array> {
+    a.as_ref().log2()
+}
+
+/// Compatibility shim for [`log2`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `log2`"
+)]
 pub fn log2_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
-    a.as_ref().log2_device(stream)
+    crate::with_stream(stream.as_ref(), || log2(a))
 }
 
 /// Element-wise log-add-exp.
@@ -1045,13 +1552,8 @@ pub fn log2_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>)
 /// Either or both input arrays can also be scalars.
 ///
 /// The computation is is a numerically stable version of `log(exp(a) + exp(b))`.
-#[generate_macro]
-#[default_device]
-pub fn logaddexp_device(
-    a: impl AsRef<Array>,
-    b: impl AsRef<Array>,
-    #[optional] stream: impl AsRef<Stream>,
-) -> Result<Array> {
+pub fn logaddexp(a: impl AsRef<Array>, b: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let a_ptr = a.as_ref().as_ptr();
     let b_ptr = b.as_ref().as_ptr();
 
@@ -1060,15 +1562,37 @@ pub fn logaddexp_device(
     })
 }
 
+/// Compatibility shim for [`logaddexp`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `logaddexp`"
+)]
+pub fn logaddexp_device(
+    a: impl AsRef<Array>,
+    b: impl AsRef<Array>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || logaddexp(a, b))
+}
+
 /// See [`Array::matmul`].
-#[generate_macro]
-#[default_device]
+pub fn matmul(a: impl AsRef<Array>, b: impl AsRef<Array>) -> Result<Array> {
+    a.as_ref().matmul(b)
+}
+
+/// Compatibility shim for [`matmul`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `matmul`"
+)]
 pub fn matmul_device(
     a: impl AsRef<Array>,
     b: impl AsRef<Array>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    a.as_ref().matmul_device(b, stream)
+    crate::with_stream(stream.as_ref(), || matmul(a, b))
 }
 
 /// Perform a segmented matrix multiplication.
@@ -1100,14 +1624,12 @@ pub fn matmul_device(
 /// let result = segmented_mm(&a, &b, &segments, None).unwrap();
 /// // result has shape [2, 10, 10]
 /// ```
-#[generate_macro]
-#[default_device]
-pub fn segmented_mm_device(
+pub fn segmented_mm(
     a: impl AsRef<Array>,
     b: impl AsRef<Array>,
     segments: impl AsRef<Array>,
-    #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_segmented_mm(
             res,
@@ -1119,17 +1641,27 @@ pub fn segmented_mm_device(
     })
 }
 
+/// Compatibility shim for [`segmented_mm`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `segmented_mm`"
+)]
+pub fn segmented_mm_device(
+    a: impl AsRef<Array>,
+    b: impl AsRef<Array>,
+    segments: impl AsRef<Array>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || segmented_mm(a, b, segments))
+}
+
 /// Element-wise maximum.
 ///
 /// Take the element-wise max of two arrays with numpy-style broadcasting semantics. Either or both
 /// input arrays can also be scalars.
-#[generate_macro]
-#[default_device]
-pub fn maximum_device(
-    a: impl AsRef<Array>,
-    b: impl AsRef<Array>,
-    #[optional] stream: impl AsRef<Stream>,
-) -> Result<Array> {
+pub fn maximum(a: impl AsRef<Array>, b: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let a_ptr = a.as_ref().as_ptr();
     let b_ptr = b.as_ref().as_ptr();
 
@@ -1138,17 +1670,26 @@ pub fn maximum_device(
     })
 }
 
-/// Element-wise minimum.
-///
-/// Take the element-wise min of two arrays with numpy-style broadcasting semantics. Either or both
-/// input arrays can also be scalars.
-#[generate_macro]
-#[default_device]
-pub fn minimum_device(
+/// Compatibility shim for [`maximum`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `maximum`"
+)]
+pub fn maximum_device(
     a: impl AsRef<Array>,
     b: impl AsRef<Array>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || maximum(a, b))
+}
+
+/// Element-wise minimum.
+///
+/// Take the element-wise min of two arrays with numpy-style broadcasting semantics. Either or both
+/// input arrays can also be scalars.
+pub fn minimum(a: impl AsRef<Array>, b: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let a_ptr = a.as_ref().as_ptr();
     let b_ptr = b.as_ref().as_ptr();
 
@@ -1157,87 +1698,166 @@ pub fn minimum_device(
     })
 }
 
+/// Compatibility shim for [`minimum`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `minimum`"
+)]
+pub fn minimum_device(
+    a: impl AsRef<Array>,
+    b: impl AsRef<Array>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || minimum(a, b))
+}
+
 /// See [`Array::multiply`].
-#[generate_macro]
-#[default_device]
+pub fn multiply(a: impl AsRef<Array>, b: impl AsRef<Array>) -> Result<Array> {
+    a.as_ref().multiply(b)
+}
+
+/// Compatibility shim for [`multiply`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `multiply`"
+)]
 pub fn multiply_device(
     a: impl AsRef<Array>,
     b: impl AsRef<Array>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    a.as_ref().multiply_device(b, stream)
+    crate::with_stream(stream.as_ref(), || multiply(a, b))
 }
 
 /// See [`Array::negative`].
-#[generate_macro]
-#[default_device]
+pub fn negative(a: impl AsRef<Array>) -> Result<Array> {
+    a.as_ref().negative()
+}
+
+/// Compatibility shim for [`negative`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `negative`"
+)]
 pub fn negative_device(
     a: impl AsRef<Array>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    a.as_ref().negative_device(stream)
+    crate::with_stream(stream.as_ref(), || negative(a))
 }
 
 /// See [`Array::power`].
-#[generate_macro]
-#[default_device]
+pub fn power(a: impl AsRef<Array>, b: impl AsRef<Array>) -> Result<Array> {
+    a.as_ref().power(b)
+}
+
+/// Compatibility shim for [`power`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `power`"
+)]
 pub fn power_device(
     a: impl AsRef<Array>,
     b: impl AsRef<Array>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    a.as_ref().power_device(b, stream)
+    crate::with_stream(stream.as_ref(), || power(a, b))
 }
 
 /// Convert angles from degrees to radians.
-#[generate_macro]
-#[default_device]
-pub fn radians_device(
-    a: impl AsRef<Array>,
-    #[optional] stream: impl AsRef<Stream>,
-) -> Result<Array> {
+pub fn radians(a: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_radians(res, a.as_ref().as_ptr(), stream.as_ref().as_ptr())
     })
 }
 
+/// Compatibility shim for [`radians`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `radians`"
+)]
+pub fn radians_device(
+    a: impl AsRef<Array>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || radians(a))
+}
+
 /// See [`Array::reciprocal`].
-#[generate_macro]
-#[default_device]
+pub fn reciprocal(a: impl AsRef<Array>) -> Result<Array> {
+    a.as_ref().reciprocal()
+}
+
+/// Compatibility shim for [`reciprocal`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `reciprocal`"
+)]
 pub fn reciprocal_device(
     a: impl AsRef<Array>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    a.as_ref().reciprocal_device(stream)
+    crate::with_stream(stream.as_ref(), || reciprocal(a))
 }
 
 /// See [`Array::remainder`].
-#[generate_macro]
-#[default_device]
+pub fn remainder(a: impl AsRef<Array>, b: impl AsRef<Array>) -> Result<Array> {
+    a.as_ref().remainder(b)
+}
+
+/// Compatibility shim for [`remainder`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `remainder`"
+)]
 pub fn remainder_device(
     a: impl AsRef<Array>,
     b: impl AsRef<Array>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    a.as_ref().remainder_device(b, stream)
+    crate::with_stream(stream.as_ref(), || remainder(a, b))
 }
 
 /// See [`Array::round`].
-#[generate_macro]
-#[default_device]
+pub fn round(a: impl AsRef<Array>, decimals: impl Into<Option<i32>>) -> Result<Array> {
+    a.as_ref().round(decimals)
+}
+
+/// Compatibility shim for [`round`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `round`"
+)]
 pub fn round_device(
     a: impl AsRef<Array>,
     decimals: impl Into<Option<i32>>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    a.as_ref().round_device(decimals, stream)
+    crate::with_stream(stream.as_ref(), || round(a, decimals))
 }
 
 /// See [`Array::rsqrt`].
-#[generate_macro]
-#[default_device]
+pub fn rsqrt(a: impl AsRef<Array>) -> Result<Array> {
+    a.as_ref().rsqrt()
+}
+
+/// Compatibility shim for [`rsqrt`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `rsqrt`"
+)]
 pub fn rsqrt_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
-    a.as_ref().rsqrt_device(stream)
+    crate::with_stream(stream.as_ref(), || rsqrt(a))
 }
 
 /// Element-wise logistic sigmoid.
@@ -1245,40 +1865,75 @@ pub fn rsqrt_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>
 /// See the [python API
 /// docs](https://ml-explore.github.io/mlx/build/html/python/_autosummary/mlx.core.sigmoid.html#mlx.core.sigmoid)
 /// for more information
-#[generate_macro]
-#[default_device]
-pub fn sigmoid_device(
-    a: impl AsRef<Array>,
-    #[optional] stream: impl AsRef<Stream>,
-) -> Result<Array> {
+pub fn sigmoid(a: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_sigmoid(res, a.as_ref().as_ptr(), stream.as_ref().as_ptr())
     })
 }
 
+/// Compatibility shim for [`sigmoid`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `sigmoid`"
+)]
+pub fn sigmoid_device(
+    a: impl AsRef<Array>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || sigmoid(a))
+}
+
 /// Element-wise sign.
-#[generate_macro]
-#[default_device]
-pub fn sign_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+pub fn sign(a: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_sign(res, a.as_ref().as_ptr(), stream.as_ref().as_ptr())
     })
 }
 
+/// Compatibility shim for [`sign`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `sign`"
+)]
+pub fn sign_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || sign(a))
+}
+
 /// See [`Array::sin`].
-#[generate_macro]
-#[default_device]
+pub fn sin(a: impl AsRef<Array>) -> Result<Array> {
+    a.as_ref().sin()
+}
+
+/// Compatibility shim for [`sin`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `sin`"
+)]
 pub fn sin_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
-    a.as_ref().sin_device(stream)
+    crate::with_stream(stream.as_ref(), || sin(a))
 }
 
 /// Element-wise hyperbolic sine.
-#[generate_macro]
-#[default_device]
-pub fn sinh_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+pub fn sinh(a: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_sinh(res, a.as_ref().as_ptr(), stream.as_ref().as_ptr())
     })
+}
+
+/// Compatibility shim for [`sinh`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `sinh`"
+)]
+pub fn sinh_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || sinh(a))
 }
 
 /// Perform the softmax along the given axis.
@@ -1286,14 +1941,12 @@ pub fn sinh_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>)
 /// See the [python API
 /// docs](https://ml-explore.github.io/mlx/build/html/python/_autosummary/mlx.core.softmax.html#mlx.core.softmax)
 /// for more information.
-#[generate_macro]
-#[default_device]
-pub fn softmax_axes_device(
+pub fn softmax_axes(
     a: impl AsRef<Array>,
     axes: &[i32],
     precise: impl Into<Option<bool>>,
-    #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let precise = precise.into().unwrap_or(false);
     let s = stream.as_ref().as_ptr();
 
@@ -1309,15 +1962,28 @@ pub fn softmax_axes_device(
     })
 }
 
-/// Similar to [`softmax_axes`] but with a single axis.
-#[generate_macro]
-#[default_device]
-pub fn softmax_axis_device(
+/// Compatibility shim for [`softmax_axes`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `softmax_axes`"
+)]
+pub fn softmax_axes_device(
     a: impl AsRef<Array>,
-    axis: i32,
+    axes: &[i32],
     precise: impl Into<Option<bool>>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || softmax_axes(a, axes, precise))
+}
+
+/// Similar to [`softmax_axes`] but with a single axis.
+pub fn softmax_axis(
+    a: impl AsRef<Array>,
+    axis: i32,
+    precise: impl Into<Option<bool>>,
+) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let precise = precise.into().unwrap_or(false);
     let s = stream.as_ref().as_ptr();
 
@@ -1326,82 +1992,166 @@ pub fn softmax_axis_device(
     })
 }
 
-/// Similar to [`softmax_axes`] but with no axis specified.
-#[generate_macro]
-#[default_device]
-pub fn softmax_device(
+/// Compatibility shim for [`softmax_axis`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `softmax_axis`"
+)]
+pub fn softmax_axis_device(
     a: impl AsRef<Array>,
+    axis: i32,
     precise: impl Into<Option<bool>>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || softmax_axis(a, axis, precise))
+}
+
+/// Similar to [`softmax_axes`] but with no axis specified.
+pub fn softmax(a: impl AsRef<Array>, precise: impl Into<Option<bool>>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let precise = precise.into().unwrap_or(false);
     let s = stream.as_ref().as_ptr();
 
     Array::try_from_op(|res| unsafe { mlx_sys::mlx_softmax(res, a.as_ref().as_ptr(), precise, s) })
 }
 
+/// Compatibility shim for [`softmax`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `softmax`"
+)]
+pub fn softmax_device(
+    a: impl AsRef<Array>,
+    precise: impl Into<Option<bool>>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || softmax(a, precise))
+}
+
 /// See [`Array::sqrt`].
-#[generate_macro]
-#[default_device]
+pub fn sqrt(a: impl AsRef<Array>) -> Result<Array> {
+    a.as_ref().sqrt()
+}
+
+/// Compatibility shim for [`sqrt`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `sqrt`"
+)]
 pub fn sqrt_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
-    a.as_ref().sqrt_device(stream)
+    crate::with_stream(stream.as_ref(), || sqrt(a))
 }
 
 /// See [`Array::square`].
-#[generate_macro]
-#[default_device]
+pub fn square(a: impl AsRef<Array>) -> Result<Array> {
+    a.as_ref().square()
+}
+
+/// Compatibility shim for [`square`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `square`"
+)]
 pub fn square_device(
     a: impl AsRef<Array>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    a.as_ref().square_device(stream)
+    crate::with_stream(stream.as_ref(), || square(a))
 }
 
 /// See [`Array::subtract`].
-#[generate_macro]
-#[default_device]
+pub fn subtract(a: impl AsRef<Array>, b: impl AsRef<Array>) -> Result<Array> {
+    a.as_ref().subtract(b)
+}
+
+/// Compatibility shim for [`subtract`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `subtract`"
+)]
 pub fn subtract_device(
     a: impl AsRef<Array>,
     b: impl AsRef<Array>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    a.as_ref().subtract_device(b, stream)
+    crate::with_stream(stream.as_ref(), || subtract(a, b))
 }
 
 /// See [`Array::tan`].
-#[generate_macro]
-#[default_device]
-pub fn tan_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+pub fn tan(a: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_tan(res, a.as_ref().as_ptr(), stream.as_ref().as_ptr())
     })
 }
 
+/// Compatibility shim for [`tan`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `tan`"
+)]
+pub fn tan_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || tan(a))
+}
+
 /// Element-wise hyperbolic tangent.
-#[generate_macro]
-#[default_device]
-pub fn tanh_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+pub fn tanh(a: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_tanh(res, a.as_ref().as_ptr(), stream.as_ref().as_ptr())
     })
 }
 
+/// Compatibility shim for [`tanh`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `tanh`"
+)]
+pub fn tanh_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || tanh(a))
+}
+
 /// Element-wise real part from a complex array.
-#[generate_macro]
-#[default_device]
-pub fn real_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+pub fn real(a: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_real(res, a.as_ref().as_ptr(), stream.as_ref().as_ptr())
     })
 }
 
+/// Compatibility shim for [`real`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `real`"
+)]
+pub fn real_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || real(a))
+}
+
 /// Element-wise imaginary part from a complex array.
-#[generate_macro]
-#[default_device]
-pub fn imag_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+pub fn imag(a: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_imag(res, a.as_ref().as_ptr(), stream.as_ref().as_ptr())
     })
+}
+
+/// Compatibility shim for [`imag`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `imag`"
+)]
+pub fn imag_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || imag(a))
 }
 
 /// Matrix multiplication with block masking.
@@ -1409,17 +2159,15 @@ pub fn imag_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>)
 /// See the [python API docs](
 /// https://ml-explore.github.io/mlx/build/html/python/_autosummary/mlx.core.block_masked_mm.html#mlx.core.block_masked_mm
 /// ) for more information.
-#[generate_macro]
-#[default_device]
-pub fn block_masked_mm_device<'mo, 'lhs, 'rhs>(
+pub fn block_masked_mm<'mo, 'lhs, 'rhs>(
     a: impl AsRef<Array>,
     b: impl AsRef<Array>,
-    #[optional] block_size: impl Into<Option<i32>>,
-    #[optional] mask_out: impl Into<Option<&'mo Array>>,
-    #[optional] mask_lhs: impl Into<Option<&'lhs Array>>,
-    #[optional] mask_rhs: impl Into<Option<&'rhs Array>>,
-    #[optional] stream: impl AsRef<Stream>,
+    block_size: impl Into<Option<i32>>,
+    mask_out: impl Into<Option<&'mo Array>>,
+    mask_lhs: impl Into<Option<&'lhs Array>>,
+    mask_rhs: impl Into<Option<&'rhs Array>>,
 ) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let a_ptr = a.as_ref().as_ptr();
     let b_ptr = b.as_ref().as_ptr();
     unsafe {
@@ -1451,6 +2199,26 @@ pub fn block_masked_mm_device<'mo, 'lhs, 'rhs>(
     }
 }
 
+/// Compatibility shim for [`block_masked_mm`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `block_masked_mm`"
+)]
+pub fn block_masked_mm_device<'mo, 'lhs, 'rhs>(
+    a: impl AsRef<Array>,
+    b: impl AsRef<Array>,
+    #[optional] block_size: impl Into<Option<i32>>,
+    #[optional] mask_out: impl Into<Option<&'mo Array>>,
+    #[optional] mask_lhs: impl Into<Option<&'lhs Array>>,
+    #[optional] mask_rhs: impl Into<Option<&'rhs Array>>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || {
+        block_masked_mm(a, b, block_size, mask_out, mask_lhs, mask_rhs)
+    })
+}
+
 /// Matrix multiplication with addition and optional scaling.
 ///
 /// Perform the (possibly batched) matrix multiplication of two arrays and add to the result with
@@ -1463,16 +2231,14 @@ pub fn block_masked_mm_device<'mo, 'lhs, 'rhs>(
 /// - `b`: input array,
 /// - `alpha`: Scaling factor for the matrix product of `a` and `b` (default: `1`)
 /// - `beta`: Scaling factor for `c` (default: `1`)
-#[generate_macro]
-#[default_device]
-pub fn addmm_device(
+pub fn addmm(
     c: impl AsRef<Array>,
     a: impl AsRef<Array>,
     b: impl AsRef<Array>,
-    #[optional] alpha: impl Into<Option<f32>>,
-    #[optional] beta: impl Into<Option<f32>>,
-    #[optional] stream: impl AsRef<Stream>,
+    alpha: impl Into<Option<f32>>,
+    beta: impl Into<Option<f32>>,
 ) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let c_ptr = c.as_ref().as_ptr();
     let a_ptr = a.as_ref().as_ptr();
     let b_ptr = b.as_ref().as_ptr();
@@ -1492,15 +2258,27 @@ pub fn addmm_device(
     })
 }
 
-/// Ordinary inner product of vectors for 1-D arrays, in higher dimensions a sum product over the
-/// last axes.
-#[generate_macro]
-#[default_device]
-pub fn inner_device(
+/// Compatibility shim for [`addmm`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `addmm`"
+)]
+pub fn addmm_device(
+    c: impl AsRef<Array>,
     a: impl AsRef<Array>,
     b: impl AsRef<Array>,
+    #[optional] alpha: impl Into<Option<f32>>,
+    #[optional] beta: impl Into<Option<f32>>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || addmm(c, a, b, alpha, beta))
+}
+
+/// Ordinary inner product of vectors for 1-D arrays, in higher dimensions a sum product over the
+/// last axes.
+pub fn inner(a: impl AsRef<Array>, b: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let a = a.as_ref();
     let b = b.as_ref();
     Array::try_from_op(|res| unsafe {
@@ -1508,15 +2286,24 @@ pub fn inner_device(
     })
 }
 
-/// Compute the outer product of two 1-D arrays, if the array’s passed are not 1-D a flatten op will
-/// be run beforehand.
-#[generate_macro]
-#[default_device]
-pub fn outer_device(
+/// Compatibility shim for [`inner`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `inner`"
+)]
+pub fn inner_device(
     a: impl AsRef<Array>,
     b: impl AsRef<Array>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || inner(a, b))
+}
+
+/// Compute the outer product of two 1-D arrays, if the array’s passed are not 1-D a flatten op will
+/// be run beforehand.
+pub fn outer(a: impl AsRef<Array>, b: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let a = a.as_ref();
     let b = b.as_ref();
     Array::try_from_op(|res| unsafe {
@@ -1524,16 +2311,28 @@ pub fn outer_device(
     })
 }
 
+/// Compatibility shim for [`outer`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `outer`"
+)]
+pub fn outer_device(
+    a: impl AsRef<Array>,
+    b: impl AsRef<Array>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || outer(a, b))
+}
+
 /// Compute the tensor dot product along the specified axes.
-#[generate_macro]
-#[default_device]
-pub fn tensordot_axes_device(
+pub fn tensordot_axes(
     a: impl AsRef<Array>,
     b: impl AsRef<Array>,
     axes_a: &[i32],
     axes_b: &[i32],
-    #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let a = a.as_ref();
     let b = b.as_ref();
     Array::try_from_op(|res| unsafe {
@@ -1550,20 +2349,45 @@ pub fn tensordot_axes_device(
     })
 }
 
+/// Compatibility shim for [`tensordot_axes`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `tensordot_axes`"
+)]
+pub fn tensordot_axes_device(
+    a: impl AsRef<Array>,
+    b: impl AsRef<Array>,
+    axes_a: &[i32],
+    axes_b: &[i32],
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || tensordot_axes(a, b, axes_a, axes_b))
+}
+
 /// Similar to [`tensordot_axes`] but with a single axis.
-#[generate_macro]
-#[default_device]
+pub fn tensordot_axis(a: impl AsRef<Array>, b: impl AsRef<Array>, axis: i32) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
+    let a = a.as_ref();
+    let b = b.as_ref();
+    Array::try_from_op(|res| unsafe {
+        mlx_sys::mlx_tensordot_axis(res, a.as_ptr(), b.as_ptr(), axis, stream.as_ref().as_ptr())
+    })
+}
+
+/// Compatibility shim for [`tensordot_axis`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `tensordot_axis`"
+)]
 pub fn tensordot_axis_device(
     a: impl AsRef<Array>,
     b: impl AsRef<Array>,
     axis: i32,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    let a = a.as_ref();
-    let b = b.as_ref();
-    Array::try_from_op(|res| unsafe {
-        mlx_sys::mlx_tensordot_axis(res, a.as_ptr(), b.as_ptr(), axis, stream.as_ref().as_ptr())
-    })
+    crate::with_stream(stream.as_ref(), || tensordot_axis(a, b, axis))
 }
 
 /// Matrix multiplication with gathered indices.
@@ -1593,16 +2417,14 @@ pub fn tensordot_axis_device(
 /// let result = gather_mm(&a, &b, &lhs_indices, &rhs_indices, None).unwrap();
 /// // result has shape [2, 32, 32]
 /// ```
-#[generate_macro]
-#[default_device]
-pub fn gather_mm_device<'lhs, 'rhs>(
+pub fn gather_mm<'lhs, 'rhs>(
     a: impl AsRef<Array>,
     b: impl AsRef<Array>,
-    #[optional] lhs_indices: impl Into<Option<&'lhs Array>>,
-    #[optional] rhs_indices: impl Into<Option<&'rhs Array>>,
-    #[optional] sorted_indices: impl Into<Option<bool>>,
-    #[optional] stream: impl AsRef<Stream>,
+    lhs_indices: impl Into<Option<&'lhs Array>>,
+    rhs_indices: impl Into<Option<&'rhs Array>>,
+    sorted_indices: impl Into<Option<bool>>,
 ) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let a_ptr = a.as_ref().as_ptr();
     let b_ptr = b.as_ref().as_ptr();
     let sorted = sorted_indices.into().unwrap_or(false);
@@ -1631,6 +2453,25 @@ pub fn gather_mm_device<'lhs, 'rhs>(
     }
 }
 
+/// Compatibility shim for [`gather_mm`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `gather_mm`"
+)]
+pub fn gather_mm_device<'lhs, 'rhs>(
+    a: impl AsRef<Array>,
+    b: impl AsRef<Array>,
+    #[optional] lhs_indices: impl Into<Option<&'lhs Array>>,
+    #[optional] rhs_indices: impl Into<Option<&'rhs Array>>,
+    #[optional] sorted_indices: impl Into<Option<bool>>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || {
+        gather_mm(a, b, lhs_indices, rhs_indices, sorted_indices)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use std::f32::consts::PI;
@@ -1641,7 +2482,7 @@ mod tests {
         ops::{all_close, arange, broadcast_to, eye, full, linspace, ones, reshape, split},
         test_utils::{assert_array_eq, assert_array_eq_with_context, tolerances},
         transforms::eval,
-        Dtype, StreamOrDevice,
+        Dtype,
     };
     use float_eq::assert_float_eq;
     use pretty_assertions::assert_eq;
@@ -1911,7 +2752,7 @@ mod tests {
     fn test_floor_complex64() {
         let val = complex64::new(1.0, 2.0);
         let a = Array::from_complex(val);
-        let b = a.floor_device(StreamOrDevice::default());
+        let b = a.floor();
         assert!(b.is_err());
     }
 
@@ -1938,7 +2779,7 @@ mod tests {
         let val = complex64::new(1.0, 2.0);
         let a = Array::from_complex(val);
         let b = Array::from_slice(&[4.0, 5.0, 6.0], &[3]);
-        let c = a.floor_divide_device(&b, StreamOrDevice::default());
+        let c = a.floor_divide(&b);
         assert!(c.is_err());
     }
 
@@ -1946,7 +2787,7 @@ mod tests {
     fn test_floor_divide_invalid_broadcast() {
         let a = Array::from_slice(&[1.0, 2.0, 3.0], &[3]);
         let b = Array::from_slice(&[4.0, 5.0], &[2]);
-        let c = a.floor_divide_device(&b, StreamOrDevice::default());
+        let c = a.floor_divide(&b);
         assert!(c.is_err());
     }
 

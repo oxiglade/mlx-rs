@@ -44,7 +44,7 @@ pub fn fft(
 }
 
 /// Compatibility shim for [`fft`].
-#[generate_macro(customize(root = "$crate::fft", forwarding_shim = true))]
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::fft"))]
 #[deprecated(
     since = "0.26.0",
     note = "use `with_stream` or `with_device` around `fft`"
@@ -97,7 +97,7 @@ pub fn fft2<'a>(
 }
 
 /// Compatibility shim for [`fft2`].
-#[generate_macro(customize(root = "$crate::fft", forwarding_shim = true))]
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::fft"))]
 #[deprecated(
     since = "0.26.0",
     note = "use `with_stream` or `with_device` around `fft2`"
@@ -142,7 +142,7 @@ pub fn fftn(a: impl AsRef<Array>, options: FftnOptions) -> Result<Array> {
 }
 
 /// Compatibility shim for [`fftn`].
-#[generate_macro(customize(root = "$crate::fft", forwarding_shim = true))]
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::fft"))]
 #[deprecated(
     since = "0.26.0",
     note = "use `with_stream` or `with_device` around `fftn` with `FftnOptions`"
@@ -187,7 +187,7 @@ pub fn ifft(
 }
 
 /// Compatibility shim for [`ifft`].
-#[generate_macro(customize(root = "$crate::fft", forwarding_shim = true))]
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::fft"))]
 #[deprecated(
     since = "0.26.0",
     note = "use `with_stream` or `with_device` around `ifft`"
@@ -240,7 +240,7 @@ pub fn ifft2<'a>(
 }
 
 /// Compatibility shim for [`ifft2`].
-#[generate_macro(customize(root = "$crate::fft", forwarding_shim = true))]
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::fft"))]
 #[deprecated(
     since = "0.26.0",
     note = "use `with_stream` or `with_device` around `ifft2`"
@@ -285,7 +285,7 @@ pub fn ifftn(a: impl AsRef<Array>, options: FftnOptions) -> Result<Array> {
 }
 
 /// Compatibility shim for [`ifftn`].
-#[generate_macro(customize(root = "$crate::fft", forwarding_shim = true))]
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::fft"))]
 #[deprecated(
     since = "0.26.0",
     note = "use `with_stream` or `with_device` around `ifftn` with `FftnOptions`"
