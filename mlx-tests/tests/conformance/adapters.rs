@@ -1,6 +1,14 @@
-use super::oracle::{dtype_from_name, mlx_error, Arg, Args, Case, ScalarValue};
-use mlx_rs::{ops, with_device, Array, Device};
+use super::oracle::{
+    dtype_from_name, mlx_error, Arg, Args, Case, ExecutionTarget, GgufCase, GgufKind,
+    GgufObservation, GgufObservedMetadata, GgufRecipe, ScalarValue,
+};
+use half::{bf16, f16};
+use mlx_rs::{
+    io::{GgufError, GgufFile, GgufMetadataValue},
+    ops, with_device, Array, Device, Dtype,
+};
 use safetensors::SafeTensors;
+use std::{collections::BTreeMap, path::Path};
 
 pub(super) const ADAPTERS: &[&str] = &[
     "ops.add.array_array",
@@ -46,7 +54,331 @@ pub(super) const ADAPTERS: &[&str] = &[
     "ops.windows.hann",
     "fft.fftfreq",
     "fft.rfftfreq",
+    "gguf.load",
+    "gguf.load_error",
+    "gguf.absence",
+    "gguf.wrong_kind",
+    "gguf.prevalidation",
+    "gguf.construct",
 ];
+
+fn gguf_error(error: GgufError) -> (String, Option<(GgufKind, GgufKind)>) {
+    let variant = match error {
+        GgufError::NotFile => "not_file",
+        GgufError::InvalidPathUtf8 => "invalid_path_utf8",
+        GgufError::UnsupportedExtension => "unsupported_extension",
+        GgufError::InteriorNul => "interior_nul",
+        GgufError::InvalidUtf8 => "invalid_utf8",
+        GgufError::ArrayKeyAlreadyExists { .. } => "array_key_already_exists",
+        GgufError::MetadataKeyAlreadyExists { .. } => "metadata_key_already_exists",
+        GgufError::WrongMetadataKind {
+            expected, actual, ..
+        } => {
+            let kind = |value| match value {
+                mlx_rs::io::GgufMetadataKind::Array => GgufKind::Array,
+                mlx_rs::io::GgufMetadataKind::String => GgufKind::String,
+                mlx_rs::io::GgufMetadataKind::Strings => GgufKind::Strings,
+            };
+            return (
+                "wrong_metadata_kind".into(),
+                Some((kind(expected), kind(actual))),
+            );
+        }
+        GgufError::UnsupportedTensorDtype { .. } => "unsupported_tensor_dtype",
+        GgufError::UnsupportedMetadataArrayDtype { .. } => "unsupported_metadata_array_dtype",
+        GgufError::InvalidMetadataArrayRank { .. } => "invalid_metadata_array_rank",
+        GgufError::EmptyMetadataArray => "empty_metadata_array",
+        GgufError::Exception(_) => "exception",
+        _ => "unknown",
+    };
+    (variant.into(), None)
+}
+
+fn empty_gguf_observation() -> GgufObservation {
+    GgufObservation {
+        array_keys: Vec::new(),
+        arrays: BTreeMap::new(),
+        metadata: BTreeMap::new(),
+        array_absent: None,
+        metadata_absent: None,
+        errors: Vec::new(),
+        error_kinds: Vec::new(),
+        dequantized: None,
+    }
+}
+
+fn array_for_dtype(dtype: Dtype) -> Array {
+    match dtype {
+        Dtype::Bool => Array::from_bool(true),
+        Dtype::Uint8 => Array::from_slice(&[1_u8], &[1]),
+        Dtype::Uint16 => Array::from_slice(&[1_u16], &[1]),
+        Dtype::Uint32 => Array::from_slice(&[1_u32], &[1]),
+        Dtype::Uint64 => Array::from_slice(&[1_u64], &[1]),
+        Dtype::Int8 => Array::from_slice(&[1_i8], &[1]),
+        Dtype::Int16 => Array::from_slice(&[1_i16], &[1]),
+        Dtype::Int32 => Array::from_slice(&[1_i32], &[1]),
+        Dtype::Int64 => Array::from_slice(&[1_i64], &[1]),
+        Dtype::Float16 => Array::from_slice(&[f16::from_f32(1.0)], &[1]),
+        Dtype::Float32 => Array::from_f32(1.0),
+        Dtype::Float64 => Array::from_f64(1.0),
+        Dtype::Bfloat16 => Array::from_slice(&[bf16::from_f32(1.0)], &[1]),
+        Dtype::Complex64 => Array::from_complex(mlx_rs::complex64::new(1.0, 0.0)),
+    }
+}
+
+pub(super) fn dispatch_gguf(root: &Path, case: &GgufCase) -> Result<GgufObservation, String> {
+    let mut observed = empty_gguf_observation();
+    match &case.recipe {
+        GgufRecipe::Load {
+            path,
+            execution,
+            dequantize,
+        } => {
+            let path = root.join(path);
+            let loaded = match execution {
+                ExecutionTarget::DefaultCpu => GgufFile::load(&path),
+                ExecutionTarget::ExplicitCpu => {
+                    with_device(Device::cpu(), || GgufFile::load(&path))
+                }
+            };
+            if case.rust_call == "gguf.load_error" {
+                let error = loaded.expect_err("error load case must fail");
+                let (variant, kinds) = gguf_error(error);
+                observed.errors.push(variant);
+                if let Some(kinds) = kinds {
+                    observed.error_kinds.push(kinds);
+                }
+                return Ok(observed);
+            }
+            let file = loaded.map_err(|error| error.to_string())?;
+            observed.array_keys = file.array_keys().map_err(|error| error.to_string())?;
+            observed.arrays = file
+                .arrays()
+                .map_err(|error| error.to_string())?
+                .into_iter()
+                .collect();
+            for expected in &case.expected.metadata {
+                let value = file
+                    .get_metadata(&expected.key)
+                    .map_err(|error| error.to_string())?
+                    .ok_or_else(|| format!("missing metadata {}", expected.key))?;
+                let value = match value {
+                    GgufMetadataValue::Array(value) => GgufObservedMetadata::Array(value),
+                    GgufMetadataValue::String(value) => GgufObservedMetadata::String(value),
+                    GgufMetadataValue::Strings(value) => GgufObservedMetadata::Strings(value),
+                };
+                observed.metadata.insert(expected.key.clone(), value);
+            }
+            if let Some(dequantize) = dequantize {
+                let weight = observed
+                    .arrays
+                    .get("quantized.weight")
+                    .ok_or("missing quantized weight")?;
+                let scales = observed
+                    .arrays
+                    .get("quantized.scales")
+                    .ok_or("missing quantized scales")?;
+                let biases = observed
+                    .arrays
+                    .get("quantized.biases")
+                    .ok_or("missing quantized biases")?;
+                observed.dequantized = Some(
+                    ops::dequantize(
+                        weight,
+                        scales,
+                        biases,
+                        dequantize.group_size,
+                        dequantize.bits,
+                    )
+                    .map_err(|error| error.to_string())?,
+                );
+            }
+        }
+        GgufRecipe::Absence {
+            path,
+            array_key,
+            metadata_key,
+        } => {
+            let file = GgufFile::load(root.join(path)).map_err(|error| error.to_string())?;
+            observed.array_absent = Some(
+                file.get_array(array_key)
+                    .map_err(|error| error.to_string())?
+                    .is_none(),
+            );
+            observed.metadata_absent = Some(
+                file.get_metadata(metadata_key)
+                    .map_err(|error| error.to_string())?
+                    .is_none(),
+            );
+        }
+        GgufRecipe::WrongKind {
+            path,
+            key,
+            requested,
+        } => {
+            let file = GgufFile::load(root.join(path)).map_err(|error| error.to_string())?;
+            let result = match requested {
+                GgufKind::Array => file.get_metadata_array(key).map(|_| ()),
+                GgufKind::String => file.get_metadata_string(key).map(|_| ()),
+                GgufKind::Strings => file.get_metadata_strings(key).map(|_| ()),
+            };
+            let error = result.expect_err("wrong kind must fail");
+            let (variant, kinds) = gguf_error(error);
+            observed.errors.push(variant);
+            if let Some(kinds) = kinds {
+                observed.error_kinds.push(kinds);
+            }
+        }
+        GgufRecipe::TensorRejects { accepted, dtypes } => {
+            let directory = tempfile::tempdir().map_err(|error| error.to_string())?;
+            let output = directory.path().join("accepted.gguf");
+            let mut accepted_file = GgufFile::new().map_err(|error| error.to_string())?;
+            for (index, dtype) in accepted.iter().enumerate() {
+                let dtype = dtype_from_name(dtype)?;
+                accepted_file
+                    .insert_array(format!("accepted.{index}"), &array_for_dtype(dtype))
+                    .map_err(|error| error.to_string())?;
+            }
+            accepted_file
+                .save(&output)
+                .map_err(|error| error.to_string())?;
+            let loaded = GgufFile::load(output).map_err(|error| error.to_string())?;
+            let keys = loaded.array_keys().map_err(|error| error.to_string())?;
+            if keys.len() != accepted.len() {
+                return Err("accepted tensor dtype count differs".into());
+            }
+            for (index, expected) in accepted.iter().enumerate() {
+                let key = format!("accepted.{index}");
+                let array = loaded
+                    .get_array(&key)
+                    .map_err(|error| error.to_string())?
+                    .ok_or_else(|| format!("accepted tensor {key} is absent"))?;
+                if array.dtype() != dtype_from_name(expected)? {
+                    return Err(format!("accepted tensor {key} dtype differs"));
+                }
+            }
+            for (index, dtype) in dtypes.iter().enumerate() {
+                let dtype = dtype_from_name(dtype)?;
+                let mut file = GgufFile::new().map_err(|error| error.to_string())?;
+                let array = array_for_dtype(dtype);
+                let error = file
+                    .insert_array(format!("rejected.{index}"), &array)
+                    .expect_err("rejected tensor dtype must fail");
+                observed.errors.push(gguf_error(error).0);
+            }
+        }
+        GgufRecipe::MetadataRejects {
+            accepted,
+            dtypes,
+            ranks,
+            empty,
+        } => {
+            let mut file = GgufFile::new().map_err(|error| error.to_string())?;
+            for (index, dtype) in accepted.iter().enumerate() {
+                let dtype = dtype_from_name(dtype)?;
+                let base = array_for_dtype(dtype);
+                let scalar = base.reshape(&[]).map_err(|error| error.to_string())?;
+                let vector = base.reshape(&[1]).map_err(|error| error.to_string())?;
+                file.insert_metadata(format!("accepted.scalar.{index}"), scalar)
+                    .map_err(|error| error.to_string())?;
+                file.insert_metadata(format!("accepted.vector.{index}"), vector)
+                    .map_err(|error| error.to_string())?;
+            }
+            for (index, dtype) in dtypes.iter().enumerate() {
+                let error = file
+                    .insert_metadata(
+                        format!("dtype.{index}"),
+                        array_for_dtype(dtype_from_name(dtype)?),
+                    )
+                    .expect_err("rejected metadata dtype must fail");
+                observed.errors.push(gguf_error(error).0);
+            }
+            for rank in ranks {
+                let shape = vec![1; *rank];
+                let error = file
+                    .insert_metadata("rank", Array::from_slice(&[1_i32], &shape))
+                    .expect_err("rejected metadata rank must fail");
+                observed.errors.push(gguf_error(error).0);
+            }
+            if *empty {
+                let error = file
+                    .insert_metadata("empty", Array::from_slice::<i32>(&[], &[0]))
+                    .expect_err("empty metadata must fail");
+                observed.errors.push(gguf_error(error).0);
+            }
+            let directory = tempfile::tempdir().map_err(|error| error.to_string())?;
+            let output = directory.path().join("metadata-accepted.gguf");
+            file.save(&output).map_err(|error| error.to_string())?;
+            let loaded = GgufFile::load(output).map_err(|error| error.to_string())?;
+            for (index, expected) in accepted.iter().enumerate() {
+                let expected_dtype = dtype_from_name(expected)?;
+                for (shape_name, expected_shape) in [("scalar", &[][..]), ("vector", &[1][..])] {
+                    let key = format!("accepted.{shape_name}.{index}");
+                    let array = loaded
+                        .get_metadata_array(&key)
+                        .map_err(|error| error.to_string())?
+                        .ok_or_else(|| format!("accepted metadata {key} is absent"))?;
+                    if array.dtype() != expected_dtype || array.shape() != expected_shape {
+                        return Err(format!("accepted metadata {key} declaration differs"));
+                    }
+                }
+            }
+        }
+        GgufRecipe::ConstructSave {
+            path,
+            same_spelling,
+            metadata_value,
+            non_contiguous_shape,
+        } => {
+            let &[rows, columns] = non_contiguous_shape.as_slice() else {
+                return Err("construct_save requires a rank-two shape".into());
+            };
+            if rows <= 0 || columns <= 0 {
+                return Err("construct_save dimensions must be positive".into());
+            }
+            let values = (0..rows * columns)
+                .map(|value| value as f32)
+                .collect::<Vec<_>>();
+            let source = Array::from_slice(&values, &[rows, columns]);
+            let transposed = ops::transpose(&source).map_err(|error| error.to_string())?;
+            let mut file = GgufFile::new().map_err(|error| error.to_string())?;
+            file.insert_array(same_spelling, &transposed)
+                .map_err(|error| error.to_string())?;
+            file.insert_metadata(same_spelling, metadata_value.as_str())
+                .map_err(|error| error.to_string())?;
+            let duplicate = file
+                .insert_array(same_spelling, &transposed)
+                .expect_err("duplicate array must fail");
+            observed.errors.push(gguf_error(duplicate).0);
+            let duplicate = file
+                .insert_metadata(same_spelling, vec!["different".to_owned()])
+                .expect_err("duplicate metadata must fail");
+            observed.errors.push(gguf_error(duplicate).0);
+            let directory = tempfile::tempdir().map_err(|error| error.to_string())?;
+            let output_name = Path::new(path)
+                .file_name()
+                .ok_or("construct_save path has no file name")?;
+            let output = directory.path().join(output_name);
+            file.save(&output).map_err(|error| error.to_string())?;
+            let loaded = GgufFile::load(output).map_err(|error| error.to_string())?;
+            observed.array_keys = loaded.array_keys().map_err(|error| error.to_string())?;
+            observed.arrays = loaded
+                .arrays()
+                .map_err(|error| error.to_string())?
+                .into_iter()
+                .collect();
+            let metadata = loaded
+                .get_metadata_string(same_spelling)
+                .map_err(|error| error.to_string())?
+                .ok_or("constructed metadata is absent")?;
+            observed.metadata.insert(
+                same_spelling.clone(),
+                GgufObservedMetadata::String(metadata),
+            );
+        }
+    }
+    Ok(observed)
+}
 
 pub(super) fn dispatch(case: &Case, safe: &SafeTensors<'_>) -> Result<Vec<Array>, String> {
     let mut args = Args::new(case, safe);

@@ -83,8 +83,15 @@ fn build_and_link_mlx_c() {
     let dst = config.build();
 
     println!("cargo:rustc-link-search=native={}/build/lib", dst.display());
+    // mlx's GGUF io depends on the vendored gguflib archive, which cmake leaves
+    // in the mlx build tree instead of installing next to libmlx.
+    println!(
+        "cargo:rustc-link-search=native={}/build/_deps/mlx-build/mlx/io",
+        dst.display()
+    );
     println!("cargo:rustc-link-lib=static=mlx");
     println!("cargo:rustc-link-lib=static=mlxc");
+    println!("cargo:rustc-link-lib=static=gguflib");
 
     println!("cargo:rustc-link-lib=c++");
     println!("cargo:rustc-link-lib=dylib=objc");
