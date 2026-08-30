@@ -6,15 +6,12 @@ use crate::utils::IntoOption;
 use crate::{error::Result, Array, ArrayElement, Stream};
 use mach_sys::mach_time;
 use mlx_internal_macros::{default_device, generate_macro};
-use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::cell::RefCell;
-use std::sync::OnceLock;
-
-static GLOBAL_STATE: OnceLock<Mutex<RandomState>> = OnceLock::new();
 
 thread_local! {
-    static TASK_LOCAL_STATE: RefCell<Option<RandomState>> = const { RefCell::new(None) };
+    static THREAD_LOCAL_DEFAULT_STATE: RefCell<RandomState> = RefCell::new(RandomState::new().unwrap());
+    static THREAD_LOCAL_OVERRIDE_STATE: RefCell<Option<RandomState>> = const { RefCell::new(None) };
 }
 
 /// Random state for reproducible random number generation.
@@ -138,27 +135,22 @@ impl crate::utils::Updatable for RandomState {
     }
 }
 
-fn global_state() -> &'static Mutex<RandomState> {
-    GLOBAL_STATE.get_or_init(|| Mutex::new(RandomState::new().unwrap()))
-}
-
-/// Returns a key from the task-local state if it exists, otherwise
+/// Returns a key from the thread-local override state if it exists, otherwise
 /// returns `None`
-fn resolve_task_local_key() -> Option<Result<Array>> {
-    TASK_LOCAL_STATE.with_borrow_mut(|state| state.as_mut().map(|s| s.next()))
+fn resolve_thread_local_override_key() -> Option<Result<Array>> {
+    THREAD_LOCAL_OVERRIDE_STATE.with_borrow_mut(|state| state.as_mut().map(|s| s.next()))
 }
 
-fn resolve_global_key() -> Result<Array> {
-    let mut state = global_state().lock();
-    state.next()
+fn resolve_thread_local_default_key() -> Result<Array> {
+    THREAD_LOCAL_DEFAULT_STATE.with_borrow_mut(RandomState::next)
 }
 
 /// Use given key or generate a new one if `None`.
 fn resolve<'a>(key: impl Into<Option<&'a Array>>) -> Result<Cow<'a, Array>> {
     key.into().map_or_else(
         || {
-            resolve_task_local_key()
-                .unwrap_or_else(resolve_global_key)
+            resolve_thread_local_override_key()
+                .unwrap_or_else(resolve_thread_local_default_key)
                 .map(Cow::Owned)
         },
         |k| Ok(Cow::Borrowed(k)),
@@ -170,21 +162,20 @@ pub fn with_random_state<F, T>(state: RandomState, f: F) -> T
 where
     F: FnOnce() -> T,
 {
-    let prev_state = TASK_LOCAL_STATE.with_borrow_mut(|s| s.replace(state));
+    let prev_state = THREAD_LOCAL_OVERRIDE_STATE.with_borrow_mut(|s| s.replace(state));
 
     let result = f();
 
-    TASK_LOCAL_STATE.with_borrow_mut(|s| {
+    THREAD_LOCAL_OVERRIDE_STATE.with_borrow_mut(|s| {
         *s = prev_state;
     });
 
     result
 }
 
-/// Seed the random number generator.
+/// Seed the current thread's default random number generator.
 pub fn seed(seed: u64) -> Result<()> {
-    let mut state = global_state().lock();
-    state.seed(seed)
+    THREAD_LOCAL_DEFAULT_STATE.with_borrow_mut(|state| state.seed(seed))
 }
 
 /// Get a PRNG key from a seed.
@@ -604,7 +595,7 @@ mod tests {
     use float_eq::{assert_float_eq, float_eq};
 
     #[test]
-    fn test_global_rng() {
+    fn test_default_rng() {
         seed(3).unwrap();
         let a = uniform::<_, f32>(0, 1, None, None).unwrap();
         let b = uniform::<_, f32>(0, 1, None, None).unwrap();
@@ -615,6 +606,22 @@ mod tests {
 
         assert_array_eq(a, x, tolerances::EXACT.rtol, tolerances::EXACT.atol);
         assert_array_eq(b, y, tolerances::EXACT.rtol, tolerances::EXACT.atol);
+    }
+
+    #[test]
+    fn sequential_threads_use_own_default_rng_stream() {
+        crate::Device::set_default(&crate::Device::gpu());
+
+        for _ in 0..2 {
+            std::thread::spawn(|| {
+                uniform::<_, f32>(0.0, 1.0, &[8], None)
+                    .unwrap()
+                    .eval()
+                    .unwrap();
+            })
+            .join()
+            .unwrap();
+        }
     }
 
     #[test]

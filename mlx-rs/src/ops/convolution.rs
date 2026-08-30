@@ -348,6 +348,7 @@ pub fn conv_transpose3d_device(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_utils::{assert_array_eq, tolerances};
     use pretty_assertions::assert_eq;
 
     #[test]
@@ -481,7 +482,12 @@ mod tests {
             + 6.0 * 1.0
             + 7.0 * 1.0
             + 8.0 * 0.0; // = 1*1 + 4*1 + 6*1 + 7*1 = 18
-        assert_eq!(result.as_slice::<f32>(), &[expected_output]);
+        assert_array_eq(
+            result,
+            Array::from_slice(&[expected_output], &[1, 1, 1, 1, 1]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]

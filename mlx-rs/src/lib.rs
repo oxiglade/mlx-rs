@@ -11,13 +11,11 @@
 //!
 //! # Threading
 //!
-//! [`Array`] values may move between threads, but MLX operations must be externally serialized.
-//! The pinned MLX v0.30.6 runtime shares streams across threads, so concurrent operations can
-//! abort inside Metal even when each thread owns its arrays. This is why the test suite runs with
-//! `--test-threads=1`.
-//!
-//! A future mlx-c update can relax this contract after exposing upstream's thread-local stream
-//! APIs (`new_thread_local_stream` and `clear_streams`).
+//! [`Array`] values may move between threads. MLX 0.32.2 keeps default streams per thread, so each
+//! worker must perform operations through its own default or thread-local scoped override.
+//! [`Stream`] and compiled closures are thread-affine and cannot move or be shared across threads.
+//! The scoped Rust override is thread-local, not asynchronous task-local, and does not propagate
+//! across `.await`.
 //!
 //! # Quick Start
 //!

@@ -516,7 +516,7 @@ impl Array {
         stream: impl AsRef<Stream>,
     ) -> Result<Array> {
         Array::try_from_op(|res| unsafe {
-            mlx_sys::mlx_median(
+            mlx_sys::mlx_median_axes(
                 res,
                 self.as_ptr(),
                 axes.as_ptr(),
@@ -535,7 +535,15 @@ impl Array {
         keep_dims: impl Into<Option<bool>>,
         stream: impl AsRef<Stream>,
     ) -> Result<Array> {
-        self.median_axes_device(&[axis], keep_dims, stream)
+        Array::try_from_op(|res| unsafe {
+            mlx_sys::mlx_median_axis(
+                res,
+                self.as_ptr(),
+                axis,
+                keep_dims.into().unwrap_or(false),
+                stream.as_ref().as_ptr(),
+            )
+        })
     }
 
     /// Compute the median over all axes.
@@ -545,8 +553,14 @@ impl Array {
         keep_dims: impl Into<Option<bool>>,
         stream: impl AsRef<Stream>,
     ) -> Result<Array> {
-        let axes: Vec<i32> = (0..self.ndim() as i32).collect();
-        self.median_axes_device(&axes, keep_dims, stream)
+        Array::try_from_op(|res| unsafe {
+            mlx_sys::mlx_median(
+                res,
+                self.as_ptr(),
+                keep_dims.into().unwrap_or(false),
+                stream.as_ref().as_ptr(),
+            )
+        })
     }
 
     /// A `log-sum-exp` reduction over the given axes returning an error if the axes are invalid.

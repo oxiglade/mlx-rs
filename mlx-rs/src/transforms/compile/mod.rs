@@ -142,10 +142,14 @@
 //! See mlx-rs/mlx-tests/tests/test_compile_with_state.rs for more examples.
 //!
 
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::{
+    marker::PhantomData,
+    rc::Rc,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
 use super::{Closure, Guarded, VectorArray};
-use crate::Array;
+use crate::{error::Exception, utils::SUCCESS, Array};
 
 #[allow(clippy::module_inception)]
 mod compile;
@@ -174,16 +178,64 @@ pub fn disable_compile() {
 
 /// Clear the memory cache.
 pub fn clear_cache() {
-    unsafe {
-        mlx_sys::mlx_detail_compile_clear_cache();
+    if let Ok(cache) = CompileCache::current() {
+        cache.clear();
     }
 }
 
 /// A compiled function that can be called.
 #[derive(Debug, Clone)]
 pub struct Compiled<F, G> {
-    f_marker: std::marker::PhantomData<F>,
+    f_marker: PhantomData<(F, Rc<()>)>,
     state: CompiledState<G>,
+}
+
+struct CompileCache {
+    handle: mlx_sys::mlx_compile_cache,
+}
+
+impl std::fmt::Debug for CompileCache {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CompileCache").finish_non_exhaustive()
+    }
+}
+
+impl CompileCache {
+    fn current() -> Result<Self, Exception> {
+        crate::error::INIT_ERR_HANDLER.call_once(crate::error::setup_mlx_error_handler);
+        let mut handle = unsafe { mlx_sys::mlx_compile_cache_new() };
+        let status = unsafe { mlx_sys::mlx_detail_compile_cache(&mut handle) };
+        crate::error::resume_closure_panic();
+        if status == SUCCESS {
+            return Ok(Self { handle });
+        }
+
+        let error = crate::error::get_and_clear_last_mlx_error()
+            .map(|error| error.what)
+            .unwrap_or_else(|| "MLX failed to resolve the current compile cache".to_owned());
+        consume_status(unsafe { mlx_sys::mlx_compile_cache_free(handle) });
+        Err(Exception::custom(error))
+    }
+
+    fn clear(&self) {
+        consume_status(unsafe { mlx_sys::mlx_detail_compile_clear_cache(self.handle) });
+    }
+
+    fn erase(&self, fun_id: usize) {
+        consume_status(unsafe { mlx_sys::mlx_detail_compile_erase(self.handle, fun_id) });
+    }
+}
+
+impl Drop for CompileCache {
+    fn drop(&mut self) {
+        consume_status(unsafe { mlx_sys::mlx_compile_cache_free(self.handle) });
+    }
+}
+
+fn consume_status(status: i32) {
+    if status != SUCCESS {
+        let _ = crate::error::get_and_clear_last_mlx_error();
+    }
 }
 
 #[derive(Debug)]
@@ -191,7 +243,9 @@ struct CompiledState<F> {
     f: F,
     shapeless: bool,
     id: usize,
+    cache: CompileCache,
     num_function_outputs: Option<usize>,
+    state_layout: Option<Vec<(crate::Dtype, Vec<i32>)>>,
 }
 
 static NEXT_COMPILE_ID: AtomicUsize = AtomicUsize::new(1);
@@ -202,7 +256,9 @@ impl<F> CompiledState<F> {
             f,
             shapeless,
             id: NEXT_COMPILE_ID.fetch_add(1, Ordering::Relaxed),
+            cache: CompileCache::current().expect("failed to capture the MLX compile cache"),
             num_function_outputs: None,
+            state_layout: None,
         }
     }
 }
@@ -215,10 +271,7 @@ impl<F: Clone> Clone for CompiledState<F> {
 
 impl<F> Drop for CompiledState<F> {
     fn drop(&mut self) {
-        unsafe {
-            // remove the compiled structure from the back end
-            mlx_sys::mlx_detail_compile_erase(self.id);
-        }
+        self.cache.erase(self.id);
     }
 }
 

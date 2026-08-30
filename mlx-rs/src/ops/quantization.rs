@@ -55,6 +55,7 @@ pub fn quantize_device(
 ) -> Result<(Array, Array, Array)> {
     let group_size = optional_int(group_size.into(), DEFAULT_GROUP_SIZE);
     let bits = optional_int(bits.into(), DEFAULT_BITS);
+    let global_scale = unsafe { Array::from_ptr(mlx_sys::mlx_array_new()) };
 
     let result = VectorArray::try_from_op(|res| unsafe {
         mlx_sys::mlx_quantize(
@@ -63,6 +64,7 @@ pub fn quantize_device(
             group_size,
             bits,
             DEFAULT_MODE.as_ptr(),
+            global_scale.as_ptr(),
             stream.as_ref().as_ptr(),
         )
     })?;
@@ -138,6 +140,7 @@ pub fn dequantize_device<'a>(
 ) -> Result<Array> {
     let group_size = optional_int(group_size.into(), DEFAULT_GROUP_SIZE);
     let bits = optional_int(bits.into(), DEFAULT_BITS);
+    let global_scale = unsafe { Array::from_ptr(mlx_sys::mlx_array_new()) };
 
     <Array as Guarded>::try_from_op(|res| unsafe {
         mlx_sys::mlx_dequantize(
@@ -151,6 +154,7 @@ pub fn dequantize_device<'a>(
             group_size,
             bits,
             DEFAULT_MODE.as_ptr(),
+            global_scale.as_ptr(),
             optional_dtype_none(),
             stream.as_ref().as_ptr(),
         )
@@ -270,6 +274,8 @@ pub fn qqmm_device<'a>(
 
     let group_size = optional_int(group_size.into(), default_group_size);
     let bits = optional_int(bits.into(), default_bits);
+    let global_scale_x = unsafe { Array::from_ptr(mlx_sys::mlx_array_new()) };
+    let global_scale_w = unsafe { Array::from_ptr(mlx_sys::mlx_array_new()) };
 
     <Array as Guarded>::try_from_op(|res| unsafe {
         mlx_sys::mlx_qqmm(
@@ -283,6 +289,8 @@ pub fn qqmm_device<'a>(
             group_size,
             bits,
             mode_cstr.as_ptr(),
+            global_scale_x.as_ptr(),
+            global_scale_w.as_ptr(),
             stream.as_ref().as_ptr(),
         )
     })

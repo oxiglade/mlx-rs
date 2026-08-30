@@ -7,7 +7,7 @@ use crate::{
 };
 
 thread_local! {
-    static TASK_LOCAL_DEFAULT_STREAM: RefCell<Option<Stream>> = const { RefCell::new(None) };
+    static THREAD_LOCAL_DEFAULT_STREAM: RefCell<Option<Stream>> = const { RefCell::new(None) };
 }
 
 struct ScopedValueGuard<T: 'static> {
@@ -33,22 +33,22 @@ fn with_scoped_value<T: 'static, R>(
     f()
 }
 
-/// Gets the task local default stream.
+/// Gets the thread-local scoped default stream.
 ///
-/// This is NOT intended to be used directly in most cases. Instead, use the
-/// `with_default_stream` function to temporarily set a default stream for a closure.
+/// The function name predates the thread-local contract. The value does not propagate across
+/// asynchronous task suspension or between operating-system threads.
 pub fn task_local_default_stream() -> Option<Stream> {
-    TASK_LOCAL_DEFAULT_STREAM.with_borrow(|s| s.clone())
+    THREAD_LOCAL_DEFAULT_STREAM.with_borrow(|s| s.clone())
 }
 
 /// Use a given default stream for the duration of the closure `f`.
 ///
-/// The previous task-local stream is restored if `f` panics.
+/// The previous thread-local stream is restored if `f` panics.
 pub fn with_new_default_stream<F, T>(default_stream: Stream, f: F) -> T
 where
     F: FnOnce() -> T,
 {
-    with_scoped_value(&TASK_LOCAL_DEFAULT_STREAM, default_stream, f)
+    with_scoped_value(&THREAD_LOCAL_DEFAULT_STREAM, default_stream, f)
 }
 
 /// Parameter type for all MLX operations.
@@ -141,19 +141,19 @@ impl Clone for Stream {
 }
 
 impl Stream {
-    /// Create a new stream on the default device, or return the task local
+    /// Create a new stream on the default device, or return the thread-local
     /// default stream if present.
     pub fn task_local_or_default() -> Self {
         task_local_default_stream().unwrap_or_default()
     }
 
-    /// Create a new stream on the default cpu device, or return the task local
+    /// Create a new stream on the default cpu device, or return the thread-local
     /// default stream if present.
     pub fn task_local_or_cpu() -> Self {
         task_local_default_stream().unwrap_or_else(Stream::cpu)
     }
 
-    /// Create a new stream on the default gpu device, or return the task local
+    /// Create a new stream on the default gpu device, or return the thread-local
     /// default stream if present.
     pub fn task_local_or_gpu() -> Self {
         task_local_default_stream().unwrap_or_else(Stream::gpu)

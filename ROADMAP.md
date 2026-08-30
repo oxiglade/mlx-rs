@@ -50,13 +50,17 @@ Recorded because none of it shows up in a test count, and all of it survives add
   been gated. There are ~40 such warnings today.
 - Measured on MLX 0.30.6 CPU: out-of-bounds gather indices return unchecked values rather than an
   error, while eval-stage C++ exceptions such as singular-matrix inversion escape the bindings as
-  process aborts.
+  process aborts. The committed 0.32.2 replay reports singular inversion as a catchable invoke-stage
+  error; the bump runtime pass must confirm the Rust assertion.
 - `concatenate` claimed first-axis semantics in its documentation, but its binding flattens all
   arrays. The conformance corpus found the mismatch and the documentation is fixed; the API naming
   trap remains until the bump review.
 - Measured at 0.30.6 CPU after the error-handler fix: eight threads concurrently constructing
   graphs and receiving invoke-stage errors is safe with per-thread delivery. The unsafe surface is
   specifically concurrent *eval* on the shared default stream, not graph construction.
+- Measured on MLX 0.32.2 Metal: `conv3d` output is no longer row-major contiguous. Its logical
+  values remain correct when read through the stride-aware strict comparator; tests must not use
+  `as_slice` as an implicit layout assertion.
 
 ## Fixed findings
 
@@ -288,73 +292,73 @@ owner at a time.
 
 ### Charter deltas
 
-- Retain each `Compiled` value's originating compile-cache handle and use that exact handle for
+- [x] Retain each `Compiled` value's originating compile-cache handle and use that exact handle for
   erase; resolve the caller's current cache separately for each `clear_cache()` call
   ([CHARTER.md](CHARTER.md#concrete-0322-rebind-decisions)).
-- Make `Compiled` structurally `!Send + !Sync` for this tuple
+- [x] Make `Compiled` structurally `!Send + !Sync` for this tuple
   ([CHARTER.md](CHARTER.md#charter-rules)).
-- Preserve monotonic `fun_id` allocation, including fresh IDs for clones, and consume erase status
+- [x] Preserve monotonic `fun_id` allocation, including fresh IDs for clones, and consume erase status
   without panicking in `Drop` ([CHARTER.md](CHARTER.md#charter-rules)).
-- Delete the unconditional compile-with-state retry; one call performs one attempted state
+- [x] Delete the unconditional compile-with-state retry; one call performs one attempted state
   transition, whether it succeeds or fails ([CHARTER.md](CHARTER.md#charter-rules)).
-- Exercise the nested cold-cache deadlock shape in a subprocess with a hard deadline and proof that
+- [ ] Exercise the nested cold-cache deadlock shape in a subprocess with a hard deadline and proof that
   the cold trace ran; do not add a process-global lock without target evidence
   ([CHARTER.md](CHARTER.md#charter-rules)).
-- At bump time, fail closed on compiled-state count, key-layout, and optional-presence mismatches;
+- [x] At bump time, fail closed on compiled-state count, key-layout, and optional-presence mismatches;
   do not truncate positional updates ([CHARTER.md](CHARTER.md#charter-rules)).
-- Expand stream admission to explicit identity/pass-through, nested stream and device restoration
+- [ ] Expand stream admission to explicit identity/pass-through, nested stream and device restoration
   after success and panic, cross-thread isolation, CPU and Metal per-thread defaults, moved and
   cloned arrays, and stream create/free churn ([CHARTER.md](CHARTER.md#charter-rules)).
 
-1. **Resolve the immutable target tuple.** Start from the old and target commits recorded in the
+1. [ ] **Resolve the immutable target tuple.** Start from the old and target commits recorded in the
    admission contract. Re-read the target mlx-c CMake pin and require MLX `v0.32.2`; record runtime
    `mlx_version`, Xcode, arm64 architecture, Rust toolchain, and supported feature set. Never target
    “latest”.
-2. **Generate the bump plan in isolated worktrees.** Produce normalized public-header AST,
+2. [x] **Generate the bump plan in isolated worktrees.** Produce normalized public-header AST,
    bindgen signature, ABI-relevant type, and exported-symbol fingerprints for both commits without
    changing the working submodule. Wave 1 delivers canonical fingerprint generation; Wave 2
    qualifies the classified delta.
-3. **Classify every target API and ABI change.** Mark every added, removed, or changed entry as
+3. [x] **Classify every target API and ABI change.** Mark every added, removed, or changed entry as
    wrapped, deferred, intentionally unexposed, removed, or blocked. Record the Rust path, risk or
    ownership class, and typed evidence IDs for affected entries. Every new `new/free` handle family
    needs an ownership entry. The Wave 2 ledger must report zero unclassified entries.
-4. **Update provenance coherently.** Update the submodule commit and every recorded version tuple
+4. [ ] **Update provenance coherently.** Update the submodule commit and every recorded version tuple
    together. Either enforce the statement that `mlx-sys` follows mlx-c versioning or replace it
    with an explicit tuple policy; do not leave the existing `mlx-sys 0.2.0` versus mlx-c `v0.5.0`
    ambiguity in place.
-5. **Verify generated and linked surfaces.** Require header, bindgen, ABI-type, and exported-symbol
+5. [ ] **Verify generated and linked surfaces.** Require header, bindgen, ABI-type, and exported-symbol
    fingerprints to match the plan; no removed symbol may remain referenced. Runtime `mlx_version`
    must report `0.32.2`. This consumes the Wave 2 ledger and Wave 4 target handshake.
-6. **Build dependency canaries.** Build CPU debug, CPU release, and the supported default
+6. [ ] **Build dependency canaries.** Build CPU debug, CPU release, and the supported default
    Metal/Accelerate configuration. Run mlx-c examples and an appropriate upstream MLX C++ test
    subset to distinguish dependency breakage from Rust breakage. Add a sanitized build only if its
    lane has been qualified.
-7. **Run the qualified FFI safety gate.** Run `cargo run -p xtask -- verify-ffi` for leak and test
+7. [ ] **Run the qualified FFI safety gate.** Run `cargo run -p xtask -- verify-ffi` for leak and test
    status, plus `--guard-malloc` for the required use-after-free/double-free check. Consume the
    exact-SHA, environment-bound Wave 1 report; callback, error, clone, drop, and concurrent-error
    cases must be green, with no unexpected leak above the qualified baseline.
-8. **Run old semantic baselines first.** Replay the committed-golden conformance lane before
+8. [ ] **Run old semantic baselines first.** Replay the committed-golden conformance lane before
    changing oracle authority. Classify failures as candidate upstream changes; do not regenerate
    them away in the bump change.
-9. **Run target differential and target baselines.** Use the Wave 4 out-of-process worker with an
+9. [ ] **Run target differential and target baselines.** Use the Wave 4 out-of-process worker with an
    exact Python MLX `0.32.2` handshake. CPU is canonical; bounded Metal comparison is separate.
    Preserve reviewed old and target baselines where MLX legitimately changed semantics.
-10. **Run the high-risk packs.** Run dtype comparison/classification, shape and index properties,
+10. [ ] **Run the high-risk packs.** Run dtype comparison/classification, shape and index properties,
     retained fuzz regressions, gradients, eager/compiled multi-step state, frozen and pruned state,
     all optimizer state, expanded stream admission, and supported quantized/model smoke cases.
     Wave 3 delivers the required optimizer, compile-state, and transform packs; any wider pack is
     required only when its ledger surface is affected. Compiled-state and stream cases enforce the
     bump-time subset of the [charter](CHARTER.md#charter-rules).
-11. **Run parity and public-surface gates.** Require zero unclassified target C/ABI delta and zero
+11. [x] **Run parity and public-surface gates.** Require zero unclassified target C/ABI delta and zero
     unexplained Rust public-API drift. Every newly exposed Rust API needs an ownership disposition
     and appropriate typed evidence. Full Python parity remains deferred, but any Python-qualified
     surface changed by the bump must be classified. Post-bump admission must also satisfy the
     [charter's idiom-wave rules](CHARTER.md#charter-rules).
-12. **Run the supported workspace matrix.** Run declared MSRV and stable configurations,
+12. [ ] **Run the supported workspace matrix.** Run declared MSRV and stable configurations,
     debug/release where relevant, the single-thread legacy suite, explicit supported-thread tests,
     genuine doctests, and the one tiny deterministic local mlx-lm decode. Do not use Hub, network,
     or user-cache fixtures.
-13. **Aggregate one verdict.** The Wave 4 aggregate command consumes all structured reports and
+13. [ ] **Aggregate one verdict.** The Wave 4 aggregate command consumes all structured reports and
     exits nonzero unless every admission check passes. It verifies the submodule commit, nested MLX
     version, generated fingerprints, evidence links, report environment and expiry of every
     waiver against the recorded tuple.

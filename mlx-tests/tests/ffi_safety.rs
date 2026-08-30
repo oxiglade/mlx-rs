@@ -231,14 +231,13 @@ fn assert_subprocess_success(test_name: &str, child_env: &str) {
 }
 
 #[test]
-#[ignore = "MLX v0.30.6 has no thread-local streams; concurrent GPU operations abort"]
-fn concurrent_gpu_operations_abort_without_thread_local_streams() {
+#[ignore = "historical MLX 0.30.6 shared-default reproducer; 0.32.2 is covered by stream_admission"]
+fn historical_shared_default_stream_abort_on_mlx_0_30_6() {
     const WORKERS: usize = 8;
     const OPERATIONS: usize = 100;
 
     Device::set_default(&Device::gpu());
     let barrier = Arc::new(Barrier::new(WORKERS));
-    // Serial setup isolates the shared-stream abort from mlx-c's global error-handler race.
     let initialization = Arc::new(Mutex::new(()));
     let handles = (0..WORKERS)
         .map(|_| {

@@ -157,7 +157,7 @@ fn verify_documents(
         let disposition = required_string(classified, "disposition")?;
         if !matches!(
             disposition,
-            "wrapped" | "deferred" | "intentionally_unexposed" | "removed" | "blocked"
+            "wrapped" | "internal" | "deferred" | "intentionally_unexposed" | "removed" | "blocked"
         ) {
             return Err(format!(
                 "classification {key} has invalid disposition {disposition}"
@@ -194,7 +194,7 @@ fn verify_documents(
                 .ok_or_else(|| format!("wrapped classification {key} requires evidence"))?;
         } else if matches!(
             disposition,
-            "deferred" | "intentionally_unexposed" | "removed" | "blocked"
+            "internal" | "deferred" | "intentionally_unexposed" | "removed" | "blocked"
         ) {
             required_one_line(classified, "rationale")?;
         }

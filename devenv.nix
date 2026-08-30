@@ -69,6 +69,14 @@
 #!/bin/sh
 # Defer to the system Xcode so the Metal toolchain is visible. Scoped to this
 # process: the surrounding shell keeps devenv's SDK for everything else.
+#
+# SDK-version queries are the exception: they must describe the headers the
+# nix compiler actually uses, or version-gated upstream code (MLX's jaccl,
+# SDK >= 26.2) enables against headers that lack it.
+case " \$* " in
+  *" --show-sdk-version "*|*" --show-sdk-platform-version "*)
+    exec /usr/bin/xcrun "\$@" ;;
+esac
 DEVELOPER_DIR="$system_developer_dir"
 export DEVELOPER_DIR
 unset SDKROOT

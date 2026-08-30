@@ -170,6 +170,7 @@ pub fn scaled_dot_product_attention_device<'a>(
                 .into()
                 .map(|a| a.as_ptr())
                 .unwrap_or(mlx_sys::mlx_array_new()),
+            false,
             stream.as_ref().as_ptr(),
         )
     })
@@ -376,6 +377,7 @@ mod tests {
                 let result = scaled_dot_product_attention(q, k, v, scale, None, None).unwrap();
                 assert_eq!(result.shape(), [B, H, seq_len, Dk]);
                 assert_eq!(result.dtype(), dtype);
+                result.eval().unwrap();
             }
         }
     }

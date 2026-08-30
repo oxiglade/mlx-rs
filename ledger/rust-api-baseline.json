@@ -7354,7 +7354,7 @@
     {
       "kind": "struct",
       "path": "mlx_rs::transforms::compile::Compiled",
-      "signature": "# [doc = \" A compiled function that can be called.\"] # [derive (Debug , Clone)] pub struct Compiled < F , G > { f_marker : std :: marker :: PhantomData < F > , state : CompiledState < G > , }"
+      "signature": "# [doc = \" A compiled function that can be called.\"] # [derive (Debug , Clone)] pub struct Compiled < F , G > { f_marker : PhantomData < (F , Rc < () >) > , state : CompiledState < G > , }"
     },
     {
       "kind": "function",

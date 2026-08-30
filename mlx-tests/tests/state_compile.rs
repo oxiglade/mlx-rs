@@ -2,9 +2,13 @@ use std::{
     any::Any,
     cell::Cell,
     collections::{BTreeSet, HashMap},
+    env, fs,
     panic::{catch_unwind, AssertUnwindSafe},
     path::PathBuf,
+    process::Command,
     rc::Rc,
+    thread,
+    time::{Duration, Instant},
 };
 
 use mlx_rs::{
@@ -15,7 +19,7 @@ use mlx_rs::{
     module::{FlattenedModuleParam, ModuleParameters, Param, Parameter},
     optimizers::{Adam, AdamBuilder, Optimizer, OptimizerState, Sgd, SgdBuilder},
     test_utils::assert_array_eq_with_context,
-    transforms::compile::compile_with_state,
+    transforms::compile::{clear_cache, compile, compile_with_state},
     Array,
 };
 
@@ -278,6 +282,104 @@ fn repeated_calls_advance_state_across_five_cached_calls() {
     }
 }
 
+#[test]
+fn cached_state_rejects_count_and_layout_changes() {
+    let args = [array!(0.25_f32)];
+    let mut count_state = vec![
+        array!(0.5_f32),
+        array!(-2.0_f32),
+        array!(1.25_f32),
+        array!(9.0_f32),
+    ];
+    let mut count_compiled = compile_with_state(repeated_step, None);
+    count_compiled(&mut count_state, &args).unwrap();
+    count_state.push(array!(4.0_f32));
+    let count_error = count_compiled(&mut count_state, &args).unwrap_err();
+    assert!(count_error
+        .what()
+        .contains("state layout changed at call input"));
+    assert_eq!(count_state.len(), 5);
+
+    let mut layout_state = vec![
+        array!(0.5_f32),
+        array!(-2.0_f32),
+        array!(1.25_f32),
+        array!(9.0_f32),
+    ];
+    let mut layout_compiled = compile_with_state(repeated_step, None);
+    layout_compiled(&mut layout_state, &args).unwrap();
+    layout_state[0] = array!([0.75_f32]);
+    let layout_error = layout_compiled(&mut layout_state, &args).unwrap_err();
+    assert!(layout_error
+        .what()
+        .contains("state layout changed at call input"));
+    assert_eq!(layout_state[0].shape(), &[1]);
+}
+
+#[test]
+fn nested_cold_cache_compilation_completes_without_deadlock() {
+    const CHILD_ENV: &str = "MLX_RS_NESTED_COLD_CACHE_CHILD";
+    const MARKER_ENV: &str = "MLX_RS_NESTED_COLD_CACHE_MARKER";
+
+    if env::var_os(CHILD_ENV).is_some() {
+        let marker = PathBuf::from(env::var_os(MARKER_ENV).unwrap());
+        let trace_calls = Rc::new(Cell::new(0));
+        let trace_calls_inner = Rc::clone(&trace_calls);
+        let mut inner = compile(
+            move |input: &Array| -> Result<Array, Exception> {
+                trace_calls_inner.set(trace_calls_inner.get() + 1);
+                fs::write(&marker, b"inner trace entered").unwrap();
+                input.square()
+            },
+            None,
+        );
+        let mut outer = compile_with_state(
+            move |state: &mut Vec<Array>, args: &[Array]| -> Result<Vec<Array>, Exception> {
+                let output = inner(&args[0])?;
+                state[0] = state[0].add(&output)?;
+                Ok(vec![output])
+            },
+            None,
+        );
+        let mut state = vec![array!(0.0_f32)];
+        let output = outer(&mut state, &[array!(2.0_f32)]).unwrap();
+        assert_eq!(trace_calls.get(), 1);
+        assert_named(&output[0], &array!(4.0_f32), "compile.nested_cold.output");
+        return;
+    }
+
+    let directory = tempfile::tempdir().unwrap();
+    let marker = directory.path().join("trace-entered");
+    let mut child = Command::new(env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "nested_cold_cache_compilation_completes_without_deadlock",
+            "--nocapture",
+            "--test-threads=1",
+        ])
+        .env(CHILD_ENV, "1")
+        .env(MARKER_ENV, &marker)
+        .spawn()
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            assert!(status.success(), "nested cold-cache child failed: {status}");
+            assert!(marker.is_file(), "inner cold trace did not run");
+            break;
+        }
+        if Instant::now() >= deadline {
+            child.kill().unwrap();
+            let _ = child.wait();
+            panic!(
+                "nested cold-cache child exceeded 30 seconds; inner trace entered: {}",
+                marker.is_file()
+            );
+        }
+        thread::sleep(Duration::from_millis(25));
+    }
+}
+
 fn fallible_step(state: &mut Vec<Array>, args: &[Array]) -> Result<Vec<Array>, Exception> {
     args[0].reshape(&[1])?;
     state[0] = state[0].add(&args[1])?;
@@ -320,7 +422,7 @@ fn fallible_success_after_failure_resumes_oracle_trajectory() {
 }
 
 thread_local! {
-    static RETRY_CALLS: Cell<usize> = const { Cell::new(0) };
+    static FALLIBLE_CALLS: Cell<usize> = const { Cell::new(0) };
     static TRACE_CALLS: Cell<usize> = const { Cell::new(0) };
 }
 
@@ -330,8 +432,8 @@ fn trace_once_step(state: &mut Vec<Array>, _args: &[Array]) -> Result<Vec<Array>
     Ok(vec![state[0].clone()])
 }
 
-fn retry_once_step(state: &mut Vec<Array>, _args: &[Array]) -> Result<Vec<Array>, Exception> {
-    let call = RETRY_CALLS.with(|counter| {
+fn fail_first_trace_step(state: &mut Vec<Array>, _args: &[Array]) -> Result<Vec<Array>, Exception> {
+    let call = FALLIBLE_CALLS.with(|counter| {
         let call = counter.get() + 1;
         counter.set(call);
         call
@@ -343,44 +445,46 @@ fn retry_once_step(state: &mut Vec<Array>, _args: &[Array]) -> Result<Vec<Array>
     Ok(vec![state[0].clone()])
 }
 
-fn always_fail_retry_step(
-    state: &mut Vec<Array>,
-    _args: &[Array],
-) -> Result<Vec<Array>, Exception> {
-    RETRY_CALLS.with(|counter| counter.set(counter.get() + 1));
+fn always_fail_step(state: &mut Vec<Array>, _args: &[Array]) -> Result<Vec<Array>, Exception> {
+    FALLIBLE_CALLS.with(|counter| counter.set(counter.get() + 1));
     state[0] = state[0].add(&array!(1.0_f32))?;
     array!(1.0_f32).reshape(&[2])?;
     Ok(Vec::new())
 }
 
 #[test]
-fn retry_path_does_not_double_apply_state_mutation() {
-    RETRY_CALLS.with(|counter| counter.set(0));
+fn failed_trace_is_not_retried_and_later_calls_use_the_cache() {
+    FALLIBLE_CALLS.with(|counter| counter.set(0));
     let mut state = vec![array!(0.0_f32), array!(8.0_f32)];
     let args: [Array; 0] = [];
-    let mut compiled = compile_with_state(retry_once_step, None);
+    let mut compiled = compile_with_state(fail_first_trace_step, None);
+
+    assert!(compiled(&mut state, &args).is_err());
+    assert_eq!(FALLIBLE_CALLS.with(Cell::get), 1);
+    assert_named(&state[0], &array!(0.0_f32), "compile.no_retry.state.0");
+    assert_named(&state[1], &array!(8.0_f32), "compile.no_retry.state.1");
 
     for call in 1..=4 {
         let output = compiled(&mut state, &args).unwrap();
         assert_eq!(
-            RETRY_CALLS.with(Cell::get),
+            FALLIBLE_CALLS.with(Cell::get),
             2,
-            "compile.retry.call{call}.counter"
+            "compile.no_retry.call{call}.counter"
         );
         assert_named(
             &output[0],
             &array!(call as f32),
-            &format!("compile.retry.call{call}.output.0"),
+            &format!("compile.no_retry.call{call}.output.0"),
         );
         assert_named(
             &state[0],
             &array!(call as f32),
-            &format!("compile.retry.call{call}.state.0"),
+            &format!("compile.no_retry.call{call}.state.0"),
         );
         assert_named(
             &state[1],
             &array!(8.0_f32),
-            &format!("compile.retry.call{call}.state.1"),
+            &format!("compile.no_retry.call{call}.state.1"),
         );
     }
 }
@@ -410,6 +514,22 @@ fn compiled_state_traces_once_and_advances_state_on_cache_hits() {
             &format!("compile.trace_once.call{call}.state.0"),
         );
     }
+}
+
+#[test]
+fn clear_cache_resolves_the_current_thread_cache() {
+    clear_cache();
+    TRACE_CALLS.with(|counter| counter.set(0));
+    let mut state = vec![array!(0.0_f32)];
+    let args: [Array; 0] = [];
+    let mut compiled = compile_with_state(trace_once_step, None);
+
+    compiled(&mut state, &args).unwrap();
+    assert_eq!(TRACE_CALLS.with(Cell::get), 1);
+    clear_cache();
+    compiled(&mut state, &args).unwrap();
+    assert_eq!(TRACE_CALLS.with(Cell::get), 2);
+    assert_named(&state[0], &array!(2.0_f32), "compile.clear_cache.state.0");
 }
 
 fn panic_message(payload: Box<dyn Any + Send>) -> String {
@@ -471,13 +591,13 @@ fn fault_shifted_output_split_fails_count() {
 
 #[test]
 fn fault_seeded_duplicate_retry_fails_counter_check() {
-    RETRY_CALLS.with(|counter| counter.set(0));
+    FALLIBLE_CALLS.with(|counter| counter.set(0));
     let mut state = vec![array!(0.0_f32)];
     let args: [Array; 0] = [];
-    let mut compiled = compile_with_state(always_fail_retry_step, None);
+    let mut compiled = compile_with_state(always_fail_step, None);
     assert!(compiled(&mut state, &args).is_err());
     assert_named(&state[0], &array!(0.0_f32), "compile.retry.failed.state.0");
     expect_named_failure("compile.retry.counter", || {
-        assert_eq!(RETRY_CALLS.with(Cell::get), 1, "compile.retry.counter");
+        assert_eq!(FALLIBLE_CALLS.with(Cell::get), 2, "compile.retry.counter");
     });
 }

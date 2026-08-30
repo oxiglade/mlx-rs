@@ -69,8 +69,8 @@ where
         shapeless: bool,
     ) -> impl for<'args> CallMutWithState<U, Self::Args<'args>, Vec<Array>, ()> {
         let state = CompiledState::new(self, shapeless);
-        Compiled {
-            f_marker: PhantomData::<F>,
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -92,8 +92,8 @@ where
             vec![result]
         };
         let state = CompiledState::new(f, shapeless);
-        Compiled {
-            f_marker: PhantomData::<F>,
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -115,8 +115,8 @@ where
             vec![result]
         };
         let state = CompiledState::new(f, shapeless);
-        Compiled {
-            f_marker: PhantomData::<F>,
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -138,8 +138,8 @@ where
             vec![result]
         };
         let state = CompiledState::new(f, shapeless);
-        Compiled {
-            f_marker: PhantomData::<F>,
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -157,8 +157,8 @@ where
         shapeless: bool,
     ) -> impl for<'args> CallMutWithState<U, Self::Args<'args>, Vec<Array>, Exception> {
         let state = CompiledState::new(self, shapeless);
-        Compiled {
-            f_marker: PhantomData::<F>,
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -180,8 +180,8 @@ where
             Ok(vec![result])
         };
         let state = CompiledState::new(f, shapeless);
-        Compiled {
-            f_marker: PhantomData::<F>,
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -203,8 +203,8 @@ where
             Ok(vec![result])
         };
         let state = CompiledState::new(f, shapeless);
-        Compiled {
-            f_marker: PhantomData::<F>,
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -226,8 +226,8 @@ where
             Ok(vec![result])
         };
         let state = CompiledState::new(f, shapeless);
-        Compiled {
-            f_marker: PhantomData::<F>,
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -246,7 +246,7 @@ where
     U: Updatable,
 {
     fn call_mut(&mut self, state: &mut U, args: &[Array]) -> Result<Vec<Array>, Exception> {
-        self.state.retry_call_mut_with_state(state, args)
+        self.state.call_mut_with_state(state, args)
     }
 }
 
@@ -258,7 +258,7 @@ where
 {
     fn call_mut(&mut self, state: &mut U, args: &Array) -> Result<Array, Exception> {
         let args = std::slice::from_ref(args);
-        let result = self.state.retry_call_mut_with_state(state, args)?;
+        let result = self.state.call_mut_with_state(state, args)?;
         Ok(result.into_iter().next().unwrap())
     }
 }
@@ -271,7 +271,7 @@ where
 {
     fn call_mut(&mut self, state: &mut U, args: (&Array, &Array)) -> Result<Array, Exception> {
         let args = &[args.0, args.1];
-        let result = self.state.retry_call_mut_with_state(state, args)?;
+        let result = self.state.call_mut_with_state(state, args)?;
         Ok(result.into_iter().next().unwrap())
     }
 }
@@ -288,7 +288,7 @@ where
         args: (&Array, &Array, &Array),
     ) -> Result<Array, Exception> {
         let args = &[args.0, args.1, args.2];
-        let result = self.state.retry_call_mut_with_state(state, args)?;
+        let result = self.state.call_mut_with_state(state, args)?;
         Ok(result.into_iter().next().unwrap())
     }
 }
@@ -300,7 +300,7 @@ where
     U: Updatable,
 {
     fn call_mut(&mut self, state: &mut U, args: &[Array]) -> Result<Vec<Array>, Exception> {
-        self.state.retry_fallible_call_mut_with_state(state, args)
+        self.state.fallible_call_mut_with_state(state, args)
     }
 }
 
@@ -312,7 +312,7 @@ where
 {
     fn call_mut(&mut self, state: &mut U, args: &Array) -> Result<Array, Exception> {
         let args = std::slice::from_ref(args);
-        let result = self.state.retry_fallible_call_mut_with_state(state, args)?;
+        let result = self.state.fallible_call_mut_with_state(state, args)?;
         Ok(result.into_iter().next().unwrap())
     }
 }
@@ -325,7 +325,7 @@ where
 {
     fn call_mut(&mut self, state: &mut U, args: (&Array, &Array)) -> Result<Array, Exception> {
         let args = &[args.0, args.1];
-        let result = self.state.retry_fallible_call_mut_with_state(state, args)?;
+        let result = self.state.fallible_call_mut_with_state(state, args)?;
         Ok(result.into_iter().next().unwrap())
     }
 }
@@ -342,7 +342,7 @@ where
         args: (&Array, &Array, &Array),
     ) -> Result<Array, Exception> {
         let args = &[args.0, args.1, args.2];
-        let result = self.state.retry_fallible_call_mut_with_state(state, args)?;
+        let result = self.state.fallible_call_mut_with_state(state, args)?;
         Ok(result.into_iter().next().unwrap())
     }
 }
@@ -355,6 +355,7 @@ fn call_mut_with_state_inner<U>(
     state: Rc<RefCell<&mut U>>,
     args: &[impl AsRef<Array>],
     num_function_outputs: Rc<Cell<Option<usize>>>,
+    state_layout: Rc<RefCell<Option<Vec<(crate::Dtype, Vec<i32>)>>>>,
 ) -> crate::error::Result<Vec<Array>>
 where
     U: Updatable,
@@ -397,12 +398,19 @@ where
             "compile_with_state: internal error - function output count not captured during tracing"
         )
     })?;
+    let expected_state_layout = state_layout.borrow().clone().ok_or_else(|| {
+        Exception::custom(
+            "compile_with_state: internal error - state layout not captured during tracing",
+        )
+    })?;
+    validate_state_layout(&expected_state_layout, &**state.borrow(), "apply input")?;
 
-    if num_fn_outputs > result_plus_state_output.len() {
+    let expected_output_count = num_fn_outputs + expected_state_layout.len();
+    if result_plus_state_output.len() != expected_output_count {
         return Err(Exception::custom(format!(
-            "compile_with_state: invalid output count - expected {} function outputs \
-             but only got {} total outputs. This indicates an internal compilation error.",
-            num_fn_outputs,
+            "compile_with_state: invalid output count - expected {num_fn_outputs} function \
+             outputs and {} state outputs, got {} total outputs",
+            expected_state_layout.len(),
             result_plus_state_output.len()
         )));
     }
@@ -410,19 +418,56 @@ where
     let function_results = &result_plus_state_output[..num_fn_outputs];
     let state_outputs = &result_plus_state_output[num_fn_outputs..];
 
-    // Update state arrays. MLX's compiler may prune unchanged arrays from output,
-    // so zip() handles cases where fewer state arrays are returned than expected.
-    for (s, new_values) in state
-        .borrow_mut()
-        .updatable_states_mut()
-        .into_iter()
-        .zip(state_outputs.iter())
-    {
+    let output_layout = array_layout(state_outputs.iter());
+    if output_layout != expected_state_layout {
+        return Err(Exception::custom(format!(
+            "compile_with_state: state output layout changed: expected \
+             {expected_state_layout:?}, got {output_layout:?}"
+        )));
+    }
+
+    let mut state = state.borrow_mut();
+    let state_arrays = state.updatable_states_mut().into_iter().collect::<Vec<_>>();
+    if state_arrays.len() != state_outputs.len() {
+        return Err(Exception::custom(format!(
+            "compile_with_state: state cardinality changed before apply: expected {}, got {}",
+            state_outputs.len(),
+            state_arrays.len()
+        )));
+    }
+    for (s, new_values) in state_arrays.into_iter().zip(state_outputs) {
         update_by_replace_with_ref_to_new_array(s, new_values);
     }
 
     // Return only the function results (not the state arrays)
     Ok(function_results.to_vec())
+}
+
+fn array_layout<'a>(arrays: impl IntoIterator<Item = &'a Array>) -> Vec<(crate::Dtype, Vec<i32>)> {
+    arrays
+        .into_iter()
+        .map(|array| (array.dtype(), array.shape().to_vec()))
+        .collect()
+}
+
+fn state_layout(state: &impl Updatable) -> Vec<(crate::Dtype, Vec<i32>)> {
+    array_layout(state.updatable_states())
+}
+
+fn validate_state_layout(
+    expected: &[(crate::Dtype, Vec<i32>)],
+    state: &impl Updatable,
+    phase: &str,
+) -> Result<(), Exception> {
+    let actual = state_layout(state);
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(Exception::custom(format!(
+            "compile_with_state: state layout changed at {phase}: expected {expected:?}, got \
+             {actual:?}"
+        )))
+    }
 }
 
 fn state_snapshot(state: &impl Updatable) -> Vec<Array> {
@@ -433,54 +478,22 @@ fn state_snapshot(state: &impl Updatable) -> Vec<Array> {
         .collect()
 }
 
-fn restore_state(state: &mut impl Updatable, snapshot: &[Array]) {
-    for (array, saved) in state.updatable_states_mut().into_iter().zip(snapshot) {
+fn restore_state(state: &mut impl Updatable, snapshot: &[Array]) -> Result<(), Exception> {
+    let state_arrays = state.updatable_states_mut().into_iter().collect::<Vec<_>>();
+    if state_arrays.len() != snapshot.len() {
+        return Err(Exception::custom(format!(
+            "compile_with_state: cannot restore state after failure: expected {} arrays, got {}",
+            snapshot.len(),
+            state_arrays.len()
+        )));
+    }
+    for (array, saved) in state_arrays.into_iter().zip(snapshot) {
         update_by_replace_with_ref_to_new_array(array, saved);
     }
+    Ok(())
 }
 
 impl<F> CompiledState<F> {
-    fn retry_call_mut_with_state<U>(
-        &mut self,
-        state: &mut U,
-        args: &[impl AsRef<Array>],
-    ) -> Result<Vec<Array>, Exception>
-    where
-        F: FnMut(&mut U, &[Array]) -> Vec<Array>,
-        U: Updatable,
-    {
-        self.call_mut_with_state(state, args).or_else(|_e| {
-            // Somehow the mlx_closure_apply may fail on the first call for
-            // certain types of state with the error message:
-            // "unordered_map::at: key not found", so we just try again.
-            //
-            // One type that is known to cause this is a tuple of
-            // `Module` and `Optimizer` eg. `(<Module>, <Optimizer>)`
-            self.call_mut_with_state(state, args)
-        })
-    }
-
-    fn retry_fallible_call_mut_with_state<U>(
-        &mut self,
-        state: &mut U,
-        args: &[impl AsRef<Array>],
-    ) -> Result<Vec<Array>, Exception>
-    where
-        F: FnMut(&mut U, &[Array]) -> Result<Vec<Array>, Exception>,
-        U: Updatable,
-    {
-        self.fallible_call_mut_with_state(state, args)
-            .or_else(|_e| {
-                // Somehow the mlx_closure_apply may fail on the first call for
-                // certain types of state with the error message:
-                // "unordered_map::at: key not found", so we just try again.
-                //
-                // One type that is known to cause this is a tuple of
-                // `Module` and `Optimizer` eg. `(<Module>, <Optimizer>)`
-                self.fallible_call_mut_with_state(state, args)
-            })
-    }
-
     fn call_mut_with_state<U>(
         &mut self,
         state: &mut U,
@@ -490,6 +503,9 @@ impl<F> CompiledState<F> {
         F: FnMut(&mut U, &[Array]) -> Vec<Array>,
         U: Updatable,
     {
+        if let Some(expected) = self.state_layout.as_deref() {
+            validate_state_layout(expected, state, "call input")?;
+        }
         let args_len = args.len();
         let saved_state = state_snapshot(state);
         let state = Rc::new(RefCell::new(state));
@@ -498,6 +514,8 @@ impl<F> CompiledState<F> {
         // Cell to capture the number of function outputs during tracing
         let num_function_outputs = Rc::new(Cell::new(self.num_function_outputs));
         let num_fn_outputs_clone = Rc::clone(&num_function_outputs);
+        let state_layout = Rc::new(RefCell::new(self.state_layout.clone()));
+        let state_layout_clone = Rc::clone(&state_layout);
 
         let state_clone = Rc::clone(&state);
         let inner = move |tracers: &[Array]| -> Vec<Array> {
@@ -539,6 +557,10 @@ impl<F> CompiledState<F> {
                 .map(|array| (*array).clone())
                 .collect::<Vec<Array>>();
 
+            if state_layout_clone.borrow().is_none() {
+                *state_layout_clone.borrow_mut() = Some(array_layout(state_output_tracers.iter()));
+            }
+
             // put the original values back in the state
             for (s, saved) in state_clone
                 .borrow_mut()
@@ -563,10 +585,18 @@ impl<F> CompiledState<F> {
             Rc::clone(&state),
             args,
             Rc::clone(&num_function_outputs),
+            Rc::clone(&state_layout),
         );
         self.num_function_outputs = num_function_outputs.get();
-        if result.is_err() {
-            restore_state(*state.borrow_mut(), &saved_state);
+        self.state_layout = state_layout.borrow().clone();
+        if let Err(error) = &result {
+            restore_state(*state.borrow_mut(), &saved_state).map_err(|restore_error| {
+                Exception::custom(format!(
+                    "{}; transactional restore failed: {}",
+                    error.what(),
+                    restore_error.what()
+                ))
+            })?;
         }
         result
     }
@@ -580,6 +610,9 @@ impl<F> CompiledState<F> {
         F: FnMut(&mut U, &[Array]) -> Result<Vec<Array>, Exception>,
         U: Updatable,
     {
+        if let Some(expected) = self.state_layout.as_deref() {
+            validate_state_layout(expected, state, "call input")?;
+        }
         let args_len = args.len();
         let saved_state = state_snapshot(state);
         let state = Rc::new(RefCell::new(state));
@@ -588,6 +621,8 @@ impl<F> CompiledState<F> {
         // Cell to capture the number of function outputs during tracing
         let num_function_outputs = Rc::new(Cell::new(self.num_function_outputs));
         let num_fn_outputs_clone = Rc::clone(&num_function_outputs);
+        let state_layout = Rc::new(RefCell::new(self.state_layout.clone()));
+        let state_layout_clone = Rc::clone(&state_layout);
 
         let state_clone = Rc::clone(&state);
         let inner = move |tracers: &[Array]| -> Result<Vec<Array>, Exception> {
@@ -629,6 +664,10 @@ impl<F> CompiledState<F> {
                 .map(|array| (*array).clone())
                 .collect::<Vec<Array>>();
 
+            if state_layout_clone.borrow().is_none() {
+                *state_layout_clone.borrow_mut() = Some(array_layout(state_output_tracers.iter()));
+            }
+
             // put the original values back in the state
             for (s, saved) in state_clone
                 .borrow_mut()
@@ -653,10 +692,18 @@ impl<F> CompiledState<F> {
             Rc::clone(&state),
             args,
             Rc::clone(&num_function_outputs),
+            Rc::clone(&state_layout),
         );
         self.num_function_outputs = num_function_outputs.get();
-        if result.is_err() {
-            restore_state(*state.borrow_mut(), &saved_state);
+        self.state_layout = state_layout.borrow().clone();
+        if let Err(error) = &result {
+            restore_state(*state.borrow_mut(), &saved_state).map_err(|restore_error| {
+                Exception::custom(format!(
+                    "{}; transactional restore failed: {}",
+                    error.what(),
+                    restore_error.what()
+                ))
+            })?;
         }
         result
     }

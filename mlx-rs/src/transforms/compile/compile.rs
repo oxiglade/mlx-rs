@@ -55,8 +55,8 @@ where
         shapeless: bool,
     ) -> impl for<'args> CallMut<Self::Args<'args>, Vec<Array>, ()> {
         let state = CompiledState::new(self, shapeless);
-        Compiled {
-            f_marker: PhantomData::<F>,
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -74,8 +74,8 @@ where
             vec![result]
         };
         let state = CompiledState::new(f, shapeless);
-        Compiled {
-            f_marker: PhantomData::<F>,
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -93,8 +93,8 @@ where
             vec![result]
         };
         let state = CompiledState::new(f, shapeless);
-        Compiled {
-            f_marker: PhantomData::<F>,
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -112,8 +112,8 @@ where
             vec![result]
         };
         let state = CompiledState::new(f, shapeless);
-        Compiled {
-            f_marker: PhantomData::<F>,
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -130,8 +130,8 @@ where
         shapeless: bool,
     ) -> impl for<'args> CallMut<Self::Args<'args>, Vec<Array>, Exception> {
         let state = CompiledState::new(self, shapeless);
-        Compiled {
-            f_marker: PhantomData::<F>,
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -152,8 +152,8 @@ where
             Ok(vec![result])
         };
         let state = CompiledState::new(f, shapeless);
-        Compiled {
-            f_marker: PhantomData::<F>,
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -174,8 +174,8 @@ where
             Ok(vec![result])
         };
         let state = CompiledState::new(f, shapeless);
-        Compiled {
-            f_marker: PhantomData::<F>,
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -196,8 +196,8 @@ where
             Ok(vec![result])
         };
         let state = CompiledState::new(f, shapeless);
-        Compiled {
-            f_marker: PhantomData::<F>,
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -383,6 +383,14 @@ mod tests {
         let second = ManuallyDrop::new(super::CompiledState::new(example_fn_0, false));
 
         assert_ne!(first.id, second.id);
+    }
+
+    #[test]
+    fn cloned_compile_state_gets_a_fresh_monotonic_id() {
+        let first = ManuallyDrop::new(super::CompiledState::new(example_fn_0, false));
+        let cloned = ManuallyDrop::new(super::CompiledState::clone(&first));
+
+        assert!(cloned.id > first.id);
     }
 
     #[test]

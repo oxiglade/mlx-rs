@@ -30,7 +30,14 @@ pub fn rfft_device(
     let a = a.as_ref();
     let (n, axis) = resolve_size_and_axis_unchecked(a, n.into(), axis.into());
     Array::try_from_op(|res| unsafe {
-        mlx_sys::mlx_fft_rfft(res, a.as_ptr(), n, axis, stream.as_ref().as_ptr())
+        mlx_sys::mlx_fft_rfft(
+            res,
+            a.as_ptr(),
+            n,
+            axis,
+            mlx_sys::mlx_fft_norm__MLX_FFT_NORM_BACKWARD,
+            stream.as_ref().as_ptr(),
+        )
     })
 }
 
@@ -72,6 +79,7 @@ pub fn rfft2_device<'a>(
             num_s,
             axes_ptr,
             num_axes,
+            mlx_sys::mlx_fft_norm__MLX_FFT_NORM_BACKWARD,
             stream.as_ref().as_ptr(),
         )
     })
@@ -115,6 +123,7 @@ pub fn rfftn_device<'a>(
             num_s,
             axes_ptr,
             num_axes,
+            mlx_sys::mlx_fft_norm__MLX_FFT_NORM_BACKWARD,
             stream.as_ref().as_ptr(),
         )
     })
@@ -148,7 +157,14 @@ pub fn irfft_device(
     }
 
     Array::try_from_op(|res| unsafe {
-        mlx_sys::mlx_fft_irfft(res, a.as_ptr(), n, axis, stream.as_ref().as_ptr())
+        mlx_sys::mlx_fft_irfft(
+            res,
+            a.as_ptr(),
+            n,
+            axis,
+            mlx_sys::mlx_fft_norm__MLX_FFT_NORM_BACKWARD,
+            stream.as_ref().as_ptr(),
+        )
     })
 }
 
@@ -198,6 +214,7 @@ pub fn irfft2_device<'a>(
             num_s,
             axes_ptr,
             num_axes,
+            mlx_sys::mlx_fft_norm__MLX_FFT_NORM_BACKWARD,
             stream.as_ref().as_ptr(),
         )
     })
@@ -250,6 +267,7 @@ pub fn irfftn_device<'a>(
             num_s,
             axes_ptr,
             num_axes,
+            mlx_sys::mlx_fft_norm__MLX_FFT_NORM_BACKWARD,
             stream.as_ref().as_ptr(),
         )
     })
@@ -259,6 +277,7 @@ pub fn irfftn_device<'a>(
 mod tests {
     use crate::{
         complex64,
+        ops::indexing::TryIndexOp,
         test_utils::{assert_array_eq, tolerances},
         Array, Dtype,
     };
@@ -398,6 +417,41 @@ mod tests {
             Array::from_slice(RFFTN_DATA, RFFTN_SHAPE),
             tolerances::EXACT.rtol,
             tolerances::EXACT.atol,
+        );
+    }
+
+    #[test]
+    fn asymmetric_real_multidimensional_transforms_use_backward_normalization() {
+        let input2 = Array::from_slice(&[1.0_f32, 2.0, 3.0, 5.0, 7.0, 11.0], &[2, 3]);
+        let spectrum2 = super::rfft2(&input2, None, None).unwrap();
+        assert_array_eq(
+            spectrum2.try_index((0, 0)).unwrap(),
+            Array::from(complex64::new(29.0, 0.0)),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
+        let roundtrip2 = super::irfft2(&spectrum2, &[2, 3], &[-2, -1]).unwrap();
+        assert_array_eq(
+            &roundtrip2,
+            &input2,
+            tolerances::STANDARD.rtol,
+            tolerances::STANDARD.atol,
+        );
+
+        let inputn = Array::from_slice(&[1.0_f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], &[2, 2, 2]);
+        let spectrumn = super::rfftn(&inputn, None, None).unwrap();
+        assert_array_eq(
+            spectrumn.try_index((0, 0, 0)).unwrap(),
+            Array::from(complex64::new(36.0, 0.0)),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
+        let roundtripn = super::irfftn(&spectrumn, &[2, 2, 2], &[0, 1, 2]).unwrap();
+        assert_array_eq(
+            &roundtripn,
+            &inputn,
+            tolerances::STANDARD.rtol,
+            tolerances::STANDARD.atol,
         );
     }
 

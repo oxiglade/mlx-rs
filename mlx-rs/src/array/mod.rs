@@ -71,8 +71,7 @@ impl Drop for Array {
     }
 }
 
-// SAFETY: Array handles may move between threads, but the pinned MLX runtime shares streams, so
-// callers must externally serialize every MLX operation.
+// SAFETY: MLX 0.32.2 supports moving array handles while operations use per-thread default streams.
 unsafe impl Send for Array {}
 
 impl PartialEq for Array {

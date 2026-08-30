@@ -28,7 +28,14 @@ pub fn fft_device(
     let a = a.as_ref();
     let (n, axis) = resolve_size_and_axis_unchecked(a, n.into(), axis.into());
     Array::try_from_op(|res| unsafe {
-        mlx_sys::mlx_fft_fft(res, a.as_ptr(), n, axis, stream.as_ref().as_ptr())
+        mlx_sys::mlx_fft_fft(
+            res,
+            a.as_ptr(),
+            n,
+            axis,
+            mlx_sys::mlx_fft_norm__MLX_FFT_NORM_BACKWARD,
+            stream.as_ref().as_ptr(),
+        )
     })
 }
 
@@ -66,6 +73,7 @@ pub fn fft2_device<'a>(
             num_s,
             axes_ptr,
             num_axes,
+            mlx_sys::mlx_fft_norm__MLX_FFT_NORM_BACKWARD,
             stream.as_ref().as_ptr(),
         )
     })
@@ -105,6 +113,7 @@ pub fn fftn_device<'a>(
             num_s,
             axes_ptr,
             num_axes,
+            mlx_sys::mlx_fft_norm__MLX_FFT_NORM_BACKWARD,
             stream.as_ref().as_ptr(),
         )
     })
@@ -130,7 +139,14 @@ pub fn ifft_device(
     let (n, axis) = resolve_size_and_axis_unchecked(a, n.into(), axis.into());
 
     Array::try_from_op(|res| unsafe {
-        mlx_sys::mlx_fft_ifft(res, a.as_ptr(), n, axis, stream.as_ref().as_ptr())
+        mlx_sys::mlx_fft_ifft(
+            res,
+            a.as_ptr(),
+            n,
+            axis,
+            mlx_sys::mlx_fft_norm__MLX_FFT_NORM_BACKWARD,
+            stream.as_ref().as_ptr(),
+        )
     })
 }
 
@@ -168,6 +184,7 @@ pub fn ifft2_device<'a>(
             num_s,
             axes_ptr,
             num_axes,
+            mlx_sys::mlx_fft_norm__MLX_FFT_NORM_BACKWARD,
             stream.as_ref().as_ptr(),
         )
     })
@@ -207,6 +224,7 @@ pub fn ifftn_device<'a>(
             num_s,
             axes_ptr,
             num_axes,
+            mlx_sys::mlx_fft_norm__MLX_FFT_NORM_BACKWARD,
             stream.as_ref().as_ptr(),
         )
     })
@@ -215,7 +233,8 @@ pub fn ifftn_device<'a>(
 #[cfg(test)]
 mod tests {
     use crate::{
-        complex64, fft::*, test_utils::assert_array_eq, test_utils::tolerances, Array, Dtype,
+        complex64, fft::*, ops::indexing::TryIndexOp, test_utils::assert_array_eq,
+        test_utils::tolerances, Array, Dtype,
     };
 
     #[test]
@@ -351,6 +370,51 @@ mod tests {
             Array::from_slice(FFTN_DATA, FFTN_SHAPE),
             tolerances::EXACT.rtol,
             tolerances::EXACT.atol,
+        );
+    }
+
+    #[test]
+    fn asymmetric_multidimensional_transforms_use_backward_normalization() {
+        let input2 = Array::from_slice(&[1.0_f32, 2.0, 3.0, 5.0, 7.0, 11.0], &[2, 3]);
+        let spectrum2 = fft2(&input2, None, None).unwrap();
+        assert_array_eq(
+            spectrum2.try_index((0, 0)).unwrap(),
+            Array::from(complex64::new(29.0, 0.0)),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
+        // The inverse of a complex spectrum is complex with ~zero imaginaries;
+        // compare in the output's dtype rather than casting it away.
+        let roundtrip2 = ifft2(&spectrum2, None, None).unwrap();
+        let expected2 = Array::from_slice(
+            &[1.0_f32, 2.0, 3.0, 5.0, 7.0, 11.0].map(|re| complex64::new(re, 0.0)),
+            &[2, 3],
+        );
+        assert_array_eq(
+            &roundtrip2,
+            &expected2,
+            tolerances::STANDARD.rtol,
+            tolerances::STANDARD.atol,
+        );
+
+        let inputn = Array::from_slice(&[1.0_f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], &[2, 2, 2]);
+        let spectrumn = fftn(&inputn, None, None).unwrap();
+        assert_array_eq(
+            spectrumn.try_index((0, 0, 0)).unwrap(),
+            Array::from(complex64::new(36.0, 0.0)),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
+        let roundtripn = ifftn(&spectrumn, None, None).unwrap();
+        let expectedn = Array::from_slice(
+            &[1.0_f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0].map(|re| complex64::new(re, 0.0)),
+            &[2, 2, 2],
+        );
+        assert_array_eq(
+            &roundtripn,
+            &expectedn,
+            tolerances::STANDARD.rtol,
+            tolerances::STANDARD.atol,
         );
     }
 }

@@ -26,8 +26,8 @@
           }
         ]
       },
-      "disposition": "deferred",
-      "rationale": "target ABI entity is not represented in the Rust public API at the old pin"
+      "disposition": "internal",
+      "rationale": "the compatibility layer fixes backward normalization privately until an FFT options cohort is admitted"
     },
     {
       "change": "added",
@@ -62,10 +62,10 @@
         "name": "mlx_compile_cache_free",
         "signature": "fn(mlx_compile_cache)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "deferred to the bump, where the target compile-cache family must be evaluated as the fix for measured per-call compile_with_state retracing at the old pin",
+      "disposition": "internal",
+      "rationale": "the bump owns this handle privately through the Compiled RAII cache binding",
       "evidence": [
-        "state:test:mlx-tests/tests/state_compile.rs#retry_path_does_not_double_apply_state_mutation"
+        "state:test:mlx-tests/tests/state_compile.rs#failed_trace_is_not_retried_and_later_calls_use_the_cache"
       ]
     },
     {
@@ -77,10 +77,10 @@
         "name": "mlx_compile_cache_new",
         "signature": "fn()->mlx_compile_cache"
       },
-      "disposition": "deferred",
-      "rationale": "deferred to the bump, where the target compile-cache family must be evaluated as the fix for measured per-call compile_with_state retracing at the old pin",
+      "disposition": "internal",
+      "rationale": "the bump owns this handle privately through the Compiled RAII cache binding",
       "evidence": [
-        "state:test:mlx-tests/tests/state_compile.rs#retry_path_does_not_double_apply_state_mutation"
+        "state:test:mlx-tests/tests/state_compile.rs#failed_trace_is_not_retried_and_later_calls_use_the_cache"
       ]
     },
     {
@@ -192,10 +192,10 @@
         "name": "mlx_detail_compile_cache",
         "signature": "fn(* mut mlx_compile_cache)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "deferred to the bump, where the target compile-cache family must be evaluated as the fix for measured per-call compile_with_state retracing at the old pin",
+      "disposition": "internal",
+      "rationale": "the bump resolves this private handle when Compiled is created and for each explicit clear",
       "evidence": [
-        "state:test:mlx-tests/tests/state_compile.rs#retry_path_does_not_double_apply_state_mutation"
+        "state:test:mlx-tests/tests/state_compile.rs#failed_trace_is_not_retried_and_later_calls_use_the_cache"
       ]
     },
     {
@@ -900,17 +900,17 @@
         "new": "mlx_compile_cache_new",
         "free": "mlx_compile_cache_free"
       },
-      "disposition": "deferred",
-      "rationale": "deferred to the bump, where the target compile-cache family must be evaluated as the fix for measured per-call compile_with_state retracing at the old pin",
+      "disposition": "internal",
+      "rationale": "the bump collapses the C handle family into one private Compiled-owned RAII abstraction",
       "evidence": [
-        "state:test:mlx-tests/tests/state_compile.rs#retry_path_does_not_double_apply_state_mutation"
+        "state:test:mlx-tests/tests/state_compile.rs#failed_trace_is_not_retried_and_later_calls_use_the_cache"
       ],
       "risk_class": "ownership",
       "ownership": {
         "model": "owned_handle",
         "constructor": "mlx_compile_cache_new",
         "destructor": "mlx_compile_cache_free",
-        "rust_status": "deferred"
+        "rust_status": "internal"
       }
     },
     {
@@ -967,10 +967,10 @@
           }
         ]
       },
-      "disposition": "deferred",
-      "rationale": "deferred to the bump, where the target compile-cache family must be evaluated as the fix for measured per-call compile_with_state retracing at the old pin",
+      "disposition": "internal",
+      "rationale": "the backing C struct remains private behind the Compiled-owned RAII cache binding",
       "evidence": [
-        "state:test:mlx-tests/tests/state_compile.rs#retry_path_does_not_double_apply_state_mutation"
+        "state:test:mlx-tests/tests/state_compile.rs#failed_trace_is_not_retried_and_later_calls_use_the_cache"
       ]
     },
     {
@@ -1016,10 +1016,10 @@
         "name": "mlx_compile_cache",
         "definition": "mlx_compile_cache_"
       },
-      "disposition": "deferred",
-      "rationale": "deferred to the bump, where the target compile-cache family must be evaluated as the fix for measured per-call compile_with_state retracing at the old pin",
+      "disposition": "internal",
+      "rationale": "the C typedef remains private behind the Compiled-owned RAII cache binding",
       "evidence": [
-        "state:test:mlx-tests/tests/state_compile.rs#retry_path_does_not_double_apply_state_mutation"
+        "state:test:mlx-tests/tests/state_compile.rs#failed_trace_is_not_retried_and_later_calls_use_the_cache"
       ]
     },
     {
@@ -1031,8 +1031,8 @@
         "name": "mlx_fft_norm",
         "definition": "mlx_fft_norm_"
       },
-      "disposition": "deferred",
-      "rationale": "target ABI entity is not represented in the Rust public API at the old pin"
+      "disposition": "internal",
+      "rationale": "the compatibility layer fixes backward normalization privately until an FFT options cohort is admitted"
     },
     {
       "change": "added",
@@ -1043,8 +1043,8 @@
         "name": "mlx_fft_norm_",
         "definition": ":: std :: os :: raw :: c_uint"
       },
-      "disposition": "deferred",
-      "rationale": "target ABI entity is not represented in the Rust public API at the old pin"
+      "disposition": "internal",
+      "rationale": "the compatibility layer fixes backward normalization privately until an FFT options cohort is admitted"
     },
     {
       "change": "added",
@@ -1202,7 +1202,8 @@
       "disposition": "wrapped",
       "rust_path": "mlx_rs::transforms::compile::clear_cache",
       "evidence": [
-        "api:path:mlx_rs::transforms::compile::clear_cache"
+        "api:path:mlx_rs::transforms::compile::clear_cache",
+        "state:test:mlx-tests/tests/state_compile.rs#clear_cache_resolves_the_current_thread_cache"
       ],
       "old_pin_affected": false,
       "bump_impact": "signature update: create and retain the target compile-cache handle before clearing it; semantic review: define cache ownership and scope"
