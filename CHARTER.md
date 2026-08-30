@@ -66,7 +66,7 @@ additions plus six changed, currently unwrapped entries.
 8. **Required inputs are explicit; independent defaults use concrete options, while mutually
    exclusive forms use semantic sum types.**
    *Migration: bump-time for new APIs; idiom-wave for legacy signatures.* Represent axis selection
-   as `Axes::{All, One, Many}` and uniform/per-dimension spatial values with an equivalent concrete
+   as `Axes::{All, Axis, Axes}` and uniform/per-dimension spatial values with an equivalent concrete
    enum. Use `FooOptions: Default` for independent knobs, and validate correlated fields such as
    FFT lengths and axes together. `Option<T>` means genuine absence, not an overload family.
    Builders remain limited to durable modules, optimizers, and reusable validated configurations;
@@ -117,6 +117,23 @@ additions plus six changed, currently unwrapped entries.
     applicable. Before the idiom wave, the API gate must use the compiled, feature-qualified
     surface so generated builders and cfg availability are no longer invisible, consistent with
     the roadmap's vertical-admission rule.
+
+## Idiom-wave delivery
+
+Round 1 was delivered on 2026-08-30. The shared pattern is frozen for later rounds:
+
+- `with_stream(&Stream, f)` and `with_device(Device, f)` are the canonical synchronous,
+  thread-local, nestable, panic-safe selection scopes. One explicit operation uses a scope whose
+  closure contains only that operation.
+- `Axes::{All, Axis(i32), Axes(Vec<i32>)}` is the shared axis-selection sum type. Independent
+  defaults use a concrete `FooOptions: Default`; `FftnOptions` is the first implementation and
+  validates transform lengths and selected axes together.
+- Canonical unsuffixed functions own the only high-level C binding. A compatibility function or
+  macro carries `#[deprecated(since = "0.26.0", note = "...")]` and only forwards to that canonical
+  path; an explicit-stream shim opens a scope around it.
+- The FFT family is the pilot: its 14 `_device` twins and 14 generated operation macros are now
+  deprecated forwarding shims, while its 14 unsuffixed operations are canonical. Subsequent family
+  rounds copy this structure mechanically and do not create independent FFI paths.
 
 ## Concrete 0.32.2 rebind decisions
 

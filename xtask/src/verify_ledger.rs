@@ -188,6 +188,15 @@ fn verify_documents(
                     "wrapped path {rust_path} is absent from API baseline"
                 ));
             }
+            if rust_path.starts_with("mlx_rs::fft::") {
+                let python_name = required_nonempty(classified, "python_name")?;
+                if !python_name.starts_with("mlx.core.fft.") {
+                    return Err(format!(
+                        "FFT classification {key} has invalid python_name {python_name}"
+                    ));
+                }
+                required_nonempty(classified, "semantic_op")?;
+            }
             classified["evidence"]
                 .as_array()
                 .filter(|evidence| !evidence.is_empty())
@@ -605,6 +614,21 @@ mod tests {
                 .unwrap_err()
                 .contains("does not match Rust source")
         );
+    }
+
+    #[test]
+    fn qualification_requires_semantic_metadata_for_fft_pilot_entries() {
+        let mut fixture = fixture();
+        fixture["classification"]["entries"][0]["rust_path"] = "mlx_rs::fft::fft".into();
+        fixture["classification"]["entries"][0]["evidence"][0] = "api:path:mlx_rs::fft::fft".into();
+        fixture["api_baseline"]["entries"][0]["path"] = "mlx_rs::fft::fft".into();
+        let evidence = ["api:path:mlx_rs::fft::fft", "conf:add.basic"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect();
+
+        let error = super::verify_fixture(&fixture, &evidence).unwrap_err();
+        assert!(error.contains("python_name") || error.contains("semantic_op"));
     }
 
     #[test]

@@ -1,22 +1,12 @@
 //! Fast Fourier Transform (FFT) and its inverse (IFFT) for one, two, and `N` dimensions.
 //!
-//! The legacy transform APIs provide checked, unchecked, and panicking variants, together with
-//! per-operation stream variants. New APIs use one named `Result` path and follow the scoped or
-//! current-thread default stream.
+//! Unsuffixed functions are the canonical named `Result` paths and use the current thread's scoped
+//! stream or runtime default. Select an explicit stream or device with [`crate::with_stream`] or
+//! [`crate::with_device`]. The `_device` functions and generated operation macros are deprecated
+//! forwarding shims.
 //!
-//! The difference are explained below using `fftn` as an example:
-//!
-//! 1. `fftn_unchecked`/`fftn_device_unchecked`: This function is simply a wrapper around the C API
-//!    and does not perform any checks on the input. It may panic or get an fatal error that cannot
-//!    be caught by the rust runtime if the input is invalid.
-//! 2. `try_fftn`/`try_fftn_device`: This function performs checks on the input and returns a
-//!    `Result` instead of panicking.
-//! 3. `fftn`/`fftn_device`: This function is a wrapper around `try_fftn` and unwraps the result. It
-//!    panics if the input is invalid.
-//!
-//! The functions that contains `device` in their name are meant to be used with a user-specified
-//! `StreamOrDevice`. If you don't care about the stream, you can use the functions without `device`
-//! in their names. Please note that GPU device support is not yet implemented.
+//! N-dimensional transforms accept [`FftnOptions`]. Its default selects every axis at the input
+//! lengths, and correlated lengths and axes are validated before calling MLX.
 //!
 //! # Examples
 //!
@@ -24,7 +14,7 @@
 //!
 //! ```rust
 //! use mlx_rs::{
-//!     Dtype, Array, StreamOrDevice, complex64, fft::*,
+//!     Dtype, Array, complex64, fft::*,
 //!     test_utils::{assert_array_eq, tolerances},
 //! };
 //!
@@ -85,7 +75,7 @@
 //!
 //! ```rust
 //! use mlx_rs::{
-//!     Dtype, Array, StreamOrDevice, complex64, fft::*,
+//!     Dtype, Array, complex64, fft::*,
 //!     test_utils::{assert_array_eq, tolerances},
 //! };
 //!
@@ -146,12 +136,12 @@
 //!
 //! ```rust
 //! use mlx_rs::{
-//!     Dtype, Array, StreamOrDevice, complex64, fft::*,
+//!     Dtype, Array, complex64, fft::*,
 //!     test_utils::{assert_array_eq, tolerances},
 //! };
 //!
 //! let mut array = Array::ones::<f32>(&[2, 2, 2]).unwrap();
-//! let mut fftn_result = fftn(&array, None, None).unwrap();
+//! let mut fftn_result = fftn(&array, FftnOptions::default()).unwrap();
 //! assert_eq!(fftn_result.dtype(), Dtype::Complex64);
 //!
 //! let mut expected = [complex64::new(0.0, 0.0); 8];
@@ -163,7 +153,7 @@
 //!     tolerances::EXACT.atol,
 //! );
 //!
-//! let mut ifftn_result = ifftn(&fftn_result, None, None).unwrap();
+//! let mut ifftn_result = ifftn(&fftn_result, FftnOptions::default()).unwrap();
 //! assert_eq!(ifftn_result.dtype(), Dtype::Complex64);
 //!
 //! let expected = [complex64::new(1.0, 0.0); 8];
@@ -174,7 +164,7 @@
 //!     tolerances::EXACT.atol,
 //! );
 //!
-//! let mut rfftn_result = rfftn(&array, None, None).unwrap();
+//! let mut rfftn_result = rfftn(&array, FftnOptions::default()).unwrap();
 //! assert_eq!(rfftn_result.dtype(), Dtype::Complex64);
 //!
 //! let mut expected = [complex64::new(0.0, 0.0); 8];
@@ -186,7 +176,7 @@
 //!     tolerances::EXACT.atol,
 //! );
 //!
-//! let mut irfftn_result = irfftn(&rfftn_result, None, None).unwrap();
+//! let mut irfftn_result = irfftn(&rfftn_result, FftnOptions::default()).unwrap();
 //! assert_eq!(irfftn_result.dtype(), Dtype::Float32);
 //!
 //! let expected = [1.0; 8];
@@ -208,11 +198,12 @@
 
 mod fftn;
 mod frequencies;
+mod options;
 mod rfftn;
 mod shift;
 mod utils;
 
-pub use self::{fftn::*, frequencies::*, rfftn::*, shift::*};
+pub use self::{fftn::*, frequencies::*, options::*, rfftn::*, shift::*};
 
 /* -------------------------------------------------------------------------- */
 /*                              Helper functions                              */

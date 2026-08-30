@@ -4,18 +4,18 @@ use std::{
     thread,
 };
 
-use mlx_rs::{array, task_local_default_stream, with_new_default_stream, Array, Stream};
+use mlx_rs::{array, thread_local_default_stream, with_stream, Array, Stream};
 
 #[test]
 fn scoped_stream_is_identity_preserving_and_passes_through_results() {
-    assert!(task_local_default_stream().is_none());
+    assert!(thread_local_default_stream().is_none());
     let selected = Stream::cpu();
-    let result = with_new_default_stream(selected.clone(), || {
-        assert_eq!(task_local_default_stream(), Some(selected.clone()));
+    let result = with_stream(&selected, || {
+        assert_eq!(thread_local_default_stream(), Some(selected.clone()));
         42
     });
     assert_eq!(result, 42);
-    assert!(task_local_default_stream().is_none());
+    assert!(thread_local_default_stream().is_none());
 }
 
 #[test]
@@ -23,20 +23,20 @@ fn nested_cpu_and_metal_scopes_restore_after_success_and_panic() {
     let cpu = Stream::cpu();
     let metal = Stream::gpu();
 
-    with_new_default_stream(cpu.clone(), || {
-        with_new_default_stream(metal.clone(), || {
-            assert_eq!(task_local_default_stream(), Some(metal.clone()));
+    with_stream(&cpu, || {
+        with_stream(&metal, || {
+            assert_eq!(thread_local_default_stream(), Some(metal.clone()));
         });
-        assert_eq!(task_local_default_stream(), Some(cpu.clone()));
+        assert_eq!(thread_local_default_stream(), Some(cpu.clone()));
 
         let panic = catch_unwind(AssertUnwindSafe(|| {
-            with_new_default_stream(metal.clone(), || panic!("scoped stream panic"));
+            with_stream(&metal, || panic!("scoped stream panic"));
         }));
         assert!(panic.is_err());
-        assert_eq!(task_local_default_stream(), Some(cpu.clone()));
+        assert_eq!(thread_local_default_stream(), Some(cpu.clone()));
     });
 
-    assert!(task_local_default_stream().is_none());
+    assert!(thread_local_default_stream().is_none());
 }
 
 #[test]
@@ -46,11 +46,11 @@ fn scoped_defaults_are_isolated_across_threads() {
         let barrier = Arc::clone(&barrier);
         thread::spawn(move || {
             let selected = if metal { Stream::gpu() } else { Stream::cpu() };
-            with_new_default_stream(selected.clone(), || {
+            with_stream(&selected, || {
                 barrier.wait();
-                assert_eq!(task_local_default_stream(), Some(selected.clone()));
+                assert_eq!(thread_local_default_stream(), Some(selected.clone()));
             });
-            assert!(task_local_default_stream().is_none());
+            assert!(thread_local_default_stream().is_none());
         })
     });
 
@@ -66,7 +66,7 @@ fn cpu_and_metal_defaults_evaluate_on_separate_threads() {
         let barrier = Arc::clone(&barrier);
         thread::spawn(move || {
             let selected = if metal { Stream::gpu() } else { Stream::cpu() };
-            with_new_default_stream(selected, || {
+            with_stream(&selected, || {
                 let input = array!([1.0_f32, 2.0, 3.0]);
                 barrier.wait();
                 let output = input.add(&array!(2.0_f32)).unwrap();
@@ -85,7 +85,8 @@ fn cpu_and_metal_defaults_evaluate_on_separate_threads() {
 fn moved_and_independently_cloned_arrays_use_thread_defaults() {
     let moved = array!([1.0_f32, 2.0, 3.0]);
     let moved = thread::spawn(move || {
-        with_new_default_stream(Stream::gpu(), || {
+        let stream = Stream::gpu();
+        with_stream(&stream, || {
             let output = moved.add(&array!(1.0_f32)).unwrap();
             output.eval().unwrap();
             output
@@ -99,14 +100,16 @@ fn moved_and_independently_cloned_arrays_use_thread_defaults() {
     let cpu_array = source.clone();
     let metal_array = source.clone();
     let cpu = thread::spawn(move || {
-        with_new_default_stream(Stream::cpu(), || {
+        let stream = Stream::cpu();
+        with_stream(&stream, || {
             let output = cpu_array.multiply(&array!(0.5_f32)).unwrap();
             output.eval().unwrap();
             output.as_slice::<f32>().to_vec()
         })
     });
     let metal = thread::spawn(move || {
-        with_new_default_stream(Stream::gpu(), || {
+        let stream = Stream::gpu();
+        with_stream(&stream, || {
             let output = metal_array.multiply(&array!(0.5_f32)).unwrap();
             output.eval().unwrap();
             output.as_slice::<f32>().to_vec()

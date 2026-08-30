@@ -281,6 +281,8 @@
       },
       "disposition": "wrapped",
       "rust_path": "mlx_rs::fft::fftfreq",
+      "python_name": "mlx.core.fft.fftfreq",
+      "semantic_op": "fftfreq",
       "evidence": [
         "api:path:mlx_rs::fft::fftfreq",
         "conf:signal.013",
@@ -300,6 +302,8 @@
       },
       "disposition": "wrapped",
       "rust_path": "mlx_rs::fft::rfftfreq",
+      "python_name": "mlx.core.fft.rfftfreq",
+      "semantic_op": "rfftfreq",
       "evidence": [
         "api:path:mlx_rs::fft::rfftfreq",
         "conf:signal.017",
@@ -1364,9 +1368,11 @@
         "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_fft_norm,mlx_stream)->:: std :: os :: raw :: c_int"
       },
       "disposition": "wrapped",
-      "rust_path": "mlx_rs::fft::fft_device",
+      "rust_path": "mlx_rs::fft::fft",
+      "python_name": "mlx.core.fft.fft",
+      "semantic_op": "fft",
       "evidence": [
-        "api:path:mlx_rs::fft::fft_device",
+        "api:path:mlx_rs::fft::fft",
         "api:test:mlx-rs/src/fft/fftn.rs#test_fft"
       ],
       "old_pin_affected": false,
@@ -1387,9 +1393,11 @@
         "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_fft_norm,mlx_stream)->:: std :: os :: raw :: c_int"
       },
       "disposition": "wrapped",
-      "rust_path": "mlx_rs::fft::fft2_device",
+      "rust_path": "mlx_rs::fft::fft2",
+      "python_name": "mlx.core.fft.fft2",
+      "semantic_op": "fft2",
       "evidence": [
-        "api:path:mlx_rs::fft::fft2_device",
+        "api:path:mlx_rs::fft::fft2",
         "api:test:mlx-rs/src/fft/fftn.rs#test_fft2"
       ],
       "old_pin_affected": false,
@@ -1410,9 +1418,11 @@
         "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_fft_norm,mlx_stream)->:: std :: os :: raw :: c_int"
       },
       "disposition": "wrapped",
-      "rust_path": "mlx_rs::fft::fftn_device",
+      "rust_path": "mlx_rs::fft::fftn",
+      "python_name": "mlx.core.fft.fftn",
+      "semantic_op": "fftn",
       "evidence": [
-        "api:path:mlx_rs::fft::fftn_device",
+        "api:path:mlx_rs::fft::fftn",
         "api:test:mlx-rs/src/fft/fftn.rs#test_fftn"
       ],
       "old_pin_affected": false,
@@ -1433,9 +1443,11 @@
         "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_fft_norm,mlx_stream)->:: std :: os :: raw :: c_int"
       },
       "disposition": "wrapped",
-      "rust_path": "mlx_rs::fft::ifft_device",
+      "rust_path": "mlx_rs::fft::ifft",
+      "python_name": "mlx.core.fft.ifft",
+      "semantic_op": "ifft",
       "evidence": [
-        "api:path:mlx_rs::fft::ifft_device",
+        "api:path:mlx_rs::fft::ifft",
         "api:test:mlx-rs/src/fft/fftn.rs#test_fft"
       ],
       "old_pin_affected": false,
@@ -1456,9 +1468,11 @@
         "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_fft_norm,mlx_stream)->:: std :: os :: raw :: c_int"
       },
       "disposition": "wrapped",
-      "rust_path": "mlx_rs::fft::ifft2_device",
+      "rust_path": "mlx_rs::fft::ifft2",
+      "python_name": "mlx.core.fft.ifft2",
+      "semantic_op": "ifft2",
       "evidence": [
-        "api:path:mlx_rs::fft::ifft2_device",
+        "api:path:mlx_rs::fft::ifft2",
         "api:test:mlx-rs/src/fft/fftn.rs#test_fft2"
       ],
       "old_pin_affected": false,
@@ -1479,9 +1493,11 @@
         "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_fft_norm,mlx_stream)->:: std :: os :: raw :: c_int"
       },
       "disposition": "wrapped",
-      "rust_path": "mlx_rs::fft::ifftn_device",
+      "rust_path": "mlx_rs::fft::ifftn",
+      "python_name": "mlx.core.fft.ifftn",
+      "semantic_op": "ifftn",
       "evidence": [
-        "api:path:mlx_rs::fft::ifftn_device",
+        "api:path:mlx_rs::fft::ifftn",
         "api:test:mlx-rs/src/fft/fftn.rs#test_fftn"
       ],
       "old_pin_affected": false,
@@ -1502,9 +1518,11 @@
         "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_fft_norm,mlx_stream)->:: std :: os :: raw :: c_int"
       },
       "disposition": "wrapped",
-      "rust_path": "mlx_rs::fft::irfft_device",
+      "rust_path": "mlx_rs::fft::irfft",
+      "python_name": "mlx.core.fft.irfft",
+      "semantic_op": "irfft",
       "evidence": [
-        "api:path:mlx_rs::fft::irfft_device",
+        "api:path:mlx_rs::fft::irfft",
         "api:test:mlx-rs/src/fft/rfftn.rs#test_rfft"
       ],
       "old_pin_affected": false,
@@ -1525,9 +1543,11 @@
         "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_fft_norm,mlx_stream)->:: std :: os :: raw :: c_int"
       },
       "disposition": "wrapped",
-      "rust_path": "mlx_rs::fft::irfft2_device",
+      "rust_path": "mlx_rs::fft::irfft2",
+      "python_name": "mlx.core.fft.irfft2",
+      "semantic_op": "irfft2",
       "evidence": [
-        "api:path:mlx_rs::fft::irfft2_device",
+        "api:path:mlx_rs::fft::irfft2",
         "api:test:mlx-rs/src/fft/rfftn.rs#test_rfft2"
       ],
       "old_pin_affected": false,
@@ -1548,9 +1568,11 @@
         "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_fft_norm,mlx_stream)->:: std :: os :: raw :: c_int"
       },
       "disposition": "wrapped",
-      "rust_path": "mlx_rs::fft::irfftn_device",
+      "rust_path": "mlx_rs::fft::irfftn",
+      "python_name": "mlx.core.fft.irfftn",
+      "semantic_op": "irfftn",
       "evidence": [
-        "api:path:mlx_rs::fft::irfftn_device",
+        "api:path:mlx_rs::fft::irfftn",
         "api:test:mlx-rs/src/fft/rfftn.rs#test_rfftn"
       ],
       "old_pin_affected": false,
@@ -1571,9 +1593,11 @@
         "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_fft_norm,mlx_stream)->:: std :: os :: raw :: c_int"
       },
       "disposition": "wrapped",
-      "rust_path": "mlx_rs::fft::rfft_device",
+      "rust_path": "mlx_rs::fft::rfft",
+      "python_name": "mlx.core.fft.rfft",
+      "semantic_op": "rfft",
       "evidence": [
-        "api:path:mlx_rs::fft::rfft_device",
+        "api:path:mlx_rs::fft::rfft",
         "api:test:mlx-rs/src/fft/rfftn.rs#test_rfft"
       ],
       "old_pin_affected": false,
@@ -1594,9 +1618,11 @@
         "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_fft_norm,mlx_stream)->:: std :: os :: raw :: c_int"
       },
       "disposition": "wrapped",
-      "rust_path": "mlx_rs::fft::rfft2_device",
+      "rust_path": "mlx_rs::fft::rfft2",
+      "python_name": "mlx.core.fft.rfft2",
+      "semantic_op": "rfft2",
       "evidence": [
-        "api:path:mlx_rs::fft::rfft2_device",
+        "api:path:mlx_rs::fft::rfft2",
         "api:test:mlx-rs/src/fft/rfftn.rs#test_rfft2"
       ],
       "old_pin_affected": false,
@@ -1617,9 +1643,11 @@
         "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_fft_norm,mlx_stream)->:: std :: os :: raw :: c_int"
       },
       "disposition": "wrapped",
-      "rust_path": "mlx_rs::fft::rfftn_device",
+      "rust_path": "mlx_rs::fft::rfftn",
+      "python_name": "mlx.core.fft.rfftn",
+      "semantic_op": "rfftn",
       "evidence": [
-        "api:path:mlx_rs::fft::rfftn_device",
+        "api:path:mlx_rs::fft::rfftn",
         "api:test:mlx-rs/src/fft/rfftn.rs#test_rfftn"
       ],
       "old_pin_affected": false,

@@ -14,6 +14,13 @@ const CUSTOM_ATTRIBUTES: &[&str] = &[CUSTOM_ATTRIBUTE_OPTIONAL, CUSTOM_ATTRIBUTE
 struct Customize {
     root: Option<syn::LitStr>,
     default_dtype: Option<syn::Path>,
+    forwarding_shim: bool,
+}
+
+struct MacroGeneration<'a> {
+    default_generics: &'a proc_macro2::TokenStream,
+    dtype_generics: &'a Option<proc_macro2::TokenStream>,
+    forwarding_shim: bool,
 }
 
 fn arg_type(attrs: &[syn::Attribute]) -> ArgType {
@@ -40,6 +47,11 @@ pub fn expand_generate_macro(
     attr: Option<Meta>,
     mut item: ItemFn, // The original function should be kept as is
 ) -> Result<TokenStream, syn::Error> {
+    let deprecated = item
+        .attrs
+        .iter()
+        .find(|attr| attr.path().is_ident("deprecated"))
+        .cloned();
     let customize = match attr {
         Some(attr) => Customize::from_meta(&attr).map_err(|e| syn::Error::new_spanned(attr, e))?,
         None => Customize::default(),
@@ -57,6 +69,11 @@ pub fn expand_generate_macro(
 
     let (default_generics, dtype_generics) =
         handle_generic_args(&item.sig.generics, &customize.default_dtype);
+    let generation = MacroGeneration {
+        default_generics: &default_generics,
+        dtype_generics: &dtype_generics,
+        forwarding_shim: customize.forwarding_shim,
+    };
 
     let args = item
         .sig
@@ -90,8 +107,8 @@ pub fn expand_generate_macro(
         &doc_mod_path,
         fn_ident,
         &parsed_args,
-        &default_generics,
-        &dtype_generics,
+        &generation,
+        deprecated.as_ref(),
     )?;
 
     let output = quote! {
@@ -178,8 +195,8 @@ fn generate_macro(
     doc_mod_path: &str,
     fn_ident: &Ident,
     args: &[Arg],
-    default_generics: &proc_macro2::TokenStream,
-    dtype_generics: &Option<proc_macro2::TokenStream>,
+    generation: &MacroGeneration<'_>,
+    deprecated: Option<&syn::Attribute>,
 ) -> Result<proc_macro2::TokenStream, syn::Error> {
     let mut trimmed_fn_ident_str = fn_ident.to_string();
     if trimmed_fn_ident_str.ends_with("_device") {
@@ -194,8 +211,7 @@ fn generate_macro(
         fn_ident,
         &trimmed_fn_ident,
         args,
-        default_generics,
-        dtype_generics,
+        generation,
         &mut macro_variants,
     );
 
@@ -205,6 +221,7 @@ fn generate_macro(
 
     let generated = quote! {
         #[doc = #macro_docs]
+        #deprecated
         #[macro_export]
         macro_rules! #trimmed_fn_ident {
             #(
@@ -221,8 +238,7 @@ fn generate_macro_variants(
     fn_ident: &Ident,
     trimmed_fn_ident: &Ident,
     args: &[Arg],
-    default_generics: &proc_macro2::TokenStream,
-    dtype_generics: &Option<proc_macro2::TokenStream>,
+    generation: &MacroGeneration<'_>,
     macro_variants: &mut Vec<proc_macro2::TokenStream>,
 ) {
     let args_ident = args.iter().map(|arg| &arg.ident).collect::<Vec<_>>();
@@ -256,8 +272,7 @@ fn generate_macro_variants(
                 &args_ident,
                 &args_type,
                 &selected,
-                default_generics,
-                dtype_generics,
+                generation,
                 macro_variants,
             );
 
@@ -275,10 +290,10 @@ fn generate_macro_variants_for_selected_args(
     args_ident: &[&Ident],
     args_type: &[ArgType],
     selected: &[bool],
-    default_generics: &proc_macro2::TokenStream,
-    dtype_generics: &Option<proc_macro2::TokenStream>,
+    generation: &MacroGeneration<'_>,
     macro_variants: &mut Vec<proc_macro2::TokenStream>,
 ) {
+    let default_generics = generation.default_generics;
     let macro_args: Vec<proc_macro2::TokenStream> = args_ident
         .iter()
         .zip(args_type.iter())
@@ -308,11 +323,22 @@ fn generate_macro_variants_for_selected_args(
         })
         .collect();
 
+    let default_call = if generation.forwarding_shim {
+        quote! {
+            #fn_mod_path::#fn_ident #default_generics(
+                #(#input,)*
+                $crate::Stream::thread_local_or_default(),
+            )
+        }
+    } else {
+        quote! { #fn_mod_path::#trimmed_fn_ident #default_generics(#(#input,)*) }
+    };
+
     let variant_body = quote! {
         (
             #(#macro_args),*
         ) => {
-            #fn_mod_path::#trimmed_fn_ident #default_generics(#(#input,)*)
+            #default_call
         };
         (
             #(#macro_args,)*
@@ -324,13 +350,23 @@ fn generate_macro_variants_for_selected_args(
 
     macro_variants.push(variant_body);
 
-    if let Some(dtype_generics) = &dtype_generics {
+    if let Some(dtype_generics) = generation.dtype_generics {
+        let default_dtype_call = if generation.forwarding_shim {
+            quote! {
+                #fn_mod_path::#fn_ident #dtype_generics(
+                    #(#input,)*
+                    $crate::Stream::thread_local_or_default(),
+                )
+            }
+        } else {
+            quote! { #fn_mod_path::#trimmed_fn_ident #dtype_generics(#(#input,)*) }
+        };
         let variant_body = quote! {
             (
                 #(#macro_args,)*
                 dtype=$dtype:ty
             ) => {
-                #fn_mod_path::#trimmed_fn_ident #dtype_generics(#(#input,)*)
+                #default_dtype_call
             };
             (
                 #(#macro_args,)*

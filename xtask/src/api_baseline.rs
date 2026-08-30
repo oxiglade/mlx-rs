@@ -31,6 +31,14 @@ pub struct ApiEntry {
     pub signature: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub generated_by: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub deprecated: Option<Deprecation>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Ord, PartialOrd, Serialize)]
+pub struct Deprecation {
+    pub since: Option<String>,
+    pub note: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -39,6 +47,7 @@ struct LocalEntry {
     name: String,
     signature: String,
     generated_by: Option<String>,
+    deprecated: Option<Deprecation>,
 }
 
 #[derive(Default)]
@@ -136,6 +145,7 @@ pub(crate) fn generate(crate_root: &Path, crate_name: &str) -> Result<ApiBaselin
             path: format!("{crate_name}::{path}"),
             signature: entry.signature,
             generated_by: entry.generated_by,
+            deprecated: entry.deprecated,
         })
         .collect();
     Ok(ApiBaseline {
@@ -176,6 +186,7 @@ fn parse_items(
                     name: name.clone(),
                     signature: signature(&function.sig),
                     generated_by: None,
+                    deprecated: deprecation(&function.attrs),
                 });
                 if has_attr(&function.attrs, "default_device") {
                     if let Some(generated) = default_device_signature(&function.sig) {
@@ -184,6 +195,7 @@ fn parse_items(
                             name: generated.ident.to_string(),
                             signature: signature(&generated),
                             generated_by: Some("default_device".to_owned()),
+                            deprecated: deprecation(&function.attrs),
                         });
                     }
                 }
@@ -196,6 +208,7 @@ fn parse_items(
                             name: macro_name.clone(),
                             signature: format!("macro_rules! {macro_name}"),
                             generated_by: Some("generate_macro".to_owned()),
+                            deprecated: deprecation(&function.attrs),
                         },
                     );
                 }
@@ -239,6 +252,7 @@ fn parse_items(
                                     name,
                                     signature: signature(&method.sig),
                                     generated_by: None,
+                                    deprecated: deprecation(&method.attrs),
                                 },
                             });
                             if has_attr(&method.attrs, "default_device") {
@@ -250,6 +264,7 @@ fn parse_items(
                                             name: generated.ident.to_string(),
                                             signature: signature(&generated),
                                             generated_by: Some("default_device".to_owned()),
+                                            deprecated: deprecation(&method.attrs),
                                         },
                                     });
                                 }
@@ -263,6 +278,7 @@ fn parse_items(
                                     name: value.ident.to_string(),
                                     signature: canonical_tokens(value),
                                     generated_by: None,
+                                    deprecated: None,
                                 },
                             })
                         }
@@ -274,6 +290,7 @@ fn parse_items(
                                     name: value.ident.to_string(),
                                     signature: canonical_tokens(value),
                                     generated_by: None,
+                                    deprecated: None,
                                 },
                             })
                         }
@@ -291,6 +308,7 @@ fn parse_items(
                             name: name.clone(),
                             signature: format!("macro_rules! {name}"),
                             generated_by: None,
+                            deprecated: deprecation(&item.attrs),
                         },
                     );
                 }
@@ -324,6 +342,7 @@ fn push_item<T: ToTokens>(module: &mut Module, kind: &str, name: String, item: &
         name,
         signature: canonical_tokens(item),
         generated_by: None,
+        deprecated: None,
     });
 }
 
@@ -425,6 +444,7 @@ fn exports_for_path(
                 name: child_name.clone(),
                 signature: format!("pub mod {child_name}"),
                 generated_by: None,
+                deprecated: None,
             },
         );
         for (name, entry) in exports_for_path(root, &child_path, cache, visiting)? {
@@ -451,6 +471,7 @@ fn exports_for_path(
                             name,
                             signature: signature.clone(),
                             generated_by: None,
+                            deprecated: None,
                         },
                     );
                 }
@@ -474,6 +495,7 @@ fn exports_for_path(
                         name: alias.clone(),
                         signature: signature.clone(),
                         generated_by: None,
+                        deprecated: None,
                     }),
                 );
             }
@@ -584,9 +606,97 @@ fn has_attr(attrs: &[Attribute], name: &str) -> bool {
     attrs.iter().any(|attr| attr.path().is_ident(name))
 }
 
+fn deprecation(attrs: &[Attribute]) -> Option<Deprecation> {
+    let attr = attrs
+        .iter()
+        .find(|attr| attr.path().is_ident("deprecated"))?;
+    let mut deprecated = Deprecation {
+        since: None,
+        note: None,
+    };
+    attr.parse_nested_meta(|meta| {
+        if meta.path.is_ident("since") {
+            deprecated.since = Some(meta.value()?.parse::<syn::LitStr>()?.value());
+        } else if meta.path.is_ident("note") {
+            deprecated.note = Some(meta.value()?.parse::<syn::LitStr>()?.value());
+        }
+        Ok(())
+    })
+    .ok()?;
+    Some(deprecated)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn idiom_wave_foundations_and_fft_surface_are_canonical() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .to_path_buf();
+        let api = super::generate(&repo_root.join("mlx-rs"), "mlx_rs").unwrap();
+        let entry = |path: &str| api.entries.iter().find(|entry| entry.path == path).unwrap();
+
+        for path in [
+            "mlx_rs::Axes",
+            "mlx_rs::thread_local_default_stream",
+            "mlx_rs::with_device",
+            "mlx_rs::with_stream",
+            "mlx_rs::fft::FftnOptions",
+        ] {
+            entry(path);
+        }
+
+        for name in [
+            "fft",
+            "fft2",
+            "fftn",
+            "fftshift",
+            "ifft",
+            "ifft2",
+            "ifftn",
+            "ifftshift",
+            "irfft",
+            "irfft2",
+            "irfftn",
+            "rfft",
+            "rfft2",
+            "rfftn",
+        ] {
+            let canonical = entry(&format!("mlx_rs::fft::{name}"));
+            assert_eq!(canonical.kind, "function");
+            assert_eq!(canonical.generated_by, None);
+            assert_eq!(canonical.deprecated, None);
+
+            let compatibility_function = entry(&format!("mlx_rs::fft::{name}_device"));
+            let function_deprecation = compatibility_function.deprecated.as_ref().unwrap();
+            assert_eq!(function_deprecation.since.as_deref(), Some("0.26.0"));
+            assert!(function_deprecation
+                .note
+                .as_deref()
+                .is_some_and(|note| note.contains(name)));
+
+            let compatibility_macro = entry(&format!("mlx_rs::{name}"));
+            assert_eq!(compatibility_macro.kind, "macro");
+            assert_eq!(
+                compatibility_macro.generated_by.as_deref(),
+                Some("generate_macro")
+            );
+            assert_eq!(
+                compatibility_macro.deprecated,
+                compatibility_function.deprecated
+            );
+        }
+
+        assert!(entry("mlx_rs::fft::fftn")
+            .signature
+            .contains("options : FftnOptions"));
+        assert!(entry("mlx_rs::fft::rfftn")
+            .signature
+            .contains("options : FftnOptions"));
+    }
 
     #[test]
     fn inventory_resolves_reexports_and_default_device_twins() {

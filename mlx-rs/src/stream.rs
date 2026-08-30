@@ -35,20 +35,57 @@ fn with_scoped_value<T: 'static, R>(
 
 /// Gets the thread-local scoped default stream.
 ///
-/// The function name predates the thread-local contract. The value does not propagate across
-/// asynchronous task suspension or between operating-system threads.
-pub fn task_local_default_stream() -> Option<Stream> {
+/// The value does not propagate across asynchronous task suspension or between operating-system
+/// threads.
+pub fn thread_local_default_stream() -> Option<Stream> {
     THREAD_LOCAL_DEFAULT_STREAM.with_borrow(|s| s.clone())
 }
 
-/// Use a given default stream for the duration of the closure `f`.
+/// Uses `stream` for operations constructed during `f`.
 ///
-/// The previous thread-local stream is restored if `f` panics.
+/// Scopes are synchronous, thread-local, nestable, and restore the previous stream if `f` panics.
+/// To select a stream for one operation, put only that operation in the closure:
+///
+/// ```rust
+/// use mlx_rs::{fft, with_stream, Array, Stream};
+///
+/// let input = Array::from_slice(&[1.0_f32, 2.0, 3.0, 4.0], &[4]);
+/// let stream = Stream::cpu();
+/// let output = with_stream(&stream, || fft::fft(&input, None, None)).unwrap();
+/// assert_eq!(output.shape(), &[4]);
+/// ```
+pub fn with_stream<F, T>(stream: &Stream, f: F) -> T
+where
+    F: FnOnce() -> T,
+{
+    with_scoped_value(&THREAD_LOCAL_DEFAULT_STREAM, stream.clone(), f)
+}
+
+/// Uses the default stream on `device` for operations constructed during `f`.
+///
+/// This is equivalent to creating a stream for the device and passing it to [`with_stream`].
+/// Scopes are synchronous, thread-local, nestable, and panic-safe.
+pub fn with_device<F, T>(device: Device, f: F) -> T
+where
+    F: FnOnce() -> T,
+{
+    let stream = Stream::new_with_device(&device);
+    with_stream(&stream, f)
+}
+
+/// Gets the thread-local scoped default stream.
+#[deprecated(since = "0.26.0", note = "use `thread_local_default_stream`")]
+pub fn task_local_default_stream() -> Option<Stream> {
+    thread_local_default_stream()
+}
+
+/// Uses a given default stream for the duration of `f`.
+#[deprecated(since = "0.26.0", note = "use `with_stream(&stream, f)`")]
 pub fn with_new_default_stream<F, T>(default_stream: Stream, f: F) -> T
 where
     F: FnOnce() -> T,
 {
-    with_scoped_value(&THREAD_LOCAL_DEFAULT_STREAM, default_stream, f)
+    with_stream(&default_stream, f)
 }
 
 /// Parameter type for all MLX operations.
@@ -143,20 +180,38 @@ impl Clone for Stream {
 impl Stream {
     /// Create a new stream on the default device, or return the thread-local
     /// default stream if present.
-    pub fn task_local_or_default() -> Self {
-        task_local_default_stream().unwrap_or_default()
+    pub fn thread_local_or_default() -> Self {
+        thread_local_default_stream().unwrap_or_default()
     }
 
     /// Create a new stream on the default cpu device, or return the thread-local
     /// default stream if present.
-    pub fn task_local_or_cpu() -> Self {
-        task_local_default_stream().unwrap_or_else(Stream::cpu)
+    pub fn thread_local_or_cpu() -> Self {
+        thread_local_default_stream().unwrap_or_else(Stream::cpu)
     }
 
     /// Create a new stream on the default gpu device, or return the thread-local
     /// default stream if present.
+    pub fn thread_local_or_gpu() -> Self {
+        thread_local_default_stream().unwrap_or_else(Stream::gpu)
+    }
+
+    /// Returns the thread-local scoped stream or the default stream.
+    #[deprecated(since = "0.26.0", note = "use `Stream::thread_local_or_default`")]
+    pub fn task_local_or_default() -> Self {
+        Self::thread_local_or_default()
+    }
+
+    /// Returns the thread-local scoped stream or the CPU stream.
+    #[deprecated(since = "0.26.0", note = "use `Stream::thread_local_or_cpu`")]
+    pub fn task_local_or_cpu() -> Self {
+        Self::thread_local_or_cpu()
+    }
+
+    /// Returns the thread-local scoped stream or the GPU stream.
+    #[deprecated(since = "0.26.0", note = "use `Stream::thread_local_or_gpu`")]
     pub fn task_local_or_gpu() -> Self {
-        task_local_default_stream().unwrap_or_else(Stream::gpu)
+        Self::thread_local_or_gpu()
     }
 
     /// Create a new stream on the default device. Panics if fails.
@@ -266,6 +321,23 @@ mod tests {
     use super::*;
 
     #[test]
+    fn canonical_scopes_nest_and_restore_after_panic() {
+        let outer = Stream::cpu();
+        with_stream(&outer, || {
+            assert_eq!(thread_local_default_stream(), Some(outer.clone()));
+
+            let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                with_device(Device::cpu(), || panic!("scope panic"));
+            }));
+
+            assert!(panic.is_err());
+            assert_eq!(thread_local_default_stream(), Some(outer.clone()));
+        });
+
+        assert!(thread_local_default_stream().is_none());
+    }
+
+    #[test]
     fn test_scoped_default_stream() {
         // First set default stream to CPU
         let cpu_device = Device::cpu();
@@ -273,9 +345,9 @@ mod tests {
         let cpu_stream = Stream::default();
 
         let task_default_stream = Stream::gpu();
-        with_new_default_stream(task_default_stream, || {
-            let task_local_stream_0 = Stream::task_local_or_default();
-            let task_local_stream_1 = Stream::task_local_or_default();
+        with_stream(&task_default_stream, || {
+            let task_local_stream_0 = Stream::thread_local_or_default();
+            let task_local_stream_1 = Stream::thread_local_or_default();
             assert_eq!(task_local_stream_0, task_local_stream_1);
             assert_ne!(task_local_stream_0, cpu_stream);
         });
@@ -285,16 +357,17 @@ mod tests {
     fn test_scoped_default_stream_restored_after_panic() {
         let cpu = Device::cpu();
         let outer_stream = Stream::new_with_device(&cpu);
-        with_new_default_stream(outer_stream.clone(), || {
+        with_stream(&outer_stream, || {
             let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                with_new_default_stream(Stream::new_with_device(&cpu), || panic!("stream panic"));
+                let inner = Stream::new_with_device(&cpu);
+                with_stream(&inner, || panic!("stream panic"));
             }));
 
             assert!(panic.is_err());
-            assert_eq!(task_local_default_stream(), Some(outer_stream.clone()));
+            assert_eq!(thread_local_default_stream(), Some(outer_stream.clone()));
         });
 
-        assert!(task_local_default_stream().is_none());
+        assert!(thread_local_default_stream().is_none());
     }
 
     #[test]

@@ -22,7 +22,7 @@ fn checked_size(size: usize) -> Result<i32> {
 /// ```
 pub fn bartlett(size: usize) -> Result<Array> {
     let size = checked_size(size)?;
-    let stream = Stream::task_local_or_default();
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe { mlx_sys::mlx_bartlett(res, size, stream.as_ptr()) })
 }
 
@@ -40,7 +40,7 @@ pub fn bartlett(size: usize) -> Result<Array> {
 /// ```
 pub fn blackman(size: usize) -> Result<Array> {
     let size = checked_size(size)?;
-    let stream = Stream::task_local_or_default();
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe { mlx_sys::mlx_blackman(res, size, stream.as_ptr()) })
 }
 
@@ -58,7 +58,7 @@ pub fn blackman(size: usize) -> Result<Array> {
 /// ```
 pub fn hamming(size: usize) -> Result<Array> {
     let size = checked_size(size)?;
-    let stream = Stream::task_local_or_default();
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe { mlx_sys::mlx_hamming(res, size, stream.as_ptr()) })
 }
 
@@ -76,7 +76,7 @@ pub fn hamming(size: usize) -> Result<Array> {
 /// ```
 pub fn hann(size: usize) -> Result<Array> {
     let size = checked_size(size)?;
-    let stream = Stream::task_local_or_default();
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe { mlx_sys::mlx_hanning(res, size, stream.as_ptr()) })
 }
 

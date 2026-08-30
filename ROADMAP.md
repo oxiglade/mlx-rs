@@ -373,3 +373,12 @@ and public documentation.
 The first post-bump vertical cohort is delivered: the four window functions and the two FFT
 frequency constructors have canonical Rust paths, checked integer conversion, public examples,
 NumPy-corroborated MLX 0.32.2 signal cases, and wrapped ledger dispositions.
+
+## Idiom wave
+
+- [x] **Round 1 — foundations and FFT pilot.** Canonical thread-local execution scopes, shared
+      `Axes`, the concrete default-options pattern, and deprecated forwarding plumbing are in
+      place. FFT is migrated end-to-end: unsuffixed functions are canonical, `_device` twins and
+      generated operation macros are deprecated shims, n-dimensional length/axis options validate
+      together, and the API baseline and ledger point at the canonical paths. This pattern is
+      frozen for later family rounds.

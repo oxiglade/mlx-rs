@@ -1,9 +1,9 @@
-use mlx_internal_macros::{default_device, generate_macro};
+use mlx_internal_macros::generate_macro;
 use smallvec::SmallVec;
 
 use crate::{
     array::Array, constants::DEFAULT_STACK_VEC_LEN, error::Result, utils::guard::Guarded,
-    utils::IntoOption, Stream,
+    utils::IntoOption, with_stream, Stream,
 };
 
 /// Resolve axes for shift operations - when None, returns all axes
@@ -33,15 +33,10 @@ fn resolve_axes(a: &Array, axes: Option<&[i32]>) -> SmallVec<[i32; DEFAULT_STACK
 /// let shifted = fftshift(&a, None).unwrap();
 /// // shifted contains: [-4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0]
 /// ```
-#[generate_macro(customize(root = "$crate::fft"))]
-#[default_device]
-pub fn fftshift_device<'a>(
-    a: impl AsRef<Array>,
-    #[optional] axes: impl IntoOption<&'a [i32]>,
-    #[optional] stream: impl AsRef<Stream>,
-) -> Result<Array> {
+pub fn fftshift<'a>(a: impl AsRef<Array>, axes: impl IntoOption<&'a [i32]>) -> Result<Array> {
     let a = a.as_ref();
     let axes = resolve_axes(a, axes.into_option());
+    let stream = Stream::thread_local_or_default();
 
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_fft_fftshift(
@@ -52,6 +47,20 @@ pub fn fftshift_device<'a>(
             stream.as_ref().as_ptr(),
         )
     })
+}
+
+/// Compatibility shim for [`fftshift`].
+#[generate_macro(customize(root = "$crate::fft", forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `fftshift`"
+)]
+pub fn fftshift_device<'a>(
+    a: impl AsRef<Array>,
+    #[optional] axes: impl IntoOption<&'a [i32]>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    with_stream(stream.as_ref(), || fftshift(a, axes))
 }
 
 /// The inverse of `fftshift`.
@@ -72,15 +81,10 @@ pub fn fftshift_device<'a>(
 /// let unshifted = ifftshift(&a, None).unwrap();
 /// // unshifted contains: [0.0, 1.0, 2.0, 3.0, 4.0, -4.0, -3.0, -2.0, -1.0]
 /// ```
-#[generate_macro(customize(root = "$crate::fft"))]
-#[default_device]
-pub fn ifftshift_device<'a>(
-    a: impl AsRef<Array>,
-    #[optional] axes: impl IntoOption<&'a [i32]>,
-    #[optional] stream: impl AsRef<Stream>,
-) -> Result<Array> {
+pub fn ifftshift<'a>(a: impl AsRef<Array>, axes: impl IntoOption<&'a [i32]>) -> Result<Array> {
     let a = a.as_ref();
     let axes = resolve_axes(a, axes.into_option());
+    let stream = Stream::thread_local_or_default();
 
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_fft_ifftshift(
@@ -91,6 +95,20 @@ pub fn ifftshift_device<'a>(
             stream.as_ref().as_ptr(),
         )
     })
+}
+
+/// Compatibility shim for [`ifftshift`].
+#[generate_macro(customize(root = "$crate::fft", forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `ifftshift`"
+)]
+pub fn ifftshift_device<'a>(
+    a: impl AsRef<Array>,
+    #[optional] axes: impl IntoOption<&'a [i32]>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    with_stream(stream.as_ref(), || ifftshift(a, axes))
 }
 
 #[cfg(test)]

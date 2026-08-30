@@ -22,7 +22,7 @@ fn checked_length(n: usize) -> Result<i32> {
 /// ```
 pub fn fftfreq(n: usize, d: f64) -> Result<Array> {
     let n = checked_length(n)?;
-    let stream = Stream::task_local_or_default();
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe { mlx_sys::mlx_fft_fftfreq(res, n, d, stream.as_ptr()) })
 }
 
@@ -42,7 +42,7 @@ pub fn fftfreq(n: usize, d: f64) -> Result<Array> {
 /// ```
 pub fn rfftfreq(n: usize, d: f64) -> Result<Array> {
     let n = checked_length(n)?;
-    let stream = Stream::task_local_or_default();
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe { mlx_sys::mlx_fft_rfftfreq(res, n, d, stream.as_ptr()) })
 }
 

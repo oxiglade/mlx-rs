@@ -1480,6 +1480,11 @@
       "signature": "# [doc = \" A marker trait for array elements.\"] pub trait ArrayElement : Sized + Sealed { # [doc = \" The data type of the element.\"] const DTYPE : Dtype ; # [doc = \" Access the value of a scalar array. Returns `Err` if the array is not scalar.\"] fn array_item (array : & Array) -> Result < Self > ; # [doc = \" Access the raw data of an array.\"] fn array_data (array : & Array) -> * const Self ; }"
     },
     {
+      "kind": "enum",
+      "path": "mlx_rs::Axes",
+      "signature": "# [doc = \" Axis selection for operations that accept all, one, or several axes.\"] # [doc = \"\"] # [doc = \" Convert an `i32`, `Vec<i32>`, slice, or array with `.into()`. Operations with additional\"] # [doc = \" independent defaults use a concrete `FooOptions: Default` type; for example,\"] # [doc = \" [`crate::fft::FftnOptions`] combines FFT lengths with this selection.\"] # [derive (Debug , Clone , Default , PartialEq , Eq)] pub enum Axes { # [doc = \" Select every axis.\"] # [default] All , # [doc = \" Select one axis.\"] Axis (i32) , # [doc = \" Select several axes in the given order.\"] Axes (Vec < i32 >) , }"
+    },
+    {
       "kind": "struct",
       "path": "mlx_rs::Device",
       "signature": "# [doc = \" Representation of a Device in MLX.\"] pub struct Device { pub (crate) c_device : mlx_sys :: mlx_device , }"
@@ -1572,17 +1577,44 @@
     {
       "kind": "method",
       "path": "mlx_rs::Stream::task_local_or_cpu",
-      "signature": "pub fn task_local_or_cpu () -> Self"
+      "signature": "pub fn task_local_or_cpu () -> Self",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `Stream::thread_local_or_cpu`"
+      }
     },
     {
       "kind": "method",
       "path": "mlx_rs::Stream::task_local_or_default",
-      "signature": "pub fn task_local_or_default () -> Self"
+      "signature": "pub fn task_local_or_default () -> Self",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `Stream::thread_local_or_default`"
+      }
     },
     {
       "kind": "method",
       "path": "mlx_rs::Stream::task_local_or_gpu",
-      "signature": "pub fn task_local_or_gpu () -> Self"
+      "signature": "pub fn task_local_or_gpu () -> Self",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `Stream::thread_local_or_gpu`"
+      }
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::Stream::thread_local_or_cpu",
+      "signature": "pub fn thread_local_or_cpu () -> Self"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::Stream::thread_local_or_default",
+      "signature": "pub fn thread_local_or_default () -> Self"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::Stream::thread_local_or_gpu",
+      "signature": "pub fn thread_local_or_gpu () -> Self"
     },
     {
       "kind": "method",
@@ -2253,35 +2285,54 @@
       "kind": "macro",
       "path": "mlx_rs::fft",
       "signature": "macro_rules! fft",
-      "generated_by": "generate_macro"
+      "generated_by": "generate_macro",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `fft`"
+      }
     },
     {
       "kind": "macro",
       "path": "mlx_rs::fft2",
       "signature": "macro_rules! fft2",
-      "generated_by": "generate_macro"
+      "generated_by": "generate_macro",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `fft2`"
+      }
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_rs::fft::FftnOptions",
+      "signature": "# [doc = \" Options shared by the n-dimensional FFT and real FFT transforms.\"] # [doc = \"\"] # [doc = \" `lengths` and `axes` are correlated: when lengths are provided, there must be exactly one\"] # [doc = \" length per selected axis. An all-axis transform may provide one length per input dimension.\"] # [doc = \" A partial transform must set both fields, for example:\"] # [doc = \"\"] # [doc = \" ```\"] # [doc = \" # use mlx_rs::{fft::FftnOptions, Axes};\"] # [doc = \" let options = FftnOptions {\"] # [doc = \"     lengths: Some(vec![8, 16]),\"] # [doc = \"     axes: Axes::from([-2, -1]),\"] # [doc = \" };\"] # [doc = \" # let _ = options;\"] # [doc = \" ```\"] # [doc = \"\"] # [doc = \" Axis-only selection may use `FftnOptions { axes: (-1).into(), ..Default::default() }`.\"] # [derive (Debug , Clone , Default , PartialEq , Eq)] pub struct FftnOptions { # [doc = \" Sizes of the transformed axes, or the input sizes when omitted.\"] pub lengths : Option < Vec < i32 > > , # [doc = \" Axes to transform.\"] pub axes : Axes , }"
     },
     {
       "kind": "function",
       "path": "mlx_rs::fft::fft",
-      "signature": "pub fn fft (a : impl AsRef < Array > , n : impl Into < Option < i32 > > , axis : impl Into < Option < i32 > >) -> Result < Array >",
-      "generated_by": "default_device"
+      "signature": "pub fn fft (a : impl AsRef < Array > , n : impl Into < Option < i32 > > , axis : impl Into < Option < i32 > > ,) -> Result < Array >"
     },
     {
       "kind": "function",
       "path": "mlx_rs::fft::fft2",
-      "signature": "pub fn fft2 < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] >) -> Result < Array >",
-      "generated_by": "default_device"
+      "signature": "pub fn fft2 < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] > ,) -> Result < Array >"
     },
     {
       "kind": "function",
       "path": "mlx_rs::fft::fft2_device",
-      "signature": "pub fn fft2_device < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] > , stream : impl AsRef < Stream > ,) -> Result < Array >"
+      "signature": "pub fn fft2_device < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] > , stream : impl AsRef < Stream > ,) -> Result < Array >",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `fft2`"
+      }
     },
     {
       "kind": "function",
       "path": "mlx_rs::fft::fft_device",
-      "signature": "pub fn fft_device (a : impl AsRef < Array > , n : impl Into < Option < i32 > > , axis : impl Into < Option < i32 > > , stream : impl AsRef < Stream > ,) -> Result < Array >"
+      "signature": "pub fn fft_device (a : impl AsRef < Array > , n : impl Into < Option < i32 > > , axis : impl Into < Option < i32 > > , stream : impl AsRef < Stream > ,) -> Result < Array >",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `fft`"
+      }
     },
     {
       "kind": "function",
@@ -2291,123 +2342,156 @@
     {
       "kind": "function",
       "path": "mlx_rs::fft::fftn",
-      "signature": "pub fn fftn < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] >) -> Result < Array >",
-      "generated_by": "default_device"
+      "signature": "pub fn fftn (a : impl AsRef < Array > , options : FftnOptions) -> Result < Array >"
     },
     {
       "kind": "function",
       "path": "mlx_rs::fft::fftn_device",
-      "signature": "pub fn fftn_device < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] > , stream : impl AsRef < Stream > ,) -> Result < Array >"
+      "signature": "pub fn fftn_device < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] > , stream : impl AsRef < Stream > ,) -> Result < Array >",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `fftn` with `FftnOptions`"
+      }
     },
     {
       "kind": "function",
       "path": "mlx_rs::fft::fftshift",
-      "signature": "pub fn fftshift < 'a > (a : impl AsRef < Array > , axes : impl IntoOption < & 'a [i32] >) -> Result < Array >",
-      "generated_by": "default_device"
+      "signature": "pub fn fftshift < 'a > (a : impl AsRef < Array > , axes : impl IntoOption < & 'a [i32] >) -> Result < Array >"
     },
     {
       "kind": "function",
       "path": "mlx_rs::fft::fftshift_device",
-      "signature": "pub fn fftshift_device < 'a > (a : impl AsRef < Array > , axes : impl IntoOption < & 'a [i32] > , stream : impl AsRef < Stream > ,) -> Result < Array >"
+      "signature": "pub fn fftshift_device < 'a > (a : impl AsRef < Array > , axes : impl IntoOption < & 'a [i32] > , stream : impl AsRef < Stream > ,) -> Result < Array >",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `fftshift`"
+      }
     },
     {
       "kind": "function",
       "path": "mlx_rs::fft::ifft",
-      "signature": "pub fn ifft (a : impl AsRef < Array > , n : impl Into < Option < i32 > > , axis : impl Into < Option < i32 > >) -> Result < Array >",
-      "generated_by": "default_device"
+      "signature": "pub fn ifft (a : impl AsRef < Array > , n : impl Into < Option < i32 > > , axis : impl Into < Option < i32 > > ,) -> Result < Array >"
     },
     {
       "kind": "function",
       "path": "mlx_rs::fft::ifft2",
-      "signature": "pub fn ifft2 < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] >) -> Result < Array >",
-      "generated_by": "default_device"
+      "signature": "pub fn ifft2 < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] > ,) -> Result < Array >"
     },
     {
       "kind": "function",
       "path": "mlx_rs::fft::ifft2_device",
-      "signature": "pub fn ifft2_device < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] > , stream : impl AsRef < Stream > ,) -> Result < Array >"
+      "signature": "pub fn ifft2_device < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] > , stream : impl AsRef < Stream > ,) -> Result < Array >",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `ifft2`"
+      }
     },
     {
       "kind": "function",
       "path": "mlx_rs::fft::ifft_device",
-      "signature": "pub fn ifft_device (a : impl AsRef < Array > , n : impl Into < Option < i32 > > , axis : impl Into < Option < i32 > > , stream : impl AsRef < Stream > ,) -> Result < Array >"
+      "signature": "pub fn ifft_device (a : impl AsRef < Array > , n : impl Into < Option < i32 > > , axis : impl Into < Option < i32 > > , stream : impl AsRef < Stream > ,) -> Result < Array >",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `ifft`"
+      }
     },
     {
       "kind": "function",
       "path": "mlx_rs::fft::ifftn",
-      "signature": "pub fn ifftn < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] >) -> Result < Array >",
-      "generated_by": "default_device"
+      "signature": "pub fn ifftn (a : impl AsRef < Array > , options : FftnOptions) -> Result < Array >"
     },
     {
       "kind": "function",
       "path": "mlx_rs::fft::ifftn_device",
-      "signature": "pub fn ifftn_device < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] > , stream : impl AsRef < Stream > ,) -> Result < Array >"
+      "signature": "pub fn ifftn_device < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] > , stream : impl AsRef < Stream > ,) -> Result < Array >",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `ifftn` with `FftnOptions`"
+      }
     },
     {
       "kind": "function",
       "path": "mlx_rs::fft::ifftshift",
-      "signature": "pub fn ifftshift < 'a > (a : impl AsRef < Array > , axes : impl IntoOption < & 'a [i32] >) -> Result < Array >",
-      "generated_by": "default_device"
+      "signature": "pub fn ifftshift < 'a > (a : impl AsRef < Array > , axes : impl IntoOption < & 'a [i32] >) -> Result < Array >"
     },
     {
       "kind": "function",
       "path": "mlx_rs::fft::ifftshift_device",
-      "signature": "pub fn ifftshift_device < 'a > (a : impl AsRef < Array > , axes : impl IntoOption < & 'a [i32] > , stream : impl AsRef < Stream > ,) -> Result < Array >"
+      "signature": "pub fn ifftshift_device < 'a > (a : impl AsRef < Array > , axes : impl IntoOption < & 'a [i32] > , stream : impl AsRef < Stream > ,) -> Result < Array >",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `ifftshift`"
+      }
     },
     {
       "kind": "function",
       "path": "mlx_rs::fft::irfft",
-      "signature": "pub fn irfft (a : impl AsRef < Array > , n : impl Into < Option < i32 > > , axis : impl Into < Option < i32 > >) -> Result < Array >",
-      "generated_by": "default_device"
+      "signature": "pub fn irfft (a : impl AsRef < Array > , n : impl Into < Option < i32 > > , axis : impl Into < Option < i32 > > ,) -> Result < Array >"
     },
     {
       "kind": "function",
       "path": "mlx_rs::fft::irfft2",
-      "signature": "pub fn irfft2 < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] >) -> Result < Array >",
-      "generated_by": "default_device"
+      "signature": "pub fn irfft2 < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] > ,) -> Result < Array >"
     },
     {
       "kind": "function",
       "path": "mlx_rs::fft::irfft2_device",
-      "signature": "pub fn irfft2_device < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] > , stream : impl AsRef < Stream > ,) -> Result < Array >"
+      "signature": "pub fn irfft2_device < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] > , stream : impl AsRef < Stream > ,) -> Result < Array >",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `irfft2`"
+      }
     },
     {
       "kind": "function",
       "path": "mlx_rs::fft::irfft_device",
-      "signature": "pub fn irfft_device (a : impl AsRef < Array > , n : impl Into < Option < i32 > > , axis : impl Into < Option < i32 > > , stream : impl AsRef < Stream > ,) -> Result < Array >"
+      "signature": "pub fn irfft_device (a : impl AsRef < Array > , n : impl Into < Option < i32 > > , axis : impl Into < Option < i32 > > , stream : impl AsRef < Stream > ,) -> Result < Array >",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `irfft`"
+      }
     },
     {
       "kind": "function",
       "path": "mlx_rs::fft::irfftn",
-      "signature": "pub fn irfftn < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] >) -> Result < Array >",
-      "generated_by": "default_device"
+      "signature": "pub fn irfftn (a : impl AsRef < Array > , options : FftnOptions) -> Result < Array >"
     },
     {
       "kind": "function",
       "path": "mlx_rs::fft::irfftn_device",
-      "signature": "pub fn irfftn_device < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] > , stream : impl AsRef < Stream > ,) -> Result < Array >"
+      "signature": "pub fn irfftn_device < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] > , stream : impl AsRef < Stream > ,) -> Result < Array >",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `irfftn` with `FftnOptions`"
+      }
     },
     {
       "kind": "function",
       "path": "mlx_rs::fft::rfft",
-      "signature": "pub fn rfft (a : impl AsRef < Array > , n : impl Into < Option < i32 > > , axis : impl Into < Option < i32 > >) -> Result < Array >",
-      "generated_by": "default_device"
+      "signature": "pub fn rfft (a : impl AsRef < Array > , n : impl Into < Option < i32 > > , axis : impl Into < Option < i32 > > ,) -> Result < Array >"
     },
     {
       "kind": "function",
       "path": "mlx_rs::fft::rfft2",
-      "signature": "pub fn rfft2 < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] >) -> Result < Array >",
-      "generated_by": "default_device"
+      "signature": "pub fn rfft2 < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] > ,) -> Result < Array >"
     },
     {
       "kind": "function",
       "path": "mlx_rs::fft::rfft2_device",
-      "signature": "pub fn rfft2_device < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] > , stream : impl AsRef < Stream > ,) -> Result < Array >"
+      "signature": "pub fn rfft2_device < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] > , stream : impl AsRef < Stream > ,) -> Result < Array >",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `rfft2`"
+      }
     },
     {
       "kind": "function",
       "path": "mlx_rs::fft::rfft_device",
-      "signature": "pub fn rfft_device (a : impl AsRef < Array > , n : impl Into < Option < i32 > > , axis : impl Into < Option < i32 > > , stream : impl AsRef < Stream > ,) -> Result < Array >"
+      "signature": "pub fn rfft_device (a : impl AsRef < Array > , n : impl Into < Option < i32 > > , axis : impl Into < Option < i32 > > , stream : impl AsRef < Stream > ,) -> Result < Array >",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `rfft`"
+      }
     },
     {
       "kind": "function",
@@ -2417,25 +2501,36 @@
     {
       "kind": "function",
       "path": "mlx_rs::fft::rfftn",
-      "signature": "pub fn rfftn < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] >) -> Result < Array >",
-      "generated_by": "default_device"
+      "signature": "pub fn rfftn (a : impl AsRef < Array > , options : FftnOptions) -> Result < Array >"
     },
     {
       "kind": "function",
       "path": "mlx_rs::fft::rfftn_device",
-      "signature": "pub fn rfftn_device < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] > , stream : impl AsRef < Stream > ,) -> Result < Array >"
+      "signature": "pub fn rfftn_device < 'a > (a : impl AsRef < Array > , s : impl IntoOption < & 'a [i32] > , axes : impl IntoOption < & 'a [i32] > , stream : impl AsRef < Stream > ,) -> Result < Array >",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `rfftn` with `FftnOptions`"
+      }
     },
     {
       "kind": "macro",
       "path": "mlx_rs::fftn",
       "signature": "macro_rules! fftn",
-      "generated_by": "generate_macro"
+      "generated_by": "generate_macro",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `fftn` with `FftnOptions`"
+      }
     },
     {
       "kind": "macro",
       "path": "mlx_rs::fftshift",
       "signature": "macro_rules! fftshift",
-      "generated_by": "generate_macro"
+      "generated_by": "generate_macro",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `fftshift`"
+      }
     },
     {
       "kind": "macro",
@@ -2519,25 +2614,41 @@
       "kind": "macro",
       "path": "mlx_rs::ifft",
       "signature": "macro_rules! ifft",
-      "generated_by": "generate_macro"
+      "generated_by": "generate_macro",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `ifft`"
+      }
     },
     {
       "kind": "macro",
       "path": "mlx_rs::ifft2",
       "signature": "macro_rules! ifft2",
-      "generated_by": "generate_macro"
+      "generated_by": "generate_macro",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `ifft2`"
+      }
     },
     {
       "kind": "macro",
       "path": "mlx_rs::ifftn",
       "signature": "macro_rules! ifftn",
-      "generated_by": "generate_macro"
+      "generated_by": "generate_macro",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `ifftn` with `FftnOptions`"
+      }
     },
     {
       "kind": "macro",
       "path": "mlx_rs::ifftshift",
       "signature": "macro_rules! ifftshift",
-      "generated_by": "generate_macro"
+      "generated_by": "generate_macro",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `ifftshift`"
+      }
     },
     {
       "kind": "macro",
@@ -2561,19 +2672,31 @@
       "kind": "macro",
       "path": "mlx_rs::irfft",
       "signature": "macro_rules! irfft",
-      "generated_by": "generate_macro"
+      "generated_by": "generate_macro",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `irfft`"
+      }
     },
     {
       "kind": "macro",
       "path": "mlx_rs::irfft2",
       "signature": "macro_rules! irfft2",
-      "generated_by": "generate_macro"
+      "generated_by": "generate_macro",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `irfft2`"
+      }
     },
     {
       "kind": "macro",
       "path": "mlx_rs::irfftn",
       "signature": "macro_rules! irfftn",
-      "generated_by": "generate_macro"
+      "generated_by": "generate_macro",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `irfftn` with `FftnOptions`"
+      }
     },
     {
       "kind": "macro",
@@ -6935,19 +7058,31 @@
       "kind": "macro",
       "path": "mlx_rs::rfft",
       "signature": "macro_rules! rfft",
-      "generated_by": "generate_macro"
+      "generated_by": "generate_macro",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `rfft`"
+      }
     },
     {
       "kind": "macro",
       "path": "mlx_rs::rfft2",
       "signature": "macro_rules! rfft2",
-      "generated_by": "generate_macro"
+      "generated_by": "generate_macro",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `rfft2`"
+      }
     },
     {
       "kind": "macro",
       "path": "mlx_rs::rfftn",
       "signature": "macro_rules! rfftn",
-      "generated_by": "generate_macro"
+      "generated_by": "generate_macro",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream` or `with_device` around `rfftn` with `FftnOptions`"
+      }
     },
     {
       "kind": "macro",
@@ -7233,7 +7368,11 @@
     {
       "kind": "function",
       "path": "mlx_rs::task_local_default_stream",
-      "signature": "pub fn task_local_default_stream () -> Option < Stream >"
+      "signature": "pub fn task_local_default_stream () -> Option < Stream >",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `thread_local_default_stream`"
+      }
     },
     {
       "kind": "macro",
@@ -7296,6 +7435,11 @@
       "kind": "constant",
       "path": "mlx_rs::test_utils::tolerances::STANDARD",
       "signature": "# [doc = \" Tests that require `1e-5` for both tolerances.\"] pub const STANDARD : Tolerance = Tolerance { rtol : 1e-5 , atol : 1e-5 , } ;"
+    },
+    {
+      "kind": "function",
+      "path": "mlx_rs::thread_local_default_stream",
+      "signature": "pub fn thread_local_default_stream () -> Option < Stream >"
     },
     {
       "kind": "macro",
@@ -7611,8 +7755,22 @@
     },
     {
       "kind": "function",
+      "path": "mlx_rs::with_device",
+      "signature": "pub fn with_device < F , T > (device : Device , f : F) -> T where F : FnOnce () -> T ,"
+    },
+    {
+      "kind": "function",
       "path": "mlx_rs::with_new_default_stream",
-      "signature": "pub fn with_new_default_stream < F , T > (default_stream : Stream , f : F) -> T where F : FnOnce () -> T ,"
+      "signature": "pub fn with_new_default_stream < F , T > (default_stream : Stream , f : F) -> T where F : FnOnce () -> T ,",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `with_stream(&stream, f)`"
+      }
+    },
+    {
+      "kind": "function",
+      "path": "mlx_rs::with_stream",
+      "signature": "pub fn with_stream < F , T > (stream : & Stream , f : F) -> T where F : FnOnce () -> T ,"
     },
     {
       "kind": "macro",
