@@ -170,6 +170,30 @@
       "expected_class": "value"
     },
     {
+      "id": "index_update_mode_substitution",
+      "base_case_id": "indexing.002",
+      "kind": "index_update_mode_substitution",
+      "expected_class": "value"
+    },
+    {
+      "id": "index_update_stride_reversal",
+      "base_case_id": "indexing.007",
+      "kind": "index_update_stride_reversal",
+      "expected_class": "value"
+    },
+    {
+      "id": "index_update_force_scatter",
+      "base_case_id": "indexing.002",
+      "kind": "index_update_force_scatter",
+      "expected_class": "value"
+    },
+    {
+      "id": "index_update_force_slice",
+      "base_case_id": "indexing.012",
+      "kind": "index_update_force_slice",
+      "expected_class": "value"
+    },
+    {
       "id": "gguf_array_dtype_changed_values_equal",
       "base_case_id": "gguf.001",
       "kind": "gguf_array_dtype_changed_values_equal",

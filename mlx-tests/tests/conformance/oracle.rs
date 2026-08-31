@@ -2,7 +2,11 @@ use super::adapters::{dispatch, ADAPTERS};
 use half::{bf16, f16};
 use mlx_rs::{
     linalg,
-    ops::{self, CountNonzeroOptions, LinspaceOptions, LogCumsumExpOptions, TraceOptions},
+    ops::{
+        self,
+        indexing::{TryIndexUpdateOp, UpdateMode},
+        CountNonzeroOptions, LinspaceOptions, LogCumsumExpOptions, TraceOptions,
+    },
     with_stream, Array, Axes, Device, Dtype, Stream,
 };
 use num_complex::Complex32;
@@ -133,6 +137,14 @@ pub(super) enum Arg {
         name: String,
         value: String,
     },
+    Index {
+        name: String,
+        value: IndexRecipe,
+    },
+    UpdateMode {
+        name: String,
+        value: UpdateModeRecipe,
+    },
     Execution {
         name: String,
         target: ExecutionTarget,
@@ -150,9 +162,43 @@ impl Arg {
             | Self::Shape { name, .. }
             | Self::OptionalBool { name, .. }
             | Self::Dtype { name, .. }
+            | Self::Index { name, .. }
+            | Self::UpdateMode { name, .. }
             | Self::Execution { name, .. } => name,
         }
     }
+}
+
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum IndexRecipe {
+    PositiveSlice,
+    NegativeStride,
+    Advanced,
+    DuplicateAdvanced,
+    // serde snake_case yields "tuple2d"; the generator writes "tuple_2d".
+    #[serde(rename = "tuple_2d")]
+    Tuple2d,
+    NegativeIndex,
+    EllipsisNewAxis,
+    TupleColumns,
+    Full,
+    Empty,
+    Clipped,
+    Noop,
+    NegativeBounds,
+    AdvancedTuple,
+    ZeroStride,
+}
+
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum UpdateModeRecipe {
+    Replace,
+    Add,
+    Min,
+    Max,
+    Product,
 }
 
 #[derive(Clone, Copy, Deserialize, PartialEq)]
@@ -176,6 +222,8 @@ enum Expected {
         python_exception: PythonException,
         control_case_id: String,
         diagnostic: String,
+        #[serde(default)]
+        rust_error_variant: Option<String>,
     },
 }
 
@@ -833,6 +881,7 @@ fn preflight(loaded: &LoadedCorpus) -> Vec<String> {
                     python_exception,
                     control_case_id,
                     diagnostic,
+                    rust_error_variant,
                 } => {
                     if reason.is_empty()
                         || diagnostic.is_empty()
@@ -843,6 +892,15 @@ fn preflight(loaded: &LoadedCorpus) -> Vec<String> {
                             "{} has incomplete expected-error provenance",
                             case.id
                         ));
+                    }
+                    if rust_error_variant
+                        .as_deref()
+                        .is_some_and(|variant| !matches!(variant, "zero_stride" | "exception"))
+                    {
+                        failures.push(format!("{} has invalid Rust error variant", case.id));
+                    }
+                    if case.semantic_op == "index_update" && rust_error_variant.is_none() {
+                        failures.push(format!("{} is missing its Rust error variant", case.id));
                     }
                     controls.push((case.id.clone(), control_case_id.clone()));
                 }
@@ -1015,6 +1073,20 @@ impl<'a> Args<'a> {
         match self.take(name)? {
             Arg::OptionalBool { value, .. } => Ok(*value),
             _ => Err(format!("argument {name} is not an optional bool")),
+        }
+    }
+
+    pub(super) fn index(&mut self, name: &str) -> Result<IndexRecipe, String> {
+        match self.take(name)? {
+            Arg::Index { value, .. } => Ok(*value),
+            _ => Err(format!("argument {name} is not an index recipe")),
+        }
+    }
+
+    pub(super) fn update_mode(&mut self, name: &str) -> Result<UpdateModeRecipe, String> {
+        match self.take(name)? {
+            Arg::UpdateMode { value, .. } => Ok(*value),
+            _ => Err(format!("argument {name} is not an update mode")),
         }
     }
 
@@ -1518,10 +1590,30 @@ fn run_case(
         (
             Expected::Error {
                 allowed_stage: AllowedStage::InvokeOrEval,
+                rust_error_variant,
                 ..
             },
-            Err(OperationFailure::Invoke(_)),
-        ) => Vec::new(),
+            Err(OperationFailure::Invoke(error)),
+        ) => match rust_error_variant {
+            Some(variant) if !error.contains(&format!("[index_update:{variant}]")) => {
+                vec![format!(
+                    "{}: error_variant: expected {variant}, got {error}",
+                    case.id
+                )]
+            }
+            _ => Vec::new(),
+        },
+        (
+            Expected::Error {
+                allowed_stage: AllowedStage::InvokeOrEval | AllowedStage::EvalOnly,
+                rust_error_variant: Some(variant),
+                ..
+            },
+            Err(OperationFailure::Eval(error)),
+        ) if variant == "zero_stride" => vec![format!(
+            "{}: error_stage: zero stride reached evaluation: {error}",
+            case.id
+        )],
         (
             Expected::Error {
                 allowed_stage: AllowedStage::InvokeOrEval | AllowedStage::EvalOnly,
@@ -2558,6 +2650,56 @@ fn qualify_mutation(
             } else {
                 mismatch.class.into()
             });
+        }
+        "index_update_mode_substitution" => {
+            let mut args = Args::new(base, safe);
+            let source = args.tensor("input0")?;
+            let update = args.tensor("input1")?;
+            let _ = args.index("index")?;
+            let _ = args.update_mode("mode")?;
+            args.execution()?;
+            let mutated = source
+                .try_index_update(1..4, &update, UpdateMode::Replace)
+                .map_err(|error| error.to_string())?;
+            return mutated_array_class(&expected, &output, mutated, policies);
+        }
+        "index_update_stride_reversal" => {
+            let mut args = Args::new(base, safe);
+            let source = args.tensor("input0")?;
+            let update = args.tensor("input1")?;
+            let _ = args.index("index")?;
+            let _ = args.update_mode("mode")?;
+            args.execution()?;
+            let mutated = source
+                .try_index_update(1..4, &update, UpdateMode::Add)
+                .map_err(|error| error.to_string())?;
+            return mutated_array_class(&expected, &output, mutated, policies);
+        }
+        "index_update_force_scatter" => {
+            let mut args = Args::new(base, safe);
+            let source = args.tensor("input0")?;
+            let update = args.tensor("input1")?;
+            let _ = args.index("index")?;
+            let _ = args.update_mode("mode")?;
+            args.execution()?;
+            let indices = Array::from_slice(&[1_i32, 2, 4], &[3]);
+            let mutated = source
+                .try_index_update(&indices, &update, UpdateMode::Add)
+                .map_err(|error| error.to_string())?;
+            return mutated_array_class(&expected, &output, mutated, policies);
+        }
+        "index_update_force_slice" => {
+            let mut args = Args::new(base, safe);
+            let source = args.tensor("input0")?;
+            let update = args.tensor("input1")?;
+            let _ = args.tensor("input2")?;
+            let _ = args.index("index")?;
+            let _ = args.update_mode("mode")?;
+            args.execution()?;
+            let mutated = source
+                .try_index_update(0..3, &update, UpdateMode::Add)
+                .map_err(|error| error.to_string())?;
+            return mutated_array_class(&expected, &output, mutated, policies);
         }
         "error_to_valid" => "expected_error",
         "f16_decoder" => match expected.data {

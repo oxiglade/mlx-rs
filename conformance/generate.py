@@ -15,7 +15,7 @@ EXPECTED_ARCH = "arm64"
 EXPECTED_MLX = "0.32.2"
 EXPECTED_NUMPY = "2.2.6"
 CORPUS_SEED = "mlx-rs-committed-cpu-ops-v1"
-OP_SUITES = ("arithmetic", "dtypes", "errors", "execution", "math", "reductions", "shapes", "signal")
+OP_SUITES = ("arithmetic", "dtypes", "errors", "execution", "indexing", "math", "reductions", "shapes", "signal")
 SUITES = OP_SUITES + ("gguf",)
 ROOT = Path(__file__).resolve().parent
 
@@ -132,6 +132,14 @@ def keepdims(value):
 
 def dtype_arg(value):
     return {"name": "dtype", "kind": "dtype", "value": value}
+
+
+def index_recipe(value):
+    return {"name": "index", "kind": "index", "value": value}
+
+
+def update_mode(value):
+    return {"name": "mode", "kind": "update_mode", "value": value}
 
 
 def f64_arg(name, value):
@@ -390,6 +398,70 @@ def build_specs():
         execution_target="explicit_gpu",
     ))
 
+    indexing_specs = []
+    index_add = lambda call, src, update, index, mode, indices=None: indexing_specs.append(
+        (call, [src, update] + ([] if indices is None else [indices]), [index_recipe(index), update_mode(mode)])
+    )
+    base = source("I32", [6], [1, 2, 3, 4, 5, 6])
+    update = source("I32", [3], [10, 2, -1])
+    for mode in ("replace", "add", "min", "max", "product"):
+        index_add("array.try_index_update", base, update, "positive_slice", mode)
+    reverse_base = source("I32", [6], [0, 1, 2, 3, 4, 5])
+    reverse_update = source("I32", [3], [10, 20, 30])
+    for mode in ("replace", "add", "min", "max", "product"):
+        index_add("array.try_index_update", reverse_base, reverse_update, "negative_stride", mode)
+    advanced_indices = source("I32", [3], [0, 2, 4])
+    for mode in ("replace", "add", "min", "max", "product"):
+        index_add(
+            "array.try_index_update",
+            source("I32", [5], [2, 4, 6, 8, 10]),
+            source("I32", [3], [3, 5, 7]),
+            "advanced",
+            mode,
+            advanced_indices,
+        )
+    duplicate_indices = source("I32", [3], [1, 1, 1])
+    for mode in ("add", "min", "max", "product"):
+        index_add(
+            "array.try_index_update",
+            source("I32", [3], [10, 10, 10]),
+            source("I32", [3], [2, 3, 4]),
+            "duplicate_advanced",
+            mode,
+            duplicate_indices,
+        )
+    index_add("array.try_index_update", source("I32", [3, 3], list(range(9))), source("I32", [], [50]), "tuple_2d", "replace")
+    index_add("array.try_index_update", source("I32", [2, 3], list(range(6))), source("I32", [3], [10, 20, 30]), "negative_index", "add")
+    index_add("array.try_index_update", source("I32", [2, 3], list(range(6))), source("I32", [], [9]), "ellipsis_new_axis", "replace")
+    index_add("array.try_index_update", base, source("I32", [], [2]), "positive_slice", "add")
+    index_add("array.try_index_update", source("I32", [2, 3], list(range(6))), source("I32", [2, 1], [40, 50]), "tuple_columns", "replace")
+    index_add("array.try_index_update", base, source("F32", [3], [1.75, -2.25, 3.5]), "positive_slice", "replace")
+    index_add("array.try_index_update", base, source("I32", [], [3]), "full", "product")
+    index_add("array.try_index_update", base, source("I32", [0], []), "empty", "min")
+    index_add("array.try_index_update", base, source("I32", [], [1]), "clipped", "add")
+    index_add("array.try_index_update", base, source("I32", [], [7]), "noop", "product")
+    index_add("array.try_index_update", base, source("I32", [3], [8, 9, 10]), "negative_bounds", "replace")
+    index_add(
+        "array.try_index_update",
+        source("I32", [3, 3], list(range(9))),
+        source("I32", [2], [20, 30]),
+        "advanced_tuple",
+        "max",
+        source("I32", [2], [0, 2]),
+    )
+    index_add("array.try_index_update.source_unchanged", base, update, "positive_slice", "add")
+    indexing_specs[-1][2].append(arg_scalar("return_source", "bool", value=True))
+    index_add("array.try_index_mut.compatibility", base, update, "positive_slice", "replace")
+    index_add("array.try_index_update", base, update, "zero_stride", "replace")
+    index_add("array.try_index_update", base, source("I32", [2], [1, 2]), "positive_slice", "add")
+    for index, (call, inputs, extra) in enumerate(indexing_specs, 1):
+        spec = case(f"indexing.{index:03d}", "indexing", "index_update", call, inputs, extra_args=extra)
+        if index == len(indexing_specs) - 1:
+            spec["error"] = ("invoke_or_eval", "zero stride is rejected before FFI", "ZeroStride", "indexing.001")
+        elif index == len(indexing_specs):
+            spec["error"] = ("invoke_or_eval", "update cannot broadcast to selected slice", "ValueError", "indexing.002")
+        specs.append(spec)
+
     errors = [
         case("errors.001", "errors", "add", "ops.add.array_array", [source("F32", [2]), source("F32", [3])]),
         case("errors.002", "errors", "reshape", "ops.reshape", [source("F32", [6])], extra_args=[shape([4, 2])]),
@@ -602,6 +674,39 @@ def call_recipe(mx, op, arrays, extra, execution_target):
         return list(mx.unstack(arrays[0], axis=by_name["axis"]["value"], **kwargs))
     if op == "vecdot":
         return [mx.vecdot(arrays[0], arrays[1], axis=by_name["axis"]["value"], **kwargs)]
+    if op == "index_update":
+        kind = by_name["index"]["value"]
+        if kind in ("advanced", "duplicate_advanced"):
+            index = arrays[2]
+        elif kind == "advanced_tuple":
+            index = (arrays[2], -1)
+        else:
+            index = {
+                "positive_slice": slice(1, 4),
+                "negative_stride": slice(4, 1, -1),
+                "tuple_2d": (slice(1, 3), slice(0, 2)),
+                "negative_index": -1,
+                "ellipsis_new_axis": (..., None, slice(1, 3)),
+                "tuple_columns": (slice(None), slice(1, 3)),
+                "full": slice(None),
+                "empty": slice(3, 3),
+                "clipped": slice(-100, 100),
+                "noop": slice(100, 200),
+                "negative_bounds": slice(-4, -1),
+            }.get(kind)
+        if by_name["index"]["value"] == "zero_stride":
+            raise ValueError("zero stride is rejected before FFI")
+        base = mx.add(arrays[0], mx.zeros_like(arrays[0]), **kwargs)
+        mode = by_name["mode"]["value"]
+        if mode == "replace":
+            base.__setitem__(index, arrays[1])
+            result = base
+        else:
+            method = {"add": "add", "min": "minimum", "max": "maximum", "product": "multiply"}[mode]
+            result = getattr(base.at[index], method)(arrays[1])
+        if by_name.get("return_source", {}).get("value"):
+            return [result, arrays[0]]
+        return [result]
     raise ValueError(f"unknown recipe {op}")
 
 
@@ -1034,6 +1139,8 @@ def generate_tree(target, mx, np):
                             if stage == "eval_only" and not invoked:
                                 raise RuntimeError(f"{spec['id']} did not reach evaluation") from error
                             record["expected"] = {"status": "error", "allowed_stage": stage, "reason": reason, "python_exception": {"module": type(error).__module__, "type": type(error).__name__}, "control_case_id": control, "diagnostic": str(error)}
+                            if spec["suite"] == "indexing":
+                                record["expected"]["rust_error_variant"] = "zero_stride" if exception_type == "ZeroStride" else "exception"
                         else:
                             raise RuntimeError(f"{spec['id']} did not raise")
                     else:
@@ -1129,6 +1236,10 @@ def generate_tree(target, mx, np):
             {"id": "slogdet_reverse_outputs", "base_case_id": "math.027", "kind": "slogdet_reverse_outputs", "expected_class": "value"},
             {"id": "unstack_drop_output", "base_case_id": "math.071", "kind": "unstack_drop_output", "expected_class": "output_count"},
             {"id": "unstack_reorder_outputs", "base_case_id": "math.071", "kind": "unstack_reorder_outputs", "expected_class": "value"},
+            {"id": "index_update_mode_substitution", "base_case_id": "indexing.002", "kind": "index_update_mode_substitution", "expected_class": "value"},
+            {"id": "index_update_stride_reversal", "base_case_id": "indexing.007", "kind": "index_update_stride_reversal", "expected_class": "value"},
+            {"id": "index_update_force_scatter", "base_case_id": "indexing.002", "kind": "index_update_force_scatter", "expected_class": "value"},
+            {"id": "index_update_force_slice", "base_case_id": "indexing.012", "kind": "index_update_force_slice", "expected_class": "value"},
             {"id": "gguf_array_dtype_changed_values_equal", "base_case_id": "gguf.001", "kind": "gguf_array_dtype_changed_values_equal", "expected_class": "dtype"},
             {"id": "gguf_array_beyond_tolerance", "base_case_id": "gguf.001", "kind": "gguf_array_beyond_tolerance", "expected_class": "value_relative"},
             {"id": "gguf_array_key_removed", "base_case_id": "gguf.001", "kind": "gguf_array_key_removed", "expected_class": "array_keys"},
