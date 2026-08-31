@@ -274,6 +274,16 @@
     },
     {
       "kind": "method",
+      "path": "mlx_rs::Array::contiguous",
+      "signature": "pub fn contiguous (& self) -> Result < Array >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::Array::contiguous_with_options",
+      "signature": "pub fn contiguous_with_options (& self , options : ContiguousOptions) -> Result < Array >"
+    },
+    {
+      "kind": "method",
       "path": "mlx_rs::Array::cos",
       "signature": "pub fn cos (& self) -> Result < Array >"
     },
@@ -2865,7 +2875,7 @@
     {
       "kind": "enum",
       "path": "mlx_rs::error::AsSliceError",
-      "signature": "# [doc = \" Error associated with `Array::try_as_slice()`\"] # [derive (Debug , PartialEq , Error)] pub enum AsSliceError { # [doc = \" The array data is not contiguous in row-major order.\"] # [error (\"array data is not contiguous row-major; materialize a row-major copy with an MLX operation before borrowing it as a slice\")] NotContiguous , # [doc = \" The underlying data pointer is null.\"] # [doc = \"\"] # [doc = \" This is likely because the array has not been evaluated yet.\"] # [error (\"The data pointer is null.\")] Null , # [doc = \" The output dtype does not match the data type of the array.\"] # [error (\"dtype mismatch: expected {expecting:?}, found {found:?}\")] DtypeMismatch { # [doc = \" The expected data type.\"] expecting : Dtype , # [doc = \" The actual data type\"] found : Dtype , } , # [doc = \" Exception\"] # [error (transparent)] Exception (# [from] Exception) , }"
+      "signature": "# [doc = \" Error associated with `Array::try_as_slice()`\"] # [derive (Debug , PartialEq , Error)] pub enum AsSliceError { # [doc = \" The array data is not contiguous in row-major order.\"] # [error (\"array data is not contiguous row-major; call `Array::contiguous()` before borrowing it as a slice\")] NotContiguous , # [doc = \" The underlying data pointer is null.\"] # [doc = \"\"] # [doc = \" This is likely because the array has not been evaluated yet.\"] # [error (\"The data pointer is null.\")] Null , # [doc = \" The output dtype does not match the data type of the array.\"] # [error (\"dtype mismatch: expected {expecting:?}, found {found:?}\")] DtypeMismatch { # [doc = \" The expected data type.\"] expecting : Dtype , # [doc = \" The actual data type\"] found : Dtype , } , # [doc = \" Exception\"] # [error (transparent)] Exception (# [from] Exception) , }"
     },
     {
       "kind": "enum",
@@ -3024,7 +3034,7 @@
     {
       "kind": "function",
       "path": "mlx_rs::fast::rms_norm",
-      "signature": "pub fn rms_norm (x : impl AsRef < Array > , weight : impl AsRef < Array > , eps : f32) -> Result < Array >"
+      "signature": "pub fn rms_norm (x : impl AsRef < Array > , weight : Option < & Array > , eps : f32) -> Result < Array >"
     },
     {
       "kind": "function",
@@ -4331,6 +4341,56 @@
     },
     {
       "kind": "module",
+      "path": "mlx_rs::memory",
+      "signature": "pub mod memory"
+    },
+    {
+      "kind": "function",
+      "path": "mlx_rs::memory::active_memory",
+      "signature": "pub fn active_memory () -> Result < usize >"
+    },
+    {
+      "kind": "function",
+      "path": "mlx_rs::memory::cache_memory",
+      "signature": "pub fn cache_memory () -> Result < usize >"
+    },
+    {
+      "kind": "function",
+      "path": "mlx_rs::memory::clear_cache",
+      "signature": "pub fn clear_cache () -> Result < () >"
+    },
+    {
+      "kind": "function",
+      "path": "mlx_rs::memory::memory_limit",
+      "signature": "pub fn memory_limit () -> Result < usize >"
+    },
+    {
+      "kind": "function",
+      "path": "mlx_rs::memory::peak_memory",
+      "signature": "pub fn peak_memory () -> Result < usize >"
+    },
+    {
+      "kind": "function",
+      "path": "mlx_rs::memory::reset_peak_memory",
+      "signature": "pub fn reset_peak_memory () -> Result < () >"
+    },
+    {
+      "kind": "function",
+      "path": "mlx_rs::memory::set_cache_limit",
+      "signature": "pub fn set_cache_limit (limit : usize) -> Result < usize >"
+    },
+    {
+      "kind": "function",
+      "path": "mlx_rs::memory::set_memory_limit",
+      "signature": "pub fn set_memory_limit (limit : usize) -> Result < usize >"
+    },
+    {
+      "kind": "function",
+      "path": "mlx_rs::memory::set_wired_limit",
+      "signature": "pub fn set_wired_limit (limit : usize) -> Result < usize >"
+    },
+    {
+      "kind": "module",
       "path": "mlx_rs::metal",
       "signature": "pub mod metal"
     },
@@ -5613,6 +5673,11 @@
       "kind": "trait",
       "path": "mlx_rs::ops::ClipBound",
       "signature": "# [doc = \" A custom trait for the bound of the clip operation.\"] # [doc = \"\"] # [doc = \" This trait is only implemented for tuples of the form `(Min, Max)`, `(Min, ())`, and `((),\"] # [doc = \" Max)`. The `Min` and `Max` types must implement the `ScalarOrArray` trait.\"] pub trait ClipBound < 'min , 'max > : Sealed { # [doc = \" Convert the bound into a tuple of optional minimum and maximum values.\"] fn into_min_max (self ,) -> (Option < impl ScalarOrArray < 'min > > , Option < impl ScalarOrArray < 'max > > ,) ; }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_rs::ops::ContiguousOptions",
+      "signature": "# [doc = \" Options controlling contiguous layout materialization.\"] # [derive (Debug , Clone , Copy , Default , PartialEq , Eq)] pub struct ContiguousOptions { # [doc = \" Permit MLX to retain a column-major layout when it is already suitable.\"] pub allow_col_major : bool , }"
     },
     {
       "kind": "struct",
