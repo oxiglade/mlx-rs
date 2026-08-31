@@ -288,6 +288,11 @@
     },
     {
       "kind": "method",
+      "path": "mlx_rs::Array::count_nonzero",
+      "signature": "pub fn count_nonzero (& self , options : CountNonzeroOptions) -> Result < Array >"
+    },
+    {
+      "kind": "method",
       "path": "mlx_rs::Array::cummax",
       "signature": "pub fn cummax (& self , axis : impl Into < Option < i32 > > , reverse : impl Into < Option < bool > > , inclusive : impl Into < Option < bool > > ,) -> Result < Array >"
     },
@@ -374,6 +379,11 @@
         "since": "0.26.0",
         "note": "use `with_stream` or `with_device` around `diagonal`"
       }
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::Array::diff",
+      "signature": "pub fn diff (& self , n : i32 , axis : i32) -> Result < Array >"
     },
     {
       "kind": "method",
@@ -497,6 +507,11 @@
         "since": "0.26.0",
         "note": "use `with_stream` or `with_device` around `flatten`"
       }
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::Array::flip",
+      "signature": "pub fn flip (& self , axes : Axes) -> Result < Array >"
     },
     {
       "kind": "method",
@@ -804,7 +819,11 @@
     {
       "kind": "method",
       "path": "mlx_rs::Array::linspace",
-      "signature": "pub fn linspace < U , T > (start : U , stop : U , count : impl Into < Option < i32 > >) -> Result < Array > where U : NumCast , T : ArrayElement ,"
+      "signature": "pub fn linspace < U , T > (start : U , stop : U , count : impl Into < Option < i32 > >) -> Result < Array > where U : NumCast , T : ArrayElement ,",
+      "deprecated": {
+        "since": "0.26.0",
+        "note": "use `ops::linspace` with `LinspaceOptions`"
+      }
     },
     {
       "kind": "method",
@@ -812,7 +831,7 @@
       "signature": "pub fn linspace_device < U , T > (start : U , stop : U , count : impl Into < Option < i32 > > , stream : impl AsRef < Stream > ,) -> Result < Array > where U : NumCast , T : ArrayElement ,",
       "deprecated": {
         "since": "0.26.0",
-        "note": "use `with_stream` or `with_device` around `linspace`"
+        "note": "use `with_stream` or `with_device` around `ops::linspace`"
       }
     },
     {
@@ -912,6 +931,11 @@
         "since": "0.26.0",
         "note": "use `with_stream` or `with_device` around `log`"
       }
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::Array::logcumsumexp",
+      "signature": "pub fn logcumsumexp (& self , options : LogCumsumExpOptions) -> Result < Array >"
     },
     {
       "kind": "method",
@@ -1481,6 +1505,11 @@
     },
     {
       "kind": "method",
+      "path": "mlx_rs::Array::search_sorted",
+      "signature": "pub fn search_sorted (& self , values : impl AsRef < Array > , side : SearchSide) -> Result < Array >"
+    },
+    {
+      "kind": "method",
       "path": "mlx_rs::Array::shape",
       "signature": "pub fn shape (& self) -> & [i32]"
     },
@@ -1753,6 +1782,11 @@
     },
     {
       "kind": "method",
+      "path": "mlx_rs::Array::trace",
+      "signature": "pub fn trace (& self , options : TraceOptions) -> Result < Array >"
+    },
+    {
+      "kind": "method",
       "path": "mlx_rs::Array::transpose",
       "signature": "pub fn transpose (& self) -> Result < Array >"
     },
@@ -1795,6 +1829,11 @@
     },
     {
       "kind": "method",
+      "path": "mlx_rs::Array::trunc",
+      "signature": "pub fn trunc (& self) -> Result < Array >"
+    },
+    {
+      "kind": "method",
       "path": "mlx_rs::Array::try_as_slice",
       "signature": "pub fn try_as_slice < T : ArrayElement > (& self) -> Result < & [T] , AsSliceError >"
     },
@@ -1816,6 +1855,11 @@
       "kind": "method",
       "path": "mlx_rs::Array::try_item_exact",
       "signature": "pub fn try_item_exact < T : ArrayElement > (& self) -> Result < T , ConversionError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::Array::unstack",
+      "signature": "pub fn unstack (& self , axis : i32) -> Result < Vec < Array > >"
     },
     {
       "kind": "method",
@@ -3705,6 +3749,11 @@
       "signature": "# [doc = \" Order of the norm\"] # [doc = \"\"] # [doc = \" See [`norm`] for more details.\"] # [derive (Debug , Clone , Copy)] pub enum Ord < 'a > { # [doc = \" String representation of the order\"] Str (& 'a str) , # [doc = \" Order of the norm\"] P (f64) , }"
     },
     {
+      "kind": "struct",
+      "path": "mlx_rs::linalg::SlogDet",
+      "signature": "# [doc = \" The sign and natural logarithm of the absolute determinant.\"] # [derive (Debug , Clone)] pub struct SlogDet { # [doc = \" Determinant sign.\"] pub sign : Array , # [doc = \" Natural logarithm of the absolute determinant.\"] pub log_abs_det : Array , }"
+    },
+    {
       "kind": "function",
       "path": "mlx_rs::linalg::cholesky",
       "signature": "pub fn cholesky (a : impl AsRef < Array > , upper : Option < bool >) -> Result < Array >"
@@ -3745,6 +3794,11 @@
         "since": "0.26.0",
         "note": "use `with_stream` or `with_device` around `cross`"
       }
+    },
+    {
+      "kind": "function",
+      "path": "mlx_rs::linalg::det",
+      "signature": "pub fn det (array : impl AsRef < Array >) -> Result < Array >"
     },
     {
       "kind": "function",
@@ -3913,6 +3967,11 @@
         "since": "0.26.0",
         "note": "use `with_stream` or `with_device` around `qr`"
       }
+    },
+    {
+      "kind": "function",
+      "path": "mlx_rs::linalg::slogdet",
+      "signature": "pub fn slogdet (array : impl AsRef < Array >) -> Result < SlogDet >"
     },
     {
       "kind": "function",
@@ -5541,6 +5600,21 @@
       "signature": "# [doc = \" A custom trait for the bound of the clip operation.\"] # [doc = \"\"] # [doc = \" This trait is only implemented for tuples of the form `(Min, Max)`, `(Min, ())`, and `((),\"] # [doc = \" Max)`. The `Min` and `Max` types must implement the `ScalarOrArray` trait.\"] pub trait ClipBound < 'min , 'max > : Sealed { # [doc = \" Convert the bound into a tuple of optional minimum and maximum values.\"] fn into_min_max (self ,) -> (Option < impl ScalarOrArray < 'min > > , Option < impl ScalarOrArray < 'max > > ,) ; }"
     },
     {
+      "kind": "struct",
+      "path": "mlx_rs::ops::CountNonzeroOptions",
+      "signature": "# [doc = \" Axis selection and dimension retention for [`Array::count_nonzero`].\"] # [derive (Debug , Clone , Default , PartialEq , Eq)] pub struct CountNonzeroOptions { # [doc = \" Axes to reduce.\"] pub axes : Axes , # [doc = \" Keep reduced axes as singleton dimensions.\"] pub keep_dims : bool , }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_rs::ops::LinspaceOptions",
+      "signature": "# [doc = \" Sample count and endpoint behavior for [`linspace`].\"] # [derive (Debug , Clone , Copy , PartialEq , Eq)] pub struct LinspaceOptions { # [doc = \" Number of samples.\"] pub count : i32 , # [doc = \" Include `stop` as the final sample.\"] pub endpoint : bool , }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_rs::ops::LogCumsumExpOptions",
+      "signature": "# [doc = \" Axis and scan direction for [`Array::logcumsumexp`].\"] # [derive (Debug , Clone , Copy , PartialEq , Eq)] pub struct LogCumsumExpOptions { # [doc = \" `None` flattens the input before scanning.\"] pub axis : Option < i32 > , # [doc = \" Scan in reverse order.\"] pub reverse : bool , # [doc = \" Include the current value in each output position.\"] pub inclusive : bool , }"
+    },
+    {
       "kind": "enum",
       "path": "mlx_rs::ops::PadMode",
       "signature": "# [doc = \" The padding mode.\"] # [derive (Debug)] pub enum PadMode { # [doc = \" Pad with a constant value.\"] Constant , # [doc = \" Pad with the edge value.\"] Edge , }"
@@ -5549,6 +5623,16 @@
       "kind": "enum",
       "path": "mlx_rs::ops::PadWidth",
       "signature": "# [doc = \" Number of padding values to add to the edges of each axis.\"] # [derive (Debug)] pub enum PadWidth < 'a > { # [doc = \" (before, after) values for all axes.\"] Same ((i32 , i32)) , # [doc = \" List of (before, after) values for each axis.\"] Widths (& 'a [(i32 , i32)]) , }"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_rs::ops::SearchSide",
+      "signature": "# [doc = \" Insertion side for [`Array::search_sorted`].\"] # [derive (Debug , Clone , Copy , Default , PartialEq , Eq)] pub enum SearchSide { # [doc = \" Insert before equal values.\"] # [default] Left , # [doc = \" Insert after equal values.\"] Right , }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_rs::ops::TraceOptions",
+      "signature": "# [doc = \" Diagonal selection and dtype control for [`Array::trace`].\"] # [derive (Debug , Clone , Copy , PartialEq , Eq)] pub struct TraceOptions { # [doc = \" Diagonal offset.\"] pub offset : i32 , # [doc = \" First matrix axis.\"] pub axis1 : i32 , # [doc = \" Second matrix axis.\"] pub axis2 : i32 , # [doc = \" Dtype used before reduction.\"] pub dtype : Option < Dtype > , }"
     },
     {
       "kind": "function",
@@ -6626,6 +6710,11 @@
       "signature": "# [doc = \" Trait for custom indexing operations.\"] # [doc = \"\"] # [doc = \" This is implemented for all types that implement `TryIndexOp`.\"] pub trait IndexOp < Idx > : TryIndexOp < Idx > { # [doc = \" Index the array with the given index.\"] fn index_device (& self , i : Idx , stream : impl AsRef < Stream >) -> Array { self . try_index_device (i , stream) . unwrap () } # [doc = \" Index the array with the given index.\"] fn index (& self , i : Idx) -> Array { self . try_index (i) . unwrap () } }"
     },
     {
+      "kind": "enum",
+      "path": "mlx_rs::ops::indexing::IndexUpdateError",
+      "signature": "# [doc = \" Error returned by a functional indexed update.\"] # [derive (Debug , thiserror :: Error)] pub enum IndexUpdateError { # [doc = \" A slice stride was zero.\"] # [error (\"index update stride for axis {axis} must not be zero\")] ZeroStride { # [doc = \" The source axis whose slice used a zero stride.\"] axis : usize , } , # [doc = \" The upstream runtime rejected the operation.\"] # [error (transparent)] Exception (# [from] Exception) , }"
+    },
+    {
       "kind": "trait",
       "path": "mlx_rs::ops::indexing::IntoStrideBy",
       "signature": "# [doc = \" Helper trait for creating a stride indexing operation.\"] pub trait IntoStrideBy : Sized { # [doc = \" Create a stride indexing operation.\"] fn stride_by (self , stride : i32) -> StrideBy < Self > ; }"
@@ -6654,6 +6743,16 @@
       "kind": "trait",
       "path": "mlx_rs::ops::indexing::TryIndexOp",
       "signature": "# [doc = \" Trait for custom indexing operations.\"] # [doc = \"\"] # [doc = \" Out of bounds indexing is allowed and wouldn't return an error.\"] pub trait TryIndexOp < Idx > { # [doc = \" Try to index the array with the given index.\"] fn try_index_device (& self , i : Idx , stream : impl AsRef < Stream >) -> Result < Array > ; # [doc = \" Try to index the array with the given index.\"] fn try_index (& self , i : Idx) -> Result < Array > { self . try_index_device (i , StreamOrDevice :: default ()) } }"
+    },
+    {
+      "kind": "trait",
+      "path": "mlx_rs::ops::indexing::TryIndexUpdateOp",
+      "signature": "# [doc = \" Trait for functional indexed updates.\"] # [doc = \"\"] # [doc = \" The source is unchanged. Slice bounds clip to the source shape, negative\"] # [doc = \" strides are supported, and empty slices are no-ops. Updates broadcast to\"] # [doc = \" the selection and cast to the source dtype. Reduction modes combine\"] # [doc = \" duplicate advanced indices; replacement does not define which duplicate\"] # [doc = \" wins.\"] pub trait TryIndexUpdateOp < Idx , Value > { # [doc = \" Return a new array with `update` applied at `index` according to `mode`.\"] fn try_index_update (& self , index : Idx , update : Value , mode : UpdateMode ,) -> std :: result :: Result < Array , IndexUpdateError > ; }"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_rs::ops::indexing::UpdateMode",
+      "signature": "# [doc = \" How an indexed update combines with selected source elements.\"] # [derive (Debug , Clone , Copy , Default , PartialEq , Eq)] pub enum UpdateMode { # [doc = \" Replace selected elements.\"] # [default] Replace , # [doc = \" Add updates to selected elements.\"] Add , # [doc = \" Take the minimum of updates and selected elements.\"] Min , # [doc = \" Take the maximum of updates and selected elements.\"] Max , # [doc = \" Multiply updates with selected elements.\"] Product , }"
     },
     {
       "kind": "function",
@@ -7008,7 +7107,7 @@
     {
       "kind": "function",
       "path": "mlx_rs::ops::linspace",
-      "signature": "pub fn linspace < U , T > (start : U , stop : U , count : impl Into < Option < i32 > >) -> Result < Array > where U : NumCast , T : ArrayElement ,"
+      "signature": "pub fn linspace < U , T > (start : U , stop : U , options : LinspaceOptions) -> Result < Array > where U : NumCast , T : ArrayElement ,"
     },
     {
       "kind": "function",
@@ -7130,6 +7229,11 @@
         "since": "0.26.0",
         "note": "use `with_stream` or `with_device` around `logical_or`"
       }
+    },
+    {
+      "kind": "function",
+      "path": "mlx_rs::ops::logical_xor",
+      "signature": "pub fn logical_xor (lhs : impl AsRef < Array > , rhs : impl AsRef < Array >) -> Result < Array >"
     },
     {
       "kind": "function",
@@ -8393,6 +8497,11 @@
         "since": "0.26.0",
         "note": "use `with_stream` or `with_device` around `var`"
       }
+    },
+    {
+      "kind": "function",
+      "path": "mlx_rs::ops::vecdot",
+      "signature": "pub fn vecdot (lhs : impl AsRef < Array > , rhs : impl AsRef < Array > , axis : i32) -> Result < Array >"
     },
     {
       "kind": "function",
