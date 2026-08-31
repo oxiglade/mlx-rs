@@ -2,6 +2,29 @@ use crate::error::Result;
 use crate::utils::guard::Guarded;
 use crate::{Array, Stream};
 use mlx_internal_macros::generate_macro;
+
+/// Axis and scan direction for [`Array::logcumsumexp`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LogCumsumExpOptions {
+    /// `None` flattens the input before scanning.
+    pub axis: Option<i32>,
+
+    /// Scan in reverse order.
+    pub reverse: bool,
+
+    /// Include the current value in each output position.
+    pub inclusive: bool,
+}
+
+impl Default for LogCumsumExpOptions {
+    fn default() -> Self {
+        Self {
+            axis: None,
+            reverse: false,
+            inclusive: true,
+        }
+    }
+}
 fn optional_dtype_none() -> mlx_sys::mlx_optional_dtype {
     mlx_sys::mlx_optional_dtype {
         value: mlx_sys::mlx_dtype__MLX_FLOAT32,
@@ -10,6 +33,44 @@ fn optional_dtype_none() -> mlx_sys::mlx_optional_dtype {
 }
 
 impl Array {
+    /// Compute a stable cumulative `LogAddExp` scan.
+    ///
+    /// This does not form `log(cumsum(exp(x)))`. Exclusive scans use negative infinity as the
+    /// shifted seed.
+    ///
+    /// ```rust
+    /// use mlx_rs::{array, ops::LogCumsumExpOptions};
+    ///
+    /// let output = array!([0.0, 1.0, 2.0])
+    ///     .logcumsumexp(LogCumsumExpOptions::default())
+    ///     .unwrap();
+    /// assert_eq!(output.shape(), &[3]);
+    /// ```
+    pub fn logcumsumexp(&self, options: LogCumsumExpOptions) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
+        match options.axis {
+            Some(axis) => Array::try_from_op(|res| unsafe {
+                mlx_sys::mlx_logcumsumexp_axis(
+                    res,
+                    self.as_ptr(),
+                    axis,
+                    options.reverse,
+                    options.inclusive,
+                    stream.as_ref().as_ptr(),
+                )
+            }),
+            None => Array::try_from_op(|res| unsafe {
+                mlx_sys::mlx_logcumsumexp(
+                    res,
+                    self.as_ptr(),
+                    options.reverse,
+                    options.inclusive,
+                    stream.as_ref().as_ptr(),
+                )
+            }),
+        }
+    }
+
     /// Return the cumulative maximum of the elements along the given axis returning an error if the inputs are invalid.
     ///
     /// # Params

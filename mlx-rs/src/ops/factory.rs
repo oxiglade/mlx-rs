@@ -6,6 +6,25 @@ use crate::{Dtype, Stream};
 use mlx_internal_macros::generate_macro;
 use num_traits::NumCast;
 
+/// Sample count and endpoint behavior for [`linspace`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LinspaceOptions {
+    /// Number of samples.
+    pub count: i32,
+
+    /// Include `stop` as the final sample.
+    pub endpoint: bool,
+}
+
+impl Default for LinspaceOptions {
+    fn default() -> Self {
+        Self {
+            count: 50,
+            endpoint: true,
+        }
+    }
+}
+
 impl Array {
     /// Construct an array of zeros returning an error if shape is invalid.
     ///
@@ -243,47 +262,27 @@ impl Array {
         crate::with_stream(stream.as_ref(), || Self::arange::<U, T>(start, stop, step))
     }
 
-    /// Generate `num` evenly spaced numbers over interval `[start, stop]` returning an error if params are invalid.
-    ///
-    /// # Params
-    ///
-    /// - start: start value
-    /// - stop: stop value
-    /// - count: number of samples -- defaults to 50 if not specified
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use mlx_rs::Array;
-    /// // Create a 50 element 1-D array with values from 0 to 50
-    /// let r = Array::linspace::<_, f32>(0, 50, None).unwrap();
-    /// ```
+    /// Compatibility shim for [`linspace`] with endpoint inclusion.
+    #[deprecated(since = "0.26.0", note = "use `ops::linspace` with `LinspaceOptions`")]
     pub fn linspace<U, T>(start: U, stop: U, count: impl Into<Option<i32>>) -> Result<Array>
     where
         U: NumCast,
         T: ArrayElement,
     {
-        let stream = Stream::thread_local_or_default();
-        let count = count.into().unwrap_or(50);
-        let start_f32 = NumCast::from(start).unwrap();
-        let stop_f32 = NumCast::from(stop).unwrap();
-
-        Array::try_from_op(|res| unsafe {
-            mlx_sys::mlx_linspace(
-                res,
-                start_f32,
-                stop_f32,
-                count,
-                T::DTYPE.into(),
-                stream.as_ref().as_ptr(),
-            )
-        })
+        linspace::<U, T>(
+            start,
+            stop,
+            LinspaceOptions {
+                count: count.into().unwrap_or(50),
+                endpoint: true,
+            },
+        )
     }
 
     /// Compatibility shim for [`linspace`].
     #[deprecated(
         since = "0.26.0",
-        note = "use `with_stream` or `with_device` around `linspace`"
+        note = "use `with_stream` or `with_device` around `ops::linspace`"
     )]
     pub fn linspace_device<U, T>(
         start: U,
@@ -296,7 +295,14 @@ impl Array {
         T: ArrayElement,
     {
         crate::with_stream(stream.as_ref(), || {
-            Self::linspace::<U, T>(start, stop, count)
+            linspace::<U, T>(
+                start,
+                stop,
+                LinspaceOptions {
+                    count: count.into().unwrap_or(50),
+                    endpoint: true,
+                },
+            )
         })
     }
 
@@ -698,13 +704,48 @@ where
     crate::with_stream(stream.as_ref(), || arange::<U, T>(start, stop, step))
 }
 
-/// See [`Array::linspace`]
-pub fn linspace<U, T>(start: U, stop: U, count: impl Into<Option<i32>>) -> Result<Array>
+/// Generate evenly spaced values between `start` and `stop`.
+///
+/// A negative count errors, zero returns an empty array, and one returns `start`. When `endpoint`
+/// is false, the interval is divided by `count` and `stop` is excluded. Endpoints are converted
+/// directly to the C ABI's `double` representation.
+///
+/// ```rust
+/// use mlx_rs::{ops::{linspace, LinspaceOptions}, with_stream, Stream};
+///
+/// // float64 runs on the CPU only.
+/// let output = with_stream(&Stream::cpu(), || {
+///     linspace::<_, f64>(
+///         16_777_217.0_f64,
+///         16_777_219.0_f64,
+///         LinspaceOptions {
+///             count: 3,
+///             endpoint: true,
+///         },
+///     )
+/// })
+/// .unwrap();
+/// assert_eq!(output.shape(), &[3]);
+/// ```
+pub fn linspace<U, T>(start: U, stop: U, options: LinspaceOptions) -> Result<Array>
 where
     U: NumCast,
     T: ArrayElement,
 {
-    Array::linspace::<U, T>(start, stop, count)
+    let stream = Stream::thread_local_or_default();
+    let start: f64 = NumCast::from(start).unwrap();
+    let stop: f64 = NumCast::from(stop).unwrap();
+    Array::try_from_op(|res| unsafe {
+        mlx_sys::mlx_linspace_endpoint(
+            res,
+            start,
+            stop,
+            options.count,
+            options.endpoint,
+            T::DTYPE.into(),
+            stream.as_ref().as_ptr(),
+        )
+    })
 }
 
 /// Compatibility shim for [`linspace`].
@@ -723,7 +764,16 @@ where
     U: NumCast,
     T: ArrayElement,
 {
-    crate::with_stream(stream.as_ref(), || linspace::<U, T>(start, stop, count))
+    crate::with_stream(stream.as_ref(), || {
+        linspace::<U, T>(
+            start,
+            stop,
+            LinspaceOptions {
+                count: count.into().unwrap_or(50),
+                endpoint: true,
+            },
+        )
+    })
 }
 
 /// See [`Array::repeat`]

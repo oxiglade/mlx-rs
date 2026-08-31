@@ -303,9 +303,28 @@ enum ClosureFailure {
     Panic(Box<dyn Any + Send>),
 }
 
+/// Frees an undrained stash when its thread exits; a leaked message would otherwise
+/// outlive every chance to read it.
+struct LastErrorStash(Cell<*const c_char>);
+
+impl LastErrorStash {
+    fn replace(&self, ptr: *const c_char) -> *const c_char {
+        self.0.replace(ptr)
+    }
+}
+
+impl Drop for LastErrorStash {
+    fn drop(&mut self) {
+        let ptr = self.0.replace(std::ptr::null());
+        if !ptr.is_null() {
+            unsafe { libc::free(ptr as *mut libc::c_void) };
+        }
+    }
+}
+
 thread_local! {
     static CLOSURE_ERROR: Cell<Option<ClosureFailure>> = const { Cell::new(None) };
-    static LAST_MLX_ERROR: Cell<*const c_char> = const { Cell::new(std::ptr::null()) };
+    static LAST_MLX_ERROR: LastErrorStash = const { LastErrorStash(Cell::new(std::ptr::null())) };
 }
 
 pub(crate) static INIT_ERR_HANDLER: ErrorHandlerRegistration = ErrorHandlerRegistration::new();
@@ -330,7 +349,12 @@ impl ErrorHandlerRegistration {
 extern "C" fn default_mlx_error_handler(msg: *const c_char, _data: *mut std::ffi::c_void) {
     unsafe {
         LAST_MLX_ERROR.with(|last_error| {
-            last_error.set(strdup(msg));
+            // MLX can report several errors before a caller drains one; keep the
+            // newest message but free the overwritten stash.
+            let previous = last_error.replace(strdup(msg));
+            if !previous.is_null() {
+                libc::free(previous as *mut libc::c_void);
+            }
         });
     }
 }

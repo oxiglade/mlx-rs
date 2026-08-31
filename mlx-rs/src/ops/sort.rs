@@ -4,6 +4,54 @@ use mlx_internal_macros::generate_macro;
 
 use crate::{error::Result, utils::guard::Guarded, Array, Stream};
 
+/// Insertion side for [`Array::search_sorted`].
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum SearchSide {
+    /// Insert before equal values.
+    #[default]
+    Left,
+
+    /// Insert after equal values.
+    Right,
+}
+
+impl SearchSide {
+    fn as_c_ptr(self) -> *const std::ffi::c_char {
+        match self {
+            Self::Left => c"left".as_ptr(),
+            Self::Right => c"right".as_ptr(),
+        }
+    }
+}
+
+impl Array {
+    /// Find insertion indices for `values` in this one-dimensional sequence.
+    ///
+    /// The result has the values' shape and `u32` dtype. Sortedness is not validated; results for
+    /// unsorted sequences are unspecified.
+    ///
+    /// ```rust
+    /// use mlx_rs::{array, ops::SearchSide, Dtype};
+    ///
+    /// let result = array!([1, 2, 2, 3])
+    ///     .search_sorted(array!([2]), SearchSide::Right)
+    ///     .unwrap();
+    /// assert_eq!(result.dtype(), Dtype::Uint32);
+    /// ```
+    pub fn search_sorted(&self, values: impl AsRef<Array>, side: SearchSide) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
+        Array::try_from_op(|res| unsafe {
+            mlx_sys::mlx_searchsorted(
+                res,
+                self.as_ptr(),
+                values.as_ref().as_ptr(),
+                side.as_c_ptr(),
+                stream.as_ref().as_ptr(),
+            )
+        })
+    }
+}
+
 /// Returns a sorted copy of the array. Returns an error if the arguments are invalid.
 ///
 /// # Params

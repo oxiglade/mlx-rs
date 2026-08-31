@@ -6,10 +6,74 @@ use crate::utils::guard::Guarded;
 use crate::utils::VectorArray;
 use crate::{
     error::{Exception, Result},
-    Array, Stream,
+    Array, Dtype, Stream,
 };
 
+/// Diagonal selection and dtype control for [`Array::trace`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TraceOptions {
+    /// Diagonal offset.
+    pub offset: i32,
+
+    /// First matrix axis.
+    pub axis1: i32,
+
+    /// Second matrix axis.
+    pub axis2: i32,
+
+    /// Dtype used before reduction.
+    pub dtype: Option<Dtype>,
+}
+
+impl Default for TraceOptions {
+    fn default() -> Self {
+        Self {
+            offset: 0,
+            axis1: 0,
+            axis2: 1,
+            dtype: None,
+        }
+    }
+}
+
 impl Array {
+    /// Sum a selected diagonal.
+    ///
+    /// The diagonal is cast to the requested dtype before reduction. Reduction promotion can
+    /// therefore produce a different final dtype.
+    ///
+    /// ```rust
+    /// use mlx_rs::{array, ops::TraceOptions, Dtype};
+    ///
+    /// let result = array!([[1.0, 2.0], [3.0, 4.0]])
+    ///     .trace(TraceOptions {
+    ///         dtype: Some(Dtype::Int32),
+    ///         ..TraceOptions::default()
+    ///     })
+    ///     .unwrap();
+    /// assert!(result.shape().is_empty());
+    /// ```
+    pub fn trace(&self, options: TraceOptions) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
+        if options == TraceOptions::default() {
+            Array::try_from_op(|res| unsafe {
+                mlx_sys::mlx_trace(res, self.as_ptr(), stream.as_ref().as_ptr())
+            })
+        } else {
+            Array::try_from_op(|res| unsafe {
+                mlx_sys::mlx_trace_axes(
+                    res,
+                    self.as_ptr(),
+                    options.offset,
+                    options.axis1,
+                    options.axis2,
+                    options.dtype.unwrap_or_else(|| self.dtype()).into(),
+                    stream.as_ref().as_ptr(),
+                )
+            })
+        }
+    }
+
     /// Extract a diagonal or construct a diagonal matrix.
     ///
     /// If self is 1-D then a diagonal matrix is constructed with self on the `k`-th diagonal. If

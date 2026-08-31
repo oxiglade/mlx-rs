@@ -667,6 +667,26 @@ impl Array {
     }
 }
 
+/// Cast both operands to boolean, broadcast them, and compare for inequality.
+///
+/// ```rust
+/// use mlx_rs::{array, ops::logical_xor};
+///
+/// let output = logical_xor(array!([true, false]), array!([false, false])).unwrap();
+/// assert_eq!(output.shape(), &[2]);
+/// ```
+pub fn logical_xor(lhs: impl AsRef<Array>, rhs: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
+    Array::try_from_op(|res| unsafe {
+        mlx_sys::mlx_logical_xor(
+            res,
+            lhs.as_ref().as_ptr(),
+            rhs.as_ref().as_ptr(),
+            stream.as_ref().as_ptr(),
+        )
+    })
+}
+
 /// See [`Array::any`]
 pub fn any_axes(
     array: impl AsRef<Array>,

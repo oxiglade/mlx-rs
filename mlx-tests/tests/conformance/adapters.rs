@@ -5,7 +5,9 @@ use super::oracle::{
 use half::{bf16, f16};
 use mlx_rs::{
     io::{GgufError, GgufFile, GgufMetadataValue},
-    ops, with_device, Array, Device, Dtype,
+    linalg,
+    ops::{self, CountNonzeroOptions, LinspaceOptions, LogCumsumExpOptions, TraceOptions},
+    with_device, with_stream, Array, Axes, Device, Dtype, Stream,
 };
 use safetensors::SafeTensors;
 use std::{collections::BTreeMap, path::Path};
@@ -54,6 +56,31 @@ pub(super) const ADAPTERS: &[&str] = &[
     "ops.windows.hann",
     "fft.fftfreq",
     "fft.rfftfreq",
+    "array.count_nonzero.all",
+    "array.count_nonzero.axis",
+    "array.count_nonzero.axes",
+    "array.count_nonzero.explicit_cpu",
+    "array.diff",
+    "array.flip.all",
+    "array.flip.axis",
+    "array.flip.axes",
+    "linalg.det",
+    "linalg.det.gpu",
+    "linalg.slogdet",
+    "ops.linspace.f32",
+    "ops.linspace.f64",
+    "ops.linspace.i32",
+    "array.logcumsumexp",
+    "ops.logical_xor",
+    "array.search_sorted.left",
+    "array.search_sorted.right",
+    "array.search_sorted.explicit_gpu",
+    "array.trace.default",
+    "array.trace.options",
+    "array.trace.dtype",
+    "array.trunc",
+    "array.unstack",
+    "ops.vecdot",
     "gguf.load",
     "gguf.load_error",
     "gguf.absence",
@@ -139,6 +166,9 @@ pub(super) fn dispatch_gguf(root: &Path, case: &GgufCase) -> Result<GgufObservat
                 ExecutionTarget::DefaultCpu => GgufFile::load(&path),
                 ExecutionTarget::ExplicitCpu => {
                     with_device(Device::cpu(), || GgufFile::load(&path))
+                }
+                ExecutionTarget::ExplicitGpu => {
+                    return Err("GGUF adapter does not support explicit GPU execution".into())
                 }
             };
             if case.rust_call == "gguf.load_error" {
@@ -639,6 +669,281 @@ pub(super) fn dispatch(case: &Case, safe: &SafeTensors<'_>) -> Result<Vec<Array>
             args.execution()?;
             let (q, r) = mlx_error(with_device(Device::cpu(), || ops::divmod(&a, &b)))?;
             vec![q, r]
+        }
+        "array.count_nonzero.all" => {
+            let input = args.tensor("input0")?;
+            let keep_dims = args.optional_bool("keepdims")?.unwrap_or(false);
+            args.execution()?;
+            vec![mlx_error(input.count_nonzero(CountNonzeroOptions {
+                axes: Axes::All,
+                keep_dims,
+            }))?]
+        }
+        "array.count_nonzero.axis" => {
+            let input = args.tensor("input0")?;
+            let axis = args.axis("axis")?;
+            let keep_dims = args.optional_bool("keepdims")?.unwrap_or(false);
+            args.execution()?;
+            vec![mlx_error(input.count_nonzero(CountNonzeroOptions {
+                axes: Axes::Axis(axis),
+                keep_dims,
+            }))?]
+        }
+        "array.count_nonzero.axes" => {
+            let input = args.tensor("input0")?;
+            let axes = args.axes("axes")?;
+            let keep_dims = args.optional_bool("keepdims")?.unwrap_or(false);
+            args.execution()?;
+            vec![mlx_error(input.count_nonzero(CountNonzeroOptions {
+                axes: Axes::Axes(axes),
+                keep_dims,
+            }))?]
+        }
+        "array.count_nonzero.explicit_cpu" => {
+            let input = args.tensor("input0")?;
+            let keep_dims = args.optional_bool("keepdims")?.unwrap_or(false);
+            args.execution()?;
+            vec![mlx_error(with_stream(&Stream::cpu(), || {
+                input.count_nonzero(CountNonzeroOptions {
+                    axes: Axes::All,
+                    keep_dims,
+                })
+            }))?]
+        }
+        "array.diff" => {
+            let input = args.tensor("input0")?;
+            let ScalarValue::I32(n) = args.scalar("n")? else {
+                return Err("n scalar type mismatch".into());
+            };
+            let axis = args.axis("axis")?;
+            args.execution()?;
+            vec![mlx_error(input.diff(n, axis))?]
+        }
+        "array.flip.all" => {
+            let input = args.tensor("input0")?;
+            args.execution()?;
+            vec![mlx_error(input.flip(Axes::All))?]
+        }
+        "array.flip.axis" => {
+            let input = args.tensor("input0")?;
+            let axis = args.axis("axis")?;
+            args.execution()?;
+            vec![mlx_error(input.flip(Axes::Axis(axis)))?]
+        }
+        "array.flip.axes" => {
+            let input = args.tensor("input0")?;
+            let axes = args.axes("axes")?;
+            args.execution()?;
+            vec![mlx_error(input.flip(Axes::Axes(axes)))?]
+        }
+        "linalg.det" => {
+            let input = args.tensor("input0")?;
+            args.execution()?;
+            vec![mlx_error(linalg::det(&input))?]
+        }
+        "linalg.det.gpu" => {
+            let input = args.tensor("input0")?;
+            args.execution()?;
+            vec![mlx_error(with_stream(&Stream::gpu(), || {
+                linalg::det(&input)
+            }))?]
+        }
+        "linalg.slogdet" => {
+            let input = args.tensor("input0")?;
+            args.execution()?;
+            let result = mlx_error(linalg::slogdet(&input))?;
+            vec![result.sign, result.log_abs_det]
+        }
+        "ops.linspace.f32" => {
+            let ScalarValue::F64(start) = args.scalar("start")? else {
+                return Err("start scalar type mismatch".into());
+            };
+            let ScalarValue::F64(stop) = args.scalar("stop")? else {
+                return Err("stop scalar type mismatch".into());
+            };
+            let ScalarValue::I32(count) = args.scalar("count")? else {
+                return Err("count scalar type mismatch".into());
+            };
+            let ScalarValue::Bool(endpoint) = args.scalar("endpoint")? else {
+                return Err("endpoint scalar type mismatch".into());
+            };
+            let dtype = match args.take("dtype")? {
+                Arg::Dtype { value, .. } => dtype_from_name(value)?,
+                _ => return Err("dtype is not a dtype argument".into()),
+            };
+            if dtype != Dtype::Float32 {
+                return Err("linspace dtype does not match adapter".into());
+            }
+            args.execution()?;
+            vec![mlx_error(ops::linspace::<_, f32>(
+                start,
+                stop,
+                LinspaceOptions { count, endpoint },
+            ))?]
+        }
+        "ops.linspace.f64" => {
+            let ScalarValue::F64(start) = args.scalar("start")? else {
+                return Err("start scalar type mismatch".into());
+            };
+            let ScalarValue::F64(stop) = args.scalar("stop")? else {
+                return Err("stop scalar type mismatch".into());
+            };
+            let ScalarValue::I32(count) = args.scalar("count")? else {
+                return Err("count scalar type mismatch".into());
+            };
+            let ScalarValue::Bool(endpoint) = args.scalar("endpoint")? else {
+                return Err("endpoint scalar type mismatch".into());
+            };
+            let dtype = match args.take("dtype")? {
+                Arg::Dtype { value, .. } => dtype_from_name(value)?,
+                _ => return Err("dtype is not a dtype argument".into()),
+            };
+            if dtype != Dtype::Float64 {
+                return Err("linspace dtype does not match adapter".into());
+            }
+            args.execution()?;
+            vec![mlx_error(ops::linspace::<_, f64>(
+                start,
+                stop,
+                LinspaceOptions { count, endpoint },
+            ))?]
+        }
+        "ops.linspace.i32" => {
+            let ScalarValue::F64(start) = args.scalar("start")? else {
+                return Err("start scalar type mismatch".into());
+            };
+            let ScalarValue::F64(stop) = args.scalar("stop")? else {
+                return Err("stop scalar type mismatch".into());
+            };
+            let ScalarValue::I32(count) = args.scalar("count")? else {
+                return Err("count scalar type mismatch".into());
+            };
+            let ScalarValue::Bool(endpoint) = args.scalar("endpoint")? else {
+                return Err("endpoint scalar type mismatch".into());
+            };
+            let dtype = match args.take("dtype")? {
+                Arg::Dtype { value, .. } => dtype_from_name(value)?,
+                _ => return Err("dtype is not a dtype argument".into()),
+            };
+            if dtype != Dtype::Int32 {
+                return Err("linspace dtype does not match adapter".into());
+            }
+            args.execution()?;
+            vec![mlx_error(ops::linspace::<_, i32>(
+                start,
+                stop,
+                LinspaceOptions { count, endpoint },
+            ))?]
+        }
+        "array.logcumsumexp" => {
+            let input = args.tensor("input0")?;
+            let axis = args.optional_axis("axis")?;
+            let ScalarValue::Bool(reverse) = args.scalar("reverse")? else {
+                return Err("reverse scalar type mismatch".into());
+            };
+            let ScalarValue::Bool(inclusive) = args.scalar("inclusive")? else {
+                return Err("inclusive scalar type mismatch".into());
+            };
+            args.execution()?;
+            vec![mlx_error(input.logcumsumexp(LogCumsumExpOptions {
+                axis,
+                reverse,
+                inclusive,
+            }))?]
+        }
+        "ops.logical_xor" => {
+            let lhs = args.tensor("input0")?;
+            let rhs = args.tensor("input1")?;
+            args.execution()?;
+            vec![mlx_error(ops::logical_xor(&lhs, &rhs))?]
+        }
+        "array.search_sorted.left" | "array.search_sorted.right" => {
+            let sequence = args.tensor("input0")?;
+            let values = args.tensor("input1")?;
+            let ScalarValue::Bool(right) = args.scalar("right")? else {
+                return Err("right scalar type mismatch".into());
+            };
+            args.execution()?;
+            let side = if case.rust_call.ends_with(".left") {
+                ops::SearchSide::Left
+            } else {
+                ops::SearchSide::Right
+            };
+            if right != matches!(side, ops::SearchSide::Right) {
+                return Err("search side does not match adapter".into());
+            }
+            vec![mlx_error(sequence.search_sorted(&values, side))?]
+        }
+        "array.search_sorted.explicit_gpu" => {
+            let sequence = args.tensor("input0")?;
+            let values = args.tensor("input1")?;
+            let ScalarValue::Bool(right) = args.scalar("right")? else {
+                return Err("right scalar type mismatch".into());
+            };
+            if right {
+                return Err("GPU search adapter expected the left side".into());
+            }
+            args.execution()?;
+            vec![mlx_error(with_stream(&Stream::gpu(), || {
+                sequence.search_sorted(&values, ops::SearchSide::Left)
+            }))?]
+        }
+        "array.trace.default" => {
+            let input = args.tensor("input0")?;
+            args.execution()?;
+            vec![mlx_error(input.trace(TraceOptions::default()))?]
+        }
+        "array.trace.options" => {
+            let input = args.tensor("input0")?;
+            let ScalarValue::I32(offset) = args.scalar("offset")? else {
+                return Err("offset scalar type mismatch".into());
+            };
+            let axis1 = args.axis("axis1")?;
+            let axis2 = args.axis("axis2")?;
+            args.execution()?;
+            vec![mlx_error(input.trace(TraceOptions {
+                offset,
+                axis1,
+                axis2,
+                dtype: None,
+            }))?]
+        }
+        "array.trace.dtype" => {
+            let input = args.tensor("input0")?;
+            let ScalarValue::I32(offset) = args.scalar("offset")? else {
+                return Err("offset scalar type mismatch".into());
+            };
+            let axis1 = args.axis("axis1")?;
+            let axis2 = args.axis("axis2")?;
+            let dtype = match args.take("dtype")? {
+                Arg::Dtype { value, .. } => dtype_from_name(value)?,
+                _ => return Err("dtype is not a dtype argument".into()),
+            };
+            args.execution()?;
+            vec![mlx_error(input.trace(TraceOptions {
+                offset,
+                axis1,
+                axis2,
+                dtype: Some(dtype),
+            }))?]
+        }
+        "array.trunc" => {
+            let input = args.tensor("input0")?;
+            args.execution()?;
+            vec![mlx_error(input.trunc())?]
+        }
+        "array.unstack" => {
+            let input = args.tensor("input0")?;
+            let axis = args.axis("axis")?;
+            args.execution()?;
+            mlx_error(input.unstack(axis))?
+        }
+        "ops.vecdot" => {
+            let lhs = args.tensor("input0")?;
+            let rhs = args.tensor("input1")?;
+            let axis = args.axis("axis")?;
+            args.execution()?;
+            vec![mlx_error(ops::vecdot(&lhs, &rhs, axis))?]
         }
         "ops.windows.bartlett" => {
             let ScalarValue::I32(size) = args.scalar("size")? else {
