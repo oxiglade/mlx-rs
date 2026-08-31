@@ -63,6 +63,62 @@ impl<'a> IntoOption<Ord<'a>> for f64 {
     }
 }
 
+/// The sign and natural logarithm of the absolute determinant.
+#[derive(Debug, Clone)]
+pub struct SlogDet {
+    /// Determinant sign.
+    pub sign: Array,
+
+    /// Natural logarithm of the absolute determinant.
+    pub log_abs_det: Array,
+}
+
+/// Compute the determinant of square matrices.
+///
+/// This operation is CPU-only at the pinned MLX version and uses the ambient stream. Integer
+/// inputs are promoted to floating point and leading dimensions are treated as batches.
+///
+/// ```rust
+/// use mlx_rs::{array, linalg, with_stream, Stream};
+///
+/// let matrix = array!([[1.0, 2.0], [3.0, 4.0]]);
+/// let result = with_stream(&Stream::cpu(), || linalg::det(&matrix)).unwrap();
+/// assert!(result.shape().is_empty());
+/// ```
+pub fn det(array: impl AsRef<Array>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
+    Array::try_from_op(|res| unsafe {
+        mlx_sys::mlx_linalg_det(res, array.as_ref().as_ptr(), stream.as_ref().as_ptr())
+    })
+}
+
+/// Compute determinant sign and log absolute determinant for square matrices.
+///
+/// This operation is CPU-only at the pinned MLX version and uses the ambient stream. A singular
+/// matrix returns zero sign and negative-infinity `log_abs_det`.
+///
+/// ```rust
+/// use mlx_rs::{array, linalg, with_stream, Stream};
+///
+/// let matrix = array!([[1.0, 2.0], [3.0, 4.0]]);
+/// let result = with_stream(&Stream::cpu(), || linalg::slogdet(&matrix)).unwrap();
+/// assert!(result.sign.shape().is_empty());
+/// assert!(result.log_abs_det.shape().is_empty());
+/// ```
+pub fn slogdet(array: impl AsRef<Array>) -> Result<SlogDet> {
+    let stream = Stream::thread_local_or_default();
+    let (sign, log_abs_det) =
+        <(Array, Array) as Guarded>::try_from_op(|(sign, log_abs_det)| unsafe {
+            mlx_sys::mlx_linalg_slogdet(
+                sign,
+                log_abs_det,
+                array.as_ref().as_ptr(),
+                stream.as_ref().as_ptr(),
+            )
+        })?;
+    Ok(SlogDet { sign, log_abs_det })
+}
+
 /// Axis selection and independent defaults for norm operations.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct NormOptions {

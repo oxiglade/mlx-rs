@@ -1,7 +1,14 @@
 use mlx_rs::{
     io::{GgufError, GgufFile, GgufMetadataKind},
+    linalg,
+    ops::{
+        indexing::{
+            ArrayIndexOp, Ellipsis, IndexUpdateError, IntoStrideBy, TryIndexUpdateOp, UpdateMode,
+        },
+        CountNonzeroOptions, TraceOptions,
+    },
     transforms::{fallible_jvp, jvp},
-    Array, Device, Dtype,
+    with_stream, Array, Axes, Device, Dtype, Stream,
 };
 use std::any::Any;
 use std::collections::HashMap;
@@ -195,6 +202,174 @@ fn safetensors_metadata_iteration_does_not_leak() {
         let (data, metadata) = Array::load_safetensors_with_metadata(&path).unwrap();
         assert!(data.is_empty());
         assert_eq!(metadata.get("model").map(String::as_str), Some("fixture"));
+    }
+}
+
+#[test]
+fn slogdet_outputs_and_error_guards_release_every_destination() {
+    with_stream(&Stream::cpu(), || {
+        for _ in 0..200 {
+            let matrix = Array::from_slice(&[2.0_f32, 0.0, 0.0, 3.0], &[2, 2]);
+            let result = linalg::slogdet(&matrix).unwrap();
+            result.sign.eval().unwrap();
+            result.log_abs_det.eval().unwrap();
+
+            let non_square = Array::from_slice(&[1.0_f32; 6], &[2, 3]);
+            assert!(linalg::slogdet(&non_square).is_err());
+        }
+    });
+}
+
+#[test]
+fn unstack_releases_zero_and_nonzero_output_vectors_on_every_path() {
+    let values = (0..257).collect::<Vec<i32>>();
+    let outputs = Array::from_slice(&values, &[257]).unstack(0).unwrap();
+    assert_eq!(outputs.len(), 257);
+
+    for _ in 0..200 {
+        let input = Array::from_slice(&[1_i32, 2, 3, 4, 5, 6], &[2, 3]);
+        let outputs = input.unstack(0).unwrap();
+        assert_eq!(outputs.len(), 2);
+        for output in outputs {
+            output.eval().unwrap();
+        }
+
+        let empty = Array::from_slice::<i32>(&[], &[0, 3]);
+        assert!(empty.unstack(0).unwrap().is_empty());
+
+        assert!(input.unstack(2).is_err());
+    }
+}
+
+#[test]
+fn partial_vector_extraction_releases_transferred_arrays_and_container() {
+    for _ in 0..200 {
+        let arrays = [Array::from_int(1), Array::from_int(2)];
+        let handles = [arrays[0].as_ptr(), arrays[1].as_ptr()];
+        let vector = unsafe { mlx_sys::mlx_vector_array_new_data(handles.as_ptr(), handles.len()) };
+
+        let mut first = unsafe { mlx_sys::mlx_array_new() };
+        assert_eq!(
+            unsafe { mlx_sys::mlx_vector_array_get(&mut first, vector, 0) },
+            0
+        );
+        let transferred = unsafe { Array::from_ptr(first) };
+
+        let mut failed = unsafe { mlx_sys::mlx_array_new() };
+        assert_ne!(
+            unsafe { mlx_sys::mlx_vector_array_get(&mut failed, vector, 2) },
+            0
+        );
+        unsafe { mlx_sys::mlx_array_free(failed) };
+
+        drop(transferred);
+        assert_eq!(unsafe { mlx_sys::mlx_vector_array_free(vector) }, 0);
+    }
+}
+
+#[test]
+fn empty_axis_vectors_and_new_error_paths_are_repeatable() {
+    for _ in 0..200 {
+        let input = Array::from_slice(&[0_i32, 1, 2, 0], &[2, 2]);
+        input
+            .count_nonzero(CountNonzeroOptions {
+                axes: Axes::Axes(Vec::new()),
+                keep_dims: false,
+            })
+            .unwrap()
+            .eval()
+            .unwrap();
+        input.flip(Axes::Axes(Vec::new())).unwrap().eval().unwrap();
+
+        assert!(input.diff(-1, 0).is_err());
+        assert!(input
+            .search_sorted(Array::from_int(1), mlx_rs::ops::SearchSide::Left)
+            .is_err());
+        assert!(input
+            .trace(TraceOptions {
+                axis2: 3,
+                ..TraceOptions::default()
+            })
+            .is_err());
+        let complex = Array::from_complex(mlx_rs::complex64::new(1.0, 2.0));
+        assert!(complex.trunc().is_err());
+        assert!(mlx_rs::ops::vecdot(&input, &input, 3).is_err());
+    }
+}
+
+#[test]
+fn static_and_advanced_index_updates_release_outputs_on_every_path() {
+    let modes = [
+        UpdateMode::Replace,
+        UpdateMode::Add,
+        UpdateMode::Min,
+        UpdateMode::Max,
+        UpdateMode::Product,
+    ];
+    for _ in 0..200 {
+        for mode in modes {
+            let source = Array::from_slice(&[1_i32, 2, 3, 4, 5], &[5]);
+            source
+                .try_index_update(1..4, Array::from_int(2), mode)
+                .unwrap()
+                .eval()
+                .unwrap();
+
+            let indices = Array::from_slice(&[0_i32, 2, 4], &[3]);
+            source
+                .try_index_update(&indices, Array::from_int(2), mode)
+                .unwrap()
+                .eval()
+                .unwrap();
+
+            source
+                .try_index_update(3..3, Array::from_slice::<i32>(&[], &[0]), mode)
+                .unwrap()
+                .eval()
+                .unwrap();
+
+            let no_indices: &[ArrayIndexOp<'_>] = &[];
+            Array::from_int(1)
+                .try_index_update(no_indices, Array::from_int(2), mode)
+                .unwrap()
+                .eval()
+                .unwrap();
+        }
+    }
+}
+
+#[test]
+fn index_update_validation_and_broadcast_failures_are_repeatable() {
+    for _ in 0..200 {
+        let source = Array::from_slice(&[1_i32, 2, 3, 4, 5], &[5]);
+        let zero_stride =
+            source.try_index_update((..).stride_by(0), Array::from_int(2), UpdateMode::Replace);
+        assert!(matches!(
+            zero_stride,
+            Err(IndexUpdateError::ZeroStride { axis: 0 })
+        ));
+
+        assert!(matches!(
+            source.try_index_update(1..4, Array::from_slice(&[1_i32, 2], &[2]), UpdateMode::Add,),
+            Err(IndexUpdateError::Exception(_))
+        ));
+
+        assert!(matches!(
+            source.try_index_update((0, 1), Array::from_int(2), UpdateMode::Replace),
+            Err(IndexUpdateError::Exception(_))
+        ));
+        assert!(matches!(
+            Array::from_int(1).try_index_update(0, Array::from_int(2), UpdateMode::Replace),
+            Err(IndexUpdateError::Exception(_))
+        ));
+        assert!(matches!(
+            source.try_index_update(
+                (Ellipsis, Ellipsis),
+                Array::from_int(2),
+                UpdateMode::Replace,
+            ),
+            Err(IndexUpdateError::Exception(_))
+        ));
     }
 }
 

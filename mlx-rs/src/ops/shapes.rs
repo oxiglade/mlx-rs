@@ -5,10 +5,72 @@ use crate::{
     constants::DEFAULT_STACK_VEC_LEN,
     error::Result,
     utils::{guard::Guarded, IntoOption, VectorArray},
-    Array, Stream,
+    Array, Axes, Stream,
 };
 
+static EMPTY_AXES_DUMMY: [i32; 1] = [0];
+
 impl Array {
+    /// Reverse elements along selected axes.
+    ///
+    /// `Axes::All` reverses every axis, while an explicitly empty axis list is an identity.
+    ///
+    /// ```rust
+    /// use mlx_rs::{array, Axes};
+    ///
+    /// let output = array!([[1, 2], [3, 4]]).flip(Axes::Axis(-1)).unwrap();
+    /// assert_eq!(output.shape(), &[2, 2]);
+    /// ```
+    pub fn flip(&self, axes: Axes) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
+        match axes {
+            Axes::All => Array::try_from_op(|res| unsafe {
+                mlx_sys::mlx_flip(res, self.as_ptr(), stream.as_ref().as_ptr())
+            }),
+            Axes::Axis(axis) => Array::try_from_op(|res| unsafe {
+                mlx_sys::mlx_flip_axis(res, self.as_ptr(), axis, stream.as_ref().as_ptr())
+            }),
+            Axes::Axes(axes) => {
+                let axes_ptr = if axes.is_empty() {
+                    EMPTY_AXES_DUMMY.as_ptr()
+                } else {
+                    axes.as_ptr()
+                };
+                Array::try_from_op(|res| unsafe {
+                    mlx_sys::mlx_flip_axes(
+                        res,
+                        self.as_ptr(),
+                        axes_ptr,
+                        axes.len(),
+                        stream.as_ref().as_ptr(),
+                    )
+                })
+            }
+        }
+    }
+
+    /// Split an array along `axis` and squeeze that axis from every output.
+    ///
+    /// A zero-length selected axis returns an empty vector.
+    ///
+    /// ```rust
+    /// use mlx_rs::array;
+    ///
+    /// let parts = array!([[1, 2], [3, 4]]).unstack(0).unwrap();
+    /// assert_eq!(parts.len(), 2);
+    /// assert_eq!(parts[0].shape(), &[2]);
+    /// ```
+    pub fn unstack(&self, axis: i32) -> Result<Vec<Array>> {
+        let stream = Stream::thread_local_or_default();
+        Vec::<Array>::try_from_op(|res| unsafe {
+            if axis == 0 {
+                mlx_sys::mlx_unstack(res, self.as_ptr(), stream.as_ref().as_ptr())
+            } else {
+                mlx_sys::mlx_unstack_axis(res, self.as_ptr(), axis, stream.as_ref().as_ptr())
+            }
+        })
+    }
+
     /// See [`expand_dims()`].
     pub fn expand_dims(&self, axis: i32) -> Result<Array> {
         expand_dims(self, axis)

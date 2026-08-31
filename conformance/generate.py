@@ -15,7 +15,7 @@ EXPECTED_ARCH = "arm64"
 EXPECTED_MLX = "0.32.2"
 EXPECTED_NUMPY = "2.2.6"
 CORPUS_SEED = "mlx-rs-committed-cpu-ops-v1"
-OP_SUITES = ("arithmetic", "dtypes", "errors", "execution", "reductions", "shapes", "signal")
+OP_SUITES = ("arithmetic", "dtypes", "errors", "execution", "indexing", "math", "reductions", "shapes", "signal")
 SUITES = OP_SUITES + ("gguf",)
 ROOT = Path(__file__).resolve().parent
 
@@ -87,8 +87,8 @@ def arg_scalar(name, scalar_type, value=None, bits=None, real_bits=None, imag_bi
     return result
 
 
-def execution(explicit=False):
-    return {"name": "execution", "kind": "execution", "target": "explicit_cpu" if explicit else "default_cpu"}
+def execution(explicit=False, target=None):
+    return {"name": "execution", "kind": "execution", "target": target or ("explicit_cpu" if explicit else "default_cpu")}
 
 
 def source(dtype, shape, values=None, distribution="small_integers"):
@@ -100,7 +100,7 @@ def source(dtype, shape, values=None, distribution="small_integers"):
     return item
 
 
-def case(case_id, suite, semantic_op, rust_call, inputs, extra_args=None, policy="exact_numeric", explicit=False):
+def case(case_id, suite, semantic_op, rust_call, inputs, extra_args=None, policy="exact_numeric", explicit=False, execution_target=None):
     return {
         "id": case_id,
         "suite": suite,
@@ -110,7 +110,7 @@ def case(case_id, suite, semantic_op, rust_call, inputs, extra_args=None, policy
         "sources": inputs,
         "extra_args": extra_args or [],
         "policy": policy,
-        "execution": execution(explicit),
+        "execution": execution(explicit, execution_target),
     }
 
 
@@ -132,6 +132,19 @@ def keepdims(value):
 
 def dtype_arg(value):
     return {"name": "dtype", "kind": "dtype", "value": value}
+
+
+def index_recipe(value):
+    return {"name": "index", "kind": "index", "value": value}
+
+
+def update_mode(value):
+    return {"name": "mode", "kind": "update_mode", "value": value}
+
+
+def f64_arg(name, value):
+    bits = struct.unpack("<Q", struct.pack("<d", value))[0]
+    return arg_scalar(name, "f64", bits=f"0x{bits:016x}")
 
 
 def data_movement_policy(op, inputs):
@@ -271,16 +284,232 @@ def build_specs():
                 ))
                 signal_index += 1
 
+    math_specs = []
+    math_add = lambda op, call, ins, extra=None, policy="exact_numeric", explicit=False: math_specs.append(
+        (op, call, ins, extra or [], policy, explicit)
+    )
+    keep_false = keepdims(False)
+    keep_true = keepdims(True)
+    count_values = [0, 1, -2, 0, 3, 0]
+    math_add("count_nonzero", "array.count_nonzero.all", [source("I32", [2, 3], count_values)], [keep_false])
+    math_add("count_nonzero", "array.count_nonzero.all", [source("C64", [3], [[0, 0], [0, 2], [float("nan"), 0]])], [keep_true])
+    math_add("count_nonzero", "array.count_nonzero.axis", [source("BOOL", [2, 3], [True, False, True, False, False, True])], [{"name": "axis", "kind": "axis", "value": -1}, keep_false])
+    math_add("count_nonzero", "array.count_nonzero.axes", [source("F32", [2, 3, 2], [0, 1, 2, 0, 0, 3, 4, 5, 0, 0, float("nan"), 0])], [axes([0, -1]), keep_true])
+    math_add("count_nonzero", "array.count_nonzero.axes", [source("I16", [2, 2], [0, 1, 2, 0])], [axes([]), keep_false])
+    math_add("count_nonzero", "array.count_nonzero.axis", [source("F32", [0, 3], [])], [{"name": "axis", "kind": "axis", "value": 0}, keep_false])
+    math_add("count_nonzero", "array.count_nonzero.explicit_cpu", [source("U8", [4], [0, 1, 0, 2])], [keep_false], explicit=True)
+
+    for n, selected_axis in [(0, -1), (1, 0), (2, -1), (5, -1)]:
+        math_add("diff", "array.diff", [source("I32" if n != 2 else "F32", [2, 4], list(range(8)))], [arg_scalar("n", "i32", value=n), {"name": "axis", "kind": "axis", "value": selected_axis}], "exact_numeric" if n != 2 else "exact_bits")
+    math_add("diff", "array.diff", [source("C64", [4], [[1, 2], [3, -1], [0, 4], [-2, 1]])], [arg_scalar("n", "i32", value=1), {"name": "axis", "kind": "axis", "value": -1}], "exact_bits")
+
+    math_add("flip", "array.flip.all", [source("I32", [2, 3], [1, 2, 3, 4, 5, 6])], policy="exact_bits")
+    math_add("flip", "array.flip.axis", [source("F32", [2, 3], list(range(6)))], [{"name": "axis", "kind": "axis", "value": -1}], "exact_bits")
+    math_add("flip", "array.flip.axes", [source("C64", [2, 2, 2], [[v, -v] for v in range(8)])], [axes([0, -1])], "exact_bits")
+    math_add("flip", "array.flip.axes", [source("I16", [2, 3], list(range(6)))], [axes([])], "exact_bits")
+    math_add("flip", "array.flip.axes", [source("I32", [2, 3], list(range(6)))], [axes([1, 1])], "exact_bits")
+    math_add("flip", "array.flip.all", [source("F32", [0, 3], [])], policy="exact_bits")
+
+    for dtype, shape_, values in [
+        ("F32", [1, 1], [4]),
+        ("F32", [2, 2], [1, 2, 3, 4]),
+        ("F64", [3, 3], [2, 1, 0, 1, 3, 1, 0, 1, 2]),
+        ("F32", [4, 4], [4, 1, 2, 0, 0, 3, -1, 1, 2, 0, 5, 2, 1, 1, 0, 2]),
+        ("I32", [2, 2], [2, 1, 1, 3]),
+        ("F32", [2, 2, 2], [1, 2, 3, 4, 2, 0, 0, 5]),
+        ("F32", [2, 2], [1, 2, 2, 4]),
+        ("F32", [0, 0], []),
+    ]:
+        math_add("det", "linalg.det", [source(dtype, shape_, values)], policy="reduction_float")
+
+    for shape_, values in [
+        ([2, 2], [2, 0, 0, 3]),
+        ([2, 2], [-2, 0, 0, 3]),
+        ([2, 2], [1, 2, 2, 4]),
+        ([3, 2, 2], [2, 0, 0, 3, -2, 0, 0, 4, 1, 2, 2, 4]),
+        ([4, 4], [4, 1, 2, 0, 0, 3, -1, 1, 2, 0, 5, 2, 1, 1, 0, 2]),
+        ([0, 0], []),
+        ([2, 2], [1e30, 0, 0, 1e30]),
+    ]:
+        math_add("slogdet", "linalg.slogdet", [source("F32", shape_, values)], policy="reduction_float")
+
+    linspace_cases = [
+        (0.0, 1.0, 50, True, "F32", "ops.linspace.f32"),
+        (0.0, 1.0, 5, True, "F32", "ops.linspace.f32"),
+        (0.0, 1.0, 5, False, "F32", "ops.linspace.f32"),
+        (1.0, -1.0, 4, True, "F32", "ops.linspace.f32"),
+        (2.0, 2.0, 3, False, "F32", "ops.linspace.f32"),
+        (1.0, 4.0, 0, True, "F32", "ops.linspace.f32"),
+        (1.0, 4.0, 1, False, "F32", "ops.linspace.f32"),
+        (16777217.0, 16777219.0, 3, True, "F64", "ops.linspace.f64"),
+        (-3.0, 4.0, 5, True, "I32", "ops.linspace.i32"),
+    ]
+    for start, stop, count, endpoint, dtype, rust_call in linspace_cases:
+        math_add("linspace", rust_call, [], [f64_arg("start", start), f64_arg("stop", stop), arg_scalar("count", "i32", value=count), arg_scalar("endpoint", "bool", value=endpoint), dtype_arg(dtype)], "exact_bits")
+
+    scan_input = [1000.0, 1001.0, -float("inf"), float("inf")]
+    for reverse in (False, True):
+        for inclusive in (False, True):
+            math_add("logcumsumexp", "array.logcumsumexp", [source("F32", [2, 2], scan_input)], [axis(None), arg_scalar("reverse", "bool", value=reverse), arg_scalar("inclusive", "bool", value=inclusive)], "elementwise_float")
+    math_add("logcumsumexp", "array.logcumsumexp", [source("F16", [2, 3], [-2, -1, 0, 1, 2, 3])], [axis(-1), arg_scalar("reverse", "bool", value=False), arg_scalar("inclusive", "bool", value=True)], "low_precision_float")
+    math_add("logcumsumexp", "array.logcumsumexp", [source("BF16", [2, 3], [-2, -1, 0, 1, 2, 3])], [axis(0), arg_scalar("reverse", "bool", value=True), arg_scalar("inclusive", "bool", value=False)], "low_precision_float")
+    math_add("logcumsumexp", "array.logcumsumexp", [source("C64", [3], [[1, 2], [3, -1], [0, 4]])], [axis(-1), arg_scalar("reverse", "bool", value=False), arg_scalar("inclusive", "bool", value=True)], "elementwise_float")
+    math_add("logcumsumexp", "array.logcumsumexp", [source("F32", [0], [])], [axis(None), arg_scalar("reverse", "bool", value=False), arg_scalar("inclusive", "bool", value=True)], "exact_bits")
+
+    math_add("logical_xor", "ops.logical_xor", [source("BOOL", [4], [False, False, True, True]), source("BOOL", [4], [False, True, False, True])])
+    math_add("logical_xor", "ops.logical_xor", [source("I32", [2, 1], [0, 2]), source("F32", [1, 3], [0, -1, float("nan")])])
+    math_add("logical_xor", "ops.logical_xor", [source("BOOL", [0, 3], []), source("BOOL", [1, 3], [True, False, True])])
+
+    search_sequence = source("I32", [4], [1, 2, 2, 3])
+    for side_name in ("left", "right"):
+        math_add("search_sorted", f"array.search_sorted.{side_name}", [search_sequence, source("I32", [3], [0, 2, 4])], [arg_scalar("right", "bool", value=side_name == "right")])
+    math_add("search_sorted", "array.search_sorted.left", [source("F32", [4], [1, 2, 3, 4]), source("F32", [], [2.5])], [arg_scalar("right", "bool", value=False)])
+    math_add("search_sorted", "array.search_sorted.right", [source("F32", [4], [1, 2, 3, 4]), source("I16", [2, 2], [0, 2, 3, 5])], [arg_scalar("right", "bool", value=True)])
+    math_add("search_sorted", "array.search_sorted.left", [source("F32", [0], []), source("F32", [2], [1, float("nan")])], [arg_scalar("right", "bool", value=False)])
+    math_add("search_sorted", "array.search_sorted.left", [source("F32", [4], [1, 2, float("nan"), float("nan")]), source("F32", [2], [float("nan"), 2])], [arg_scalar("right", "bool", value=False)])
+    math_add("search_sorted", "array.search_sorted.left", [source("I32", [4], [2, 1, 4, 3]), source("I32", [2], [2, 3])], [arg_scalar("right", "bool", value=False)])
+
+    math_add("trace", "array.trace.default", [source("F32", [3, 3], list(range(9)))], policy="reduction_float")
+    for offset in (-2, 1):
+        math_add("trace", "array.trace.options", [source("F32", [2, 3, 4], list(range(24)))], [arg_scalar("offset", "i32", value=offset), {"name": "axis1", "kind": "axis", "value": -2}, {"name": "axis2", "kind": "axis", "value": -1}], "reduction_float")
+    math_add("trace", "array.trace.options", [source("I32", [2, 3, 4], list(range(24)))], [arg_scalar("offset", "i32", value=0), {"name": "axis1", "kind": "axis", "value": 0}, {"name": "axis2", "kind": "axis", "value": 2}])
+    math_add("trace", "array.trace.options", [source("F32", [2, 3], list(range(6)))], [arg_scalar("offset", "i32", value=5), {"name": "axis1", "kind": "axis", "value": 0}, {"name": "axis2", "kind": "axis", "value": 1}], "reduction_float")
+    math_add("trace", "array.trace.dtype", [source("F32", [3, 3], list(range(9)))], [arg_scalar("offset", "i32", value=0), {"name": "axis1", "kind": "axis", "value": 0}, {"name": "axis2", "kind": "axis", "value": 1}, dtype_arg("I32")])
+
+    math_add("trunc", "array.trunc", [source("F32", [6], [-2.75, -0.0, 0.0, 1.25, 2.99, -3.01])], policy="exact_bits")
+    math_add("trunc", "array.trunc", [source("F16", [3], [-1.5, 0.0, 2.5])], policy="exact_bits")
+    math_add("trunc", "array.trunc", [source("F64", [3], [-1.5, 0.0, 2.5])], policy="exact_bits")
+    math_add("trunc", "array.trunc", [source("I32", [3], [-1, 0, 2])])
+
+    math_add("unstack", "array.unstack", [source("I32", [2, 3], [1, 2, 3, 4, 5, 6])], [{"name": "axis", "kind": "axis", "value": 0}])
+    math_add("unstack", "array.unstack", [source("F32", [2, 3, 2], list(range(12)))], [{"name": "axis", "kind": "axis", "value": 1}], "exact_bits")
+    math_add("unstack", "array.unstack", [source("F32", [2, 3, 2], list(range(12)))], [{"name": "axis", "kind": "axis", "value": -1}], "exact_bits")
+    math_add("unstack", "array.unstack", [source("I16", [2, 0, 3], [])], [{"name": "axis", "kind": "axis", "value": 1}])
+
+    math_add("vecdot", "ops.vecdot", [source("I32", [2, 3], [1, 2, 3, 4, 5, 6]), source("I32", [2, 3], [6, 5, 4, 3, 2, 1])], [{"name": "axis", "kind": "axis", "value": -1}])
+    math_add("vecdot", "ops.vecdot", [source("F32", [2, 3, 4], list(range(24))), source("F32", [2, 1, 4], list(range(8)))], [{"name": "axis", "kind": "axis", "value": 0}], "reduction_float")
+    math_add("vecdot", "ops.vecdot", [source("C64", [2], [[1, 1], [2, -1]]), source("C64", [2], [[3, -1], [1, 2]])], [{"name": "axis", "kind": "axis", "value": -1}], "elementwise_float")
+    for index, (op, call, inputs, extra, policy, explicit) in enumerate(math_specs, 1):
+        specs.append(case(f"math.{index:03d}", "math", op, call, inputs, extra_args=extra, policy=policy, explicit=explicit))
+    specs.append(case(
+        "math.078", "math", "search_sorted", "array.search_sorted.explicit_gpu",
+        [search_sequence, source("I32", [3], [0, 2, 4])],
+        extra_args=[arg_scalar("right", "bool", value=False)],
+        execution_target="explicit_gpu",
+    ))
+
+    indexing_specs = []
+    index_add = lambda call, src, update, index, mode, indices=None: indexing_specs.append(
+        (call, [src, update] + ([] if indices is None else [indices]), [index_recipe(index), update_mode(mode)])
+    )
+    base = source("I32", [6], [1, 2, 3, 4, 5, 6])
+    update = source("I32", [3], [10, 2, -1])
+    for mode in ("replace", "add", "min", "max", "product"):
+        index_add("array.try_index_update", base, update, "positive_slice", mode)
+    reverse_base = source("I32", [6], [0, 1, 2, 3, 4, 5])
+    reverse_update = source("I32", [3], [10, 20, 30])
+    for mode in ("replace", "add", "min", "max", "product"):
+        index_add("array.try_index_update", reverse_base, reverse_update, "negative_stride", mode)
+    advanced_indices = source("I32", [3], [0, 2, 4])
+    for mode in ("replace", "add", "min", "max", "product"):
+        index_add(
+            "array.try_index_update",
+            source("I32", [5], [2, 4, 6, 8, 10]),
+            source("I32", [3], [3, 5, 7]),
+            "advanced",
+            mode,
+            advanced_indices,
+        )
+    duplicate_indices = source("I32", [3], [1, 1, 1])
+    for mode in ("add", "min", "max", "product"):
+        index_add(
+            "array.try_index_update",
+            source("I32", [3], [10, 10, 10]),
+            source("I32", [3], [2, 3, 4]),
+            "duplicate_advanced",
+            mode,
+            duplicate_indices,
+        )
+    index_add("array.try_index_update", source("I32", [3, 3], list(range(9))), source("I32", [], [50]), "tuple_2d", "replace")
+    index_add("array.try_index_update", source("I32", [2, 3], list(range(6))), source("I32", [3], [10, 20, 30]), "negative_index", "add")
+    index_add("array.try_index_update", source("I32", [2, 3], list(range(6))), source("I32", [], [9]), "ellipsis_new_axis", "replace")
+    index_add("array.try_index_update", base, source("I32", [], [2]), "positive_slice", "add")
+    index_add("array.try_index_update", source("I32", [2, 3], list(range(6))), source("I32", [2, 1], [40, 50]), "tuple_columns", "replace")
+    index_add("array.try_index_update", base, source("F32", [3], [1.75, -2.25, 3.5]), "positive_slice", "replace")
+    index_add("array.try_index_update", base, source("I32", [], [3]), "full", "product")
+    index_add("array.try_index_update", base, source("I32", [0], []), "empty", "min")
+    index_add("array.try_index_update", base, source("I32", [], [1]), "clipped", "add")
+    index_add("array.try_index_update", base, source("I32", [], [7]), "noop", "product")
+    index_add("array.try_index_update", base, source("I32", [3], [8, 9, 10]), "negative_bounds", "replace")
+    index_add(
+        "array.try_index_update",
+        source("I32", [3, 3], list(range(9))),
+        source("I32", [2], [20, 30]),
+        "advanced_tuple",
+        "max",
+        source("I32", [2], [0, 2]),
+    )
+    index_add("array.try_index_update.source_unchanged", base, update, "positive_slice", "add")
+    indexing_specs[-1][2].append(arg_scalar("return_source", "bool", value=True))
+    index_add("array.try_index_mut.compatibility", base, update, "positive_slice", "replace")
+    index_add("array.try_index_update", base, update, "zero_stride", "replace")
+    index_add("array.try_index_update", base, source("I32", [2], [1, 2]), "positive_slice", "add")
+    for index, (call, inputs, extra) in enumerate(indexing_specs, 1):
+        spec = case(f"indexing.{index:03d}", "indexing", "index_update", call, inputs, extra_args=extra)
+        if index == len(indexing_specs) - 1:
+            spec["error"] = ("invoke_or_eval", "zero stride is rejected before FFI", "ZeroStride", "indexing.001")
+        elif index == len(indexing_specs):
+            spec["error"] = ("invoke_or_eval", "update cannot broadcast to selected slice", "ValueError", "indexing.002")
+        specs.append(spec)
+
     errors = [
         case("errors.001", "errors", "add", "ops.add.array_array", [source("F32", [2]), source("F32", [3])]),
         case("errors.002", "errors", "reshape", "ops.reshape", [source("F32", [6])], extra_args=[shape([4, 2])]),
         case("errors.003", "errors", "take", "ops.take_axis.array_indices_axis", [source("I32", [3], [10, 20, 30]), source("I32", [2], [0, 5])], extra_args=[{"name": "axis", "kind": "axis", "value": 2}]),
         case("errors.004", "errors", "negative", "array.negative", [source("BOOL", [2], [True, False])]),
+        case("errors.005", "errors", "diff", "array.diff", [source("F32", [3], [1, 2, 3])], extra_args=[arg_scalar("n", "i32", value=-1), {"name": "axis", "kind": "axis", "value": 0}]),
+        case("errors.006", "errors", "diff", "array.diff", [source("F32", [3], [1, 2, 3])], extra_args=[arg_scalar("n", "i32", value=1), {"name": "axis", "kind": "axis", "value": 2}]),
+        case("errors.007", "errors", "det", "linalg.det", [source("F32", [2, 3], [1, 2, 3, 4, 5, 6])]),
+        case("errors.008", "errors", "det", "linalg.det", [source("C64", [2, 2], [[1, 0], [0, 0], [0, 0], [1, 0]])]),
+        case("errors.009", "errors", "linspace", "ops.linspace.f32", [], extra_args=[f64_arg("start", 0.0), f64_arg("stop", 1.0), arg_scalar("count", "i32", value=-1), arg_scalar("endpoint", "bool", value=True), dtype_arg("F32")]),
+        case("errors.010", "errors", "search_sorted", "array.search_sorted.left", [source("I32", [2, 2], [1, 2, 3, 4]), source("I32", [1], [2])], extra_args=[arg_scalar("right", "bool", value=False)]),
+        case("errors.011", "errors", "trace", "array.trace.options", [source("F32", [2, 2], [1, 2, 3, 4])], extra_args=[arg_scalar("offset", "i32", value=0), {"name": "axis1", "kind": "axis", "value": 0}, {"name": "axis2", "kind": "axis", "value": 3}]),
+        case("errors.012", "errors", "trunc", "array.trunc", [source("C64", [1], [[1, 2]])]),
+        case("errors.013", "errors", "unstack", "array.unstack", [source("F32", [2, 2], [1, 2, 3, 4])], extra_args=[{"name": "axis", "kind": "axis", "value": 3}]),
+        case("errors.014", "errors", "unstack", "array.unstack", [source("F32", [], [1])], extra_args=[{"name": "axis", "kind": "axis", "value": 0}]),
+        case("errors.015", "errors", "vecdot", "ops.vecdot", [source("F32", [], [1]), source("F32", [], [2])], extra_args=[{"name": "axis", "kind": "axis", "value": -1}]),
+        case("errors.016", "errors", "vecdot", "ops.vecdot", [source("F32", [2], [1, 2]), source("F32", [3], [1, 2, 3])], extra_args=[{"name": "axis", "kind": "axis", "value": -1}]),
+        case("errors.017", "errors", "vecdot", "ops.vecdot", [source("F32", [2, 2], [1, 2, 3, 4]), source("F32", [2], [1, 2])], extra_args=[{"name": "axis", "kind": "axis", "value": -1}]),
+        case("errors.018", "errors", "det", "linalg.det", [source("F32", [2], [1, 2])]),
+        case("errors.019", "errors", "det_gpu", "linalg.det.gpu", [source("F32", [2, 2], [1, 0, 0, 1])]),
+        case("errors.020", "errors", "trace", "array.trace.default", [source("F32", [], [1])]),
+        case("errors.021", "errors", "vecdot", "ops.vecdot", [source("F32", [2, 2], [1, 2, 3, 4]), source("F32", [2, 2], [4, 3, 2, 1])], extra_args=[{"name": "axis", "kind": "axis", "value": 2}]),
     ]
     errors[0]["error"] = ("invoke_or_eval", "incompatible broadcast shapes", "ValueError", "arithmetic.001")
     errors[1]["error"] = ("invoke_or_eval", "reshape changes element count", "ValueError", "shapes.001")
     errors[2]["error"] = ("invoke_or_eval", "take axis exceeds input rank", "ValueError", "arithmetic.001")
     errors[3]["error"] = ("invoke_or_eval", "boolean negation is unsupported", "ValueError", "arithmetic.007")
+    error_reasons = [
+        ("negative diff order", "ValueError", "math.008"),
+        ("diff axis exceeds input rank", "ValueError", "math.009"),
+        ("det requires square matrices", "ValueError", "math.019"),
+        ("complex determinant is unsupported", "ValueError", "math.020"),
+        ("negative linspace count", "ValueError", "math.034"),
+        ("search sequence must be one-dimensional", "ValueError", "math.054"),
+        ("trace axis exceeds input rank", "ValueError", "math.061"),
+        ("complex truncation is unsupported", "ValueError", "math.067"),
+        ("unstack axis exceeds input rank", "ValueError", "math.071"),
+        ("unstack requires an array axis", "ValueError", "math.071"),
+        ("vecdot requires a non-scalar axis", "ValueError", "math.075"),
+        ("vecdot reduction extents must match", "ValueError", "math.075"),
+        ("vecdot unequal-rank axis behavior is deferred", "ValueError", "math.075"),
+        ("det requires rank at least two", "ValueError", "math.019"),
+        ("det is unsupported on GPU", "ValueError", "math.019"),
+        ("trace requires rank at least two", "ValueError", "math.061"),
+        ("vecdot axis exceeds input rank", "ValueError", "math.075"),
+    ]
+    for error_case, (reason, exception_type, control) in zip(errors[4:], error_reasons):
+        error_case["error"] = ("invoke_or_eval", reason, exception_type, control)
     specs.extend(errors)
     return sorted(specs, key=lambda item: item["id"])
 
@@ -328,13 +557,16 @@ def scalar_array(mx, arg):
     if scalar_type == "f32":
         value = struct.unpack("<f", struct.pack("<I", int(arg["bits"], 16)))[0]
         return mx.array(value, dtype=mx.float32)
+    if scalar_type == "f64":
+        value = struct.unpack("<d", struct.pack("<Q", int(arg["bits"], 16)))[0]
+        return mx.array(value, dtype=mx.float64)
     real = struct.unpack("<f", struct.pack("<I", int(arg["real_bits"], 16)))[0]
     imag = struct.unpack("<f", struct.pack("<I", int(arg["imag_bits"], 16)))[0]
     return mx.array(complex(real, imag), dtype=mx.complex64)
 
 
-def call_recipe(mx, op, arrays, extra, explicit):
-    stream = mx.cpu if explicit else None
+def call_recipe(mx, op, arrays, extra, execution_target):
+    stream = {"explicit_cpu": mx.cpu, "explicit_gpu": mx.gpu}.get(execution_target)
     kwargs = {} if stream is None else {"stream": stream}
     by_name = {item["name"]: item for item in extra}
     if op in ("add", "add_zero"):
@@ -393,6 +625,88 @@ def call_recipe(mx, op, arrays, extra, explicit):
         return [getattr(mx.fft, op)(
             by_name["n"]["value"], scalar_array_value(by_name["d"]), **kwargs
         )]
+    if op == "count_nonzero":
+        selected_axis = by_name.get("axis", by_name.get("axes"))
+        selected_axis = None if selected_axis is None else selected_axis.get("value", selected_axis.get("values"))
+        return [mx.count_nonzero(arrays[0], axis=selected_axis, keepdims=by_name["keepdims"]["value"] or False, **kwargs)]
+    if op == "diff":
+        return [mx.diff(arrays[0], n=by_name["n"]["value"], axis=by_name["axis"]["value"], **kwargs)]
+    if op == "flip":
+        selected_axis = by_name.get("axis", by_name.get("axes"))
+        selected_axis = None if selected_axis is None else selected_axis.get("value", selected_axis.get("values"))
+        return [mx.flip(arrays[0], axis=selected_axis, **kwargs)]
+    if op == "det":
+        return [mx.linalg.det(arrays[0], **kwargs)]
+    if op == "det_gpu":
+        return [mx.linalg.det(arrays[0], stream=mx.gpu)]
+    if op == "slogdet":
+        return list(mx.linalg.slogdet(arrays[0], **kwargs))
+    if op == "linspace":
+        return [mx.linspace(
+            scalar_array_value(by_name["start"]),
+            scalar_array_value(by_name["stop"]),
+            num=by_name["count"]["value"],
+            endpoint=by_name["endpoint"]["value"],
+            dtype=dtype_objects(mx)[by_name["dtype"]["value"]],
+            **kwargs,
+        )]
+    if op == "logcumsumexp":
+        return [mx.logcumsumexp(
+            arrays[0], axis=by_name["axis"]["value"], reverse=by_name["reverse"]["value"],
+            inclusive=by_name["inclusive"]["value"], **kwargs,
+        )]
+    if op == "logical_xor":
+        return [mx.logical_xor(arrays[0], arrays[1], **kwargs)]
+    if op == "search_sorted":
+        return [mx.searchsorted(
+            arrays[0], arrays[1], side="right" if by_name["right"]["value"] else "left", **kwargs
+        )]
+    if op == "trace":
+        trace_kwargs = {}
+        if "offset" in by_name:
+            trace_kwargs.update(offset=by_name["offset"]["value"], axis1=by_name["axis1"]["value"], axis2=by_name["axis2"]["value"])
+        if "dtype" in by_name:
+            trace_kwargs["dtype"] = dtype_objects(mx)[by_name["dtype"]["value"]]
+        return [mx.trace(arrays[0], **trace_kwargs, **kwargs)]
+    if op == "trunc":
+        return [mx.trunc(arrays[0], **kwargs)]
+    if op == "unstack":
+        return list(mx.unstack(arrays[0], axis=by_name["axis"]["value"], **kwargs))
+    if op == "vecdot":
+        return [mx.vecdot(arrays[0], arrays[1], axis=by_name["axis"]["value"], **kwargs)]
+    if op == "index_update":
+        kind = by_name["index"]["value"]
+        if kind in ("advanced", "duplicate_advanced"):
+            index = arrays[2]
+        elif kind == "advanced_tuple":
+            index = (arrays[2], -1)
+        else:
+            index = {
+                "positive_slice": slice(1, 4),
+                "negative_stride": slice(4, 1, -1),
+                "tuple_2d": (slice(1, 3), slice(0, 2)),
+                "negative_index": -1,
+                "ellipsis_new_axis": (..., None, slice(1, 3)),
+                "tuple_columns": (slice(None), slice(1, 3)),
+                "full": slice(None),
+                "empty": slice(3, 3),
+                "clipped": slice(-100, 100),
+                "noop": slice(100, 200),
+                "negative_bounds": slice(-4, -1),
+            }.get(kind)
+        if by_name["index"]["value"] == "zero_stride":
+            raise ValueError("zero stride is rejected before FFI")
+        base = mx.add(arrays[0], mx.zeros_like(arrays[0]), **kwargs)
+        mode = by_name["mode"]["value"]
+        if mode == "replace":
+            base.__setitem__(index, arrays[1])
+            result = base
+        else:
+            method = {"add": "add", "min": "minimum", "max": "maximum", "product": "multiply"}[mode]
+            result = getattr(base.at[index], method)(arrays[1])
+        if by_name.get("return_source", {}).get("value"):
+            return [result, arrays[0]]
+        return [result]
     raise ValueError(f"unknown recipe {op}")
 
 
@@ -505,6 +819,8 @@ def scalar_array_value(arg):
         return arg["value"]
     if arg["type"] == "f32":
         return struct.unpack("<f", struct.pack("<I", int(arg["bits"], 16)))[0]
+    if arg["type"] == "f64":
+        return struct.unpack("<d", struct.pack("<Q", int(arg["bits"], 16)))[0]
     real = struct.unpack("<f", struct.pack("<I", int(arg["real_bits"], 16)))[0]
     imag = struct.unpack("<f", struct.pack("<I", int(arg["imag_bits"], 16)))[0]
     return complex(real, imag)
@@ -815,7 +1131,7 @@ def generate_tree(target, mx, np):
                         stage, reason, exception_type, control = spec["error"]
                         invoked = False
                         try:
-                            outputs = call_recipe(mx, spec["recipe"], arrays, spec["extra_args"], spec["execution"]["target"] == "explicit_cpu")
+                            outputs = call_recipe(mx, spec["recipe"], arrays, spec["extra_args"], spec["execution"]["target"])
                             invoked = True
                             for output in outputs:
                                 mx.eval(output)
@@ -823,10 +1139,12 @@ def generate_tree(target, mx, np):
                             if stage == "eval_only" and not invoked:
                                 raise RuntimeError(f"{spec['id']} did not reach evaluation") from error
                             record["expected"] = {"status": "error", "allowed_stage": stage, "reason": reason, "python_exception": {"module": type(error).__module__, "type": type(error).__name__}, "control_case_id": control, "diagnostic": str(error)}
+                            if spec["suite"] == "indexing":
+                                record["expected"]["rust_error_variant"] = "zero_stride" if exception_type == "ZeroStride" else "exception"
                         else:
                             raise RuntimeError(f"{spec['id']} did not raise")
                     else:
-                        outputs = call_recipe(mx, spec["recipe"], arrays, spec["extra_args"], spec["execution"]["target"] == "explicit_cpu")
+                        outputs = call_recipe(mx, spec["recipe"], arrays, spec["extra_args"], spec["execution"]["target"])
                         for output in outputs:
                             mx.eval(output)
                         provenance = "numpy_corroborated" if numpy_agrees(np, arrays, outputs, spec["recipe"], spec["extra_args"]) else "mlx_python"
@@ -906,6 +1224,22 @@ def generate_tree(target, mx, np):
             {"id": "bf16_decoder", "base_case_id": "dtypes.011", "kind": "bf16_decoder", "expected_class": "decoder_bf16"},
             {"id": "empty_tensor", "base_case_id": "arithmetic.021", "kind": "empty_tensor", "expected_class": "empty"},
             {"id": "endianness", "base_case_id": "dtypes.008", "kind": "endianness", "expected_class": "endianness"},
+            {"id": "count_nonzero_drop_keepdims", "base_case_id": "math.004", "kind": "count_nonzero_drop_keepdims", "expected_class": "shape"},
+            {"id": "count_nonzero_axis_selection", "base_case_id": "math.004", "kind": "count_nonzero_axis_selection", "expected_class": "shape"},
+            {"id": "linspace_endpoint", "base_case_id": "math.036", "kind": "linspace_endpoint", "expected_class": "value"},
+            {"id": "search_sorted_side", "base_case_id": "math.054", "kind": "search_sorted_side", "expected_class": "value"},
+            {"id": "logcumsumexp_reverse", "base_case_id": "math.047", "kind": "logcumsumexp_reverse", "expected_class": "value"},
+            {"id": "logcumsumexp_inclusive", "base_case_id": "math.044", "kind": "logcumsumexp_inclusive", "expected_class": "infinity_sign"},
+            {"id": "logcumsumexp_naive", "base_case_id": "math.044", "kind": "logcumsumexp_naive", "expected_class": "infinity_sign"},
+            {"id": "vecdot_without_conjugation", "base_case_id": "math.077", "kind": "vecdot_without_conjugation", "expected_class": "value"},
+            {"id": "trace_ignore_dtype", "base_case_id": "math.066", "kind": "trace_ignore_dtype", "expected_class": "dtype"},
+            {"id": "slogdet_reverse_outputs", "base_case_id": "math.027", "kind": "slogdet_reverse_outputs", "expected_class": "value"},
+            {"id": "unstack_drop_output", "base_case_id": "math.071", "kind": "unstack_drop_output", "expected_class": "output_count"},
+            {"id": "unstack_reorder_outputs", "base_case_id": "math.071", "kind": "unstack_reorder_outputs", "expected_class": "value"},
+            {"id": "index_update_mode_substitution", "base_case_id": "indexing.002", "kind": "index_update_mode_substitution", "expected_class": "value"},
+            {"id": "index_update_stride_reversal", "base_case_id": "indexing.007", "kind": "index_update_stride_reversal", "expected_class": "value"},
+            {"id": "index_update_force_scatter", "base_case_id": "indexing.002", "kind": "index_update_force_scatter", "expected_class": "value"},
+            {"id": "index_update_force_slice", "base_case_id": "indexing.012", "kind": "index_update_force_slice", "expected_class": "value"},
             {"id": "gguf_array_dtype_changed_values_equal", "base_case_id": "gguf.001", "kind": "gguf_array_dtype_changed_values_equal", "expected_class": "dtype"},
             {"id": "gguf_array_beyond_tolerance", "base_case_id": "gguf.001", "kind": "gguf_array_beyond_tolerance", "expected_class": "value_relative"},
             {"id": "gguf_array_key_removed", "base_case_id": "gguf.001", "kind": "gguf_array_key_removed", "expected_class": "array_keys"},

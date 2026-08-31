@@ -9,6 +9,41 @@ use mlx_internal_macros::generate_macro;
 use smallvec::SmallVec;
 
 impl Array {
+    /// Apply adjacent subtraction `n` times along `axis`.
+    ///
+    /// `n == 0` returns an identity result. MLX does not provide prepend or append operands for
+    /// this operation.
+    ///
+    /// ```rust
+    /// use mlx_rs::array;
+    ///
+    /// let output = array!([1, 4, 9]).diff(1, -1).unwrap();
+    /// assert_eq!(output.shape(), &[2]);
+    /// ```
+    pub fn diff(&self, n: i32, axis: i32) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
+        Array::try_from_op(|res| unsafe {
+            mlx_sys::mlx_diff(res, self.as_ptr(), n, axis, stream.as_ref().as_ptr())
+        })
+    }
+
+    /// Round floating-point values toward zero.
+    ///
+    /// Signed zero is preserved, integers are unchanged, and complex inputs are rejected.
+    ///
+    /// ```rust
+    /// use mlx_rs::array;
+    ///
+    /// let output = array!([-1.75, 2.25]).trunc().unwrap();
+    /// assert_eq!(output.shape(), &[2]);
+    /// ```
+    pub fn trunc(&self) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
+        Array::try_from_op(|res| unsafe {
+            mlx_sys::mlx_trunc(res, self.as_ptr(), stream.as_ref().as_ptr())
+        })
+    }
+
     /// Element-wise absolute value.
     ///
     /// # Example
@@ -1012,6 +1047,30 @@ pub fn acosh(a: impl AsRef<Array>) -> Result<Array> {
 )]
 pub fn acosh_device(a: impl AsRef<Array>, #[optional] stream: impl AsRef<Stream>) -> Result<Array> {
     crate::with_stream(stream.as_ref(), || acosh(a))
+}
+
+/// Compute a vector dot product along `axis`.
+///
+/// The first operand is conjugated, the remaining dimensions are broadcast, and the selected
+/// axis is reduced. Unequal-rank axis normalization is not part of this API's contract.
+///
+/// ```rust
+/// use mlx_rs::{array, ops::vecdot};
+///
+/// let result = vecdot(array!([1.0, 2.0]), array!([3.0, 4.0]), -1).unwrap();
+/// assert!(result.shape().is_empty());
+/// ```
+pub fn vecdot(lhs: impl AsRef<Array>, rhs: impl AsRef<Array>, axis: i32) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
+    Array::try_from_op(|res| unsafe {
+        mlx_sys::mlx_vecdot(
+            res,
+            lhs.as_ref().as_ptr(),
+            rhs.as_ref().as_ptr(),
+            axis,
+            stream.as_ref().as_ptr(),
+        )
+    })
 }
 
 /// See [`Array::add`].
@@ -3914,7 +3973,15 @@ mod tests {
         assert_array_eq(z, expected, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let x = ones::<f32>(&[5]).unwrap();
-        let y = linspace::<_, f32>(-2.0, 2.0, 5).unwrap();
+        let y = linspace::<_, f32>(
+            -2.0,
+            2.0,
+            crate::ops::LinspaceOptions {
+                count: 5,
+                endpoint: true,
+            },
+        )
+        .unwrap();
         let z = outer(&x, &y).unwrap();
         let expected = Array::from_slice(
             &[

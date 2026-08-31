@@ -100,10 +100,15 @@ use std::{borrow::Cow, ops::Bound, rc::Rc};
 
 use mlx_internal_macros::generate_macro;
 
-use crate::{error::Result, utils::guard::Guarded, Array, Stream, StreamOrDevice};
+use crate::{
+    error::{Exception, Result},
+    utils::guard::Guarded,
+    Array, Stream, StreamOrDevice,
+};
 
 pub(crate) mod index_impl;
 pub(crate) mod indexmut_impl;
+mod indexupdate_impl;
 
 /* -------------------------------------------------------------------------- */
 /*                                Custom types                                */
@@ -120,6 +125,37 @@ pub struct NewAxis;
 /// See the module level documentation for more information.
 #[derive(Debug, Clone, Copy)]
 pub struct Ellipsis;
+
+/// How an indexed update combines with selected source elements.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum UpdateMode {
+    /// Replace selected elements.
+    #[default]
+    Replace,
+    /// Add updates to selected elements.
+    Add,
+    /// Take the minimum of updates and selected elements.
+    Min,
+    /// Take the maximum of updates and selected elements.
+    Max,
+    /// Multiply updates with selected elements.
+    Product,
+}
+
+/// Error returned by a functional indexed update.
+#[derive(Debug, thiserror::Error)]
+pub enum IndexUpdateError {
+    /// A slice stride was zero.
+    #[error("index update stride for axis {axis} must not be zero")]
+    ZeroStride {
+        /// The source axis whose slice used a zero stride.
+        axis: usize,
+    },
+
+    /// The upstream runtime rejected the operation.
+    #[error(transparent)]
+    Exception(#[from] Exception),
+}
 
 /// Stride indexing operation.
 ///
@@ -339,6 +375,23 @@ pub trait TryIndexMutOp<Idx, Val> {
     fn try_index_mut(&mut self, i: Idx, val: Val) -> Result<()> {
         self.try_index_mut_device(i, val, StreamOrDevice::default())
     }
+}
+
+/// Trait for functional indexed updates.
+///
+/// The source is unchanged. Slice bounds clip to the source shape, negative
+/// strides are supported, and empty slices are no-ops. Updates broadcast to
+/// the selection and cast to the source dtype. Reduction modes combine
+/// duplicate advanced indices; replacement does not define which duplicate
+/// wins.
+pub trait TryIndexUpdateOp<Idx, Value> {
+    /// Return a new array with `update` applied at `index` according to `mode`.
+    fn try_index_update(
+        &self,
+        index: Idx,
+        update: Value,
+        mode: UpdateMode,
+    ) -> std::result::Result<Array, IndexUpdateError>;
 }
 // TODO: should `Val` impl `AsRef<Array>` or `Into<Array>`?
 

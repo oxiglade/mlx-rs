@@ -1,6 +1,14 @@
 use super::adapters::{dispatch, ADAPTERS};
 use half::{bf16, f16};
-use mlx_rs::{ops, with_stream, Array, Device, Dtype, Stream};
+use mlx_rs::{
+    linalg,
+    ops::{
+        self,
+        indexing::{TryIndexUpdateOp, UpdateMode},
+        CountNonzeroOptions, LinspaceOptions, LogCumsumExpOptions, TraceOptions,
+    },
+    with_stream, Array, Axes, Device, Dtype, Stream,
+};
 use num_complex::Complex32;
 use safetensors::{tensor::Dtype as SafeDtype, SafeTensors};
 use serde::Deserialize;
@@ -129,6 +137,14 @@ pub(super) enum Arg {
         name: String,
         value: String,
     },
+    Index {
+        name: String,
+        value: IndexRecipe,
+    },
+    UpdateMode {
+        name: String,
+        value: UpdateModeRecipe,
+    },
     Execution {
         name: String,
         target: ExecutionTarget,
@@ -146,9 +162,43 @@ impl Arg {
             | Self::Shape { name, .. }
             | Self::OptionalBool { name, .. }
             | Self::Dtype { name, .. }
+            | Self::Index { name, .. }
+            | Self::UpdateMode { name, .. }
             | Self::Execution { name, .. } => name,
         }
     }
+}
+
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum IndexRecipe {
+    PositiveSlice,
+    NegativeStride,
+    Advanced,
+    DuplicateAdvanced,
+    // serde snake_case yields "tuple2d"; the generator writes "tuple_2d".
+    #[serde(rename = "tuple_2d")]
+    Tuple2d,
+    NegativeIndex,
+    EllipsisNewAxis,
+    TupleColumns,
+    Full,
+    Empty,
+    Clipped,
+    Noop,
+    NegativeBounds,
+    AdvancedTuple,
+    ZeroStride,
+}
+
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum UpdateModeRecipe {
+    Replace,
+    Add,
+    Min,
+    Max,
+    Product,
 }
 
 #[derive(Clone, Copy, Deserialize, PartialEq)]
@@ -156,6 +206,7 @@ impl Arg {
 pub(super) enum ExecutionTarget {
     DefaultCpu,
     ExplicitCpu,
+    ExplicitGpu,
 }
 
 #[derive(Deserialize)]
@@ -171,6 +222,8 @@ enum Expected {
         python_exception: PythonException,
         control_case_id: String,
         diagnostic: String,
+        #[serde(default)]
+        rust_error_variant: Option<String>,
     },
 }
 
@@ -707,6 +760,12 @@ fn preflight(loaded: &LoadedCorpus) -> Vec<String> {
                                     && real_bits.is_none()
                                     && imag_bits.is_none()
                             }
+                            "f64" => {
+                                value.is_none()
+                                    && parse_hex_u64(bits.as_deref()).is_ok()
+                                    && real_bits.is_none()
+                                    && imag_bits.is_none()
+                            }
                             "complex64" => {
                                 value.is_none()
                                     && bits.is_none()
@@ -739,8 +798,14 @@ fn preflight(loaded: &LoadedCorpus) -> Vec<String> {
                                 case.id
                             ));
                         }
-                        let explicit_call = case.rust_call.contains("explicit_cpu");
-                        if explicit_call != (*target == ExecutionTarget::ExplicitCpu) {
+                        let call_target = if case.rust_call.contains("explicit_cpu") {
+                            ExecutionTarget::ExplicitCpu
+                        } else if case.rust_call.contains("explicit_gpu") {
+                            ExecutionTarget::ExplicitGpu
+                        } else {
+                            ExecutionTarget::DefaultCpu
+                        };
+                        if call_target != *target {
                             failures.push(format!(
                                 "{} execution target does not match rust_call",
                                 case.id
@@ -816,6 +881,7 @@ fn preflight(loaded: &LoadedCorpus) -> Vec<String> {
                     python_exception,
                     control_case_id,
                     diagnostic,
+                    rust_error_variant,
                 } => {
                     if reason.is_empty()
                         || diagnostic.is_empty()
@@ -826,6 +892,15 @@ fn preflight(loaded: &LoadedCorpus) -> Vec<String> {
                             "{} has incomplete expected-error provenance",
                             case.id
                         ));
+                    }
+                    if rust_error_variant
+                        .as_deref()
+                        .is_some_and(|variant| !matches!(variant, "zero_stride" | "exception"))
+                    {
+                        failures.push(format!("{} has invalid Rust error variant", case.id));
+                    }
+                    if case.semantic_op == "index_update" && rust_error_variant.is_none() {
+                        failures.push(format!("{} is missing its Rust error variant", case.id));
                     }
                     controls.push((case.id.clone(), control_case_id.clone()));
                 }
@@ -869,6 +944,17 @@ fn parse_hex_u32(value: Option<&str>) -> Result<u32, String> {
         return Err(format!("invalid bit payload {value}"));
     }
     u32::from_str_radix(digits, 16).map_err(|_| format!("invalid bit payload {value}"))
+}
+
+fn parse_hex_u64(value: Option<&str>) -> Result<u64, String> {
+    let value = value.ok_or_else(|| "missing bit payload".to_string())?;
+    let digits = value
+        .strip_prefix("0x")
+        .ok_or_else(|| format!("invalid bit payload {value}"))?;
+    if digits.len() != 16 {
+        return Err(format!("invalid bit payload {value}"));
+    }
+    u64::from_str_radix(digits, 16).map_err(|_| format!("invalid bit payload {value}"))
 }
 
 pub(super) struct Args<'a> {
@@ -942,6 +1028,9 @@ impl<'a> Args<'a> {
                 "f32" => Ok(ScalarValue::F32(f32::from_bits(parse_hex_u32(
                     bits.as_deref(),
                 )?))),
+                "f64" => Ok(ScalarValue::F64(f64::from_bits(parse_hex_u64(
+                    bits.as_deref(),
+                )?))),
                 "complex64" => Ok(ScalarValue::C64(Complex32::new(
                     f32::from_bits(parse_hex_u32(real_bits.as_deref())?),
                     f32::from_bits(parse_hex_u32(imag_bits.as_deref())?),
@@ -987,6 +1076,20 @@ impl<'a> Args<'a> {
         }
     }
 
+    pub(super) fn index(&mut self, name: &str) -> Result<IndexRecipe, String> {
+        match self.take(name)? {
+            Arg::Index { value, .. } => Ok(*value),
+            _ => Err(format!("argument {name} is not an index recipe")),
+        }
+    }
+
+    pub(super) fn update_mode(&mut self, name: &str) -> Result<UpdateModeRecipe, String> {
+        match self.take(name)? {
+            Arg::UpdateMode { value, .. } => Ok(*value),
+            _ => Err(format!("argument {name} is not an update mode")),
+        }
+    }
+
     pub(super) fn execution(&mut self) -> Result<ExecutionTarget, String> {
         match self.take("execution")? {
             Arg::Execution { target, .. } => Ok(*target),
@@ -1014,6 +1117,7 @@ pub(super) enum ScalarValue {
     Bool(bool),
     I32(i32),
     F32(f32),
+    F64(f64),
     C64(Complex32),
 }
 
@@ -1078,7 +1182,27 @@ fn logical_offsets(shape: &[i32], strides: &[usize], count: usize) -> Result<Vec
         .collect()
 }
 
+fn contiguous_cpu(array: &Array) -> Result<Array, String> {
+    let stream = Stream::cpu();
+    let mut contiguous = unsafe { mlx_sys::mlx_array_new() };
+    let status =
+        unsafe { mlx_sys::mlx_contiguous(&mut contiguous, array.as_ptr(), false, stream.as_ptr()) };
+    if status != 0 {
+        unsafe { mlx_sys::mlx_array_free(contiguous) };
+        return Err(format!(
+            "contiguous materialization failed with status {status}"
+        ));
+    }
+    let contiguous = unsafe { Array::from_ptr(contiguous) };
+    contiguous.eval().map_err(|error| error.to_string())?;
+    Ok(contiguous)
+}
+
 fn observe(array: &Array) -> Result<HostTensor, String> {
+    observe_layout(array, true)
+}
+
+fn observe_layout(array: &Array, materialize_unsafe_layout: bool) -> Result<HostTensor, String> {
     let dtype = array.dtype();
     let shape = array.shape().to_vec();
     let count = array.size();
@@ -1101,7 +1225,19 @@ fn observe(array: &Array) -> Result<HostTensor, String> {
     let data = if count == 0 {
         empty()
     } else {
-        let offsets = logical_offsets(&shape, array.strides(), count)?;
+        let offsets = match logical_offsets(&shape, array.strides(), count) {
+            Ok(offsets) => offsets,
+            Err(_) if materialize_unsafe_layout => {
+                // mlx-c exposes strides as size_t, so negative strides cannot be represented safely through the C ABI.
+                let contiguous = contiguous_cpu(array)?;
+                return observe_layout(&contiguous, false);
+            }
+            Err(error) => {
+                return Err(format!(
+                    "layout remains inconsistent after contiguous materialization: {error}"
+                ));
+            }
+        };
         macro_rules! read_data {
             ($accessor:path, $convert:expr) => {{
                 let pointer = $accessor(array.as_ptr());
@@ -1114,7 +1250,6 @@ fn observe(array: &Array) -> Result<HostTensor, String> {
                     .collect()
             }};
         }
-        // MLX data pointers are offset-adjusted but stride-blind, and reshape may return strided views, so no operation-level materialization is trustworthy.
         unsafe {
             match dtype {
                 Dtype::Bool => TensorData::Bool(read_data!(mlx_sys::mlx_array_data_bool, u8::from)),
@@ -1455,10 +1590,30 @@ fn run_case(
         (
             Expected::Error {
                 allowed_stage: AllowedStage::InvokeOrEval,
+                rust_error_variant,
                 ..
             },
-            Err(OperationFailure::Invoke(_)),
-        ) => Vec::new(),
+            Err(OperationFailure::Invoke(error)),
+        ) => match rust_error_variant {
+            Some(variant) if !error.contains(&format!("[index_update:{variant}]")) => {
+                vec![format!(
+                    "{}: error_variant: expected {variant}, got {error}",
+                    case.id
+                )]
+            }
+            _ => Vec::new(),
+        },
+        (
+            Expected::Error {
+                allowed_stage: AllowedStage::InvokeOrEval | AllowedStage::EvalOnly,
+                rust_error_variant: Some(variant),
+                ..
+            },
+            Err(OperationFailure::Eval(error)),
+        ) if variant == "zero_stride" => vec![format!(
+            "{}: error_stage: zero stride reached evaluation: {error}",
+            case.id
+        )],
         (
             Expected::Error {
                 allowed_stage: AllowedStage::InvokeOrEval | AllowedStage::EvalOnly,
@@ -2182,6 +2337,23 @@ fn output_layout_class(outputs: &[ExpectedOutput], observed: &[HostTensor]) -> R
     Ok(())
 }
 
+fn mutated_array_class(
+    expected: &HostTensor,
+    output: &ExpectedOutput,
+    mutated: Array,
+    policies: &BTreeMap<String, Policy>,
+) -> Result<String, String> {
+    mutated.eval().map_err(|error| error.to_string())?;
+    let mutated = observe(&mutated)?;
+    let mismatch = compare_tensor(expected, &mutated, &policies[&output.policy], &output.name)
+        .expect_err("mutation unexpectedly matched the oracle");
+    Ok(if mismatch.class.starts_with("value") {
+        "value".into()
+    } else {
+        mismatch.class.into()
+    })
+}
+
 fn qualify_mutation(
     mutation: &Mutation,
     base: &Case,
@@ -2329,6 +2501,205 @@ fn qualify_mutation(
             compare_tensor(&expected, &wrong, &policies[&output.policy], &output.name)
                 .expect_err("wrong axis mutation unexpectedly matched")
                 .class
+        }
+        "count_nonzero_drop_keepdims" => {
+            let mut args = Args::new(base, safe);
+            let input = args.tensor("input0")?;
+            let axes = args.axes("axes")?;
+            let _ = args.optional_bool("keepdims")?;
+            let mutated = mlx_error(input.count_nonzero(CountNonzeroOptions {
+                axes: Axes::Axes(axes),
+                keep_dims: false,
+            }))?;
+            return mutated_array_class(&expected, &output, mutated, policies);
+        }
+        "count_nonzero_axis_selection" => {
+            let mut args = Args::new(base, safe);
+            let input = args.tensor("input0")?;
+            let _ = args.axes("axes")?;
+            let keep_dims = args.optional_bool("keepdims")?.unwrap_or(false);
+            let mutated = mlx_error(input.count_nonzero(CountNonzeroOptions {
+                axes: Axes::Axis(0),
+                keep_dims,
+            }))?;
+            return mutated_array_class(&expected, &output, mutated, policies);
+        }
+        "linspace_endpoint" => {
+            let mut args = Args::new(base, safe);
+            let ScalarValue::F64(start) = args.scalar("start")? else {
+                return Err("linspace mutation start is not f64".into());
+            };
+            let ScalarValue::F64(stop) = args.scalar("stop")? else {
+                return Err("linspace mutation stop is not f64".into());
+            };
+            let ScalarValue::I32(count) = args.scalar("count")? else {
+                return Err("linspace mutation count is not i32".into());
+            };
+            let ScalarValue::Bool(endpoint) = args.scalar("endpoint")? else {
+                return Err("linspace mutation endpoint is not bool".into());
+            };
+            let _ = args.take("dtype")?;
+            let mutated = mlx_error(ops::linspace::<_, f32>(
+                start,
+                stop,
+                LinspaceOptions {
+                    count,
+                    endpoint: !endpoint,
+                },
+            ))?;
+            return mutated_array_class(&expected, &output, mutated, policies);
+        }
+        "search_sorted_side" => {
+            let mut args = Args::new(base, safe);
+            let sequence = args.tensor("input0")?;
+            let values = args.tensor("input1")?;
+            let _ = args.scalar("right")?;
+            let mutated = mlx_error(sequence.search_sorted(&values, ops::SearchSide::Right))?;
+            return mutated_array_class(&expected, &output, mutated, policies);
+        }
+        "logcumsumexp_reverse" | "logcumsumexp_inclusive" => {
+            let mut args = Args::new(base, safe);
+            let input = args.tensor("input0")?;
+            let axis = args.optional_axis("axis")?;
+            let ScalarValue::Bool(mut reverse) = args.scalar("reverse")? else {
+                return Err("scan mutation reverse is not bool".into());
+            };
+            let ScalarValue::Bool(mut inclusive) = args.scalar("inclusive")? else {
+                return Err("scan mutation inclusive is not bool".into());
+            };
+            if mutation.kind == "logcumsumexp_reverse" {
+                reverse = !reverse;
+            } else {
+                inclusive = !inclusive;
+            }
+            let mutated = mlx_error(input.logcumsumexp(LogCumsumExpOptions {
+                axis,
+                reverse,
+                inclusive,
+            }))?;
+            return mutated_array_class(&expected, &output, mutated, policies);
+        }
+        "logcumsumexp_naive" => {
+            let mut args = Args::new(base, safe);
+            let input = args.tensor("input0")?;
+            let axis = args.optional_axis("axis")?;
+            let ScalarValue::Bool(reverse) = args.scalar("reverse")? else {
+                return Err("scan mutation reverse is not bool".into());
+            };
+            let ScalarValue::Bool(inclusive) = args.scalar("inclusive")? else {
+                return Err("scan mutation inclusive is not bool".into());
+            };
+            let exponentiated = mlx_error(input.exp())?;
+            let cumulative = mlx_error(exponentiated.cumsum(axis, reverse, inclusive))?;
+            let mutated = mlx_error(cumulative.log())?;
+            return mutated_array_class(&expected, &output, mutated, policies);
+        }
+        "vecdot_without_conjugation" => {
+            let mut args = Args::new(base, safe);
+            let lhs = args.tensor("input0")?;
+            let rhs = args.tensor("input1")?;
+            let axis = args.axis("axis")?;
+            let product = mlx_error(ops::multiply(&lhs, &rhs))?;
+            let mutated = mlx_error(product.sum_axis(axis, false))?;
+            return mutated_array_class(&expected, &output, mutated, policies);
+        }
+        "trace_ignore_dtype" => {
+            let mut args = Args::new(base, safe);
+            let input = args.tensor("input0")?;
+            let ScalarValue::I32(offset) = args.scalar("offset")? else {
+                return Err("trace mutation offset is not i32".into());
+            };
+            let axis1 = args.axis("axis1")?;
+            let axis2 = args.axis("axis2")?;
+            let _ = args.take("dtype")?;
+            let mutated = mlx_error(input.trace(TraceOptions {
+                offset,
+                axis1,
+                axis2,
+                dtype: None,
+            }))?;
+            return mutated_array_class(&expected, &output, mutated, policies);
+        }
+        "slogdet_reverse_outputs" => {
+            let mut args = Args::new(base, safe);
+            let input = args.tensor("input0")?;
+            let mutated = mlx_error(linalg::slogdet(&input))?.log_abs_det;
+            return mutated_array_class(&expected, &output, mutated, policies);
+        }
+        "unstack_drop_output" => {
+            let Expected::Success { outputs, .. } = &base.expected else {
+                return Err("unstack mutation base is not successful".into());
+            };
+            let mut mutated = observed.to_vec();
+            mutated.pop();
+            return Ok(output_layout_class(outputs, &mutated).unwrap_err());
+        }
+        "unstack_reorder_outputs" => {
+            if observed.len() < 2 {
+                return Err("unstack reorder base has fewer than two outputs".into());
+            }
+            let mismatch = compare_tensor(
+                &expected,
+                &observed[1],
+                &policies[&output.policy],
+                &output.name,
+            )
+            .expect_err("reordered unstack output unexpectedly matched");
+            return Ok(if mismatch.class.starts_with("value") {
+                "value".into()
+            } else {
+                mismatch.class.into()
+            });
+        }
+        "index_update_mode_substitution" => {
+            let mut args = Args::new(base, safe);
+            let source = args.tensor("input0")?;
+            let update = args.tensor("input1")?;
+            let _ = args.index("index")?;
+            let _ = args.update_mode("mode")?;
+            args.execution()?;
+            let mutated = source
+                .try_index_update(1..4, &update, UpdateMode::Replace)
+                .map_err(|error| error.to_string())?;
+            return mutated_array_class(&expected, &output, mutated, policies);
+        }
+        "index_update_stride_reversal" => {
+            let mut args = Args::new(base, safe);
+            let source = args.tensor("input0")?;
+            let update = args.tensor("input1")?;
+            let _ = args.index("index")?;
+            let _ = args.update_mode("mode")?;
+            args.execution()?;
+            let mutated = source
+                .try_index_update(1..4, &update, UpdateMode::Add)
+                .map_err(|error| error.to_string())?;
+            return mutated_array_class(&expected, &output, mutated, policies);
+        }
+        "index_update_force_scatter" => {
+            let mut args = Args::new(base, safe);
+            let source = args.tensor("input0")?;
+            let update = args.tensor("input1")?;
+            let _ = args.index("index")?;
+            let _ = args.update_mode("mode")?;
+            args.execution()?;
+            let indices = Array::from_slice(&[1_i32, 2, 4], &[3]);
+            let mutated = source
+                .try_index_update(&indices, &update, UpdateMode::Add)
+                .map_err(|error| error.to_string())?;
+            return mutated_array_class(&expected, &output, mutated, policies);
+        }
+        "index_update_force_slice" => {
+            let mut args = Args::new(base, safe);
+            let source = args.tensor("input0")?;
+            let update = args.tensor("input1")?;
+            let _ = args.tensor("input2")?;
+            let _ = args.index("index")?;
+            let _ = args.update_mode("mode")?;
+            args.execution()?;
+            let mutated = source
+                .try_index_update(0..3, &update, UpdateMode::Add)
+                .map_err(|error| error.to_string())?;
+            return mutated_array_class(&expected, &output, mutated, policies);
         }
         "error_to_valid" => "expected_error",
         "f16_decoder" => match expected.data {

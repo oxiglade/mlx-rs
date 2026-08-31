@@ -98,6 +98,102 @@
       "expected_class": "endianness"
     },
     {
+      "id": "count_nonzero_drop_keepdims",
+      "base_case_id": "math.004",
+      "kind": "count_nonzero_drop_keepdims",
+      "expected_class": "shape"
+    },
+    {
+      "id": "count_nonzero_axis_selection",
+      "base_case_id": "math.004",
+      "kind": "count_nonzero_axis_selection",
+      "expected_class": "shape"
+    },
+    {
+      "id": "linspace_endpoint",
+      "base_case_id": "math.036",
+      "kind": "linspace_endpoint",
+      "expected_class": "value"
+    },
+    {
+      "id": "search_sorted_side",
+      "base_case_id": "math.054",
+      "kind": "search_sorted_side",
+      "expected_class": "value"
+    },
+    {
+      "id": "logcumsumexp_reverse",
+      "base_case_id": "math.047",
+      "kind": "logcumsumexp_reverse",
+      "expected_class": "value"
+    },
+    {
+      "id": "logcumsumexp_inclusive",
+      "base_case_id": "math.044",
+      "kind": "logcumsumexp_inclusive",
+      "expected_class": "infinity_sign"
+    },
+    {
+      "id": "logcumsumexp_naive",
+      "base_case_id": "math.044",
+      "kind": "logcumsumexp_naive",
+      "expected_class": "infinity_sign"
+    },
+    {
+      "id": "vecdot_without_conjugation",
+      "base_case_id": "math.077",
+      "kind": "vecdot_without_conjugation",
+      "expected_class": "value"
+    },
+    {
+      "id": "trace_ignore_dtype",
+      "base_case_id": "math.066",
+      "kind": "trace_ignore_dtype",
+      "expected_class": "dtype"
+    },
+    {
+      "id": "slogdet_reverse_outputs",
+      "base_case_id": "math.027",
+      "kind": "slogdet_reverse_outputs",
+      "expected_class": "value"
+    },
+    {
+      "id": "unstack_drop_output",
+      "base_case_id": "math.071",
+      "kind": "unstack_drop_output",
+      "expected_class": "output_count"
+    },
+    {
+      "id": "unstack_reorder_outputs",
+      "base_case_id": "math.071",
+      "kind": "unstack_reorder_outputs",
+      "expected_class": "value"
+    },
+    {
+      "id": "index_update_mode_substitution",
+      "base_case_id": "indexing.002",
+      "kind": "index_update_mode_substitution",
+      "expected_class": "value"
+    },
+    {
+      "id": "index_update_stride_reversal",
+      "base_case_id": "indexing.007",
+      "kind": "index_update_stride_reversal",
+      "expected_class": "value"
+    },
+    {
+      "id": "index_update_force_scatter",
+      "base_case_id": "indexing.002",
+      "kind": "index_update_force_scatter",
+      "expected_class": "value"
+    },
+    {
+      "id": "index_update_force_slice",
+      "base_case_id": "indexing.012",
+      "kind": "index_update_force_slice",
+      "expected_class": "value"
+    },
+    {
       "id": "gguf_array_dtype_changed_values_equal",
       "base_case_id": "gguf.001",
       "kind": "gguf_array_dtype_changed_values_equal",

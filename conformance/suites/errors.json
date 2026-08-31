@@ -141,6 +141,626 @@
         "control_case_id": "arithmetic.007",
         "diagnostic": "[negative] Not supported for bool, use logical_not instead."
       }
+    },
+    {
+      "id": "errors.005",
+      "semantic_op": "diff",
+      "recipe": "diff",
+      "rust_call": "array.diff",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "errors.005.input.0"
+        },
+        {
+          "name": "n",
+          "kind": "scalar",
+          "type": "i32",
+          "value": -1
+        },
+        {
+          "name": "axis",
+          "kind": "axis",
+          "value": 0
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "error",
+        "allowed_stage": "invoke_or_eval",
+        "reason": "negative diff order",
+        "python_exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "control_case_id": "math.008",
+        "diagnostic": "[diff] Order `n` must be non-negative."
+      }
+    },
+    {
+      "id": "errors.006",
+      "semantic_op": "diff",
+      "recipe": "diff",
+      "rust_call": "array.diff",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "errors.006.input.0"
+        },
+        {
+          "name": "n",
+          "kind": "scalar",
+          "type": "i32",
+          "value": 1
+        },
+        {
+          "name": "axis",
+          "kind": "axis",
+          "value": 2
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "error",
+        "allowed_stage": "invoke_or_eval",
+        "reason": "diff axis exceeds input rank",
+        "python_exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "control_case_id": "math.009",
+        "diagnostic": "[diff] Axis is out of bounds for the array."
+      }
+    },
+    {
+      "id": "errors.007",
+      "semantic_op": "det",
+      "recipe": "det",
+      "rust_call": "linalg.det",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "errors.007.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "error",
+        "allowed_stage": "invoke_or_eval",
+        "reason": "det requires square matrices",
+        "python_exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "control_case_id": "math.019",
+        "diagnostic": "[linalg::det] Only defined for square matrices."
+      }
+    },
+    {
+      "id": "errors.008",
+      "semantic_op": "det",
+      "recipe": "det",
+      "rust_call": "linalg.det",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "errors.008.input.0.real",
+          "encoding": "complex64_split",
+          "imag_ref": "errors.008.input.0.imag"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "error",
+        "allowed_stage": "invoke_or_eval",
+        "reason": "complex determinant is unsupported",
+        "python_exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "control_case_id": "math.020",
+        "diagnostic": "[linalg::det] Complex inputs are not supported."
+      }
+    },
+    {
+      "id": "errors.009",
+      "semantic_op": "linspace",
+      "recipe": "linspace",
+      "rust_call": "ops.linspace.f32",
+      "args": [
+        {
+          "name": "start",
+          "kind": "scalar",
+          "type": "f64",
+          "bits": "0x0000000000000000"
+        },
+        {
+          "name": "stop",
+          "kind": "scalar",
+          "type": "f64",
+          "bits": "0x3ff0000000000000"
+        },
+        {
+          "name": "count",
+          "kind": "scalar",
+          "type": "i32",
+          "value": -1
+        },
+        {
+          "name": "endpoint",
+          "kind": "scalar",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "dtype",
+          "kind": "dtype",
+          "value": "F32"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "error",
+        "allowed_stage": "invoke_or_eval",
+        "reason": "negative linspace count",
+        "python_exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "control_case_id": "math.034",
+        "diagnostic": "[linspace] number of samples, -1, must be non-negative."
+      }
+    },
+    {
+      "id": "errors.010",
+      "semantic_op": "search_sorted",
+      "recipe": "search_sorted",
+      "rust_call": "array.search_sorted.left",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "errors.010.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "errors.010.input.1"
+        },
+        {
+          "name": "right",
+          "kind": "scalar",
+          "type": "bool",
+          "value": false
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "error",
+        "allowed_stage": "invoke_or_eval",
+        "reason": "search sequence must be one-dimensional",
+        "python_exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "control_case_id": "math.054",
+        "diagnostic": "[searchsorted] The sorted sequence must be 1-D but has 2 dimensions."
+      }
+    },
+    {
+      "id": "errors.011",
+      "semantic_op": "trace",
+      "recipe": "trace",
+      "rust_call": "array.trace.options",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "errors.011.input.0"
+        },
+        {
+          "name": "offset",
+          "kind": "scalar",
+          "type": "i32",
+          "value": 0
+        },
+        {
+          "name": "axis1",
+          "kind": "axis",
+          "value": 0
+        },
+        {
+          "name": "axis2",
+          "kind": "axis",
+          "value": 3
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "error",
+        "allowed_stage": "invoke_or_eval",
+        "reason": "trace axis exceeds input rank",
+        "python_exception": {
+          "module": "builtins",
+          "type": "IndexError"
+        },
+        "control_case_id": "math.061",
+        "diagnostic": "[trace] Invalid axis2 3 for array with 2 dimensions."
+      }
+    },
+    {
+      "id": "errors.012",
+      "semantic_op": "trunc",
+      "recipe": "trunc",
+      "rust_call": "array.trunc",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "errors.012.input.0.real",
+          "encoding": "complex64_split",
+          "imag_ref": "errors.012.input.0.imag"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "error",
+        "allowed_stage": "invoke_or_eval",
+        "reason": "complex truncation is unsupported",
+        "python_exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "control_case_id": "math.067",
+        "diagnostic": "[trunc] Not supported for complex64."
+      }
+    },
+    {
+      "id": "errors.013",
+      "semantic_op": "unstack",
+      "recipe": "unstack",
+      "rust_call": "array.unstack",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "errors.013.input.0"
+        },
+        {
+          "name": "axis",
+          "kind": "axis",
+          "value": 3
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "error",
+        "allowed_stage": "invoke_or_eval",
+        "reason": "unstack axis exceeds input rank",
+        "python_exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "control_case_id": "math.071",
+        "diagnostic": "[unstack] Axis 3 is out of bounds for array with 2 dimensions."
+      }
+    },
+    {
+      "id": "errors.014",
+      "semantic_op": "unstack",
+      "recipe": "unstack",
+      "rust_call": "array.unstack",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "errors.014.input.0"
+        },
+        {
+          "name": "axis",
+          "kind": "axis",
+          "value": 0
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "error",
+        "allowed_stage": "invoke_or_eval",
+        "reason": "unstack requires an array axis",
+        "python_exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "control_case_id": "math.071",
+        "diagnostic": "[unstack] Axis 0 is out of bounds for array with 0 dimensions."
+      }
+    },
+    {
+      "id": "errors.015",
+      "semantic_op": "vecdot",
+      "recipe": "vecdot",
+      "rust_call": "ops.vecdot",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "errors.015.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "errors.015.input.1"
+        },
+        {
+          "name": "axis",
+          "kind": "axis",
+          "value": -1
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "error",
+        "allowed_stage": "invoke_or_eval",
+        "reason": "vecdot requires a non-scalar axis",
+        "python_exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "control_case_id": "math.075",
+        "diagnostic": "[vecdot] inputs must be at least 1D."
+      }
+    },
+    {
+      "id": "errors.016",
+      "semantic_op": "vecdot",
+      "recipe": "vecdot",
+      "rust_call": "ops.vecdot",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "errors.016.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "errors.016.input.1"
+        },
+        {
+          "name": "axis",
+          "kind": "axis",
+          "value": -1
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "error",
+        "allowed_stage": "invoke_or_eval",
+        "reason": "vecdot reduction extents must match",
+        "python_exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "control_case_id": "math.075",
+        "diagnostic": "[vecdot] a and b must have the same size along axis."
+      }
+    },
+    {
+      "id": "errors.017",
+      "semantic_op": "vecdot",
+      "recipe": "vecdot",
+      "rust_call": "ops.vecdot",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "errors.017.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "errors.017.input.1"
+        },
+        {
+          "name": "axis",
+          "kind": "axis",
+          "value": -1
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "error",
+        "allowed_stage": "invoke_or_eval",
+        "reason": "vecdot unequal-rank axis behavior is deferred",
+        "python_exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "control_case_id": "math.075",
+        "diagnostic": "[vecdot] axis is out of bounds."
+      }
+    },
+    {
+      "id": "errors.018",
+      "semantic_op": "det",
+      "recipe": "det",
+      "rust_call": "linalg.det",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "errors.018.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "error",
+        "allowed_stage": "invoke_or_eval",
+        "reason": "det requires rank at least two",
+        "python_exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "control_case_id": "math.019",
+        "diagnostic": "[linalg::det] Arrays must have >= 2 dimensions. Received array with 1 dimensions."
+      }
+    },
+    {
+      "id": "errors.019",
+      "semantic_op": "det_gpu",
+      "recipe": "det_gpu",
+      "rust_call": "linalg.det.gpu",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "errors.019.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "error",
+        "allowed_stage": "invoke_or_eval",
+        "reason": "det is unsupported on GPU",
+        "python_exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "control_case_id": "math.019",
+        "diagnostic": "[linalg::det] This op is not yet supported on the GPU. Explicitly pass a CPU stream to run it."
+      }
+    },
+    {
+      "id": "errors.020",
+      "semantic_op": "trace",
+      "recipe": "trace",
+      "rust_call": "array.trace.default",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "errors.020.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "error",
+        "allowed_stage": "invoke_or_eval",
+        "reason": "trace requires rank at least two",
+        "python_exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "control_case_id": "math.061",
+        "diagnostic": "[trace] Array must have at least two dimensions, but got 0 dimensions."
+      }
+    },
+    {
+      "id": "errors.021",
+      "semantic_op": "vecdot",
+      "recipe": "vecdot",
+      "rust_call": "ops.vecdot",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "errors.021.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "errors.021.input.1"
+        },
+        {
+          "name": "axis",
+          "kind": "axis",
+          "value": 2
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "error",
+        "allowed_stage": "invoke_or_eval",
+        "reason": "vecdot axis exceeds input rank",
+        "python_exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "control_case_id": "math.075",
+        "diagnostic": "[vecdot] axis is out of bounds."
+      }
     }
   ]
 }

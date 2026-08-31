@@ -2,10 +2,79 @@ use crate::array::Array;
 use crate::error::Result;
 use crate::utils::axes_or_default_to_all;
 use crate::utils::guard::Guarded;
-use crate::Stream;
+use crate::{Axes, Stream};
 use mlx_internal_macros::generate_macro;
 
+/// Axis selection and dimension retention for [`Array::count_nonzero`].
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CountNonzeroOptions {
+    /// Axes to reduce.
+    pub axes: Axes,
+
+    /// Keep reduced axes as singleton dimensions.
+    pub keep_dims: bool,
+}
+
+static EMPTY_AXES_DUMMY: [i32; 1] = [0];
+
 impl Array {
+    /// Count values that compare unequal to zero.
+    ///
+    /// The result is the sum of an `i32` nonzero mask. An explicitly empty axis list returns that
+    /// elementwise mask instead of reducing it.
+    ///
+    /// ```rust
+    /// use mlx_rs::{array, ops::CountNonzeroOptions, Axes, Dtype};
+    ///
+    /// let input = array!([[0, 2], [3, 0]]);
+    /// let output = input
+    ///     .count_nonzero(CountNonzeroOptions {
+    ///         axes: Axes::Axis(0),
+    ///         keep_dims: false,
+    ///     })
+    ///     .unwrap();
+    /// assert_eq!(output.dtype(), Dtype::Int32);
+    /// ```
+    pub fn count_nonzero(&self, options: CountNonzeroOptions) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
+        match options.axes {
+            Axes::All => Array::try_from_op(|res| unsafe {
+                mlx_sys::mlx_count_nonzero(
+                    res,
+                    self.as_ptr(),
+                    options.keep_dims,
+                    stream.as_ref().as_ptr(),
+                )
+            }),
+            Axes::Axis(axis) => Array::try_from_op(|res| unsafe {
+                mlx_sys::mlx_count_nonzero_axis(
+                    res,
+                    self.as_ptr(),
+                    axis,
+                    options.keep_dims,
+                    stream.as_ref().as_ptr(),
+                )
+            }),
+            Axes::Axes(axes) => {
+                let axes_ptr = if axes.is_empty() {
+                    EMPTY_AXES_DUMMY.as_ptr()
+                } else {
+                    axes.as_ptr()
+                };
+                Array::try_from_op(|res| unsafe {
+                    mlx_sys::mlx_count_nonzero_axes(
+                        res,
+                        self.as_ptr(),
+                        axes_ptr,
+                        axes.len(),
+                        options.keep_dims,
+                        stream.as_ref().as_ptr(),
+                    )
+                })
+            }
+        }
+    }
+
     /// An `and` reduction over the given axes returning an error if the axes are invalid.
     ///
     /// # Params
