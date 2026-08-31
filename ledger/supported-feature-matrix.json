@@ -22,6 +22,21 @@
         "guard_malloc": "mlx-tests/tests/ffi_safety.rs",
         "qualification": "conformance/qualification.json"
       }
+    },
+    {
+      "feature": "slice-update",
+      "canonical_path": "mlx_rs::ops::indexing::TryIndexUpdateOp",
+      "symbols": {
+        "mlx_slice_update": "wrapped by UpdateMode::Replace through the canonical functional index-update path",
+        "mlx_slice_update_dynamic": "deferred because runtime start arrays provide replacement-only semantics and do not compose with Rust ArrayIndex slice syntax or the five-mode family"
+      },
+      "evidence": {
+        "conformance": "conformance/suites/indexing.json",
+        "stream": "ambient stream coverage through every static and advanced mode",
+        "leaks": "mlx-tests/tests/ffi_safety.rs",
+        "guard_malloc": "mlx-tests/tests/ffi_safety.rs",
+        "qualification": "conformance/qualification.json"
+      }
     }
   ],
   "builds": [

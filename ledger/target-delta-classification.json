@@ -948,8 +948,11 @@
         "name": "mlx_slice_update_add",
         "signature": "fn(* mut mlx_array,mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::indexing::TryIndexUpdateOp",
+      "python_name": "mlx.core.array.at.add",
+      "semantic_op": "index_update",
+      "evidence": ["conf:indexing.002", "conf:indexing.012"]
     },
     {
       "change": "added",
@@ -960,8 +963,11 @@
         "name": "mlx_slice_update_max",
         "signature": "fn(* mut mlx_array,mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::indexing::TryIndexUpdateOp",
+      "python_name": "mlx.core.array.at.maximum",
+      "semantic_op": "index_update",
+      "evidence": ["conf:indexing.004", "conf:indexing.014"]
     },
     {
       "change": "added",
@@ -972,8 +978,11 @@
         "name": "mlx_slice_update_min",
         "signature": "fn(* mut mlx_array,mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::indexing::TryIndexUpdateOp",
+      "python_name": "mlx.core.array.at.minimum",
+      "semantic_op": "index_update",
+      "evidence": ["conf:indexing.003", "conf:indexing.013"]
     },
     {
       "change": "added",
@@ -984,8 +993,11 @@
         "name": "mlx_slice_update_prod",
         "signature": "fn(* mut mlx_array,mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::indexing::TryIndexUpdateOp",
+      "python_name": "mlx.core.array.at.multiply",
+      "semantic_op": "index_update",
+      "evidence": ["conf:indexing.005", "conf:indexing.015"]
     },
     {
       "change": "added",
