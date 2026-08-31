@@ -514,6 +514,30 @@ fn run_concurrent_invoke_errors_child() {
     join_workers(handles);
 }
 
+#[test]
+fn implicit_rng_state_is_released_at_thread_exit() {
+    const WORKERS: usize = 8;
+    const OPERATIONS: usize = 25;
+
+    let handles = (0..WORKERS)
+        .map(|_| {
+            thread::spawn(|| {
+                for _ in 0..OPERATIONS {
+                    let result = mlx_rs::random::normal::<f32>(&[2, 3], None, None, None).unwrap();
+                    result.eval().unwrap();
+                    assert_eq!(result.shape(), &[2, 3]);
+                    assert!(result
+                        .as_slice::<f32>()
+                        .iter()
+                        .all(|value| value.is_finite()));
+                }
+            })
+        })
+        .collect::<Vec<_>>();
+
+    join_workers(handles);
+}
+
 fn mismatched_arrays(worker: usize) -> (Array, Array, usize, usize) {
     let lhs_len = worker + 3;
     let rhs_len = worker + ERROR_WORKERS + 3;

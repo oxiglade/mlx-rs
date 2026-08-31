@@ -5,10 +5,10 @@ Rust bindings for Apple's mlx machine learning library.
 
 [![Discord](https://img.shields.io/discord/1176807732473495552.svg?color=7289da&&logo=discord)](https://discord.gg/jZvTsxDX49)
 [![Current Crates.io Version](https://img.shields.io/crates/v/mlx-rs.svg)](https://crates.io/crates/mlx-rs)
-[![Documentation](https://img.shields.io/badge/docs-latest-blue)](https://oxideai.github.io/mlx-rs/mlx_rs/)
-[![Test Status](https://github.com/oxideai/mlx-rs/actions/workflows/validate.yml/badge.svg)](https://github.com/oxideai/mlx-rs/actions/workflows/validate.yml)
+[![Documentation](https://img.shields.io/badge/docs-latest-blue)](https://oxiglade.github.io/mlx-rs/mlx_rs/)
+[![Test Status](https://github.com/oxiglade/mlx-rs/actions/workflows/validate.yml/badge.svg)](https://github.com/oxiglade/mlx-rs/actions/workflows/validate.yml)
 [![Blaze](https://runblaze.dev/gh/307493885959233117281096297203102330146/badge.svg)](https://runblaze.dev)
-[![Rust Version](https://img.shields.io/badge/Rust-1.82.0+-blue)](https://releases.rs/docs/1.82.0)
+[![Rust Version](https://img.shields.io/badge/Rust-1.88.0+-blue)](https://releases.rs/docs/1.88.0)
 ![license](https://shields.io/badge/license-MIT%2FApache--2.0-blue)
 
 > **⚠️ Project is in active development - contributors welcome!**
@@ -33,7 +33,7 @@ _[Blaze](https://runblaze.dev) supports this project by providing ultra-fast App
 
 ## Documentation
 
-Due to known limitation of docsrs, we are hosting the documentation on github pages [here](https://oxideai.github.io/mlx-rs/mlx_rs/).
+Due to known limitation of docsrs, we are hosting the documentation on github pages [here](https://oxiglade.github.io/mlx-rs/mlx_rs/).
 
 ## Features
 
@@ -132,7 +132,7 @@ mlx-rs is currently in active development and can be used to run MLX models in R
 
 ## MSRV
 
-The minimum supported Rust version is 1.83.0.
+The minimum supported Rust version is 1.88.0.
 
 The MSRV is the minimum Rust version that can be used to compile each crate.
 

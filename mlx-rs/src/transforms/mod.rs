@@ -28,7 +28,7 @@
 //! A panic in a Rust transform closure is caught before it reaches MLX. After MLX returns through
 //! the C ABI, the panic resumes in Rust with its original payload.
 //!
-//! TODO: update the example once https://github.com/oxideai/mlx-rs/pull/218 is merged
+//! TODO: update the example once https://github.com/oxiglade/mlx-rs/pull/218 is merged
 //!
 //! ```rust,ignore
 //! use mlx_rs::{Array, error::Result, transforms::grad};
