@@ -18,5 +18,8 @@ pub enum Error {
     LoadWeights(#[from] mlx_rs::error::IoError),
 
     #[error(transparent)]
+    HfHub(#[from] hf_hub::api::sync::ApiError),
+
+    #[error(transparent)]
     Other(#[from] Box<dyn std::error::Error + Send + Sync>),
 }
