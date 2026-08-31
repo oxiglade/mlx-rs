@@ -8,12 +8,13 @@
     "byte_order": "little"
   },
   "canonical_device": "cpu",
-  "generator_digest": "sha256:9c7e31cd713a8a57c959eb4d57e1a974cf5309ae9892328dafb083a167e4df2b",
+  "generator_digest": "sha256:105500f099fe076089b64d7afcd2f611f51f8dab00c439e477af9cc29e608759",
   "fixture_shards": {
     "fixtures/arithmetic.safetensors": "sha256:5fa6774f678d1dba5d344fde47c179024a4a4ecd9dd01b88f141b497325dd8b9",
     "fixtures/dtypes.safetensors": "sha256:b213e2abd47acc21af65eefdb71b9acf5f904dea5a0fec56144da3d1fc06462f",
-    "fixtures/errors.safetensors": "sha256:343b631e085c3d9289de354e617652b351eb08de57883fee4bc009c52f33a308",
+    "fixtures/errors.safetensors": "sha256:592f87e65373a01ccc5ae5acfa70550539c185b0f3fd38c54ec893389614c4ee",
     "fixtures/execution.safetensors": "sha256:9638a653e7e4a3a25313014f979ea8b0cb4f4a599de28c0dcf4b3b5f78d4dd43",
+    "fixtures/math.safetensors": "sha256:4e72d7c17132e638c5612971a3d49d3c92891b1b109b63dc635e4cb467d98277",
     "fixtures/reductions.safetensors": "sha256:1b2f1c711388bbc454c6d3697c4116606f0ed435ecdb220ce0bb62e6802ff622",
     "fixtures/shapes.safetensors": "sha256:5227be057c1e0f6f31e8c9d799eecbda0ef596342761d310ea570c2b016240df",
     "fixtures/signal.safetensors": "sha256:46ebd2b4cda1bd685a309d3f814c82da8e3cd9b68f6c94da05ab0d0133140c7d",
@@ -115,6 +116,7 @@
     "suites/dtypes.json",
     "suites/errors.json",
     "suites/execution.json",
+    "suites/math.json",
     "suites/reductions.json",
     "suites/shapes.json",
     "suites/signal.json",

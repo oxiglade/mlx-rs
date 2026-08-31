@@ -1,0 +1,3392 @@
+{
+  "schema_version": 1,
+  "name": "math",
+  "fixture": "fixtures/math.safetensors",
+  "cases": [
+    {
+      "id": "math.001",
+      "semantic_op": "count_nonzero",
+      "recipe": "count_nonzero",
+      "rust_call": "array.count_nonzero.all",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.001.input.0"
+        },
+        {
+          "name": "keepdims",
+          "kind": "optional_bool",
+          "value": false
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.001.output.0",
+            "dtype": "I32",
+            "shape": [],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.002",
+      "semantic_op": "count_nonzero",
+      "recipe": "count_nonzero",
+      "rust_call": "array.count_nonzero.all",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.002.input.0.real",
+          "encoding": "complex64_split",
+          "imag_ref": "math.002.input.0.imag"
+        },
+        {
+          "name": "keepdims",
+          "kind": "optional_bool",
+          "value": true
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.002.output.0",
+            "dtype": "I32",
+            "shape": [
+              1
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.003",
+      "semantic_op": "count_nonzero",
+      "recipe": "count_nonzero",
+      "rust_call": "array.count_nonzero.axis",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.003.input.0"
+        },
+        {
+          "name": "axis",
+          "kind": "axis",
+          "value": -1
+        },
+        {
+          "name": "keepdims",
+          "kind": "optional_bool",
+          "value": false
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.003.output.0",
+            "dtype": "I32",
+            "shape": [
+              2
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.004",
+      "semantic_op": "count_nonzero",
+      "recipe": "count_nonzero",
+      "rust_call": "array.count_nonzero.axes",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.004.input.0"
+        },
+        {
+          "name": "axes",
+          "kind": "axes",
+          "values": [
+            0,
+            -1
+          ]
+        },
+        {
+          "name": "keepdims",
+          "kind": "optional_bool",
+          "value": true
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.004.output.0",
+            "dtype": "I32",
+            "shape": [
+              1,
+              3,
+              1
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.005",
+      "semantic_op": "count_nonzero",
+      "recipe": "count_nonzero",
+      "rust_call": "array.count_nonzero.axes",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.005.input.0"
+        },
+        {
+          "name": "axes",
+          "kind": "axes",
+          "values": []
+        },
+        {
+          "name": "keepdims",
+          "kind": "optional_bool",
+          "value": false
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.005.output.0",
+            "dtype": "I32",
+            "shape": [
+              2,
+              2
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.006",
+      "semantic_op": "count_nonzero",
+      "recipe": "count_nonzero",
+      "rust_call": "array.count_nonzero.axis",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.006.input.0"
+        },
+        {
+          "name": "axis",
+          "kind": "axis",
+          "value": 0
+        },
+        {
+          "name": "keepdims",
+          "kind": "optional_bool",
+          "value": false
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.006.output.0",
+            "dtype": "I32",
+            "shape": [
+              3
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.007",
+      "semantic_op": "count_nonzero",
+      "recipe": "count_nonzero",
+      "rust_call": "array.count_nonzero.explicit_cpu",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.007.input.0"
+        },
+        {
+          "name": "keepdims",
+          "kind": "optional_bool",
+          "value": false
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.007.output.0",
+            "dtype": "I32",
+            "shape": [],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.008",
+      "semantic_op": "diff",
+      "recipe": "diff",
+      "rust_call": "array.diff",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.008.input.0"
+        },
+        {
+          "name": "n",
+          "kind": "scalar",
+          "type": "i32",
+          "value": 0
+        },
+        {
+          "name": "axis",
+          "kind": "axis",
+          "value": -1
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.008.output.0",
+            "dtype": "I32",
+            "shape": [
+              2,
+              4
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.009",
+      "semantic_op": "diff",
+      "recipe": "diff",
+      "rust_call": "array.diff",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.009.input.0"
+        },
+        {
+          "name": "n",
+          "kind": "scalar",
+          "type": "i32",
+          "value": 1
+        },
+        {
+          "name": "axis",
+          "kind": "axis",
+          "value": 0
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.009.output.0",
+            "dtype": "I32",
+            "shape": [
+              1,
+              4
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.010",
+      "semantic_op": "diff",
+      "recipe": "diff",
+      "rust_call": "array.diff",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.010.input.0"
+        },
+        {
+          "name": "n",
+          "kind": "scalar",
+          "type": "i32",
+          "value": 2
+        },
+        {
+          "name": "axis",
+          "kind": "axis",
+          "value": -1
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.010.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              2
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.011",
+      "semantic_op": "diff",
+      "recipe": "diff",
+      "rust_call": "array.diff",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.011.input.0"
+        },
+        {
+          "name": "n",
+          "kind": "scalar",
+          "type": "i32",
+          "value": 5
+        },
+        {
+          "name": "axis",
+          "kind": "axis",
+          "value": -1
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.011.output.0",
+            "dtype": "I32",
+            "shape": [
+              2,
+              0
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.012",
+      "semantic_op": "diff",
+      "recipe": "diff",
+      "rust_call": "array.diff",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.012.input.0.real",
+          "encoding": "complex64_split",
+          "imag_ref": "math.012.input.0.imag"
+        },
+        {
+          "name": "n",
+          "kind": "scalar",
+          "type": "i32",
+          "value": 1
+        },
+        {
+          "name": "axis",
+          "kind": "axis",
+          "value": -1
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.012.output.0.real",
+            "dtype": "C64",
+            "shape": [
+              3
+            ],
+            "policy": "exact_bits",
+            "encoding": "complex64_split",
+            "imag_ref": "math.012.output.0.imag"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.013",
+      "semantic_op": "flip",
+      "recipe": "flip",
+      "rust_call": "array.flip.all",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.013.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.013.output.0",
+            "dtype": "I32",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.014",
+      "semantic_op": "flip",
+      "recipe": "flip",
+      "rust_call": "array.flip.axis",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.014.input.0"
+        },
+        {
+          "name": "axis",
+          "kind": "axis",
+          "value": -1
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.014.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.015",
+      "semantic_op": "flip",
+      "recipe": "flip",
+      "rust_call": "array.flip.axes",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.015.input.0.real",
+          "encoding": "complex64_split",
+          "imag_ref": "math.015.input.0.imag"
+        },
+        {
+          "name": "axes",
+          "kind": "axes",
+          "values": [
+            0,
+            -1
+          ]
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.015.output.0.real",
+            "dtype": "C64",
+            "shape": [
+              2,
+              2,
+              2
+            ],
+            "policy": "exact_bits",
+            "encoding": "complex64_split",
+            "imag_ref": "math.015.output.0.imag"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.016",
+      "semantic_op": "flip",
+      "recipe": "flip",
+      "rust_call": "array.flip.axes",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.016.input.0"
+        },
+        {
+          "name": "axes",
+          "kind": "axes",
+          "values": []
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.016.output.0",
+            "dtype": "I16",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.017",
+      "semantic_op": "flip",
+      "recipe": "flip",
+      "rust_call": "array.flip.axes",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.017.input.0"
+        },
+        {
+          "name": "axes",
+          "kind": "axes",
+          "values": [
+            1,
+            1
+          ]
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.017.output.0",
+            "dtype": "I32",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.018",
+      "semantic_op": "flip",
+      "recipe": "flip",
+      "rust_call": "array.flip.all",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.018.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.018.output.0",
+            "dtype": "F32",
+            "shape": [
+              0,
+              3
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.019",
+      "semantic_op": "det",
+      "recipe": "det",
+      "rust_call": "linalg.det",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.019.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.019.output.0",
+            "dtype": "F32",
+            "shape": [],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.020",
+      "semantic_op": "det",
+      "recipe": "det",
+      "rust_call": "linalg.det",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.020.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.020.output.0",
+            "dtype": "F32",
+            "shape": [],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.021",
+      "semantic_op": "det",
+      "recipe": "det",
+      "rust_call": "linalg.det",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.021.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.021.output.0",
+            "dtype": "F64",
+            "shape": [],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.022",
+      "semantic_op": "det",
+      "recipe": "det",
+      "rust_call": "linalg.det",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.022.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.022.output.0",
+            "dtype": "F32",
+            "shape": [],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.023",
+      "semantic_op": "det",
+      "recipe": "det",
+      "rust_call": "linalg.det",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.023.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.023.output.0",
+            "dtype": "F32",
+            "shape": [],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.024",
+      "semantic_op": "det",
+      "recipe": "det",
+      "rust_call": "linalg.det",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.024.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.024.output.0",
+            "dtype": "F32",
+            "shape": [
+              2
+            ],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.025",
+      "semantic_op": "det",
+      "recipe": "det",
+      "rust_call": "linalg.det",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.025.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.025.output.0",
+            "dtype": "F32",
+            "shape": [],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.026",
+      "semantic_op": "det",
+      "recipe": "det",
+      "rust_call": "linalg.det",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.026.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.026.output.0",
+            "dtype": "F32",
+            "shape": [],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.027",
+      "semantic_op": "slogdet",
+      "recipe": "slogdet",
+      "rust_call": "linalg.slogdet",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.027.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.027.output.0",
+            "dtype": "F32",
+            "shape": [],
+            "policy": "reduction_float"
+          },
+          {
+            "name": "output1",
+            "ref": "math.027.output.1",
+            "dtype": "F32",
+            "shape": [],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.028",
+      "semantic_op": "slogdet",
+      "recipe": "slogdet",
+      "rust_call": "linalg.slogdet",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.028.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.028.output.0",
+            "dtype": "F32",
+            "shape": [],
+            "policy": "reduction_float"
+          },
+          {
+            "name": "output1",
+            "ref": "math.028.output.1",
+            "dtype": "F32",
+            "shape": [],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.029",
+      "semantic_op": "slogdet",
+      "recipe": "slogdet",
+      "rust_call": "linalg.slogdet",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.029.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.029.output.0",
+            "dtype": "F32",
+            "shape": [],
+            "policy": "reduction_float"
+          },
+          {
+            "name": "output1",
+            "ref": "math.029.output.1",
+            "dtype": "F32",
+            "shape": [],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.030",
+      "semantic_op": "slogdet",
+      "recipe": "slogdet",
+      "rust_call": "linalg.slogdet",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.030.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.030.output.0",
+            "dtype": "F32",
+            "shape": [
+              3
+            ],
+            "policy": "reduction_float"
+          },
+          {
+            "name": "output1",
+            "ref": "math.030.output.1",
+            "dtype": "F32",
+            "shape": [
+              3
+            ],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.031",
+      "semantic_op": "slogdet",
+      "recipe": "slogdet",
+      "rust_call": "linalg.slogdet",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.031.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.031.output.0",
+            "dtype": "F32",
+            "shape": [],
+            "policy": "reduction_float"
+          },
+          {
+            "name": "output1",
+            "ref": "math.031.output.1",
+            "dtype": "F32",
+            "shape": [],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.032",
+      "semantic_op": "slogdet",
+      "recipe": "slogdet",
+      "rust_call": "linalg.slogdet",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.032.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.032.output.0",
+            "dtype": "F32",
+            "shape": [],
+            "policy": "reduction_float"
+          },
+          {
+            "name": "output1",
+            "ref": "math.032.output.1",
+            "dtype": "F32",
+            "shape": [],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.033",
+      "semantic_op": "slogdet",
+      "recipe": "slogdet",
+      "rust_call": "linalg.slogdet",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.033.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.033.output.0",
+            "dtype": "F32",
+            "shape": [],
+            "policy": "reduction_float"
+          },
+          {
+            "name": "output1",
+            "ref": "math.033.output.1",
+            "dtype": "F32",
+            "shape": [],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.034",
+      "semantic_op": "linspace",
+      "recipe": "linspace",
+      "rust_call": "ops.linspace.f32",
+      "args": [
+        {
+          "name": "start",
+          "kind": "scalar",
+          "type": "f64",
+          "bits": "0x0000000000000000"
+        },
+        {
+          "name": "stop",
+          "kind": "scalar",
+          "type": "f64",
+          "bits": "0x3ff0000000000000"
+        },
+        {
+          "name": "count",
+          "kind": "scalar",
+          "type": "i32",
+          "value": 50
+        },
+        {
+          "name": "endpoint",
+          "kind": "scalar",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "dtype",
+          "kind": "dtype",
+          "value": "F32"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.034.output.0",
+            "dtype": "F32",
+            "shape": [
+              50
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.035",
+      "semantic_op": "linspace",
+      "recipe": "linspace",
+      "rust_call": "ops.linspace.f32",
+      "args": [
+        {
+          "name": "start",
+          "kind": "scalar",
+          "type": "f64",
+          "bits": "0x0000000000000000"
+        },
+        {
+          "name": "stop",
+          "kind": "scalar",
+          "type": "f64",
+          "bits": "0x3ff0000000000000"
+        },
+        {
+          "name": "count",
+          "kind": "scalar",
+          "type": "i32",
+          "value": 5
+        },
+        {
+          "name": "endpoint",
+          "kind": "scalar",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "dtype",
+          "kind": "dtype",
+          "value": "F32"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.035.output.0",
+            "dtype": "F32",
+            "shape": [
+              5
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.036",
+      "semantic_op": "linspace",
+      "recipe": "linspace",
+      "rust_call": "ops.linspace.f32",
+      "args": [
+        {
+          "name": "start",
+          "kind": "scalar",
+          "type": "f64",
+          "bits": "0x0000000000000000"
+        },
+        {
+          "name": "stop",
+          "kind": "scalar",
+          "type": "f64",
+          "bits": "0x3ff0000000000000"
+        },
+        {
+          "name": "count",
+          "kind": "scalar",
+          "type": "i32",
+          "value": 5
+        },
+        {
+          "name": "endpoint",
+          "kind": "scalar",
+          "type": "bool",
+          "value": false
+        },
+        {
+          "name": "dtype",
+          "kind": "dtype",
+          "value": "F32"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.036.output.0",
+            "dtype": "F32",
+            "shape": [
+              5
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.037",
+      "semantic_op": "linspace",
+      "recipe": "linspace",
+      "rust_call": "ops.linspace.f32",
+      "args": [
+        {
+          "name": "start",
+          "kind": "scalar",
+          "type": "f64",
+          "bits": "0x3ff0000000000000"
+        },
+        {
+          "name": "stop",
+          "kind": "scalar",
+          "type": "f64",
+          "bits": "0xbff0000000000000"
+        },
+        {
+          "name": "count",
+          "kind": "scalar",
+          "type": "i32",
+          "value": 4
+        },
+        {
+          "name": "endpoint",
+          "kind": "scalar",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "dtype",
+          "kind": "dtype",
+          "value": "F32"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.037.output.0",
+            "dtype": "F32",
+            "shape": [
+              4
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.038",
+      "semantic_op": "linspace",
+      "recipe": "linspace",
+      "rust_call": "ops.linspace.f32",
+      "args": [
+        {
+          "name": "start",
+          "kind": "scalar",
+          "type": "f64",
+          "bits": "0x4000000000000000"
+        },
+        {
+          "name": "stop",
+          "kind": "scalar",
+          "type": "f64",
+          "bits": "0x4000000000000000"
+        },
+        {
+          "name": "count",
+          "kind": "scalar",
+          "type": "i32",
+          "value": 3
+        },
+        {
+          "name": "endpoint",
+          "kind": "scalar",
+          "type": "bool",
+          "value": false
+        },
+        {
+          "name": "dtype",
+          "kind": "dtype",
+          "value": "F32"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.038.output.0",
+            "dtype": "F32",
+            "shape": [
+              3
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.039",
+      "semantic_op": "linspace",
+      "recipe": "linspace",
+      "rust_call": "ops.linspace.f32",
+      "args": [
+        {
+          "name": "start",
+          "kind": "scalar",
+          "type": "f64",
+          "bits": "0x3ff0000000000000"
+        },
+        {
+          "name": "stop",
+          "kind": "scalar",
+          "type": "f64",
+          "bits": "0x4010000000000000"
+        },
+        {
+          "name": "count",
+          "kind": "scalar",
+          "type": "i32",
+          "value": 0
+        },
+        {
+          "name": "endpoint",
+          "kind": "scalar",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "dtype",
+          "kind": "dtype",
+          "value": "F32"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.039.output.0",
+            "dtype": "F32",
+            "shape": [
+              0
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.040",
+      "semantic_op": "linspace",
+      "recipe": "linspace",
+      "rust_call": "ops.linspace.f32",
+      "args": [
+        {
+          "name": "start",
+          "kind": "scalar",
+          "type": "f64",
+          "bits": "0x3ff0000000000000"
+        },
+        {
+          "name": "stop",
+          "kind": "scalar",
+          "type": "f64",
+          "bits": "0x4010000000000000"
+        },
+        {
+          "name": "count",
+          "kind": "scalar",
+          "type": "i32",
+          "value": 1
+        },
+        {
+          "name": "endpoint",
+          "kind": "scalar",
+          "type": "bool",
+          "value": false
+        },
+        {
+          "name": "dtype",
+          "kind": "dtype",
+          "value": "F32"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.040.output.0",
+            "dtype": "F32",
+            "shape": [
+              1
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.041",
+      "semantic_op": "linspace",
+      "recipe": "linspace",
+      "rust_call": "ops.linspace.f64",
+      "args": [
+        {
+          "name": "start",
+          "kind": "scalar",
+          "type": "f64",
+          "bits": "0x4170000010000000"
+        },
+        {
+          "name": "stop",
+          "kind": "scalar",
+          "type": "f64",
+          "bits": "0x4170000030000000"
+        },
+        {
+          "name": "count",
+          "kind": "scalar",
+          "type": "i32",
+          "value": 3
+        },
+        {
+          "name": "endpoint",
+          "kind": "scalar",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "dtype",
+          "kind": "dtype",
+          "value": "F64"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.041.output.0",
+            "dtype": "F64",
+            "shape": [
+              3
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.042",
+      "semantic_op": "linspace",
+      "recipe": "linspace",
+      "rust_call": "ops.linspace.i32",
+      "args": [
+        {
+          "name": "start",
+          "kind": "scalar",
+          "type": "f64",
+          "bits": "0xc008000000000000"
+        },
+        {
+          "name": "stop",
+          "kind": "scalar",
+          "type": "f64",
+          "bits": "0x4010000000000000"
+        },
+        {
+          "name": "count",
+          "kind": "scalar",
+          "type": "i32",
+          "value": 5
+        },
+        {
+          "name": "endpoint",
+          "kind": "scalar",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "dtype",
+          "kind": "dtype",
+          "value": "I32"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.042.output.0",
+            "dtype": "I32",
+            "shape": [
+              5
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.043",
+      "semantic_op": "logcumsumexp",
+      "recipe": "logcumsumexp",
+      "rust_call": "array.logcumsumexp",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.043.input.0"
+        },
+        {
+          "name": "axis",
+          "kind": "optional_axis",
+          "value": null
+        },
+        {
+          "name": "reverse",
+          "kind": "scalar",
+          "type": "bool",
+          "value": false
+        },
+        {
+          "name": "inclusive",
+          "kind": "scalar",
+          "type": "bool",
+          "value": false
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.043.output.0",
+            "dtype": "F32",
+            "shape": [
+              4
+            ],
+            "policy": "elementwise_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.044",
+      "semantic_op": "logcumsumexp",
+      "recipe": "logcumsumexp",
+      "rust_call": "array.logcumsumexp",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.044.input.0"
+        },
+        {
+          "name": "axis",
+          "kind": "optional_axis",
+          "value": null
+        },
+        {
+          "name": "reverse",
+          "kind": "scalar",
+          "type": "bool",
+          "value": false
+        },
+        {
+          "name": "inclusive",
+          "kind": "scalar",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.044.output.0",
+            "dtype": "F32",
+            "shape": [
+              4
+            ],
+            "policy": "elementwise_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.045",
+      "semantic_op": "logcumsumexp",
+      "recipe": "logcumsumexp",
+      "rust_call": "array.logcumsumexp",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.045.input.0"
+        },
+        {
+          "name": "axis",
+          "kind": "optional_axis",
+          "value": null
+        },
+        {
+          "name": "reverse",
+          "kind": "scalar",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "inclusive",
+          "kind": "scalar",
+          "type": "bool",
+          "value": false
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.045.output.0",
+            "dtype": "F32",
+            "shape": [
+              4
+            ],
+            "policy": "elementwise_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.046",
+      "semantic_op": "logcumsumexp",
+      "recipe": "logcumsumexp",
+      "rust_call": "array.logcumsumexp",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.046.input.0"
+        },
+        {
+          "name": "axis",
+          "kind": "optional_axis",
+          "value": null
+        },
+        {
+          "name": "reverse",
+          "kind": "scalar",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "inclusive",
+          "kind": "scalar",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.046.output.0",
+            "dtype": "F32",
+            "shape": [
+              4
+            ],
+            "policy": "elementwise_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.047",
+      "semantic_op": "logcumsumexp",
+      "recipe": "logcumsumexp",
+      "rust_call": "array.logcumsumexp",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.047.input.0"
+        },
+        {
+          "name": "axis",
+          "kind": "optional_axis",
+          "value": -1
+        },
+        {
+          "name": "reverse",
+          "kind": "scalar",
+          "type": "bool",
+          "value": false
+        },
+        {
+          "name": "inclusive",
+          "kind": "scalar",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.047.output.0",
+            "dtype": "F16",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.048",
+      "semantic_op": "logcumsumexp",
+      "recipe": "logcumsumexp",
+      "rust_call": "array.logcumsumexp",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.048.input.0"
+        },
+        {
+          "name": "axis",
+          "kind": "optional_axis",
+          "value": 0
+        },
+        {
+          "name": "reverse",
+          "kind": "scalar",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "inclusive",
+          "kind": "scalar",
+          "type": "bool",
+          "value": false
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.048.output.0",
+            "dtype": "BF16",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.049",
+      "semantic_op": "logcumsumexp",
+      "recipe": "logcumsumexp",
+      "rust_call": "array.logcumsumexp",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.049.input.0.real",
+          "encoding": "complex64_split",
+          "imag_ref": "math.049.input.0.imag"
+        },
+        {
+          "name": "axis",
+          "kind": "optional_axis",
+          "value": -1
+        },
+        {
+          "name": "reverse",
+          "kind": "scalar",
+          "type": "bool",
+          "value": false
+        },
+        {
+          "name": "inclusive",
+          "kind": "scalar",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.049.output.0.real",
+            "dtype": "C64",
+            "shape": [
+              3
+            ],
+            "policy": "elementwise_float",
+            "encoding": "complex64_split",
+            "imag_ref": "math.049.output.0.imag"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.050",
+      "semantic_op": "logcumsumexp",
+      "recipe": "logcumsumexp",
+      "rust_call": "array.logcumsumexp",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.050.input.0"
+        },
+        {
+          "name": "axis",
+          "kind": "optional_axis",
+          "value": null
+        },
+        {
+          "name": "reverse",
+          "kind": "scalar",
+          "type": "bool",
+          "value": false
+        },
+        {
+          "name": "inclusive",
+          "kind": "scalar",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.050.output.0",
+            "dtype": "F32",
+            "shape": [
+              0
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.051",
+      "semantic_op": "logical_xor",
+      "recipe": "logical_xor",
+      "rust_call": "ops.logical_xor",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.051.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "math.051.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.051.output.0",
+            "dtype": "BOOL",
+            "shape": [
+              4
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.052",
+      "semantic_op": "logical_xor",
+      "recipe": "logical_xor",
+      "rust_call": "ops.logical_xor",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.052.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "math.052.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.052.output.0",
+            "dtype": "BOOL",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.053",
+      "semantic_op": "logical_xor",
+      "recipe": "logical_xor",
+      "rust_call": "ops.logical_xor",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.053.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "math.053.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.053.output.0",
+            "dtype": "BOOL",
+            "shape": [
+              0,
+              3
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.054",
+      "semantic_op": "search_sorted",
+      "recipe": "search_sorted",
+      "rust_call": "array.search_sorted.left",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.054.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "math.054.input.1"
+        },
+        {
+          "name": "right",
+          "kind": "scalar",
+          "type": "bool",
+          "value": false
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.054.output.0",
+            "dtype": "U32",
+            "shape": [
+              3
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.055",
+      "semantic_op": "search_sorted",
+      "recipe": "search_sorted",
+      "rust_call": "array.search_sorted.right",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.055.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "math.055.input.1"
+        },
+        {
+          "name": "right",
+          "kind": "scalar",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.055.output.0",
+            "dtype": "U32",
+            "shape": [
+              3
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.056",
+      "semantic_op": "search_sorted",
+      "recipe": "search_sorted",
+      "rust_call": "array.search_sorted.left",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.056.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "math.056.input.1"
+        },
+        {
+          "name": "right",
+          "kind": "scalar",
+          "type": "bool",
+          "value": false
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.056.output.0",
+            "dtype": "U32",
+            "shape": [],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.057",
+      "semantic_op": "search_sorted",
+      "recipe": "search_sorted",
+      "rust_call": "array.search_sorted.right",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.057.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "math.057.input.1"
+        },
+        {
+          "name": "right",
+          "kind": "scalar",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.057.output.0",
+            "dtype": "U32",
+            "shape": [
+              2,
+              2
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.058",
+      "semantic_op": "search_sorted",
+      "recipe": "search_sorted",
+      "rust_call": "array.search_sorted.left",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.058.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "math.058.input.1"
+        },
+        {
+          "name": "right",
+          "kind": "scalar",
+          "type": "bool",
+          "value": false
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.058.output.0",
+            "dtype": "U32",
+            "shape": [
+              2
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.059",
+      "semantic_op": "search_sorted",
+      "recipe": "search_sorted",
+      "rust_call": "array.search_sorted.left",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.059.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "math.059.input.1"
+        },
+        {
+          "name": "right",
+          "kind": "scalar",
+          "type": "bool",
+          "value": false
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.059.output.0",
+            "dtype": "U32",
+            "shape": [
+              2
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.060",
+      "semantic_op": "search_sorted",
+      "recipe": "search_sorted",
+      "rust_call": "array.search_sorted.left",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.060.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "math.060.input.1"
+        },
+        {
+          "name": "right",
+          "kind": "scalar",
+          "type": "bool",
+          "value": false
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.060.output.0",
+            "dtype": "U32",
+            "shape": [
+              2
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.061",
+      "semantic_op": "trace",
+      "recipe": "trace",
+      "rust_call": "array.trace.default",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.061.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.061.output.0",
+            "dtype": "F32",
+            "shape": [],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.062",
+      "semantic_op": "trace",
+      "recipe": "trace",
+      "rust_call": "array.trace.options",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.062.input.0"
+        },
+        {
+          "name": "offset",
+          "kind": "scalar",
+          "type": "i32",
+          "value": -2
+        },
+        {
+          "name": "axis1",
+          "kind": "axis",
+          "value": -2
+        },
+        {
+          "name": "axis2",
+          "kind": "axis",
+          "value": -1
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.062.output.0",
+            "dtype": "F32",
+            "shape": [
+              2
+            ],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.063",
+      "semantic_op": "trace",
+      "recipe": "trace",
+      "rust_call": "array.trace.options",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.063.input.0"
+        },
+        {
+          "name": "offset",
+          "kind": "scalar",
+          "type": "i32",
+          "value": 1
+        },
+        {
+          "name": "axis1",
+          "kind": "axis",
+          "value": -2
+        },
+        {
+          "name": "axis2",
+          "kind": "axis",
+          "value": -1
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.063.output.0",
+            "dtype": "F32",
+            "shape": [
+              2
+            ],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.064",
+      "semantic_op": "trace",
+      "recipe": "trace",
+      "rust_call": "array.trace.options",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.064.input.0"
+        },
+        {
+          "name": "offset",
+          "kind": "scalar",
+          "type": "i32",
+          "value": 0
+        },
+        {
+          "name": "axis1",
+          "kind": "axis",
+          "value": 0
+        },
+        {
+          "name": "axis2",
+          "kind": "axis",
+          "value": 2
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.064.output.0",
+            "dtype": "I32",
+            "shape": [
+              3
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.065",
+      "semantic_op": "trace",
+      "recipe": "trace",
+      "rust_call": "array.trace.options",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.065.input.0"
+        },
+        {
+          "name": "offset",
+          "kind": "scalar",
+          "type": "i32",
+          "value": 5
+        },
+        {
+          "name": "axis1",
+          "kind": "axis",
+          "value": 0
+        },
+        {
+          "name": "axis2",
+          "kind": "axis",
+          "value": 1
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.065.output.0",
+            "dtype": "F32",
+            "shape": [],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.066",
+      "semantic_op": "trace",
+      "recipe": "trace",
+      "rust_call": "array.trace.dtype",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.066.input.0"
+        },
+        {
+          "name": "offset",
+          "kind": "scalar",
+          "type": "i32",
+          "value": 0
+        },
+        {
+          "name": "axis1",
+          "kind": "axis",
+          "value": 0
+        },
+        {
+          "name": "axis2",
+          "kind": "axis",
+          "value": 1
+        },
+        {
+          "name": "dtype",
+          "kind": "dtype",
+          "value": "I32"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.066.output.0",
+            "dtype": "I32",
+            "shape": [],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.067",
+      "semantic_op": "trunc",
+      "recipe": "trunc",
+      "rust_call": "array.trunc",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.067.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.067.output.0",
+            "dtype": "F32",
+            "shape": [
+              6
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.068",
+      "semantic_op": "trunc",
+      "recipe": "trunc",
+      "rust_call": "array.trunc",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.068.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.068.output.0",
+            "dtype": "F16",
+            "shape": [
+              3
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.069",
+      "semantic_op": "trunc",
+      "recipe": "trunc",
+      "rust_call": "array.trunc",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.069.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.069.output.0",
+            "dtype": "F64",
+            "shape": [
+              3
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.070",
+      "semantic_op": "trunc",
+      "recipe": "trunc",
+      "rust_call": "array.trunc",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.070.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.070.output.0",
+            "dtype": "I32",
+            "shape": [
+              3
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.071",
+      "semantic_op": "unstack",
+      "recipe": "unstack",
+      "rust_call": "array.unstack",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.071.input.0"
+        },
+        {
+          "name": "axis",
+          "kind": "axis",
+          "value": 0
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.071.output.0",
+            "dtype": "I32",
+            "shape": [
+              3
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output1",
+            "ref": "math.071.output.1",
+            "dtype": "I32",
+            "shape": [
+              3
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.072",
+      "semantic_op": "unstack",
+      "recipe": "unstack",
+      "rust_call": "array.unstack",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.072.input.0"
+        },
+        {
+          "name": "axis",
+          "kind": "axis",
+          "value": 1
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.072.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              2
+            ],
+            "policy": "exact_bits"
+          },
+          {
+            "name": "output1",
+            "ref": "math.072.output.1",
+            "dtype": "F32",
+            "shape": [
+              2,
+              2
+            ],
+            "policy": "exact_bits"
+          },
+          {
+            "name": "output2",
+            "ref": "math.072.output.2",
+            "dtype": "F32",
+            "shape": [
+              2,
+              2
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.073",
+      "semantic_op": "unstack",
+      "recipe": "unstack",
+      "rust_call": "array.unstack",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.073.input.0"
+        },
+        {
+          "name": "axis",
+          "kind": "axis",
+          "value": -1
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.073.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "exact_bits"
+          },
+          {
+            "name": "output1",
+            "ref": "math.073.output.1",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.074",
+      "semantic_op": "unstack",
+      "recipe": "unstack",
+      "rust_call": "array.unstack",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.074.input.0"
+        },
+        {
+          "name": "axis",
+          "kind": "axis",
+          "value": 1
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": []
+      }
+    },
+    {
+      "id": "math.075",
+      "semantic_op": "vecdot",
+      "recipe": "vecdot",
+      "rust_call": "ops.vecdot",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.075.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "math.075.input.1"
+        },
+        {
+          "name": "axis",
+          "kind": "axis",
+          "value": -1
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.075.output.0",
+            "dtype": "I32",
+            "shape": [
+              2
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.076",
+      "semantic_op": "vecdot",
+      "recipe": "vecdot",
+      "rust_call": "ops.vecdot",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.076.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "math.076.input.1"
+        },
+        {
+          "name": "axis",
+          "kind": "axis",
+          "value": 0
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.076.output.0",
+            "dtype": "F32",
+            "shape": [
+              3,
+              4
+            ],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.077",
+      "semantic_op": "vecdot",
+      "recipe": "vecdot",
+      "rust_call": "ops.vecdot",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.077.input.0.real",
+          "encoding": "complex64_split",
+          "imag_ref": "math.077.input.0.imag"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "math.077.input.1.real",
+          "encoding": "complex64_split",
+          "imag_ref": "math.077.input.1.imag"
+        },
+        {
+          "name": "axis",
+          "kind": "axis",
+          "value": -1
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.077.output.0.real",
+            "dtype": "C64",
+            "shape": [],
+            "policy": "elementwise_float",
+            "encoding": "complex64_split",
+            "imag_ref": "math.077.output.0.imag"
+          }
+        ]
+      }
+    },
+    {
+      "id": "math.078",
+      "semantic_op": "search_sorted",
+      "recipe": "search_sorted",
+      "rust_call": "array.search_sorted.explicit_gpu",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "math.078.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "math.078.input.1"
+        },
+        {
+          "name": "right",
+          "kind": "scalar",
+          "type": "bool",
+          "value": false
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_gpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "math.078.output.0",
+            "dtype": "U32",
+            "shape": [
+              3
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    }
+  ]
+}
