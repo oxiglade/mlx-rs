@@ -1,7 +1,7 @@
 use super::adapters::{dispatch, ADAPTERS};
 use half::{bf16, f16};
 use mlx_rs::{
-    linalg,
+    fast, linalg,
     ops::{
         self,
         indexing::{TryIndexUpdateOp, UpdateMode},
@@ -223,6 +223,8 @@ enum Expected {
         control_case_id: String,
         diagnostic: String,
         #[serde(default)]
+        rust_diagnostic: Option<String>,
+        #[serde(default)]
         rust_error_variant: Option<String>,
     },
 }
@@ -237,6 +239,7 @@ enum Provenance {
 #[derive(Clone, Copy, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 enum AllowedStage {
+    InvokeOnly,
     InvokeOrEval,
     EvalOnly,
 }
@@ -881,6 +884,7 @@ fn preflight(loaded: &LoadedCorpus) -> Vec<String> {
                     python_exception,
                     control_case_id,
                     diagnostic,
+                    rust_diagnostic,
                     rust_error_variant,
                 } => {
                     if reason.is_empty()
@@ -901,6 +905,9 @@ fn preflight(loaded: &LoadedCorpus) -> Vec<String> {
                     }
                     if case.semantic_op == "index_update" && rust_error_variant.is_none() {
                         failures.push(format!("{} is missing its Rust error variant", case.id));
+                    }
+                    if rust_diagnostic.as_deref().is_some_and(str::is_empty) {
+                        failures.push(format!("{} has an empty Rust diagnostic", case.id));
                     }
                     controls.push((case.id.clone(), control_case_id.clone()));
                 }
@@ -1336,7 +1343,14 @@ fn compare_float(
     }
     if expected.is_nan() || got.is_nan() {
         return if expected.is_nan() && got.is_nan() && *nan_equal {
-            Ok(0.0)
+            if *atol == 0.0 && *rtol == 0.0 && expected_bits != got_bits {
+                Err(Mismatch {
+                    class: "nan_payload",
+                    detail: format!("expected NaN bits 0x{expected_bits:x}, got 0x{got_bits:x}"),
+                })
+            } else {
+                Ok(0.0)
+            }
         } else {
             Err(Mismatch {
                 class: "nan",
@@ -1589,20 +1603,32 @@ fn run_case(
     match (&case.expected, result) {
         (
             Expected::Error {
-                allowed_stage: AllowedStage::InvokeOrEval,
+                allowed_stage: AllowedStage::InvokeOnly | AllowedStage::InvokeOrEval,
+                rust_diagnostic,
                 rust_error_variant,
                 ..
             },
             Err(OperationFailure::Invoke(error)),
-        ) => match rust_error_variant {
-            Some(variant) if !error.contains(&format!("[index_update:{variant}]")) => {
-                vec![format!(
-                    "{}: error_variant: expected {variant}, got {error}",
-                    case.id
-                )]
+        ) => {
+            let mut failures = Vec::new();
+            if let Some(variant) = rust_error_variant {
+                if !error.contains(&format!("[index_update:{variant}]")) {
+                    failures.push(format!(
+                        "{}: error_variant: expected {variant}, got {error}",
+                        case.id
+                    ));
+                }
             }
-            _ => Vec::new(),
-        },
+            if let Some(diagnostic) = rust_diagnostic {
+                if !error.contains(diagnostic) {
+                    failures.push(format!(
+                        "{}: diagnostic: expected {diagnostic:?}, got {error}",
+                        case.id
+                    ));
+                }
+            }
+            failures
+        }
         (
             Expected::Error {
                 allowed_stage: AllowedStage::InvokeOrEval | AllowedStage::EvalOnly,
@@ -1637,6 +1663,16 @@ fn run_case(
             Err(OperationFailure::Invoke(error)),
         ) => vec![format!(
             "{}: error_stage: expected eval error, invocation failed: {error}",
+            case.id
+        )],
+        (
+            Expected::Error {
+                allowed_stage: AllowedStage::InvokeOnly,
+                ..
+            },
+            Err(OperationFailure::Eval(error)),
+        ) => vec![format!(
+            "{}: error_stage: expected invocation error, evaluation failed: {error}",
             case.id
         )],
         (Expected::Error { .. }, Ok(_)) => {
@@ -2699,6 +2735,48 @@ fn qualify_mutation(
             let mutated = source
                 .try_index_update(0..3, &update, UpdateMode::Add)
                 .map_err(|error| error.to_string())?;
+            return mutated_array_class(&expected, &output, mutated, policies);
+        }
+        "contiguous_value_mangle" => {
+            let mut mutated = observed[0].clone();
+            let TensorData::F32(values) = &mut mutated.data else {
+                return Err("contiguous mutation base is not F32".into());
+            };
+            let value = values
+                .iter_mut()
+                .find(|value| value.to_bits() == 0x8000_0000)
+                .ok_or("contiguous mutation base has no negative zero")?;
+            *value = 0.0;
+            return Ok(compare_tensor(
+                &expected,
+                &mutated,
+                &policies[&output.policy],
+                &output.name,
+            )
+            .expect_err("contiguous value mutation unexpectedly matched")
+            .class
+            .into());
+        }
+        "rms_norm_weight_ignored" | "rms_norm_eps_ignored" => {
+            let mut args = Args::new(base, safe);
+            let input = args.tensor("input0")?;
+            let weight = args.tensor("input1")?;
+            let ScalarValue::Bool(has_weight) = args.scalar("has_weight")? else {
+                return Err("RMSNorm mutation has_weight is not bool".into());
+            };
+            if !has_weight {
+                return Err("RMSNorm mutation base has no weight".into());
+            }
+            let ScalarValue::F32(eps) = args.scalar("eps")? else {
+                return Err("RMSNorm mutation eps is not f32".into());
+            };
+            args.execution()?;
+            let mutated = if mutation.kind == "rms_norm_weight_ignored" {
+                fast::rms_norm(&input, None, eps)
+            } else {
+                fast::rms_norm(&input, Some(&weight), 0.0)
+            }
+            .map_err(|error| error.to_string())?;
             return mutated_array_class(&expected, &output, mutated, policies);
         }
         "error_to_valid" => "expected_error",

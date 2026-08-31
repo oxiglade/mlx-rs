@@ -194,6 +194,24 @@
       "expected_class": "value"
     },
     {
+      "id": "contiguous_value_mangle",
+      "base_case_id": "shapes.015",
+      "kind": "contiguous_value_mangle",
+      "expected_class": "signed_zero"
+    },
+    {
+      "id": "rms_norm_weight_ignored",
+      "base_case_id": "fast.002",
+      "kind": "rms_norm_weight_ignored",
+      "expected_class": "value"
+    },
+    {
+      "id": "rms_norm_eps_ignored",
+      "base_case_id": "fast.002",
+      "kind": "rms_norm_eps_ignored",
+      "expected_class": "value"
+    },
+    {
       "id": "gguf_array_dtype_changed_values_equal",
       "base_case_id": "gguf.001",
       "kind": "gguf_array_dtype_changed_values_equal",
