@@ -4330,6 +4330,21 @@
       }
     },
     {
+      "kind": "module",
+      "path": "mlx_rs::metal",
+      "signature": "pub mod metal"
+    },
+    {
+      "kind": "function",
+      "path": "mlx_rs::metal::metallib_path",
+      "signature": "pub fn metallib_path () -> Result < String >"
+    },
+    {
+      "kind": "function",
+      "path": "mlx_rs::metal::set_metallib_path",
+      "signature": "pub fn set_metallib_path (path : impl AsRef < str >) -> Result < () >"
+    },
+    {
       "kind": "macro",
       "path": "mlx_rs::min",
       "signature": "macro_rules! min",
