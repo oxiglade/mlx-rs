@@ -8,11 +8,11 @@ authors = [
     "David Chavez <david@dcvz.io>",
 ]
 
-repository = "https://github.com/oxideai/mlx-rs"
+repository = "https://github.com/oxiglade/mlx-rs"
 keywords = ["mlx", "deep-learning", "machine-learning"]
 categories = ["science"]
 license = "MIT OR Apache-2.0"
-documentation = "https://oxideai.github.io/mlx-rs/mlx_rs/"
+documentation = "https://oxiglade.github.io/mlx-rs/mlx_rs/"
 rust-version = "1.88.0"
 
 [workspace]
