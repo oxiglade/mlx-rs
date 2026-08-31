@@ -83,7 +83,7 @@ impl From<RawException> for IoError {
 pub enum AsSliceError {
     /// The array data is not contiguous in row-major order.
     #[error(
-        "array data is not contiguous row-major; materialize a row-major copy with an MLX operation before borrowing it as a slice"
+        "array data is not contiguous row-major; call `Array::contiguous()` before borrowing it as a slice"
     )]
     NotContiguous,
 

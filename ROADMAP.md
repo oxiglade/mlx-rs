@@ -269,6 +269,10 @@ owner at a time.
 
 ### Deferred and cut work
 
+- **Defer `left_shift` and `right_shift` until the pinned MLX defines invalid counts.** Probes show
+  I32 counts wrapping modulo the width, U8 counts truncating, and negative counts producing garbage.
+  Both backends use C++ shifts with undefined behavior, while Rust cannot validate lazy array counts
+  without a hidden evaluation.
 - **Defer the full Python API ledger until module catch-up begins.** The bump needs the exact
   target delta, not a universal taxonomy.
 - **Cut a full historical C-to-Rust mapping.** Classifying only the old-to-target delta preserves

@@ -241,16 +241,22 @@ pub fn scaled_dot_product_attention_device<'a>(
 /// # Params
 ///
 /// - x: input array
-/// - weight: A multiplicative weight to scale the result by. The `weight` should be one-dimensional with the same size as the last axis of `x`.
+/// - weight: An optional multiplicative weight. When present, it must be one-dimensional with the
+///   same size as the last axis of `x`. When absent, only normalization is applied.
 /// - eps: A small additive constant for numerical stability
-/// - stream: stream or device to evaluate on
-pub fn rms_norm(x: impl AsRef<Array>, weight: impl AsRef<Array>, eps: f32) -> Result<Array> {
+pub fn rms_norm(x: impl AsRef<Array>, weight: Option<&Array>, eps: f32) -> Result<Array> {
     let stream = Stream::thread_local_or_default();
+    let empty_weight = weight
+        .is_none()
+        .then(|| unsafe { Array::from_ptr(mlx_sys::mlx_array_new()) });
+    let weight = weight
+        .map(Array::as_ptr)
+        .unwrap_or_else(|| empty_weight.as_ref().unwrap().as_ptr());
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_fast_rms_norm(
             res,
             x.as_ref().as_ptr(),
-            weight.as_ref().as_ptr(),
+            weight,
             eps,
             stream.as_ref().as_ptr(),
         )
@@ -269,7 +275,7 @@ pub fn rms_norm_device(
     eps: f32,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    crate::with_stream(stream.as_ref(), || rms_norm(x, weight, eps))
+    crate::with_stream(stream.as_ref(), || rms_norm(x, Some(weight.as_ref()), eps))
 }
 
 /// Layer normalization.
@@ -390,7 +396,7 @@ mod tests {
         assert_eq!(a.dtype(), crate::Dtype::Float32);
 
         let weight = Array::ones::<f32>(&[16]).unwrap();
-        let result = rms_norm(a, weight, 1e-5).unwrap();
+        let result = rms_norm(a, Some(&weight), 1e-5).unwrap();
         assert_eq!(result.shape(), [2, 8, 16]);
         assert_eq!(result.dtype(), crate::Dtype::Float32);
         assert_float_eq!(
@@ -403,6 +409,10 @@ mod tests {
             223.472_32,
             abs <= 4.469_446
         );
+
+        let ones = Array::ones::<f32>(&[2, 4]).unwrap();
+        let normalized = rms_norm(&ones, None, 0.0).unwrap();
+        assert_eq!(normalized.as_slice::<f32>(), &[1.0; 8]);
     }
 
     #[test]

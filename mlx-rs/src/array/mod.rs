@@ -377,7 +377,8 @@ impl Array {
     /// Copy contiguous row-major array values without dtype conversion.
     ///
     /// This evaluates the array and allocates a `Vec`. It returns an error if `T` does not exactly
-    /// match the array dtype or if the array is not contiguous row-major.
+    /// match the array dtype or if the array is not contiguous row-major. Call
+    /// [`Array::contiguous`] first to materialize a row-major array.
     pub fn to_vec_exact<T: ArrayElement + Clone>(&self) -> Result<Vec<T>, ConversionError> {
         if self.dtype() != T::DTYPE {
             return Err(ConversionError::DtypeMismatch {
@@ -392,7 +393,7 @@ impl Array {
     ///
     /// This evaluates the array, may allocate a converted MLX array, and allocates a `Vec`. It
     /// returns an error if evaluation or conversion fails or if the converted array is not
-    /// contiguous row-major.
+    /// contiguous row-major. Call [`Array::contiguous`] first to materialize a row-major array.
     pub fn to_vec_cast<T: ArrayElement + Clone>(&self) -> Result<Vec<T>, ConversionError> {
         if self.dtype() == T::DTYPE {
             return self.to_vec_exact();
@@ -433,7 +434,8 @@ impl Array {
 
     /// Returns a slice of contiguous row-major array data.
     ///
-    /// Returns an error if the dtype does not match or the array is a non-contiguous view.
+    /// Returns an error if the dtype does not match or the array is a non-contiguous view. Call
+    /// [`Array::contiguous`] first to materialize a row-major array.
     ///
     /// # Example
     ///
@@ -479,7 +481,7 @@ impl Array {
     /// # Panics
     ///
     /// Panics if evaluation fails, the desired dtype does not match the actual dtype, or the array
-    /// is not contiguous row-major. Materialize non-contiguous views with an MLX operation first.
+    /// is not contiguous row-major. Call [`Array::contiguous`] first for non-contiguous views.
     ///
     /// # Example
     ///
