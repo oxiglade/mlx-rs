@@ -1,5 +1,18 @@
 {
   "schema_version": 1,
+  "admissions": [
+    {
+      "feature": "gguf",
+      "canonical_path": "mlx_rs::io::GgufFile",
+      "evidence": {
+        "conformance": "conformance/suites/gguf.json",
+        "stream": "gguf.018 and gguf.019",
+        "leaks": "mlx-tests/tests/ffi_safety.rs",
+        "guard_malloc": "mlx-tests/tests/ffi_safety.rs",
+        "qualification": "conformance/qualification/gguf-save.json"
+      }
+    }
+  ],
   "builds": [
     {
       "id": "macos-arm64-cpu-only",

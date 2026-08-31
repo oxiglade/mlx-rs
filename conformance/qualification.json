@@ -96,6 +96,72 @@
       "base_case_id": "dtypes.008",
       "kind": "endianness",
       "expected_class": "endianness"
+    },
+    {
+      "id": "gguf_array_dtype_changed_values_equal",
+      "base_case_id": "gguf.001",
+      "kind": "gguf_array_dtype_changed_values_equal",
+      "expected_class": "dtype"
+    },
+    {
+      "id": "gguf_array_beyond_tolerance",
+      "base_case_id": "gguf.001",
+      "kind": "gguf_array_beyond_tolerance",
+      "expected_class": "value_relative"
+    },
+    {
+      "id": "gguf_array_key_removed",
+      "base_case_id": "gguf.001",
+      "kind": "gguf_array_key_removed",
+      "expected_class": "array_keys"
+    },
+    {
+      "id": "gguf_metadata_kind_swapped",
+      "base_case_id": "gguf.002",
+      "kind": "gguf_metadata_kind_swapped",
+      "expected_class": "metadata_kind"
+    },
+    {
+      "id": "gguf_metadata_entry_missing",
+      "base_case_id": "gguf.002",
+      "kind": "gguf_metadata_entry_missing",
+      "expected_class": "metadata_missing"
+    },
+    {
+      "id": "gguf_error_variant_mismatch",
+      "base_case_id": "gguf.006",
+      "kind": "gguf_error_variant_mismatch",
+      "expected_class": "error_variant"
+    },
+    {
+      "id": "gguf_wrong_kind_fields_009",
+      "base_case_id": "gguf.009",
+      "kind": "gguf_wrong_kind_fields",
+      "expected_class": "wrong_kind_fields"
+    },
+    {
+      "id": "gguf_wrong_kind_fields_010",
+      "base_case_id": "gguf.010",
+      "kind": "gguf_wrong_kind_fields",
+      "expected_class": "wrong_kind_fields"
+    },
+    {
+      "id": "gguf_wrong_kind_fields_011",
+      "base_case_id": "gguf.011",
+      "kind": "gguf_wrong_kind_fields",
+      "expected_class": "wrong_kind_fields"
+    },
+    {
+      "id": "gguf_dequantized_observation_dropped",
+      "base_case_id": "gguf.012",
+      "kind": "gguf_dequantized_observation_dropped",
+      "expected_class": "dequantized_missing"
+    },
+    {
+      "id": "gguf_dequantized_beyond_tolerance",
+      "base_case_id": "gguf.012",
+      "kind": "gguf_dequantized_beyond_tolerance",
+      "expected_class": "value_relative"
     }
   ]
 }

@@ -1,6 +1,6 @@
 use super::adapters::{dispatch, ADAPTERS};
 use half::{bf16, f16};
-use mlx_rs::{ops, with_new_default_stream, Array, Device, Dtype, Stream};
+use mlx_rs::{ops, with_stream, Array, Device, Dtype, Stream};
 use num_complex::Complex32;
 use safetensors::{tensor::Dtype as SafeDtype, SafeTensors};
 use serde::Deserialize;
@@ -20,6 +20,7 @@ struct Corpus {
     canonical_device: String,
     generator_digest: String,
     fixture_shards: Option<BTreeMap<String, String>>,
+    gguf_fixtures: Option<serde_json::Value>,
     environment: Environment,
     tolerance_policies: BTreeMap<String, Policy>,
     suites: Vec<String>,
@@ -59,7 +60,7 @@ enum Policy {
     },
 }
 
-#[derive(Clone, Copy, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 enum ComplexRule {
     Componentwise,
@@ -373,6 +374,9 @@ fn load_corpus() -> Result<LoadedCorpus, Vec<String>> {
     let mut suites = Vec::new();
     let mut suite_names = BTreeSet::new();
     for suite_rel in &corpus.suites {
+        if suite_rel == "suites/gguf.json" {
+            continue;
+        }
         let expected_prefix = "suites/";
         if !suite_rel.starts_with(expected_prefix) || suite_rel.contains("..") {
             failures.push(format!("invalid suite path {suite_rel}"));
@@ -1538,7 +1542,7 @@ fn with_cpu_defaults<T>(f: impl FnOnce() -> T) -> T {
     let previous = Device::try_default().expect("read default device");
     let _guard = DeviceGuard(previous);
     Device::set_default(&Device::cpu());
-    with_new_default_stream(Stream::cpu(), f)
+    with_stream(&Stream::cpu(), f)
 }
 
 fn assert_failures(mut failures: Vec<String>) {
@@ -1567,6 +1571,460 @@ pub(super) fn committed_corpus() {
     });
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GgufSuite {
+    schema_version: u32,
+    name: String,
+    fixture: String,
+    cases: Vec<GgufCase>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct GgufCase {
+    pub(super) id: String,
+    pub(super) rust_call: String,
+    pub(super) recipe: GgufRecipe,
+    pub(super) expected: GgufExpected,
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub(super) enum GgufRecipe {
+    Load {
+        path: String,
+        execution: ExecutionTarget,
+        #[serde(default)]
+        dequantize: Option<GgufDequantize>,
+    },
+    Absence {
+        path: String,
+        array_key: String,
+        metadata_key: String,
+    },
+    WrongKind {
+        path: String,
+        key: String,
+        requested: GgufKind,
+    },
+    TensorRejects {
+        accepted: Vec<String>,
+        dtypes: Vec<String>,
+    },
+    MetadataRejects {
+        accepted: Vec<String>,
+        dtypes: Vec<String>,
+        ranks: Vec<usize>,
+        empty: bool,
+    },
+    ConstructSave {
+        path: String,
+        same_spelling: String,
+        metadata_value: String,
+        non_contiguous_shape: Vec<i32>,
+    },
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct GgufDequantize {
+    pub(super) group_size: i32,
+    pub(super) bits: i32,
+}
+
+#[derive(Clone, Copy, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum GgufKind {
+    Array,
+    String,
+    Strings,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct GgufExpected {
+    pub(super) status: String,
+    #[serde(default)]
+    pub(super) variant: Option<String>,
+    #[serde(default)]
+    pub(super) variants: Vec<String>,
+    #[serde(default)]
+    pub(super) expected_kind: Option<GgufKind>,
+    #[serde(default)]
+    pub(super) actual_kind: Option<GgufKind>,
+    #[serde(default)]
+    pub(super) array_keys: Option<Vec<String>>,
+    #[serde(default)]
+    pub(super) arrays: Vec<GgufExpectedArray>,
+    #[serde(default)]
+    pub(super) metadata: Vec<GgufExpectedMetadata>,
+    #[serde(default)]
+    pub(super) array_absent: Option<bool>,
+    #[serde(default)]
+    pub(super) metadata_absent: Option<bool>,
+    #[serde(default)]
+    pub(super) dequantized: Option<GgufExpectedArray>,
+    #[serde(default)]
+    pub(super) duplicate_array_variant: Option<String>,
+    #[serde(default)]
+    pub(super) duplicate_metadata_variant: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct GgufExpectedArray {
+    pub(super) key: String,
+    #[serde(rename = "ref")]
+    pub(super) tensor_ref: String,
+    pub(super) dtype: String,
+    pub(super) shape: Vec<i32>,
+    pub(super) policy: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct GgufExpectedMetadata {
+    pub(super) key: String,
+    pub(super) kind: GgufKind,
+    #[serde(default)]
+    pub(super) value: Option<serde_json::Value>,
+    #[serde(default, rename = "ref")]
+    pub(super) tensor_ref: Option<String>,
+    #[serde(default)]
+    pub(super) dtype: Option<String>,
+    #[serde(default)]
+    pub(super) shape: Option<Vec<i32>>,
+    #[serde(default)]
+    pub(super) policy: Option<String>,
+}
+
+pub(super) enum GgufObservedMetadata {
+    Array(Array),
+    String(String),
+    Strings(Vec<String>),
+}
+
+pub(super) struct GgufObservation {
+    pub(super) array_keys: Vec<String>,
+    pub(super) arrays: BTreeMap<String, Array>,
+    pub(super) metadata: BTreeMap<String, GgufObservedMetadata>,
+    pub(super) array_absent: Option<bool>,
+    pub(super) metadata_absent: Option<bool>,
+    pub(super) errors: Vec<String>,
+    pub(super) error_kinds: Vec<(GgufKind, GgufKind)>,
+    pub(super) dequantized: Option<Array>,
+}
+
+fn compare_gguf_array(
+    case_id: &str,
+    expected: &GgufExpectedArray,
+    got: &Array,
+    safe: &SafeTensors<'_>,
+    policies: &BTreeMap<String, Policy>,
+) -> Result<(), String> {
+    let fixture = decode_tensor(safe, &expected.tensor_ref)?;
+    if fixture.dtype != dtype_from_name(&expected.dtype)? || fixture.shape != expected.shape {
+        return Err(format!(
+            "{case_id}: GGUF fixture declaration mismatch for {}",
+            expected.key
+        ));
+    }
+    got.eval().map_err(|error| error.to_string())?;
+    let observed = observe(got)?;
+    compare_tensor(
+        &fixture,
+        &observed,
+        &policies[&expected.policy],
+        &expected.key,
+    )
+    .map_err(|error| format!("{case_id}: {}: {}", error.class, error.detail))
+}
+
+fn run_gguf_case(
+    root: &Path,
+    case: &GgufCase,
+    safe: &SafeTensors<'_>,
+    policies: &BTreeMap<String, Policy>,
+) -> Vec<String> {
+    let observed = match super::adapters::dispatch_gguf(root, case) {
+        Ok(value) => value,
+        Err(error) => return vec![format!("{}: {error}", case.id)],
+    };
+    compare_gguf_observation(case, &observed, safe, policies)
+}
+
+fn compare_gguf_observation(
+    case: &GgufCase,
+    observed: &GgufObservation,
+    safe: &SafeTensors<'_>,
+    policies: &BTreeMap<String, Policy>,
+) -> Vec<String> {
+    let expected = &case.expected;
+    let mut failures = Vec::new();
+    if expected.status == "error" {
+        if let Some(variant) = &expected.variant {
+            if !observed.errors.contains(variant) {
+                failures.push(format!(
+                    "{}: error_variant: expected {variant:?}, got {:?}",
+                    case.id, observed.errors
+                ));
+            }
+        }
+        for variant in &expected.variants {
+            if !observed.errors.contains(variant) {
+                failures.push(format!("{}: error_variant: missing {variant}", case.id));
+            }
+        }
+        if let (Some(expected_kind), Some(actual_kind)) =
+            (expected.expected_kind, expected.actual_kind)
+        {
+            if !observed.error_kinds.contains(&(expected_kind, actual_kind)) {
+                failures.push(format!(
+                    "{}: wrong_kind_fields: expected wrong-kind fields did not match",
+                    case.id
+                ));
+            }
+        }
+        return failures;
+    }
+    if let Some(array_keys) = &expected.array_keys {
+        if &observed.array_keys != array_keys {
+            failures.push(format!("{}: array_keys: keys differ", case.id));
+        }
+    }
+    for item in &expected.arrays {
+        match observed.arrays.get(&item.key) {
+            Some(array) => {
+                if let Err(error) = compare_gguf_array(&case.id, item, array, safe, policies) {
+                    failures.push(error);
+                }
+            }
+            None => failures.push(format!(
+                "{}: array_missing: missing array {}",
+                case.id, item.key
+            )),
+        }
+    }
+    for item in &expected.metadata {
+        let got = observed.metadata.get(&item.key);
+        match (item.kind, got) {
+            (GgufKind::String, Some(GgufObservedMetadata::String(value)))
+                if item.value.as_ref().and_then(serde_json::Value::as_str) == Some(value) => {}
+            (GgufKind::String, Some(GgufObservedMetadata::String(_))) => failures.push(format!(
+                "{}: metadata_value: metadata {} differs",
+                case.id, item.key
+            )),
+            (GgufKind::Strings, Some(GgufObservedMetadata::Strings(values))) => {
+                let expected_values = item
+                    .value
+                    .as_ref()
+                    .and_then(serde_json::Value::as_array)
+                    .map(|values| {
+                        values
+                            .iter()
+                            .filter_map(serde_json::Value::as_str)
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
+                if expected_values != values.iter().map(String::as_str).collect::<Vec<_>>() {
+                    failures.push(format!(
+                        "{}: metadata_value: metadata {} differs",
+                        case.id, item.key
+                    ));
+                }
+            }
+            (GgufKind::Array, Some(GgufObservedMetadata::Array(array))) => {
+                let declaration = GgufExpectedArray {
+                    key: item.key.clone(),
+                    tensor_ref: item.tensor_ref.clone().unwrap_or_default(),
+                    dtype: item.dtype.clone().unwrap_or_default(),
+                    shape: item.shape.clone().unwrap_or_default(),
+                    policy: item.policy.clone().unwrap_or_default(),
+                };
+                if let Err(error) =
+                    compare_gguf_array(&case.id, &declaration, array, safe, policies)
+                {
+                    failures.push(error);
+                }
+            }
+            (_, None) => failures.push(format!(
+                "{}: metadata_missing: metadata {} is missing",
+                case.id, item.key
+            )),
+            _ => failures.push(format!(
+                "{}: metadata_kind: metadata {} kind differs",
+                case.id, item.key
+            )),
+        }
+    }
+    if observed.array_absent != expected.array_absent {
+        failures.push(format!("{}: array_absence: result differs", case.id));
+    }
+    if observed.metadata_absent != expected.metadata_absent {
+        failures.push(format!("{}: metadata_absence: result differs", case.id));
+    }
+    for expected_variant in [
+        expected.duplicate_array_variant.as_ref(),
+        expected.duplicate_metadata_variant.as_ref(),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        if !observed.errors.contains(expected_variant) {
+            failures.push(format!(
+                "{}: duplicate_variant: missing {expected_variant}",
+                case.id
+            ));
+        }
+    }
+    match (&expected.dequantized, &observed.dequantized) {
+        (Some(declaration), Some(array)) => {
+            if let Err(error) = compare_gguf_array(&case.id, declaration, array, safe, policies) {
+                failures.push(error);
+            }
+        }
+        (Some(_), None) => failures.push(format!(
+            "{}: dequantized_missing: observation is missing",
+            case.id
+        )),
+        (None, Some(_)) => failures.push(format!(
+            "{}: dequantized_unexpected: observation is unexpected",
+            case.id
+        )),
+        (None, None) => {}
+    }
+    failures
+}
+
+pub(super) fn gguf_committed_corpus() {
+    let root = corpus_root();
+    let suite: GgufSuite = match read_json(&root.join("suites/gguf.json")) {
+        Ok(value) => value,
+        Err(error) => return assert_failures(vec![error]),
+    };
+    if suite.schema_version != 1
+        || suite.name != "gguf"
+        || suite.fixture != "fixtures/gguf.safetensors"
+    {
+        return assert_failures(vec!["invalid GGUF suite identity".into()]);
+    }
+    let bytes = fs::read(root.join(&suite.fixture)).expect("read GGUF safetensors fixture");
+    let safe = SafeTensors::deserialize(&bytes).expect("decode GGUF safetensors fixture");
+    let corpus: Corpus = read_json(&root.join("corpus.json")).expect("read corpus");
+    let _ = &corpus.gguf_fixtures;
+    with_cpu_defaults(|| {
+        let failures = suite
+            .cases
+            .iter()
+            .flat_map(|case| run_gguf_case(&root, case, &safe, &corpus.tolerance_policies))
+            .collect();
+        assert_failures(failures);
+    });
+}
+
+fn gguf_failure_class(case_id: &str, failures: Vec<String>) -> Result<String, String> {
+    let [failure] = failures.as_slice() else {
+        return Err(format!(
+            "GGUF mutation produced {} failures instead of one: {failures:?}",
+            failures.len()
+        ));
+    };
+    let prefix = format!("{case_id}: ");
+    let detail = failure
+        .strip_prefix(&prefix)
+        .ok_or_else(|| format!("GGUF failure did not start with {prefix:?}: {failure}"))?;
+    let (class, _) = detail
+        .split_once(':')
+        .ok_or_else(|| format!("GGUF failure did not identify a class: {failure}"))?;
+    Ok(class.into())
+}
+
+fn perturb_gguf_array(array: &Array) -> Result<Array, String> {
+    let delta = Array::from_f32(1.0)
+        .as_dtype(array.dtype())
+        .map_err(|error| error.to_string())?;
+    ops::add(array, delta).map_err(|error| error.to_string())
+}
+
+fn qualify_gguf_mutation(
+    mutation: &Mutation,
+    base: &GgufCase,
+    safe: &SafeTensors<'_>,
+    mut observed: GgufObservation,
+    policies: &BTreeMap<String, Policy>,
+) -> Result<String, String> {
+    match mutation.kind.as_str() {
+        "gguf_array_dtype_changed_values_equal" => {
+            let array = observed
+                .arrays
+                .get("tensor.f32")
+                .ok_or("GGUF dtype mutation base is missing tensor.f32")?;
+            let converted = array
+                .as_dtype(Dtype::Float64)
+                .map_err(|error| error.to_string())?;
+            observed.arrays.insert("tensor.f32".into(), converted);
+        }
+        "gguf_array_beyond_tolerance" => {
+            let array = observed
+                .arrays
+                .get("tensor.f32")
+                .ok_or("GGUF value mutation base is missing tensor.f32")?;
+            let perturbed = perturb_gguf_array(array)?;
+            observed.arrays.insert("tensor.f32".into(), perturbed);
+        }
+        "gguf_array_key_removed" => {
+            let original_len = observed.array_keys.len();
+            observed.array_keys.retain(|key| key != "tensor.f32");
+            if observed.array_keys.len() == original_len {
+                return Err("GGUF key mutation base is missing tensor.f32".into());
+            }
+        }
+        "gguf_metadata_kind_swapped" => {
+            let Some(GgufObservedMetadata::String(value)) = observed.metadata.remove("text") else {
+                return Err("GGUF metadata kind mutation base is missing string text".into());
+            };
+            observed
+                .metadata
+                .insert("text".into(), GgufObservedMetadata::Strings(vec![value]));
+        }
+        "gguf_metadata_entry_missing" => {
+            if observed.metadata.remove("text").is_none() {
+                return Err("GGUF metadata missing mutation base has no text entry".into());
+            }
+        }
+        "gguf_error_variant_mismatch" => {
+            if observed.errors.is_empty() {
+                return Err("GGUF error variant mutation base has no error".into());
+            }
+            observed.errors.clear();
+        }
+        "gguf_wrong_kind_fields" => {
+            if observed.error_kinds.is_empty() {
+                return Err("GGUF wrong-kind mutation base has no kind fields".into());
+            }
+            observed.error_kinds.clear();
+        }
+        "gguf_dequantized_observation_dropped" => {
+            if observed.dequantized.take().is_none() {
+                return Err("GGUF dequantized-drop mutation base has no observation".into());
+            }
+        }
+        "gguf_dequantized_beyond_tolerance" => {
+            let dequantized = observed
+                .dequantized
+                .take()
+                .ok_or("GGUF dequantized value mutation base has no observation")?;
+            observed.dequantized = Some(perturb_gguf_array(&dequantized)?);
+        }
+        other => return Err(format!("unknown GGUF mutation kind {other}")),
+    }
+    gguf_failure_class(
+        &base.id,
+        compare_gguf_observation(base, &observed, safe, policies),
+    )
+}
+
 fn qualification_results(loaded: &LoadedCorpus, qualification: &Qualification) -> Vec<String> {
     let mut failures = Vec::new();
     if qualification.schema_version != 1 {
@@ -1583,10 +2041,61 @@ fn qualification_results(loaded: &LoadedCorpus, qualification: &Qualification) -
                 .map(move |case| (case.id.as_str(), (case, &suite.bytes)))
         })
         .collect::<BTreeMap<_, _>>();
+    let gguf_suite: GgufSuite = match read_json(&loaded.root.join("suites/gguf.json")) {
+        Ok(value) => value,
+        Err(error) => return vec![error],
+    };
+    if gguf_suite.schema_version != 1
+        || gguf_suite.name != "gguf"
+        || gguf_suite.fixture != "fixtures/gguf.safetensors"
+    {
+        return vec!["invalid GGUF qualification suite identity".into()];
+    }
+    let gguf_bytes = match fs::read(loaded.root.join(&gguf_suite.fixture)) {
+        Ok(value) => value,
+        Err(error) => return vec![error.to_string()],
+    };
+    let gguf_safe = match SafeTensors::deserialize(&gguf_bytes) {
+        Ok(value) => value,
+        Err(error) => return vec![error.to_string()],
+    };
+    let gguf_cases = gguf_suite
+        .cases
+        .iter()
+        .map(|case| (case.id.as_str(), case))
+        .collect::<BTreeMap<_, _>>();
     let mut ids = BTreeSet::new();
     for mutation in &qualification.mutations {
         if !ids.insert(&mutation.id) {
             failures.push(format!("duplicate mutation {}", mutation.id));
+            continue;
+        }
+        if mutation.base_case_id.starts_with("gguf.") {
+            let Some(base) = gguf_cases.get(mutation.base_case_id.as_str()) else {
+                failures.push(format!(
+                    "{} missing base case {}",
+                    mutation.id, mutation.base_case_id
+                ));
+                continue;
+            };
+            let class = match super::adapters::dispatch_gguf(&loaded.root, base) {
+                Ok(observed) => qualify_gguf_mutation(
+                    mutation,
+                    base,
+                    &gguf_safe,
+                    observed,
+                    &loaded.corpus.tolerance_policies,
+                ),
+                Err(_) => Err("GGUF qualification base did not execute successfully".into()),
+            };
+            match class {
+                Ok(actual) if actual == mutation.expected_class => {}
+                Ok(actual) => failures.push(format!(
+                    "{}: expected class {}, got {actual}",
+                    mutation.id, mutation.expected_class
+                )),
+                Err(error) => failures.push(format!("{}: {error}", mutation.id)),
+            }
             continue;
         }
         let Some((base, bytes)) = cases.get(mutation.base_case_id.as_str()) else {

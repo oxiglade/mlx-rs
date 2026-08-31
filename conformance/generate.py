@@ -15,8 +15,39 @@ EXPECTED_ARCH = "arm64"
 EXPECTED_MLX = "0.32.2"
 EXPECTED_NUMPY = "2.2.6"
 CORPUS_SEED = "mlx-rs-committed-cpu-ops-v1"
-SUITES = ("arithmetic", "dtypes", "errors", "execution", "reductions", "shapes", "signal")
+OP_SUITES = ("arithmetic", "dtypes", "errors", "execution", "reductions", "shapes", "signal")
+SUITES = OP_SUITES + ("gguf",)
 ROOT = Path(__file__).resolve().parent
+
+GGUF_VALUE_TYPES = {
+    "U8": 0,
+    "I8": 1,
+    "U16": 2,
+    "I16": 3,
+    "U32": 4,
+    "I32": 5,
+    "F32": 6,
+    "BOOL": 7,
+    "STRING": 8,
+    "ARRAY": 9,
+    "U64": 10,
+    "I64": 11,
+    "F64": 12,
+}
+GGUF_TENSOR_TYPES = {"F32": 0, "F16": 1, "Q4_0": 2, "Q4_1": 3, "Q5_0": 6, "Q8_0": 8}
+GGUF_PACK_FORMATS = {
+    "U8": "<B",
+    "I8": "<b",
+    "U16": "<H",
+    "I16": "<h",
+    "U32": "<I",
+    "I32": "<i",
+    "F32": "<f",
+    "BOOL": "<?",
+    "U64": "<Q",
+    "I64": "<q",
+    "F64": "<d",
+}
 
 
 def check_environment():
@@ -479,6 +510,282 @@ def scalar_array_value(arg):
     return complex(real, imag)
 
 
+def gguf_string(value):
+    encoded = value.encode("utf-8")
+    return struct.pack("<Q", len(encoded)) + encoded
+
+
+def gguf_metadata_value(dtype, value):
+    if dtype == "STRING":
+        return struct.pack("<I", GGUF_VALUE_TYPES[dtype]) + gguf_string(value)
+    if dtype == "ARRAY":
+        element_dtype, values = value
+        encoded = b"".join(struct.pack(GGUF_PACK_FORMATS[element_dtype], item) for item in values)
+        return (
+            struct.pack("<IIQ", GGUF_VALUE_TYPES[dtype], GGUF_VALUE_TYPES[element_dtype], len(values))
+            + encoded
+        )
+    return struct.pack("<I", GGUF_VALUE_TYPES[dtype]) + struct.pack(GGUF_PACK_FORMATS[dtype], value)
+
+
+def write_manual_gguf(path, tensors, metadata=None):
+    metadata = [("general.alignment", "U32", 32)] + list(metadata or [])
+    header = bytearray(b"GGUF" + struct.pack("<IQQ", 3, len(tensors), len(metadata)))
+    for key, dtype, value in metadata:
+        header.extend(gguf_string(key))
+        header.extend(gguf_metadata_value(dtype, value))
+    offset = 0
+    tensor_data = bytearray()
+    for name, shape, tensor_type, data in tensors:
+        offset += -offset % 32
+        tensor_data.extend(b"\0" * (offset - len(tensor_data)))
+        header.extend(gguf_string(name))
+        header.extend(struct.pack("<I", len(shape)))
+        header.extend(struct.pack(f"<{len(shape)}Q", *reversed(shape)))
+        header.extend(struct.pack("<IQ", GGUF_TENSOR_TYPES[tensor_type], offset))
+        tensor_data.extend(data)
+        offset += len(data)
+    header.extend(b"\0" * (-len(header) % 32))
+    path.write_bytes(header + tensor_data)
+
+
+def quantized_block(tensor_type, block_index):
+    if tensor_type == "Q4_0":
+        scale = 0.25 + block_index * 0.03125
+        quants = [(index * 3 + block_index) % 16 for index in range(32)]
+        packed = bytes(quants[index] | (quants[index + 16] << 4) for index in range(16))
+        return struct.pack("<e", scale) + packed
+    if tensor_type == "Q4_1":
+        scale = 0.125 + block_index * 0.015625
+        minimum = -1.0 + block_index * 0.25
+        quants = [(index * 5 + block_index) % 16 for index in range(32)]
+        packed = bytes(quants[index] | (quants[index + 16] << 4) for index in range(16))
+        return struct.pack("<ee", scale, minimum) + packed
+    if tensor_type == "Q5_0":
+        scale = 0.0625 + block_index * 0.0078125
+        quants = [(index * 7 + block_index) % 32 for index in range(32)]
+        high = sum(((value >> 4) & 1) << index for index, value in enumerate(quants))
+        packed = bytes(
+            (quants[index] & 0xF) | ((quants[index + 16] & 0xF) << 4)
+            for index in range(16)
+        )
+        return struct.pack("<eI", scale, high) + packed
+    scale = 0.03125 + block_index * 0.00390625
+    quants = [((index * 11 + block_index) % 255) - 127 for index in range(32)]
+    return struct.pack("<e32b", scale, *quants)
+
+
+def write_quantized_gguf(path, tensor_type):
+    data = b"".join(quantized_block(tensor_type, block) for block in range(2))
+    metadata = [("quantization.fixture", "STRING", tensor_type)]
+    # MLX 0.32.2's upstream GGUF loader advances F64 metadata offsets by 4 instead of 8 bytes.
+    write_manual_gguf(path, [("quantized.weight", [2, 32], tensor_type, data)], metadata)
+
+
+def gguf_expected_array(fixtures, case_id, key, array, policy=None):
+    if policy is None:
+        dtype = dtype_name(array)
+        policy = (
+            "low_precision_float" if dtype in ("F16", "BF16")
+            else "elementwise_float" if dtype in ("F32", "F64", "C64")
+            else "exact_numeric"
+        )
+    ref = f"{case_id}.{key}"
+    fixtures[ref] = array
+    return {
+        "key": key,
+        "ref": ref,
+        "dtype": dtype_name(array),
+        "shape": list(array.shape),
+        "policy": policy,
+    }
+
+
+def gguf_load_case(case_id, file, arrays, metadata, fixtures, execution="default_cpu"):
+    expected_arrays = [
+        gguf_expected_array(fixtures, case_id, key, array)
+        for key, array in sorted(arrays.items())
+    ]
+    expected_metadata = []
+    for key, value in sorted(metadata.items()):
+        if isinstance(value, str):
+            expected_metadata.append({"key": key, "kind": "string", "value": value})
+        elif isinstance(value, list):
+            expected_metadata.append({"key": key, "kind": "strings", "value": value})
+        else:
+            item = gguf_expected_array(fixtures, case_id, f"metadata.{key}", value)
+            item["key"] = key
+            expected_metadata.append({"kind": "array", **item})
+    return {
+        "id": case_id,
+        "rust_call": "gguf.load",
+        "recipe": {"kind": "load", "path": f"fixtures/gguf/{file}", "execution": execution},
+        "expected": {
+            "status": "success",
+            "array_keys": sorted(arrays),
+            "arrays": expected_arrays,
+            "metadata": expected_metadata,
+        },
+    }
+
+
+def generate_gguf(target, mx, np):
+    directory = target / "fixtures" / "gguf"
+    directory.mkdir()
+    fixtures = {}
+    cases = []
+
+    tensor_dtypes = {
+        "f32": mx.float32,
+        "f16": mx.float16,
+        "i8": mx.int8,
+        "i16": mx.int16,
+        "i32": mx.int32,
+    }
+    basic_arrays = {
+        f"tensor.{name}": mx.array([-3, -1, 0, 2, 7, 11], dtype=dtype).reshape(2, 3)
+        for name, dtype in tensor_dtypes.items()
+    }
+    mx.save_gguf(str(directory / "basic.gguf"), basic_arrays, {})
+    arrays, metadata = mx.load(str(directory / "basic.gguf"), return_metadata=True, stream=mx.cpu)
+    cases.append(gguf_load_case("gguf.001", "basic.gguf", arrays, metadata, fixtures))
+
+    metadata_dtypes = {
+        "bool": mx.bool_,
+        "i8": mx.int8,
+        "i16": mx.int16,
+        "i32": mx.int32,
+        "i64": mx.int64,
+        "u8": mx.uint8,
+        "u16": mx.uint16,
+        "u32": mx.uint32,
+        "u64": mx.uint64,
+        "f32": mx.float32,
+    }
+    metadata_values = {"text": "metadata", "texts": ["one", "two", "three"]}
+    for index, (name, dtype) in enumerate(metadata_dtypes.items(), 1):
+        metadata_values[f"scalar.{name}"] = mx.array(index, dtype=dtype)
+        metadata_values[f"vector.{name}"] = mx.array([index, index + 1], dtype=dtype)
+    mx.save_gguf(str(directory / "metadata.gguf"), {"shared": mx.array([1], dtype=mx.int32)}, metadata_values)
+    arrays, metadata = mx.load(str(directory / "metadata.gguf"), return_metadata=True, stream=mx.cpu)
+    cases.append(gguf_load_case("gguf.002", "metadata.gguf", arrays, metadata, fixtures))
+
+    unicode_arrays = {"张量.🦀": mx.array([1.5, -2.25], dtype=mx.float32)}
+    unicode_metadata = {"clé.日本語": "naïve 🦀", "列表": ["α", "雪", "emoji 😀"]}
+    mx.save_gguf(str(directory / "unicode.gguf"), unicode_arrays, unicode_metadata)
+    arrays, metadata = mx.load(str(directory / "unicode.gguf"), return_metadata=True, stream=mx.cpu)
+    cases.append(gguf_load_case("gguf.003", "unicode.gguf", arrays, metadata, fixtures))
+
+    large = mx.arange(129 * 257, dtype=mx.float32).reshape(129, 257)
+    mx.save_gguf(
+        str(directory / "large-asymmetric.gguf"),
+        {"asymmetric": large, "non_contiguous": large.transpose()},
+        {},
+    )
+    arrays, metadata = mx.load(str(directory / "large-asymmetric.gguf"), return_metadata=True, stream=mx.cpu)
+    cases.append(gguf_load_case("gguf.004", "large-asymmetric.gguf", arrays, metadata, fixtures))
+
+    mx.save_gguf(str(directory / "empty.gguf"), {}, {})
+    arrays, metadata = mx.load(str(directory / "empty.gguf"), return_metadata=True, stream=mx.cpu)
+    cases.append(gguf_load_case("gguf.005", "empty.gguf", arrays, metadata, fixtures))
+    (directory / "not-gguf.gguf").write_bytes(b"deterministic non-GGUF fixture\n")
+
+    cases.extend([
+        {"id": "gguf.006", "rust_call": "gguf.load_error", "recipe": {"kind": "load", "path": "fixtures/gguf/missing.gguf", "execution": "default_cpu"}, "expected": {"status": "error", "variant": "not_file"}},
+        {"id": "gguf.007", "rust_call": "gguf.load_error", "recipe": {"kind": "load", "path": "fixtures/gguf/not-gguf.gguf", "execution": "default_cpu"}, "expected": {"status": "error", "variant": "exception"}},
+        {"id": "gguf.008", "rust_call": "gguf.absence", "recipe": {"kind": "absence", "path": "fixtures/gguf/metadata.gguf", "array_key": "absent", "metadata_key": "absent"}, "expected": {"status": "success", "array_absent": True, "metadata_absent": True}},
+        {"id": "gguf.009", "rust_call": "gguf.wrong_kind", "recipe": {"kind": "wrong_kind", "path": "fixtures/gguf/metadata.gguf", "key": "text", "requested": "array"}, "expected": {"status": "error", "variant": "wrong_metadata_kind", "expected_kind": "array", "actual_kind": "string"}},
+        {"id": "gguf.010", "rust_call": "gguf.wrong_kind", "recipe": {"kind": "wrong_kind", "path": "fixtures/gguf/metadata.gguf", "key": "texts", "requested": "string"}, "expected": {"status": "error", "variant": "wrong_metadata_kind", "expected_kind": "string", "actual_kind": "strings"}},
+        {"id": "gguf.011", "rust_call": "gguf.wrong_kind", "recipe": {"kind": "wrong_kind", "path": "fixtures/gguf/metadata.gguf", "key": "scalar.i32", "requested": "strings"}, "expected": {"status": "error", "variant": "wrong_metadata_kind", "expected_kind": "strings", "actual_kind": "array"}},
+    ])
+
+    for file, tensor_type, case_id in [
+        ("q4-0.gguf", "Q4_0", "gguf.012"),
+        ("q4-1.gguf", "Q4_1", "gguf.013"),
+        ("q8-0.gguf", "Q8_0", "gguf.014"),
+    ]:
+        write_quantized_gguf(directory / file, tensor_type)
+        arrays, metadata = mx.load(str(directory / file), return_metadata=True, stream=mx.cpu)
+        case = gguf_load_case(case_id, file, arrays, metadata, fixtures)
+        bits = 8 if tensor_type == "Q8_0" else 4
+        case["recipe"]["dequantize"] = {"group_size": 32, "bits": bits}
+        dequantized = mx.dequantize(
+            arrays["quantized.weight"],
+            arrays["quantized.scales"],
+            arrays["quantized.biases"],
+            group_size=32,
+            bits=bits,
+        )
+        mx.eval(dequantized)
+        case["expected"]["dequantized"] = gguf_expected_array(
+            fixtures, case_id, "dequantized", dequantized, "low_precision_float"
+        )
+        cases.append(case)
+
+    q5_file = "q5-0-unsupported.gguf"
+    write_quantized_gguf(directory / q5_file, "Q5_0")
+    try:
+        mx.load(str(directory / q5_file), return_metadata=True, stream=mx.cpu)
+    except RuntimeError:
+        cases.append({
+            "id": "gguf.015",
+            "rust_call": "gguf.load_error",
+            "recipe": {
+                "kind": "load",
+                "path": f"fixtures/gguf/{q5_file}",
+                "execution": "default_cpu",
+            },
+            "expected": {"status": "error", "variant": "exception"},
+        })
+    else:
+        raise AssertionError("Q5_0 unexpectedly loaded")
+
+    cases.extend([
+        {"id": "gguf.016", "rust_call": "gguf.prevalidation", "recipe": {"kind": "tensor_rejects", "accepted": ["F32", "F16", "I8", "I16", "I32"], "dtypes": ["BOOL", "U8", "U16", "U32", "U64", "I64", "BF16", "C64"]}, "expected": {"status": "error", "variant": "unsupported_tensor_dtype"}},
+        {"id": "gguf.017", "rust_call": "gguf.prevalidation", "recipe": {"kind": "metadata_rejects", "accepted": ["BOOL", "I8", "I16", "I32", "I64", "U8", "U16", "U32", "U64", "F32"], "dtypes": ["F16", "BF16", "C64"], "ranks": [2], "empty": True}, "expected": {"status": "error", "variants": ["unsupported_metadata_array_dtype", "invalid_metadata_array_rank", "empty_metadata_array"]}},
+        {"id": "gguf.018", "rust_call": "gguf.load", "recipe": {"kind": "load", "path": "fixtures/gguf/basic.gguf", "execution": "default_cpu"}, "expected": cases[0]["expected"]},
+        {"id": "gguf.019", "rust_call": "gguf.load", "recipe": {"kind": "load", "path": "fixtures/gguf/basic.gguf", "execution": "explicit_cpu"}, "expected": cases[0]["expected"]},
+        {
+            "id": "gguf.020",
+            "rust_call": "gguf.construct",
+            "recipe": {
+                "kind": "construct_save",
+                "path": "rust-save-qualified.gguf",
+                "same_spelling": "shared",
+                "metadata_value": "metadata",
+                "non_contiguous_shape": [129, 257],
+            },
+            "expected": {
+                "status": "success",
+                "array_keys": ["shared"],
+                "arrays": [
+                    gguf_expected_array(fixtures, "gguf.020", "shared", large.transpose())
+                ],
+                "metadata": [{"key": "shared", "kind": "string", "value": "metadata"}],
+                "duplicate_array_variant": "array_key_already_exists",
+                "duplicate_metadata_variant": "metadata_key_already_exists",
+            },
+        },
+    ])
+
+    write_safetensors(target / "fixtures" / "gguf.safetensors", fixtures, mx, np)
+    suite = {"schema_version": 1, "name": "gguf", "fixture": "fixtures/gguf.safetensors", "cases": cases}
+    (target / "suites" / "gguf.json").write_text(json.dumps(suite, indent=2, allow_nan=False) + "\n")
+    qualification = {
+        "schema_version": 1,
+        "artifact": "qualification/rust-save-qualified.gguf",
+        "artifact_sha256": None,
+        "producer_revision": None,
+        "python": "3.12.14",
+        "mlx": "0.32.2",
+        "compared_fields": ["array_keys", "metadata_kinds", "dtypes", "shapes", "values"],
+        "verdict": "pending",
+    }
+    qualification_dir = target / "qualification"
+    qualification_dir.mkdir()
+    (qualification_dir / "gguf-save.json").write_text(json.dumps(qualification, indent=2) + "\n")
+
+
 def generate_tree(target, mx, np):
     (target / "suites").mkdir(parents=True)
     (target / "fixtures").mkdir()
@@ -487,7 +794,7 @@ def generate_tree(target, mx, np):
     mx.set_default_device(mx.cpu)
     try:
         with mx.stream(mx.cpu):
-            for suite in SUITES:
+            for suite in OP_SUITES:
                 fixtures = {}
                 cases = []
                 for spec in (item for item in specs if item["suite"] == suite):
@@ -538,6 +845,7 @@ def generate_tree(target, mx, np):
                 write_safetensors(target / "fixtures" / fixture_name, fixtures, mx, np)
                 suite_doc = {"schema_version": 1, "name": suite, "fixture": f"fixtures/{fixture_name}", "cases": cases}
                 (target / "suites" / f"{suite}.json").write_text(json.dumps(suite_doc, indent=2, sort_keys=False, allow_nan=False) + "\n")
+            generate_gguf(target, mx, np)
     finally:
         mx.set_default_device(old_device)
 
@@ -545,6 +853,19 @@ def generate_tree(target, mx, np):
     fixture_shards = {
         f"fixtures/{name}.safetensors": f"sha256:{hashlib.sha256((target / 'fixtures' / f'{name}.safetensors').read_bytes()).hexdigest()}"
         for name in SUITES
+    }
+    gguf_fixtures = {
+        f"fixtures/gguf/{path.name}": {
+            "sha256": f"sha256:{hashlib.sha256(path.read_bytes()).hexdigest()}",
+            "recipe": (
+                "manual_gguf_quantized"
+                if path.name.startswith(("q4-", "q5-", "q8-"))
+                else "raw_non_gguf"
+                if path.name == "not-gguf.gguf"
+                else "mlx.core.save_gguf"
+            ),
+        }
+        for path in sorted((target / "fixtures" / "gguf").glob("*.gguf"))
     }
     policies = {
         "exact_bits": {"kind": "float", "atol": 0.0, "rtol": 0.0, "nan_equal": True, "infinity_sign": True, "signed_zero": True, "complex": "componentwise"},
@@ -560,6 +881,7 @@ def generate_tree(target, mx, np):
         "canonical_device": "cpu",
         "generator_digest": f"sha256:{generator_digest}",
         "fixture_shards": fixture_shards,
+        "gguf_fixtures": gguf_fixtures,
         "environment": {"python": "3.12.14", "architecture": EXPECTED_ARCH, "mlx_package": EXPECTED_MLX, "mlx_metal_package": EXPECTED_MLX, "mlx_runtime": EXPECTED_MLX, "numpy": EXPECTED_NUMPY},
         "tolerance_policies": policies,
         "suites": [f"suites/{name}.json" for name in SUITES],
@@ -584,6 +906,17 @@ def generate_tree(target, mx, np):
             {"id": "bf16_decoder", "base_case_id": "dtypes.011", "kind": "bf16_decoder", "expected_class": "decoder_bf16"},
             {"id": "empty_tensor", "base_case_id": "arithmetic.021", "kind": "empty_tensor", "expected_class": "empty"},
             {"id": "endianness", "base_case_id": "dtypes.008", "kind": "endianness", "expected_class": "endianness"},
+            {"id": "gguf_array_dtype_changed_values_equal", "base_case_id": "gguf.001", "kind": "gguf_array_dtype_changed_values_equal", "expected_class": "dtype"},
+            {"id": "gguf_array_beyond_tolerance", "base_case_id": "gguf.001", "kind": "gguf_array_beyond_tolerance", "expected_class": "value_relative"},
+            {"id": "gguf_array_key_removed", "base_case_id": "gguf.001", "kind": "gguf_array_key_removed", "expected_class": "array_keys"},
+            {"id": "gguf_metadata_kind_swapped", "base_case_id": "gguf.002", "kind": "gguf_metadata_kind_swapped", "expected_class": "metadata_kind"},
+            {"id": "gguf_metadata_entry_missing", "base_case_id": "gguf.002", "kind": "gguf_metadata_entry_missing", "expected_class": "metadata_missing"},
+            {"id": "gguf_error_variant_mismatch", "base_case_id": "gguf.006", "kind": "gguf_error_variant_mismatch", "expected_class": "error_variant"},
+            {"id": "gguf_wrong_kind_fields_009", "base_case_id": "gguf.009", "kind": "gguf_wrong_kind_fields", "expected_class": "wrong_kind_fields"},
+            {"id": "gguf_wrong_kind_fields_010", "base_case_id": "gguf.010", "kind": "gguf_wrong_kind_fields", "expected_class": "wrong_kind_fields"},
+            {"id": "gguf_wrong_kind_fields_011", "base_case_id": "gguf.011", "kind": "gguf_wrong_kind_fields", "expected_class": "wrong_kind_fields"},
+            {"id": "gguf_dequantized_observation_dropped", "base_case_id": "gguf.012", "kind": "gguf_dequantized_observation_dropped", "expected_class": "dequantized_missing"},
+            {"id": "gguf_dequantized_beyond_tolerance", "base_case_id": "gguf.012", "kind": "gguf_dequantized_beyond_tolerance", "expected_class": "value_relative"},
         ],
     }
     (target / "qualification.json").write_text(json.dumps(qualification, indent=2) + "\n")
@@ -609,7 +942,7 @@ def main():
         second_hash = tree_hash(second)
         if first_hash != second_hash:
             raise SystemExit(f"generation is not reproducible: {first_hash} != {second_hash}")
-        for name in ("corpus.json", "qualification.json", "suites", "fixtures"):
+        for name in ("corpus.json", "qualification.json", "qualification", "suites", "fixtures"):
             destination = ROOT / name
             if destination.is_dir():
                 shutil.rmtree(destination)

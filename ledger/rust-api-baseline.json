@@ -3485,6 +3485,101 @@
       }
     },
     {
+      "kind": "module",
+      "path": "mlx_rs::io",
+      "signature": "pub mod io"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_rs::io::GgufError",
+      "signature": "# [doc = \" An error from GGUF validation or an upstream MLX operation.\"] # [doc = \"\"] # [doc = \" Stable Rust-side validation failures have dedicated variants. Other native runtime failures\"] # [doc = \" remain opaque in [`GgufError::Exception`].\"] # [derive (Debug , thiserror :: Error)] # [non_exhaustive] pub enum GgufError { # [doc = \" The load path is not an existing local file.\"] # [error (\"path must point to a local file\")] NotFile , # [doc = \" The path cannot be represented by the C string ABI.\"] # [error (\"path is not valid UTF-8\")] InvalidPathUtf8 , # [doc = \" The path does not end in `.gguf`.\"] # [error (\"path must have a .gguf extension\")] UnsupportedExtension , # [doc = \" A path, key, or value contains an interior null byte.\"] # [error (\"GGUF text contains an interior null byte\")] InteriorNul , # [doc = \" Text returned by the native API is not valid UTF-8.\"] # [error (\"GGUF text is not valid UTF-8\")] InvalidUtf8 , # [doc = \" The array namespace already contains this key.\"] # [error (\"array key {key:?} already exists\")] ArrayKeyAlreadyExists { # [doc = \" The duplicate array key.\"] key : String , } , # [doc = \" The metadata namespace already contains this key.\"] # [error (\"metadata key {key:?} already exists\")] MetadataKeyAlreadyExists { # [doc = \" The duplicate metadata key.\"] key : String , } , # [doc = \" A typed getter was used for a different metadata kind.\"] # [error (\"metadata {key:?} has kind {actual:?}, expected {expected:?}\")] WrongMetadataKind { # [doc = \" The metadata key.\"] key : String , # [doc = \" The kind requested by the getter.\"] expected : GgufMetadataKind , # [doc = \" The kind stored in the container.\"] actual : GgufMetadataKind , } , # [doc = \" The tensor dtype is not supported by the MLX 0.32.2 GGUF writer.\"] # [error (\"tensor dtype {dtype:?} cannot be written as GGUF\")] UnsupportedTensorDtype { # [doc = \" The rejected dtype.\"] dtype : Dtype , } , # [doc = \" The metadata-array dtype is not supported by the MLX 0.32.2 GGUF writer.\"] # [error (\"metadata array dtype {dtype:?} cannot be written as GGUF\")] UnsupportedMetadataArrayDtype { # [doc = \" The rejected dtype.\"] dtype : Dtype , } , # [doc = \" Metadata arrays may only be scalar or one-dimensional.\"] # [error (\"metadata arrays must be scalar or one-dimensional, found rank {rank}\")] InvalidMetadataArrayRank { # [doc = \" The rejected array rank.\"] rank : usize , } , # [doc = \" Metadata arrays must contain at least one element.\"] # [error (\"metadata arrays cannot be empty\")] EmptyMetadataArray , # [doc = \" An opaque error reported by MLX.\"] # [error (transparent)] Exception (# [from] Exception) , }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_rs::io::GgufFile",
+      "signature": "# [doc = \" A live two-namespace GGUF container.\"] # [doc = \"\"] # [doc = \" Array keys can be enumerated, while the current C ABI does not expose metadata-key\"] # [doc = \" enumeration. The handle is intentionally non-cloneable and thread-affine.\"] # [doc = \"\"] # [doc = \" ```rust\"] # [doc = \" use mlx_rs::io::GgufFile;\"] # [doc = \"\"] # [doc = \" let file = GgufFile::new()?;\"] # [doc = \" assert!(file.array_keys()?.is_empty());\"] # [doc = \" # Ok::<(), mlx_rs::io::GgufError>(())\"] # [doc = \" ```\"] pub struct GgufFile { handle : GgufHandle , thread_affinity : PhantomData < Rc < () > > , }"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::io::GgufFile::array_keys",
+      "signature": "pub fn array_keys (& self) -> Result < Vec < String > , GgufError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::io::GgufFile::arrays",
+      "signature": "pub fn arrays (& self) -> Result < HashMap < String , Array > , GgufError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::io::GgufFile::get_array",
+      "signature": "pub fn get_array (& self , key : & str) -> Result < Option < Array > , GgufError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::io::GgufFile::get_metadata",
+      "signature": "pub fn get_metadata (& self , key : & str) -> Result < Option < GgufMetadataValue > , GgufError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::io::GgufFile::get_metadata_array",
+      "signature": "pub fn get_metadata_array (& self , key : & str) -> Result < Option < Array > , GgufError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::io::GgufFile::get_metadata_string",
+      "signature": "pub fn get_metadata_string (& self , key : & str) -> Result < Option < String > , GgufError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::io::GgufFile::get_metadata_strings",
+      "signature": "pub fn get_metadata_strings (& self , key : & str) -> Result < Option < Vec < String > > , GgufError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::io::GgufFile::insert_array",
+      "signature": "pub fn insert_array (& mut self , key : impl AsRef < str > , value : & Array) -> Result < () , GgufError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::io::GgufFile::insert_metadata",
+      "signature": "pub fn insert_metadata < V > (& mut self , key : impl AsRef < str > , value : V) -> Result < () , GgufError > where V : Into < GgufMetadataValue > ,"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::io::GgufFile::load",
+      "signature": "pub fn load (path : impl AsRef < Path >) -> Result < Self , GgufError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::io::GgufFile::metadata_kind",
+      "signature": "pub fn metadata_kind (& self , key : & str) -> Result < Option < GgufMetadataKind > , GgufError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::io::GgufFile::new",
+      "signature": "pub fn new () -> Result < Self , GgufError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::io::GgufFile::save",
+      "signature": "pub fn save (& self , path : impl AsRef < Path >) -> Result < () , GgufError >"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_rs::io::GgufMetadataKind",
+      "signature": "# [doc = \" The kind of a value in the GGUF metadata namespace.\"] # [doc = \"\"] # [doc = \" ```rust\"] # [doc = \" use mlx_rs::io::GgufMetadataKind;\"] # [doc = \"\"] # [doc = \" assert_ne!(GgufMetadataKind::String, GgufMetadataKind::Strings);\"] # [doc = \" ```\"] # [derive (Debug , Clone , Copy , PartialEq , Eq)] pub enum GgufMetadataKind { # [doc = \" An MLX array.\"] Array , # [doc = \" A single string.\"] String , # [doc = \" A list of strings.\"] Strings , }"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_rs::io::GgufMetadataValue",
+      "signature": "# [doc = \" A value stored in the GGUF metadata namespace.\"] # [doc = \"\"] # [doc = \" ```rust\"] # [doc = \" use mlx_rs::{io::{GgufMetadataKind, GgufMetadataValue}, Array};\"] # [doc = \"\"] # [doc = \" let value = GgufMetadataValue::from(Array::from_int(7));\"] # [doc = \" assert_eq!(value.kind(), GgufMetadataKind::Array);\"] # [doc = \" ```\"] # [derive (Debug , Clone)] pub enum GgufMetadataValue { # [doc = \" A scalar or one-dimensional metadata array.\"] Array (Array) , # [doc = \" A single UTF-8 string.\"] String (String) , # [doc = \" A list of UTF-8 strings.\"] Strings (Vec < String >) , }"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_rs::io::GgufMetadataValue::kind",
+      "signature": "pub fn kind (& self) -> GgufMetadataKind"
+    },
+    {
       "kind": "macro",
       "path": "mlx_rs::irfft",
       "signature": "macro_rules! irfft",

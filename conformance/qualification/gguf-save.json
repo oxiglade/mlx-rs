@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "artifact": "qualification/rust-save-qualified.gguf",
+  "artifact_sha256": "sha256:acec197060695a989bb17934caabcf40b5f913429c19cd469b5f2ef432517748",
+  "producer_revision": "fc688ddabaaf3f14c2e654da1c8277af65f01958",
+  "python": "3.12.14",
+  "mlx": "0.32.2",
+  "compared_fields": [
+    "array_keys",
+    "metadata_kinds",
+    "dtypes",
+    "shapes",
+    "values"
+  ],
+  "verdict": "semantic_pass"
+}

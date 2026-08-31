@@ -1,4 +1,5 @@
 use mlx_rs::{
+    io::{GgufError, GgufFile, GgufMetadataKind},
     transforms::{fallible_jvp, jvp},
     Array, Device, Dtype,
 };
@@ -13,6 +14,174 @@ const PANIC_CHILD: &str = "MLX_RS_FFI_PANIC_CHILD";
 const ERROR_REGISTRATION_CHILD: &str = "MLX_RS_ERROR_REGISTRATION_CHILD";
 const CONCURRENT_ERRORS_CHILD: &str = "MLX_RS_CONCURRENT_ERRORS_CHILD";
 const ERROR_WORKERS: usize = 8;
+
+macro_rules! assert_not_impl_any {
+    ($type:ty: $($trait:path),+ $(,)?) => {
+        const _: fn() = || {
+            trait AmbiguousIfImpl<T: ?Sized> {
+                fn check() {}
+            }
+            impl<T: ?Sized> AmbiguousIfImpl<()> for T {}
+            $({
+                struct Invalid;
+                impl<T: ?Sized + $trait> AmbiguousIfImpl<Invalid> for T {}
+            })+
+            let _ = <$type as AmbiguousIfImpl<_>>::check;
+        };
+    };
+}
+
+assert_not_impl_any!(GgufFile: Clone, Send, Sync);
+
+fn gguf_fixture() -> (tempfile::TempDir, std::path::PathBuf) {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("fixture.gguf");
+    let mut file = GgufFile::new().unwrap();
+    file.insert_array("tensor", &Array::from_slice(&[1_i32, 2, 3], &[3]))
+        .unwrap();
+    file.insert_metadata("array", Array::from_slice(&[4_i16, 5], &[2]))
+        .unwrap();
+    file.insert_metadata("string", "value").unwrap();
+    file.insert_metadata("strings", vec!["one".to_owned(), "two".to_owned()])
+        .unwrap();
+    file.save(&path).unwrap();
+    (directory, path)
+}
+
+#[test]
+fn gguf_handles_and_output_vectors_do_not_leak() {
+    let (_directory, path) = gguf_fixture();
+    for _ in 0..200 {
+        drop(GgufFile::new().unwrap());
+        let file = GgufFile::load(&path).unwrap();
+        assert_eq!(file.array_keys().unwrap(), ["tensor"]);
+        assert_eq!(
+            file.get_metadata_string("string").unwrap().as_deref(),
+            Some("value")
+        );
+        assert_eq!(
+            file.get_metadata_strings("strings").unwrap().unwrap(),
+            ["one", "two"]
+        );
+    }
+}
+
+#[test]
+fn failed_gguf_load_releases_the_empty_destination() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("invalid.gguf");
+    std::fs::write(&path, b"not a GGUF file").unwrap();
+    for _ in 0..200 {
+        assert!(matches!(
+            GgufFile::load(&path),
+            Err(GgufError::Exception(_))
+        ));
+    }
+}
+
+#[test]
+fn gguf_failed_getters_release_initialized_outputs() {
+    let (_directory, path) = gguf_fixture();
+    let file = GgufFile::load(path).unwrap();
+    for _ in 0..200 {
+        assert!(file.get_array("missing").unwrap().is_none());
+        assert!(file.get_metadata_array("missing").unwrap().is_none());
+        assert!(file.get_metadata_string("missing").unwrap().is_none());
+        assert!(file.get_metadata_strings("missing").unwrap().is_none());
+        assert!(matches!(
+            file.get_metadata_array("string"),
+            Err(GgufError::WrongMetadataKind {
+                expected: GgufMetadataKind::Array,
+                actual: GgufMetadataKind::String,
+                ..
+            })
+        ));
+        assert!(matches!(
+            file.get_metadata_string("strings"),
+            Err(GgufError::WrongMetadataKind {
+                expected: GgufMetadataKind::String,
+                actual: GgufMetadataKind::Strings,
+                ..
+            })
+        ));
+        assert!(matches!(
+            file.get_metadata_strings("array"),
+            Err(GgufError::WrongMetadataKind {
+                expected: GgufMetadataKind::Strings,
+                actual: GgufMetadataKind::Array,
+                ..
+            })
+        ));
+    }
+}
+
+#[test]
+fn gguf_extracted_arrays_outlive_the_container() {
+    let (_directory, path) = gguf_fixture();
+    let file = GgufFile::load(path).unwrap();
+    let tensor = file.get_array("tensor").unwrap().unwrap();
+    let metadata = file.get_metadata_array("array").unwrap().unwrap();
+    drop(file);
+    tensor.eval().unwrap();
+    metadata.eval().unwrap();
+    assert_eq!(tensor.as_slice::<i32>(), &[1, 2, 3]);
+    assert_eq!(metadata.as_slice::<i16>(), &[4, 5]);
+}
+
+#[test]
+fn gguf_container_retains_inserted_arrays() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("owned.gguf");
+    let mut file = GgufFile::new().unwrap();
+    let tensor = Array::from_slice(&[1_i32, 2], &[2]);
+    file.insert_array("tensor", &tensor).unwrap();
+    drop(tensor);
+    let metadata = Array::from_slice(&[3_i32, 4], &[2]);
+    file.insert_metadata("metadata", &metadata).unwrap();
+    drop(metadata);
+    file.save(&path).unwrap();
+
+    let loaded = GgufFile::load(path).unwrap();
+    assert_eq!(
+        loaded
+            .get_array("tensor")
+            .unwrap()
+            .unwrap()
+            .as_slice::<i32>(),
+        &[1, 2]
+    );
+    assert_eq!(
+        loaded
+            .get_metadata_array("metadata")
+            .unwrap()
+            .unwrap()
+            .as_slice::<i32>(),
+        &[3, 4]
+    );
+}
+
+#[test]
+fn gguf_temporary_vectors_and_early_errors_are_owned_once() {
+    for _ in 0..200 {
+        let mut file = GgufFile::new().unwrap();
+        file.insert_metadata("strings", vec!["a".to_owned(), "b".to_owned()])
+            .unwrap();
+        assert!(matches!(
+            file.insert_metadata("strings", vec!["c".to_owned()]),
+            Err(GgufError::MetadataKeyAlreadyExists { .. })
+        ));
+        assert!(matches!(
+            file.insert_metadata("bad\0key", vec!["c".to_owned()]),
+            Err(GgufError::InteriorNul)
+        ));
+        assert!(matches!(
+            file.insert_metadata("bad-value", vec!["c\0d".to_owned()]),
+            Err(GgufError::InteriorNul)
+        ));
+        let moved = { file };
+        drop(moved);
+    }
+}
 
 #[test]
 fn safetensors_metadata_iteration_does_not_leak() {

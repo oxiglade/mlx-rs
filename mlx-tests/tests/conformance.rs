@@ -9,6 +9,11 @@ fn committed_corpus() {
 }
 
 #[test]
+fn committed_gguf_corpus() {
+    oracle::gguf_committed_corpus();
+}
+
+#[test]
 fn harness_qualification() {
     oracle::harness_qualification();
 }
