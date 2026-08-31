@@ -11,6 +11,17 @@
         "guard_malloc": "mlx-tests/tests/ffi_safety.rs",
         "qualification": "conformance/qualification/gguf-save.json"
       }
+    },
+    {
+      "feature": "general-math",
+      "canonical_path": "mlx_rs::ops and mlx_rs::linalg",
+      "evidence": {
+        "conformance": "conformance/suites/math.json",
+        "stream": "math.007 explicit CPU, math.078 explicit GPU, and linalg CPU-scoped cases",
+        "leaks": "mlx-tests/tests/ffi_safety.rs",
+        "guard_malloc": "mlx-tests/tests/ffi_safety.rs",
+        "qualification": "conformance/qualification.json"
+      }
     }
   ],
   "builds": [

@@ -142,8 +142,11 @@
         "name": "mlx_count_nonzero",
         "signature": "fn(* mut mlx_array,mlx_array,bool,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::Array::count_nonzero",
+      "python_name": "mlx.core.count_nonzero",
+      "semantic_op": "count_nonzero",
+      "evidence": ["conf:math.001", "conf:math.002"]
     },
     {
       "change": "added",
@@ -154,8 +157,11 @@
         "name": "mlx_count_nonzero_axes",
         "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,bool,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::Array::count_nonzero",
+      "python_name": "mlx.core.count_nonzero",
+      "semantic_op": "count_nonzero",
+      "evidence": ["conf:math.004", "conf:math.005"]
     },
     {
       "change": "added",
@@ -166,8 +172,11 @@
         "name": "mlx_count_nonzero_axis",
         "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::Array::count_nonzero",
+      "python_name": "mlx.core.count_nonzero",
+      "semantic_op": "count_nonzero",
+      "evidence": ["conf:math.003", "conf:math.006"]
     },
     {
       "change": "added",
@@ -257,8 +266,11 @@
         "name": "mlx_diff",
         "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::Array::diff",
+      "python_name": "mlx.core.diff",
+      "semantic_op": "diff",
+      "evidence": ["conf:math.008", "conf:math.012"]
     },
     {
       "change": "added",
@@ -359,8 +371,11 @@
         "name": "mlx_flip",
         "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::Array::flip",
+      "python_name": "mlx.core.flip",
+      "semantic_op": "flip",
+      "evidence": ["conf:math.013", "conf:math.018"]
     },
     {
       "change": "added",
@@ -371,8 +386,11 @@
         "name": "mlx_flip_axes",
         "signature": "fn(* mut mlx_array,mlx_array,* const :: std :: os :: raw :: c_int,usize,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::Array::flip",
+      "python_name": "mlx.core.flip",
+      "semantic_op": "flip",
+      "evidence": ["conf:math.015", "conf:math.016"]
     },
     {
       "change": "added",
@@ -383,8 +401,11 @@
         "name": "mlx_flip_axis",
         "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::Array::flip",
+      "python_name": "mlx.core.flip",
+      "semantic_op": "flip",
+      "evidence": ["conf:math.014"]
     },
     {
       "change": "added",
@@ -665,8 +686,11 @@
         "name": "mlx_linalg_det",
         "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::linalg::det",
+      "python_name": "mlx.core.linalg.det",
+      "semantic_op": "det",
+      "evidence": ["conf:math.019", "conf:math.026"]
     },
     {
       "change": "added",
@@ -677,8 +701,11 @@
         "name": "mlx_linalg_slogdet",
         "signature": "fn(* mut mlx_array,* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::linalg::slogdet",
+      "python_name": "mlx.core.linalg.slogdet",
+      "semantic_op": "slogdet",
+      "evidence": ["conf:math.027", "conf:math.033"]
     },
     {
       "change": "added",
@@ -689,8 +716,11 @@
         "name": "mlx_linspace_endpoint",
         "signature": "fn(* mut mlx_array,f64,f64,:: std :: os :: raw :: c_int,bool,mlx_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::linspace",
+      "python_name": "mlx.core.linspace",
+      "semantic_op": "linspace",
+      "evidence": ["conf:math.034", "conf:math.041"]
     },
     {
       "change": "added",
@@ -717,8 +747,11 @@
         "name": "mlx_logcumsumexp_axis",
         "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,bool,bool,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::Array::logcumsumexp",
+      "python_name": "mlx.core.logcumsumexp",
+      "semantic_op": "logcumsumexp",
+      "evidence": ["conf:math.047", "conf:math.049"]
     },
     {
       "change": "added",
@@ -729,8 +762,11 @@
         "name": "mlx_logical_xor",
         "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::logical_xor",
+      "python_name": "mlx.core.logical_xor",
+      "semantic_op": "logical_xor",
+      "evidence": ["conf:math.051", "conf:math.053"]
     },
     {
       "change": "added",
@@ -845,8 +881,8 @@
         "name": "mlx_ones_like_dtype",
         "signature": "fn(* mut mlx_array,mlx_array,mlx_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "internal",
+      "rationale": "ones_dtype(input.shape(), dtype) produces the same single Full graph node"
     },
     {
       "change": "added",
@@ -857,8 +893,8 @@
         "name": "mlx_positive",
         "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "internal",
+      "rationale": "positive is identity without promotion, copying, or a graph node and Rust has no unary-plus trait"
     },
     {
       "change": "added",
@@ -897,8 +933,11 @@
         "name": "mlx_searchsorted",
         "signature": "fn(* mut mlx_array,mlx_array,mlx_array,* const :: std :: os :: raw :: c_char,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::Array::search_sorted",
+      "python_name": "mlx.core.searchsorted",
+      "semantic_op": "search_sorted",
+      "evidence": ["conf:math.054", "conf:math.060"]
     },
     {
       "change": "added",
@@ -969,8 +1008,11 @@
         "name": "mlx_trace_axes",
         "signature": "fn(* mut mlx_array,mlx_array,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,:: std :: os :: raw :: c_int,mlx_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::Array::trace",
+      "python_name": "mlx.core.trace",
+      "semantic_op": "trace",
+      "evidence": ["conf:math.062", "conf:math.066"]
     },
     {
       "change": "added",
@@ -981,8 +1023,11 @@
         "name": "mlx_trunc",
         "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::Array::trunc",
+      "python_name": "mlx.core.trunc",
+      "semantic_op": "trunc",
+      "evidence": ["conf:math.067", "conf:math.070"]
     },
     {
       "change": "added",
@@ -993,8 +1038,11 @@
         "name": "mlx_unstack",
         "signature": "fn(* mut mlx_vector_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::Array::unstack",
+      "python_name": "mlx.core.unstack",
+      "semantic_op": "unstack",
+      "evidence": ["conf:math.071"]
     },
     {
       "change": "added",
@@ -1005,8 +1053,11 @@
         "name": "mlx_unstack_axis",
         "signature": "fn(* mut mlx_vector_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::Array::unstack",
+      "python_name": "mlx.core.unstack",
+      "semantic_op": "unstack",
+      "evidence": ["conf:math.072", "conf:math.074"]
     },
     {
       "change": "added",
@@ -1017,8 +1068,11 @@
         "name": "mlx_vecdot",
         "signature": "fn(* mut mlx_array,mlx_array,mlx_array,:: std :: os :: raw :: c_int,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::vecdot",
+      "python_name": "mlx.core.vecdot",
+      "semantic_op": "vecdot",
+      "evidence": ["conf:math.075", "conf:math.077"]
     },
     {
       "change": "added",
@@ -1029,8 +1083,8 @@
         "name": "mlx_zeros_like_dtype",
         "signature": "fn(* mut mlx_array,mlx_array,mlx_dtype,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "internal",
+      "rationale": "zeros_dtype(input.shape(), dtype) produces the same single Full graph node"
     },
     {
       "change": "added",
@@ -1776,8 +1830,11 @@
         "name": "mlx_logcumsumexp",
         "signature": "fn(* mut mlx_array,mlx_array,bool,bool,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "no Rust wrapper references this symbol at the old pin",
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::Array::logcumsumexp",
+      "python_name": "mlx.core.logcumsumexp",
+      "semantic_op": "logcumsumexp",
+      "evidence": ["conf:math.043", "conf:math.046"],
       "old_pin_affected": false,
       "bump_impact": "none: no Rust wrapper references this symbol"
     },
@@ -1863,8 +1920,11 @@
         "name": "mlx_trace",
         "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "no Rust wrapper references this symbol at the old pin",
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::Array::trace",
+      "python_name": "mlx.core.trace",
+      "semantic_op": "trace",
+      "evidence": ["conf:math.061"],
       "old_pin_affected": false,
       "bump_impact": "none: no Rust wrapper references this symbol"
     },
