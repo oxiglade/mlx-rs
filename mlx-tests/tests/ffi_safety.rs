@@ -1,7 +1,12 @@
 use mlx_rs::{
     io::{GgufError, GgufFile, GgufMetadataKind},
     linalg,
-    ops::{CountNonzeroOptions, TraceOptions},
+    ops::{
+        indexing::{
+            ArrayIndexOp, Ellipsis, IndexUpdateError, IntoStrideBy, TryIndexUpdateOp, UpdateMode,
+        },
+        CountNonzeroOptions, TraceOptions,
+    },
     transforms::{fallible_jvp, jvp},
     with_stream, Array, Axes, Device, Dtype, Stream,
 };
@@ -289,6 +294,82 @@ fn empty_axis_vectors_and_new_error_paths_are_repeatable() {
         let complex = Array::from_complex(mlx_rs::complex64::new(1.0, 2.0));
         assert!(complex.trunc().is_err());
         assert!(mlx_rs::ops::vecdot(&input, &input, 3).is_err());
+    }
+}
+
+#[test]
+fn static_and_advanced_index_updates_release_outputs_on_every_path() {
+    let modes = [
+        UpdateMode::Replace,
+        UpdateMode::Add,
+        UpdateMode::Min,
+        UpdateMode::Max,
+        UpdateMode::Product,
+    ];
+    for _ in 0..200 {
+        for mode in modes {
+            let source = Array::from_slice(&[1_i32, 2, 3, 4, 5], &[5]);
+            source
+                .try_index_update(1..4, Array::from_int(2), mode)
+                .unwrap()
+                .eval()
+                .unwrap();
+
+            let indices = Array::from_slice(&[0_i32, 2, 4], &[3]);
+            source
+                .try_index_update(&indices, Array::from_int(2), mode)
+                .unwrap()
+                .eval()
+                .unwrap();
+
+            source
+                .try_index_update(3..3, Array::from_slice::<i32>(&[], &[0]), mode)
+                .unwrap()
+                .eval()
+                .unwrap();
+
+            let no_indices: &[ArrayIndexOp<'_>] = &[];
+            Array::from_int(1)
+                .try_index_update(no_indices, Array::from_int(2), mode)
+                .unwrap()
+                .eval()
+                .unwrap();
+        }
+    }
+}
+
+#[test]
+fn index_update_validation_and_broadcast_failures_are_repeatable() {
+    for _ in 0..200 {
+        let source = Array::from_slice(&[1_i32, 2, 3, 4, 5], &[5]);
+        let zero_stride =
+            source.try_index_update((..).stride_by(0), Array::from_int(2), UpdateMode::Replace);
+        assert!(matches!(
+            zero_stride,
+            Err(IndexUpdateError::ZeroStride { axis: 0 })
+        ));
+
+        assert!(matches!(
+            source.try_index_update(1..4, Array::from_slice(&[1_i32, 2], &[2]), UpdateMode::Add,),
+            Err(IndexUpdateError::Exception(_))
+        ));
+
+        assert!(matches!(
+            source.try_index_update((0, 1), Array::from_int(2), UpdateMode::Replace),
+            Err(IndexUpdateError::Exception(_))
+        ));
+        assert!(matches!(
+            Array::from_int(1).try_index_update(0, Array::from_int(2), UpdateMode::Replace),
+            Err(IndexUpdateError::Exception(_))
+        ));
+        assert!(matches!(
+            source.try_index_update(
+                (Ellipsis, Ellipsis),
+                Array::from_int(2),
+                UpdateMode::Replace,
+            ),
+            Err(IndexUpdateError::Exception(_))
+        ));
     }
 }
 

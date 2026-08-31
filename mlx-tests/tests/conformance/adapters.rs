@@ -1,12 +1,19 @@
 use super::oracle::{
     dtype_from_name, mlx_error, Arg, Args, Case, ExecutionTarget, GgufCase, GgufKind,
-    GgufObservation, GgufObservedMetadata, GgufRecipe, ScalarValue,
+    GgufObservation, GgufObservedMetadata, GgufRecipe, IndexRecipe, ScalarValue, UpdateModeRecipe,
 };
 use half::{bf16, f16};
 use mlx_rs::{
     io::{GgufError, GgufFile, GgufMetadataValue},
     linalg,
-    ops::{self, CountNonzeroOptions, LinspaceOptions, LogCumsumExpOptions, TraceOptions},
+    ops::{
+        self,
+        indexing::{
+            Ellipsis, IndexUpdateError, IntoStrideBy, NewAxis, TryIndexMutOp, TryIndexUpdateOp,
+            UpdateMode,
+        },
+        CountNonzeroOptions, LinspaceOptions, LogCumsumExpOptions, TraceOptions,
+    },
     with_device, with_stream, Array, Axes, Device, Dtype, Stream,
 };
 use safetensors::SafeTensors;
@@ -81,6 +88,9 @@ pub(super) const ADAPTERS: &[&str] = &[
     "array.trunc",
     "array.unstack",
     "ops.vecdot",
+    "array.try_index_update",
+    "array.try_index_update.source_unchanged",
+    "array.try_index_mut.compatibility",
     "gguf.load",
     "gguf.load_error",
     "gguf.absence",
@@ -88,6 +98,76 @@ pub(super) const ADAPTERS: &[&str] = &[
     "gguf.prevalidation",
     "gguf.construct",
 ];
+
+fn index_update_error(result: Result<Array, IndexUpdateError>) -> Result<Array, String> {
+    result.map_err(|error| match error {
+        IndexUpdateError::ZeroStride { .. } => format!("[index_update:zero_stride] {error}"),
+        IndexUpdateError::Exception(_) => format!("[index_update:exception] {error}"),
+    })
+}
+
+fn update_mode(mode: UpdateModeRecipe) -> UpdateMode {
+    match mode {
+        UpdateModeRecipe::Replace => UpdateMode::Replace,
+        UpdateModeRecipe::Add => UpdateMode::Add,
+        UpdateModeRecipe::Min => UpdateMode::Min,
+        UpdateModeRecipe::Max => UpdateMode::Max,
+        UpdateModeRecipe::Product => UpdateMode::Product,
+    }
+}
+
+fn dispatch_index_update(case: &Case, args: &mut Args<'_>) -> Result<Vec<Array>, String> {
+    let source = args.tensor("input0")?;
+    let update = args.tensor("input1")?;
+    let index = args.index("index")?;
+    let mode = update_mode(args.update_mode("mode")?);
+    args.execution()?;
+
+    if case.rust_call == "array.try_index_mut.compatibility" {
+        let mut result = source.clone();
+        result
+            .try_index_mut(1..4, &update)
+            .map_err(|error| error.to_string())?;
+        return Ok(vec![result]);
+    }
+
+    let result = match index {
+        IndexRecipe::PositiveSlice => source.try_index_update(1..4, &update, mode),
+        IndexRecipe::NegativeStride => source.try_index_update((4..1).stride_by(-1), &update, mode),
+        IndexRecipe::Advanced | IndexRecipe::DuplicateAdvanced => {
+            let indices = args.tensor("input2")?;
+            source.try_index_update(&indices, &update, mode)
+        }
+        IndexRecipe::Tuple2d => source.try_index_update((1..3, 0..2), &update, mode),
+        IndexRecipe::NegativeIndex => source.try_index_update(-1, &update, mode),
+        IndexRecipe::EllipsisNewAxis => {
+            source.try_index_update((Ellipsis, NewAxis, 1..3), &update, mode)
+        }
+        IndexRecipe::TupleColumns => source.try_index_update((.., 1..3), &update, mode),
+        IndexRecipe::Full => source.try_index_update(.., &update, mode),
+        IndexRecipe::Empty => source.try_index_update(3..3, &update, mode),
+        IndexRecipe::Clipped => source.try_index_update(-100..100, &update, mode),
+        IndexRecipe::Noop => source.try_index_update(100..200, &update, mode),
+        IndexRecipe::NegativeBounds => source.try_index_update(-4..-1, &update, mode),
+        IndexRecipe::AdvancedTuple => {
+            let indices = args.tensor("input2")?;
+            source.try_index_update((&indices, -1), &update, mode)
+        }
+        IndexRecipe::ZeroStride => source.try_index_update((..).stride_by(0), &update, mode),
+    };
+    let result = index_update_error(result)?;
+    if case.rust_call == "array.try_index_update.source_unchanged" {
+        let ScalarValue::Bool(return_source) = args.scalar("return_source")? else {
+            return Err("return_source scalar type mismatch".into());
+        };
+        if !return_source {
+            return Err("source_unchanged adapter requires return_source".into());
+        }
+        Ok(vec![result, source])
+    } else {
+        Ok(vec![result])
+    }
+}
 
 fn gguf_error(error: GgufError) -> (String, Option<(GgufKind, GgufKind)>) {
     let variant = match error {
@@ -945,6 +1025,9 @@ pub(super) fn dispatch(case: &Case, safe: &SafeTensors<'_>) -> Result<Vec<Array>
             args.execution()?;
             vec![mlx_error(ops::vecdot(&lhs, &rhs, axis))?]
         }
+        "array.try_index_update"
+        | "array.try_index_update.source_unchanged"
+        | "array.try_index_mut.compatibility" => dispatch_index_update(case, &mut args)?,
         "ops.windows.bartlett" => {
             let ScalarValue::I32(size) = args.scalar("size")? else {
                 return Err("size scalar type mismatch".into());
