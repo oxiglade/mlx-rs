@@ -295,6 +295,8 @@ pub mod fft;
 pub mod io;
 pub mod linalg;
 pub mod losses;
+#[cfg(feature = "metal")]
+pub mod metal;
 pub mod module;
 pub mod nested;
 pub mod nn;

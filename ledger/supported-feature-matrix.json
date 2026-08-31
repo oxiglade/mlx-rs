@@ -24,6 +24,19 @@
       }
     },
     {
+      "feature": "metal-library-path",
+      "canonical_path": "mlx_rs::metal",
+      "symbols": {
+        "mlx_metal_get_metallib_path": "mlx_rs::metal::metallib_path",
+        "mlx_metal_set_metallib_path": "mlx_rs::metal::set_metallib_path"
+      },
+      "evidence": {
+        "api": "mlx-rs/src/metal.rs",
+        "distribution": "mlx-sys/build.rs",
+        "test": "mlx-rs/src/metal.rs#metallib_path_roundtrips"
+      }
+    },
+    {
       "feature": "slice-update",
       "canonical_path": "mlx_rs::ops::indexing::TryIndexUpdateOp",
       "symbols": {
