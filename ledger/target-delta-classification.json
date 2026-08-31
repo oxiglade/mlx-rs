@@ -809,8 +809,11 @@
         "name": "mlx_metal_get_metallib_path",
         "signature": "fn(* mut mlx_string)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::metal::metallib_path",
+      "evidence": [
+        "api:test:mlx-rs/src/metal.rs#metallib_path_is_non_empty"
+      ]
     },
     {
       "change": "added",
@@ -821,8 +824,11 @@
         "name": "mlx_metal_set_metallib_path",
         "signature": "fn(* const :: std :: os :: raw :: c_char)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "target symbol has no Rust wrapper at the old pin"
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::metal::set_metallib_path",
+      "evidence": [
+        "api:test:mlx-rs/src/metal.rs#metallib_path_roundtrips"
+      ]
     },
     {
       "change": "added",
