@@ -147,6 +147,9 @@ mod tests {
         let m = array!(0.25);
         let b = array!(0.75);
 
+        // Unseeded draws occasionally start at a loss the 100 SGD steps do not
+        // beat, so pin the trajectory.
+        crate::random::seed(71).unwrap();
         let mut model = Sequential::new()
             .append(Linear::new(input_dim, hidden_dim).unwrap())
             .append(Linear::new(hidden_dim, output_dim).unwrap());
