@@ -10,7 +10,37 @@ use crate::{
 
 static EMPTY_AXES_DUMMY: [i32; 1] = [0];
 
+/// Options controlling contiguous layout materialization.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ContiguousOptions {
+    /// Permit MLX to retain a column-major layout when it is already suitable.
+    pub allow_col_major: bool,
+}
+
 impl Array {
+    /// Return an array that is row-major contiguous after evaluation.
+    ///
+    /// MLX may share the input buffer when it is already suitable.
+    pub fn contiguous(&self) -> Result<Array> {
+        self.contiguous_with_options(ContiguousOptions::default())
+    }
+
+    /// Materialize a contiguous array according to `options`.
+    ///
+    /// Allowing column-major layout does not force it and does not guarantee that the result can
+    /// be borrowed with [`Array::try_as_slice`].
+    pub fn contiguous_with_options(&self, options: ContiguousOptions) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
+        Array::try_from_op(|res| unsafe {
+            mlx_sys::mlx_contiguous(
+                res,
+                self.as_ptr(),
+                options.allow_col_major,
+                stream.as_ref().as_ptr(),
+            )
+        })
+    }
+
     /// Reverse elements along selected axes.
     ///
     /// `Axes::All` reverses every axis, while an explicitly empty axis list is an identity.
@@ -1849,6 +1879,51 @@ mod tests {
             .as_dtype(Dtype::Int32)
             .unwrap();
         assert!(stack(&[x, y], 0).is_err());
+    }
+
+    #[test]
+    fn contiguous_materializes_row_major_for_slice_observers() {
+        let input = Array::from_slice(&[1_i32, 2, 3, 4, 5, 6], &[2, 3]);
+        let transposed = input.transpose().unwrap();
+        assert!(matches!(
+            transposed.try_as_slice::<i32>(),
+            Err(crate::error::AsSliceError::NotContiguous)
+        ));
+
+        let contiguous = transposed.contiguous().unwrap();
+        assert_eq!(
+            contiguous.try_as_slice::<i32>().unwrap(),
+            &[1, 4, 2, 5, 3, 6]
+        );
+        assert!(bool::try_from_op(|res| unsafe {
+            mlx_sys::_mlx_array_is_row_contiguous(res, contiguous.as_ptr())
+        })
+        .unwrap());
+    }
+
+    #[test]
+    fn contiguous_options_can_retain_column_major_layout() {
+        let input = Array::from_slice(&[1_i32, 2, 3, 4, 5, 6], &[2, 3]);
+        let transposed = input.transpose().unwrap();
+        let contiguous = transposed
+            .contiguous_with_options(ContiguousOptions {
+                allow_col_major: true,
+            })
+            .unwrap();
+        contiguous.eval().unwrap();
+
+        assert!(!bool::try_from_op(|res| unsafe {
+            mlx_sys::_mlx_array_is_row_contiguous(res, contiguous.as_ptr())
+        })
+        .unwrap());
+        assert!(bool::try_from_op(|res| unsafe {
+            mlx_sys::_mlx_array_is_col_contiguous(res, contiguous.as_ptr())
+        })
+        .unwrap());
+        assert!(matches!(
+            contiguous.try_as_slice::<i32>(),
+            Err(crate::error::AsSliceError::NotContiguous)
+        ));
     }
 
     #[test]

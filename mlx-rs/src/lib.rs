@@ -295,6 +295,7 @@ pub mod fft;
 pub mod io;
 pub mod linalg;
 pub mod losses;
+pub mod memory;
 #[cfg(feature = "metal")]
 pub mod metal;
 pub mod module;

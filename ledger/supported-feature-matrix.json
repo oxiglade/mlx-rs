@@ -2,6 +2,20 @@
   "schema_version": 1,
   "admissions": [
     {
+      "feature": "contiguous",
+      "canonical_path": "mlx_rs::Array::contiguous",
+      "symbols": {
+        "mlx_contiguous": "mlx_rs::Array::contiguous and mlx_rs::Array::contiguous_with_options"
+      },
+      "evidence": {
+        "conformance": "conformance/suites/shapes.json shapes.015 through shapes.018",
+        "stream": "shapes.018 explicit CPU",
+        "leaks": "mlx-tests/tests/ffi_safety.rs",
+        "guard_malloc": "mlx-tests/tests/ffi_safety.rs",
+        "qualification": "conformance/qualification.json contiguous_value_mangle"
+      }
+    },
+    {
       "feature": "gguf",
       "canonical_path": "mlx_rs::io::GgufFile",
       "evidence": {
@@ -34,6 +48,41 @@
         "api": "mlx-rs/src/metal.rs",
         "distribution": "mlx-sys/build.rs",
         "test": "mlx-rs/src/metal.rs#metallib_path_roundtrips"
+      }
+    },
+    {
+      "feature": "memory-control",
+      "canonical_path": "mlx_rs::memory",
+      "symbols": {
+        "mlx_clear_cache": "mlx_rs::memory::clear_cache",
+        "mlx_get_active_memory": "mlx_rs::memory::active_memory",
+        "mlx_get_cache_memory": "mlx_rs::memory::cache_memory",
+        "mlx_get_memory_limit": "mlx_rs::memory::memory_limit",
+        "mlx_get_peak_memory": "mlx_rs::memory::peak_memory",
+        "mlx_reset_peak_memory": "mlx_rs::memory::reset_peak_memory",
+        "mlx_set_cache_limit": "mlx_rs::memory::set_cache_limit",
+        "mlx_set_memory_limit": "mlx_rs::memory::set_memory_limit",
+        "mlx_set_wired_limit": "mlx_rs::memory::set_wired_limit"
+      },
+      "evidence": {
+        "api": "mlx-rs/src/memory.rs",
+        "test": "mlx-rs/tests/memory.rs",
+        "leaks": "mlx-tests/tests/ffi_safety.rs",
+        "guard_malloc": "mlx-tests/tests/ffi_safety.rs"
+      }
+    },
+    {
+      "feature": "rms-norm-optional-weight",
+      "canonical_path": "mlx_rs::fast::rms_norm",
+      "symbols": {
+        "mlx_fast_rms_norm": "mlx_rs::fast::rms_norm"
+      },
+      "evidence": {
+        "conformance": "conformance/suites/fast.json",
+        "stream": "fast.005 explicit CPU",
+        "leaks": "mlx-tests/tests/ffi_safety.rs",
+        "guard_malloc": "mlx-tests/tests/ffi_safety.rs",
+        "qualification": "conformance/qualification.json rms_norm_weight_ignored and rms_norm_eps_ignored"
       }
     },
     {

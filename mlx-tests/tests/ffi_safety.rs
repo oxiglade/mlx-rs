@@ -1,11 +1,12 @@
 use mlx_rs::{
+    fast,
     io::{GgufError, GgufFile, GgufMetadataKind},
-    linalg,
+    linalg, memory,
     ops::{
         indexing::{
             ArrayIndexOp, Ellipsis, IndexUpdateError, IntoStrideBy, TryIndexUpdateOp, UpdateMode,
         },
-        CountNonzeroOptions, TraceOptions,
+        ContiguousOptions, CountNonzeroOptions, TraceOptions,
     },
     transforms::{fallible_jvp, jvp},
     with_stream, Array, Axes, Device, Dtype, Stream,
@@ -20,6 +21,7 @@ use std::thread;
 const PANIC_CHILD: &str = "MLX_RS_FFI_PANIC_CHILD";
 const ERROR_REGISTRATION_CHILD: &str = "MLX_RS_ERROR_REGISTRATION_CHILD";
 const CONCURRENT_ERRORS_CHILD: &str = "MLX_RS_CONCURRENT_ERRORS_CHILD";
+const MEMORY_CONTROL_CHILD: &str = "MLX_RS_MEMORY_CONTROL_CHILD";
 const ERROR_WORKERS: usize = 8;
 
 macro_rules! assert_not_impl_any {
@@ -294,6 +296,63 @@ fn empty_axis_vectors_and_new_error_paths_are_repeatable() {
         let complex = Array::from_complex(mlx_rs::complex64::new(1.0, 2.0));
         assert!(complex.trunc().is_err());
         assert!(mlx_rs::ops::vecdot(&input, &input, 3).is_err());
+    }
+}
+
+#[test]
+fn memory_get_set_and_restore_paths_are_repeatable() {
+    if std::env::var_os(MEMORY_CONTROL_CHILD).is_none() {
+        assert_subprocess_success(
+            "memory_get_set_and_restore_paths_are_repeatable",
+            MEMORY_CONTROL_CHILD,
+        );
+        return;
+    }
+
+    let original_memory_limit = memory::memory_limit().unwrap();
+    for _ in 0..200 {
+        assert_eq!(
+            memory::set_memory_limit(original_memory_limit).unwrap(),
+            original_memory_limit
+        );
+        assert_eq!(memory::memory_limit().unwrap(), original_memory_limit);
+
+        let cache_limit = memory::set_cache_limit(0).unwrap();
+        assert_eq!(memory::set_cache_limit(cache_limit).unwrap(), 0);
+
+        let wired_limit = memory::set_wired_limit(0).unwrap();
+        assert_eq!(memory::set_wired_limit(wired_limit).unwrap(), 0);
+
+        let _ = memory::active_memory().unwrap();
+        let _ = memory::cache_memory().unwrap();
+        let _ = memory::peak_memory().unwrap();
+    }
+}
+
+#[test]
+fn contiguous_and_rms_norm_release_error_outputs() {
+    for _ in 0..200 {
+        let empty = unsafe { Array::from_ptr(mlx_sys::mlx_array_new()) };
+        assert!(empty.contiguous().is_err());
+        assert!(empty
+            .contiguous_with_options(ContiguousOptions {
+                allow_col_major: true,
+            })
+            .is_err());
+
+        let input = Array::from_slice(&[1.0_f32, 2.0, 3.0, 4.0], &[1, 4]);
+        let wrong_weight = Array::from_slice(&[1.0_f32, 2.0], &[2]);
+        let error = fast::rms_norm(&input, Some(&wrong_weight), 1e-5)
+            .expect_err("wrong RMSNorm weight length must fail during invocation");
+        assert!(error.what().contains("[rms_norm]"));
+    }
+}
+
+#[test]
+fn rms_norm_absence_handles_are_freed_after_each_call() {
+    for _ in 0..200 {
+        let input = Array::from_slice(&[1.0_f32, 2.0, 3.0, 4.0], &[1, 4]);
+        fast::rms_norm(&input, None, 1e-5).unwrap().eval().unwrap();
     }
 }
 

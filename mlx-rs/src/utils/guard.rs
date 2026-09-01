@@ -580,7 +580,21 @@ macro_rules! impl_guarded_for_primitive {
     };
 }
 
-impl_guarded_for_primitive!(bool, u8, u16, u32, u64, i8, i16, i32, i64, f32, f64, ());
+impl_guarded_for_primitive!(
+    bool,
+    u8,
+    u16,
+    u32,
+    u64,
+    usize,
+    i8,
+    i16,
+    i32,
+    i64,
+    f32,
+    f64,
+    ()
+);
 
 impl Guarded for f16 {
     type Guard = float16_t;

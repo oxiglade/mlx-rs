@@ -15,7 +15,7 @@ EXPECTED_ARCH = "arm64"
 EXPECTED_MLX = "0.32.2"
 EXPECTED_NUMPY = "2.2.6"
 CORPUS_SEED = "mlx-rs-committed-cpu-ops-v1"
-OP_SUITES = ("arithmetic", "dtypes", "errors", "execution", "indexing", "math", "reductions", "shapes", "signal")
+OP_SUITES = ("arithmetic", "dtypes", "errors", "execution", "fast", "indexing", "math", "reductions", "shapes", "signal")
 SUITES = OP_SUITES + ("gguf",)
 ROOT = Path(__file__).resolve().parent
 
@@ -98,6 +98,10 @@ def source(dtype, shape, values=None, distribution="small_integers"):
     else:
         item["values"] = values
     return item
+
+
+def source_f32_bits(shape, bits):
+    return {"dtype": "F32", "shape": shape, "bits": [f"0x{value:08x}" for value in bits]}
 
 
 def case(case_id, suite, semantic_op, rust_call, inputs, extra_args=None, policy="exact_numeric", explicit=False, execution_target=None):
@@ -222,6 +226,69 @@ def build_specs():
     ]
     for index, op, call, inputs, extra in shape_specs:
         specs.append(case(f"shapes.{index:03d}", "shapes", op, call, inputs, extra_args=extra, policy=data_movement_policy(op, inputs)))
+
+    payload = [0x80000000, 0x7FC01234, 0x3F800000, 0xC0200000, 0x00000000, 0x40A00000]
+    specs.extend([
+        case(
+            "shapes.015", "shapes", "contiguous", "array.contiguous.transpose",
+            [source_f32_bits([2, 3], payload)],
+            extra_args=[arg_scalar("view", "i32", value=0), arg_scalar("allow_col_major", "bool", value=False)],
+            policy="exact_bits",
+        ),
+        case(
+            "shapes.016", "shapes", "contiguous", "array.contiguous.slice",
+            [source_f32_bits([8], [0x3F000000, 0x80000000, 0x40000000, 0x7FC01234, 0x40400000, 0x3F800000, 0x40800000, 0x00000000])],
+            extra_args=[arg_scalar("view", "i32", value=1), arg_scalar("allow_col_major", "bool", value=False)],
+            policy="exact_bits",
+        ),
+        case(
+            "shapes.017", "shapes", "contiguous", "array.contiguous.broadcast",
+            [source_f32_bits([1, 3], [0x80000000, 0x7FC01234, 0x3F800000])],
+            extra_args=[arg_scalar("view", "i32", value=2), shape([2, 3]), arg_scalar("allow_col_major", "bool", value=False)],
+            policy="exact_bits",
+        ),
+        case(
+            "shapes.018", "shapes", "contiguous", "array.contiguous.options.explicit_cpu",
+            [source_f32_bits([2, 3], payload)],
+            extra_args=[arg_scalar("view", "i32", value=0), arg_scalar("allow_col_major", "bool", value=True)],
+            policy="exact_bits", explicit=True,
+        ),
+    ])
+
+    fast_specs = [
+        case(
+            "fast.001", "fast", "rms_norm", "fast.rms_norm.none",
+            [source("F32", [2, 4], [1.0] * 8)],
+            extra_args=[arg_scalar("has_weight", "bool", value=False), arg_scalar("eps", "f32", bits="0x00000000")],
+            policy="reduction_float",
+        ),
+        case(
+            "fast.002", "fast", "rms_norm", "fast.rms_norm.weighted",
+            [source("F32", [2, 3], [1.0, 2.0, 3.0, -4.0, 5.0, -6.0]), source("F32", [3], [0.5, 2.0, -1.0])],
+            extra_args=[arg_scalar("has_weight", "bool", value=True), arg_scalar("eps", "f32", bits="0x3e800000")],
+            policy="reduction_float",
+        ),
+        case(
+            "fast.003", "fast", "rms_norm", "fast.rms_norm.weighted",
+            [source("F32", [2, 3], [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]), source("F32", [2], [1.0, 2.0])],
+            extra_args=[arg_scalar("has_weight", "bool", value=True), arg_scalar("eps", "f32", bits="0x3727c5ac")],
+        ),
+        case(
+            "fast.004", "fast", "rms_norm", "fast.rms_norm.weighted",
+            [source("F32", [2, 3], [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]), source("F32", [1, 3], [1.0, 2.0, 3.0])],
+            extra_args=[arg_scalar("has_weight", "bool", value=True), arg_scalar("eps", "f32", bits="0x3727c5ac")],
+        ),
+        case(
+            "fast.005", "fast", "rms_norm", "fast.rms_norm.explicit_cpu",
+            [source("F32", [1, 4], [1.0, -2.0, 3.0, -4.0])],
+            extra_args=[arg_scalar("has_weight", "bool", value=False), arg_scalar("eps", "f32", bits="0x3a83126f")],
+            policy="reduction_float", explicit=True,
+        ),
+    ]
+    for error_case in fast_specs[2:4]:
+        error_case["error"] = ("invoke_only", "RMSNorm weight shape is invalid", "ValueError", "fast.002")
+        error_case["rust_diagnostic"] = "[rms_norm]"
+    specs.extend(fast_specs)
 
     reduction_specs = [
         (1, "sum", "ops.sum.axis_optional", [source("F32", [2, 3])], [axis(None), keepdims(None)], "reduction_float"),
@@ -542,6 +609,9 @@ def make_values(np, spec, rng):
 
 
 def mlx_array(mx, np, spec, rng):
+    if "bits" in spec:
+        values = np.array([int(value, 16) for value in spec["bits"]], dtype=np.uint32).view(np.float32)
+        return mx.array(values, dtype=mx.float32).reshape(spec["shape"])
     values = make_values(np, spec, rng)
     if spec["dtype"] == "C64":
         values = [complex(v[0], v[1]) for v in values]
@@ -609,6 +679,20 @@ def call_recipe(mx, op, arrays, extra, execution_target):
         return [mx.expand_dims(arrays[0], by_name["axis"]["value"], **kwargs)]
     if op == "concatenate":
         return [mx.concatenate(arrays, axis=by_name["axis"]["value"], **kwargs)]
+    if op == "contiguous":
+        view = by_name["view"]["value"]
+        if view == 0:
+            value = arrays[0].transpose()
+        elif view == 1:
+            value = arrays[0][1:7:2]
+        elif view == 2:
+            value = mx.broadcast_to(arrays[0], by_name["shape"]["values"])
+        else:
+            raise ValueError(f"unknown contiguous view {view}")
+        return [mx.contiguous(value, allow_col_major=by_name["allow_col_major"]["value"], **kwargs)]
+    if op == "rms_norm":
+        weight = arrays[1] if by_name["has_weight"]["value"] else None
+        return [mx.fast.rms_norm(arrays[0], weight, scalar_array_value(by_name["eps"]), **kwargs)]
     if op in ("sum", "sum_axes"):
         selected_axis = by_name.get("axis", by_name.get("axes", {"value": None})).get("value", by_name.get("axes", {}).get("values"))
         return [mx.sum(arrays[0], axis=selected_axis, keepdims=by_name["keepdims"]["value"] or False, **kwargs)]
@@ -784,6 +868,17 @@ def numpy_agrees(np, arrays, outputs, op, extra):
         elif op == "broadcast_arrays": result = list(np.broadcast_arrays(*values))
         elif op == "expand_dims": result = [np.expand_dims(values[0], by_name["axis"]["value"])]
         elif op == "concatenate": result = [np.concatenate(values, axis=by_name["axis"]["value"])]
+        elif op == "contiguous":
+            view = by_name["view"]["value"]
+            if view == 0: result = [np.ascontiguousarray(values[0].transpose())]
+            elif view == 1: result = [np.ascontiguousarray(values[0][1:7:2])]
+            else: result = [np.ascontiguousarray(np.broadcast_to(values[0], by_name["shape"]["values"]))]
+        elif op == "rms_norm":
+            eps = scalar_array_value(by_name["eps"])
+            normalized = values[0] / np.sqrt(np.mean(np.square(values[0]), axis=-1, keepdims=True) + eps)
+            if by_name["has_weight"]["value"]:
+                normalized = normalized * values[1]
+            result = [normalized]
         elif op in ("sum", "sum_axes"):
             selected_axis = by_name.get("axis", by_name.get("axes", {"value": None})).get("value", by_name.get("axes", {}).get("values"))
             result = [np.sum(values[0], axis=selected_axis, keepdims=by_name["keepdims"]["value"] or False)]
@@ -1138,7 +1233,11 @@ def generate_tree(target, mx, np):
                         except Exception as error:
                             if stage == "eval_only" and not invoked:
                                 raise RuntimeError(f"{spec['id']} did not reach evaluation") from error
+                            if stage == "invoke_only" and invoked:
+                                raise RuntimeError(f"{spec['id']} reached evaluation") from error
                             record["expected"] = {"status": "error", "allowed_stage": stage, "reason": reason, "python_exception": {"module": type(error).__module__, "type": type(error).__name__}, "control_case_id": control, "diagnostic": str(error)}
+                            if "rust_diagnostic" in spec:
+                                record["expected"]["rust_diagnostic"] = spec["rust_diagnostic"]
                             if spec["suite"] == "indexing":
                                 record["expected"]["rust_error_variant"] = "zero_stride" if exception_type == "ZeroStride" else "exception"
                         else:
@@ -1240,6 +1339,9 @@ def generate_tree(target, mx, np):
             {"id": "index_update_stride_reversal", "base_case_id": "indexing.007", "kind": "index_update_stride_reversal", "expected_class": "value"},
             {"id": "index_update_force_scatter", "base_case_id": "indexing.002", "kind": "index_update_force_scatter", "expected_class": "value"},
             {"id": "index_update_force_slice", "base_case_id": "indexing.012", "kind": "index_update_force_slice", "expected_class": "value"},
+            {"id": "contiguous_value_mangle", "base_case_id": "shapes.015", "kind": "contiguous_value_mangle", "expected_class": "signed_zero"},
+            {"id": "rms_norm_weight_ignored", "base_case_id": "fast.002", "kind": "rms_norm_weight_ignored", "expected_class": "value"},
+            {"id": "rms_norm_eps_ignored", "base_case_id": "fast.002", "kind": "rms_norm_eps_ignored", "expected_class": "value"},
             {"id": "gguf_array_dtype_changed_values_equal", "base_case_id": "gguf.001", "kind": "gguf_array_dtype_changed_values_equal", "expected_class": "dtype"},
             {"id": "gguf_array_beyond_tolerance", "base_case_id": "gguf.001", "kind": "gguf_array_beyond_tolerance", "expected_class": "value_relative"},
             {"id": "gguf_array_key_removed", "base_case_id": "gguf.001", "kind": "gguf_array_key_removed", "expected_class": "array_keys"},

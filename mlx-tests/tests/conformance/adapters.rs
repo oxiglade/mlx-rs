@@ -4,15 +4,16 @@ use super::oracle::{
 };
 use half::{bf16, f16};
 use mlx_rs::{
+    fast,
     io::{GgufError, GgufFile, GgufMetadataValue},
     linalg,
     ops::{
         self,
         indexing::{
-            Ellipsis, IndexUpdateError, IntoStrideBy, NewAxis, TryIndexMutOp, TryIndexUpdateOp,
-            UpdateMode,
+            Ellipsis, IndexOp, IndexUpdateError, IntoStrideBy, NewAxis, TryIndexMutOp,
+            TryIndexUpdateOp, UpdateMode,
         },
-        CountNonzeroOptions, LinspaceOptions, LogCumsumExpOptions, TraceOptions,
+        ContiguousOptions, CountNonzeroOptions, LinspaceOptions, LogCumsumExpOptions, TraceOptions,
     },
     with_device, with_stream, Array, Axes, Device, Dtype, Stream,
 };
@@ -48,6 +49,13 @@ pub(super) const ADAPTERS: &[&str] = &[
     "ops.broadcast_arrays",
     "ops.expand_dims.axis",
     "ops.concatenate",
+    "array.contiguous.transpose",
+    "array.contiguous.slice",
+    "array.contiguous.broadcast",
+    "array.contiguous.options.explicit_cpu",
+    "fast.rms_norm.none",
+    "fast.rms_norm.weighted",
+    "fast.rms_norm.explicit_cpu",
     "ops.sum.axis_optional",
     "ops.sum.axes",
     "array.sum.all_optional",
@@ -686,6 +694,81 @@ pub(super) fn dispatch(case: &Case, safe: &SafeTensors<'_>) -> Result<Vec<Array>
             let axis = args.axis("axis")?;
             args.execution()?;
             vec![mlx_error(ops::concatenate(&arrays, axis))?]
+        }
+        "array.contiguous.transpose" | "array.contiguous.options.explicit_cpu" => {
+            let input = args.tensor("input0")?;
+            let ScalarValue::I32(view) = args.scalar("view")? else {
+                return Err("view scalar type mismatch".into());
+            };
+            if view != 0 {
+                return Err("transpose contiguous adapter requires view 0".into());
+            }
+            let ScalarValue::Bool(allow_col_major) = args.scalar("allow_col_major")? else {
+                return Err("allow_col_major scalar type mismatch".into());
+            };
+            args.execution()?;
+            let transposed = mlx_error(input.transpose())?;
+            let operation =
+                || transposed.contiguous_with_options(ContiguousOptions { allow_col_major });
+            let output = if case.rust_call.ends_with("explicit_cpu") {
+                with_device(Device::cpu(), operation)
+            } else {
+                operation()
+            };
+            vec![mlx_error(output)?]
+        }
+        "array.contiguous.slice" => {
+            let input = args.tensor("input0")?;
+            let ScalarValue::I32(view) = args.scalar("view")? else {
+                return Err("view scalar type mismatch".into());
+            };
+            if view != 1 {
+                return Err("slice contiguous adapter requires view 1".into());
+            }
+            let ScalarValue::Bool(allow_col_major) = args.scalar("allow_col_major")? else {
+                return Err("allow_col_major scalar type mismatch".into());
+            };
+            args.execution()?;
+            let sliced = input.index((1..7).stride_by(2));
+            vec![mlx_error(sliced.contiguous_with_options(
+                ContiguousOptions { allow_col_major },
+            ))?]
+        }
+        "array.contiguous.broadcast" => {
+            let input = args.tensor("input0")?;
+            let ScalarValue::I32(view) = args.scalar("view")? else {
+                return Err("view scalar type mismatch".into());
+            };
+            if view != 2 {
+                return Err("broadcast contiguous adapter requires view 2".into());
+            }
+            let shape = args.shape("shape")?;
+            let ScalarValue::Bool(allow_col_major) = args.scalar("allow_col_major")? else {
+                return Err("allow_col_major scalar type mismatch".into());
+            };
+            args.execution()?;
+            let broadcast = mlx_error(ops::broadcast_to(&input, &shape))?;
+            vec![mlx_error(broadcast.contiguous_with_options(
+                ContiguousOptions { allow_col_major },
+            ))?]
+        }
+        "fast.rms_norm.none" | "fast.rms_norm.weighted" | "fast.rms_norm.explicit_cpu" => {
+            let input = args.tensor("input0")?;
+            let ScalarValue::Bool(has_weight) = args.scalar("has_weight")? else {
+                return Err("has_weight scalar type mismatch".into());
+            };
+            let weight = has_weight.then(|| args.tensor("input1")).transpose()?;
+            let ScalarValue::F32(eps) = args.scalar("eps")? else {
+                return Err("eps scalar type mismatch".into());
+            };
+            args.execution()?;
+            let operation = || fast::rms_norm(&input, weight.as_ref(), eps);
+            let output = if case.rust_call.ends_with("explicit_cpu") {
+                with_device(Device::cpu(), operation)
+            } else {
+                operation()
+            };
+            vec![mlx_error(output)?]
         }
         "ops.sum.axis_optional" => {
             let a = args.tensor("input0")?;
