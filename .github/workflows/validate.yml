@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   checks:
-    runs-on: blaze/macos-15
+    runs-on: blaze/macos-latest
     steps:
       - uses: actions/checkout@v7
         with:
@@ -40,7 +40,7 @@ jobs:
   # budget. A runner that denies task ports fails loudly here instead of
   # producing a silently green gate.
   ffi-gate:
-    runs-on: blaze/macos-15
+    runs-on: blaze/macos-latest
     steps:
       - uses: actions/checkout@v7
         with:
@@ -64,7 +64,7 @@ jobs:
     runs-on: blaze/${{ matrix.runner }}
     strategy:
       matrix:
-        runner: [macos-15]
+        runner: [macos-latest]
         rust: [1.88.0, stable]
     steps:
       - uses: actions/checkout@v7
