@@ -19,7 +19,6 @@ jobs:
           # verify-oracle-boundary --base walks the commit range; a shallow
           # clone has no history to walk.
           fetch-depth: 0
-      - run: sudo xcodes select 16.4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           components: rustfmt, clippy
@@ -45,7 +44,6 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: true
-      - run: sudo xcodes select 16.4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           cache: false
@@ -70,7 +68,6 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: true
-      - run: sudo xcodes select 16.4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           cache: false
