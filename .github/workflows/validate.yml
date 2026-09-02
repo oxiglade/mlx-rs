@@ -50,7 +50,7 @@ jobs:
           rustflags: ""
       - uses: Swatinem/rust-cache@v2
         with:
-          key: ffi-gate-${{ hashFiles('**/Cargo.toml') }}
+          key: ffi-gate-${{ hashFiles('Cargo.toml', '*/Cargo.toml') }}
       - run: cargo run -p xtask -- verify-ffi --calibrate --budget-seconds 1200 | tee verify-ffi-calibration.json
       - uses: actions/upload-artifact@v4
         if: always()
@@ -75,5 +75,5 @@ jobs:
           rustflags: "" # Disable when we're ready
       - uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ matrix.rust }}-${{ matrix.runner }}-${{ hashFiles('**/Cargo.toml') }}
+          key: ${{ matrix.rust }}-${{ matrix.runner }}-${{ hashFiles('Cargo.toml', '*/Cargo.toml') }}
       - run: cargo test --all -- --test-threads=1 # MLX is not thread safe
