@@ -1,6 +1,6 @@
 [package]
 name = "mlx-sys"
-version = "0.2.0" # Crate releases are independent of the pinned mlx-c/MLX source tuple.
+version = "0.6.0" # Follows the pinned mlx-c release (v0.6.0-7-gc74db53, MLX 0.32.2).
 authors.workspace = true
 edition.workspace = true
 
