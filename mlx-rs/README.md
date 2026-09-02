@@ -58,7 +58,7 @@ The [examples](examples/) directory contains sample projects demonstrating diffe
 Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
-mlx-rs = "0.21.0"
+mlx-rs = "0.32.0"
 ```
 
 ## Feature Flags
