@@ -52,7 +52,7 @@ jobs:
         with:
           key: ffi-gate-${{ hashFiles('Cargo.toml', '*/Cargo.toml') }}
       - run: cargo run -p xtask -- verify-ffi --calibrate --budget-seconds 1200 | tee verify-ffi-calibration.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: verify-ffi-calibration
