@@ -55,7 +55,7 @@ libc = "0.2"
 parking_lot = "0.12"
 tempfile = "3"
 itertools = "0.14"
-syn = { version = "2", features = ["full"] }
+syn = { version = "3", features = ["full"] }
 quote = "1"
 darling = "0.21"
 proc-macro2 = "1"
