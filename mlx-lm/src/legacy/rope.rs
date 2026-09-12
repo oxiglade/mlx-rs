@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use mlx_macros::ModuleParameters;
+use mlx_rs::macros::ModuleParameters;
 use mlx_rs::{
     builder::Builder,
     error::Exception,
@@ -9,51 +9,16 @@ use mlx_rs::{
     ops::{arange, select},
     Array,
 };
-use serde::Deserialize;
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum FloatOrStr<'a> {
-    Float(f32),
-    Str(&'a str),
-}
-
-// TODO: check if additional serde attributes are needed
-#[derive(Debug, Clone, Deserialize)]
-#[serde(untagged)]
-pub enum FloatOrString {
-    Float(f32),
-    String(String),
-}
-
-impl FloatOrString {
-    pub fn borrowed(&self) -> FloatOrStr<'_> {
-        match self {
-            FloatOrString::Float(f) => FloatOrStr::Float(*f),
-            FloatOrString::String(s) => FloatOrStr::Str(s),
-        }
-    }
-}
-
-/// Get a numeric float value from a scaling config by key.
-///
-/// Note: str variants in the config are not always floats — values like "default" or "linear"
-/// are also valid for non-numeric fields. This function should only be called for keys that
-/// are expected to hold numeric values.
 fn get_numeric_from_config(
-    config: &HashMap<String, FloatOrString>,
+    config: &HashMap<String, serde_json::Value>,
     key: &str,
 ) -> Result<f32, Exception> {
-    match config
+    config
         .get(key)
-        .map(FloatOrString::borrowed)
-        .ok_or_else(|| {
-            Exception::custom(format!(r#"key "{key}" is not found in scaling config"#))
-        })? {
-        FloatOrStr::Float(f) => Ok(f),
-        FloatOrStr::Str(s) => s
-            .parse::<f32>()
-            .map_err(|_| Exception::custom(format!(r#"key "{key}" is not a valid number"#))),
-    }
+        .and_then(serde_json::Value::as_f64)
+        .map(|v| v as f32)
+        .ok_or_else(|| Exception::custom(format!("missing numeric RoPE field {key}")))
 }
 
 /// Llama3-style RoPE with frequency scaling.
@@ -259,62 +224,47 @@ pub fn initialize_rope(
     dims: i32,
     base: f32, // rope_theta
     traditional: bool,
-    scaling_config: &Option<HashMap<String, FloatOrString>>,
+    scaling_config: &Option<HashMap<String, serde_json::Value>>,
     _max_position_embeddings: i32,
 ) -> Result<RopeVariant, Exception> {
     let rope_type = scaling_config
         .as_ref()
-        .and_then(|config| {
-            config
-                .get("type")
-                .or_else(|| config.get("rope_type"))
-                .map(FloatOrString::borrowed)
-        })
-        .unwrap_or(FloatOrStr::Str("default"));
-
-    if rope_type == FloatOrStr::Str("default") || rope_type == FloatOrStr::Str("linear") {
-        let scale = if rope_type == FloatOrStr::Str("linear") {
-            let den = get_numeric_from_config(scaling_config.as_ref().unwrap(), "factor")?;
-            1.0 / den
-        } else {
-            1.0
-        };
-
-        let rope = nn::RopeBuilder::new(dims)
-            .traditional(traditional)
-            .base(base)
-            .scale(scale)
-            .build()
-            .expect("Infallible");
-        return Ok(RopeVariant::Default(rope));
-    } else if rope_type == FloatOrStr::Str("llama3") {
-        let config = scaling_config
-            .as_ref()
-            .ok_or_else(|| Exception::custom("scaling_config is required for llama3 RoPE"))?;
-
-        let factor = get_numeric_from_config(config, "factor")?;
-        let low_freq_factor = get_numeric_from_config(config, "low_freq_factor")?;
-        let high_freq_factor = get_numeric_from_config(config, "high_freq_factor")?;
-        let original_max_position_embeddings =
-            get_numeric_from_config(config, "original_max_position_embeddings")? as i32;
-
-        let rope = Llama3Rope::new(
-            dims,
-            traditional,
-            original_max_position_embeddings,
-            base,
-            factor,
-            low_freq_factor,
-            high_freq_factor,
-        )?;
-        return Ok(RopeVariant::Llama3(rope));
-    } else if rope_type == FloatOrStr::Str("yarn") {
-        todo!()
-    } else if rope_type == FloatOrStr::Str("longrope") {
-        todo!()
+        .and_then(|config| config.get("type").or_else(|| config.get("rope_type")))
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("default");
+    match rope_type {
+        "default" | "linear" => {
+            let scale = if rope_type == "linear" {
+                let config = scaling_config
+                    .as_ref()
+                    .ok_or_else(|| Exception::custom("missing RoPE scaling"))?;
+                1.0 / get_numeric_from_config(config, "factor")?
+            } else {
+                1.0
+            };
+            let rope = nn::RopeBuilder::new(dims)
+                .traditional(traditional)
+                .base(base)
+                .scale(scale)
+                .build()?;
+            Ok(RopeVariant::Default(rope))
+        }
+        "llama3" => {
+            let config = scaling_config
+                .as_ref()
+                .ok_or_else(|| Exception::custom("missing RoPE scaling"))?;
+            Ok(RopeVariant::Llama3(Llama3Rope::new(
+                dims,
+                traditional,
+                get_numeric_from_config(config, "original_max_position_embeddings")? as i32,
+                base,
+                get_numeric_from_config(config, "factor")?,
+                get_numeric_from_config(config, "low_freq_factor")?,
+                get_numeric_from_config(config, "high_freq_factor")?,
+            )?))
+        }
+        _ => Err(Exception::custom(format!(
+            "unsupported RoPE type {rope_type}"
+        ))),
     }
-
-    Err(Exception::custom(format!(
-        "Unsupported RoPE type {rope_type:?}"
-    )))
 }

@@ -1,42 +1,64 @@
-pub mod cache;
-pub mod error;
-// pub mod generate;
-pub mod models;
-pub mod sampler;
-pub mod utils;
+//! Synchronous, thread-bound language model inference with typed configuration.
+#![deny(missing_docs)]
 
-use mlx_rs::Array;
+#[allow(dead_code)] // Interfaces are claimed by the implementation items listed in SKELETON.md.
+mod arch;
+#[allow(dead_code)]
+mod cache;
+#[allow(dead_code)]
+mod config;
+mod error;
+mod model;
+mod sampling;
+mod tokenizer;
+#[allow(dead_code)]
+mod weights;
 
-use crate::models::qwen3;
+pub use cache::{Cache, CacheInfo, CacheKind, CacheOptions, CachePolicy, CacheSnapshot};
+pub use config::{
+    AffineQuantization, AttentionKind, Config, LayerQuantization, ModelType, ParameterPath,
+    QuantizationConfig, RopeConfig, RopeScaling, TransformerDimensions,
+};
+pub use error::{
+    CacheError, ChatTemplateError, ConfigError, GenerationError, HubError, InferenceError,
+    LoadError, SamplingError, TokenizerError, WeightError,
+};
+#[cfg(feature = "hf-hub")]
+pub use model::HubOptions;
+pub use model::{
+    FinishReason, Generation, GenerationEvent, GenerationOptions, Model, Prompt,
+    RepetitionPenaltyOptions, StopTokenPolicy,
+};
+pub use sampling::{MinPOptions, SamplerOptions};
+pub use tokenizer::{ChatContinuation, ChatTemplateOptions, Message, Role, TokenId, Tokenizer};
 
-pub struct ModelInputBuilder<'a, C, T> {
-    pub y: &'a Array,
-    pub cache: &'a mut Vec<Option<C>>,
-    pub state: &'a mut T,
-}
+/// Temporary implementation access for the unchanged prototype regression adapters.
+#[cfg(feature = "prototype-adapter")]
+#[doc(hidden)]
+#[allow(missing_docs)]
+pub mod legacy;
 
-pub trait ModelInput<'a, C, T> {
-    fn from_model_input_builder(builder: ModelInputBuilder<'a, C, T>) -> Self;
-}
-
-impl<'a, C> ModelInput<'a, C, Option<Array>> for qwen3::ModelInput<'a, C> {
-    fn from_model_input_builder(builder: ModelInputBuilder<'a, C, Option<Array>>) -> Self {
-        let ModelInputBuilder { y, cache, state } = builder;
-
-        Self {
-            inputs: y,
-            mask: state.as_ref(),
-            cache,
-        }
+struct NotYetImplemented(&'static str);
+impl std::fmt::Display for NotYetImplemented {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: not yet implemented in this tranche", self.0)
     }
 }
 
-pub trait ModelOutput {
-    fn logits(&self) -> &Array;
+macro_rules! assert_not_impl_any {
+    ($type:ty: $($trait:path),+ $(,)?) => {
+        const _: fn() = || {
+            trait AmbiguousIfImpl<T: ?Sized> { fn check() {} }
+            impl<T: ?Sized> AmbiguousIfImpl<()> for T {}
+            $({
+                struct Invalid;
+                impl<T: ?Sized + $trait> AmbiguousIfImpl<Invalid> for T {}
+            })+
+            let _ = <$type as AmbiguousIfImpl<_>>::check;
+        };
+    };
 }
-
-impl ModelOutput for Array {
-    fn logits(&self) -> &Array {
-        self
-    }
-}
+assert_not_impl_any!(Model: Send, Sync);
+assert_not_impl_any!(Generation<'static>: Send, Sync);
+assert_not_impl_any!(Cache: Send, Sync);
+assert_not_impl_any!(CacheSnapshot: Send, Sync);

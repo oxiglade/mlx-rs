@@ -1,6 +1,6 @@
 [package]
 name = "mlx-lm"
-version = "0.0.1"
+version.workspace = true
 edition.workspace = true
 authors.workspace = true
 repository.workspace = true
@@ -8,25 +8,36 @@ keywords.workspace = true
 categories.workspace = true
 license.workspace = true
 documentation.workspace = true
-description = "Rust implementation of mlx-lm"
+description = "Synchronous language model inference with MLX"
+autotests = false
+publish = false
+
+[features]
+default = []
+hf-hub = ["dep:hf-hub"]
+prototype-adapter = []
 
 [dependencies]
-# Local dependencies
 mlx-rs.workspace = true
-mlx-macros.workspace = true
-mlx-lm-utils.workspace = true
-
-# External dependencies
 serde = { version = "1", features = ["derive"] }
-anyhow = "1"
-tokenizers = { version = "0.22.0", features = ["http"] } 
-clap = { version = "4", features = ["derive"] }
-idna_adapter = "1.2" 
-thiserror = "2"
 serde_json = "1"
-minijinja = "2"
+thiserror.workspace = true
+safetensors.workspace = true
+tokenizers = { version = "0.22", default-features = false, features = ["onig"] }
+minijinja = { version = "2", features = ["loader"] }
+minijinja-contrib = { version = "2", features = ["pycompat"] }
+hf-hub = { version = "0.4", optional = true, default-features = false, features = ["ureq"] }
 
 [dev-dependencies]
-lazy_static = "1"
-safetensors.workspace = true
+anyhow = "1"
 tempfile.workspace = true
+
+[[test]]
+name = "parity"
+path = "tests/parity_adapter.rs"
+required-features = ["prototype-adapter"]
+
+[[test]]
+name = "sentinel"
+path = "tests/sentinel_adapter.rs"
+required-features = ["prototype-adapter"]
