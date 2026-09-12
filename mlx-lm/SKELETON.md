@@ -26,16 +26,6 @@ no model constructor succeeds yet; remove those allowances as the seams gain cal
 | foundation, tranche 3 | `src/model.rs` | `RepetitionPenaltyOptions::validate` | `SamplingError::UnsupportedMode` |
 | foundation, tranche 3 | `src/sampling.rs` | `SamplerOptions::validate` | `SamplingError::UnsupportedMode` |
 | foundation, tranche 3 | `src/sampling.rs` | `MinPOptions::validate` | `SamplingError::UnsupportedMode` |
-| cache | `src/cache/mod.rs` | `Cache::new` | `CacheError::UnsupportedPolicy` |
-| cache, tranche 3 | `src/cache/mod.rs` | `Cache::snapshot` | `CacheError::UnsupportedPolicy` |
-| cache, tranche 3 | `src/cache/mod.rs` | `Cache::restore` | `CacheError::UnsupportedPolicy` |
-| cache | `src/cache/mod.rs` | `Cache::step` | `CacheError::UnsupportedPolicy` |
-| cache | `src/cache/mod.rs` | `CacheStep::update_and_fetch` | `CacheError::UnsupportedPolicy` |
-| cache | `src/cache/mod.rs` | `CacheStep::commit` | `CacheError::UnsupportedPolicy` |
-| cache | `src/cache/full.rs` | `FullCache::new` | `CacheError::UnsupportedPolicy` |
-| cache | `src/cache/full.rs` | `FullCache::update_and_fetch` | `CacheError::UnsupportedPolicy` |
-| cache | `src/cache/rotating.rs` | `RotatingCache::new` | `CacheError::UnsupportedPolicy` |
-| cache | `src/cache/rotating.rs` | `RotatingCache::update_and_fetch` | `CacheError::UnsupportedPolicy` |
 | loader | `src/weights/mod.rs` | `WeightManifest::discover` | `WeightError::UnsupportedFormat` |
 | loader | `src/weights/mod.rs` | `WeightManifest::from_safetensors` | `WeightError::UnsupportedFormat` |
 | loader | `src/weights/mod.rs` | `WeightManifest::from_sharded_index` | `WeightError::UnsupportedFormat` |
@@ -51,11 +41,45 @@ no model constructor succeeds yet; remove those allowances as the seams gain cal
 | qwen3 | `src/arch/qwen3/mod.rs` | `Factory::map_safetensors_key` | `WeightDisposition::Reject` |
 | qwen3, tranche 4 | `src/arch/qwen3/mod.rs` | `Factory::map_gguf_key` | `WeightDisposition::Reject` |
 
-The cache item owns the sealed `LayerCache` trait, `LayerCacheSpec`, `CacheStep`, full and
-rotating storage, snapshot fingerprint contents, and transaction rollback. Snapshot and
-transaction structs currently hold no staged arrays; no constructor can expose them.
-The storage metadata implementations describe only their declared counters; the rotating
-item must add prefix-aware retained metadata with real storage. No bounded-memory claim is made.
+The cache item implements the sealed `LayerCache` trait, full and rotating storage,
+transaction rollback, and snapshots. Full storage accepts a known total capacity and grows
+geometrically when that capacity is exceeded. Rotating storage uses functional index
+replacement for single-token updates; one-shot and chunked prefill preserve the oracle's
+oversized logical arrays until a subsequent update trims them. No bounded-memory claim is
+made until Metal long-loop measurements qualify the lazy graph and allocator behavior.
+
+Cache integration notes and deviations:
+
+- `Cache::new` takes `architecture: ModelType` ahead of layout, options, and optional total
+  capacity; the generation caller supplies `prompt_len + max_tokens` as that capacity.
+  Architecture identity is part of the snapshot fingerprint.
+- `CacheInfo::retained_prefix: Range<usize>` is an added public field. A single range cannot
+  describe a retained prefix and a disjoint recent tail. `retained_positions` describes the
+  recent range, excluding the prefix. With `keep_prefix = 0`, it keeps the original meaning.
+- `Cache::logical_layers()` is crate-visible for decision 11's oracle hooks. Each
+  `LogicalLayerView` has `layer`, contiguous `keys` and `values` shaped
+  `[batch, kv_heads, positions.len(), head_dim]`, and an absolute `positions` range.
+  Views are ordered by layer, then position. Full layers yield one view; rotating layers
+  with a retained prefix yield separate prefix and tail views, omitting empty segments.
+  An empty layer yields one empty `0..0` view. Reading views leaves cache state intact.
+  A layer's views cover exactly the positions `CacheInfo` reports, so after the oracle's
+  oversized prefill they include every stored position (`llama-sliding` after prefill: 8
+  positions at capacity 5, `0..8`); after decode they match the fixture's `after_decode`
+  arrays (sliding layer 1: `11..16`).
+- `CacheStep::evaluate_and_commit(&[&Array])` evaluates logits/token outputs together with
+  staged K/V. `commit()` uses the same path without extra outputs. Any failed layer update
+  poisons the step; failed or incomplete steps cannot commit. Dropping staged handles leaves
+  the committed cache intact. Every layer must be updated once to the same absolute position.
+  `CacheStep::info(layer)` exposes staged offsets and retained ranges to model math.
+- Snapshots clone handles keyed by layer and validate architecture, cardinality, layout,
+  policy, dtype, backing shape, absolute position, logical length, and rotation index.
+  Storage is always allocated, so there are no optional array slots. Full allocation sizes
+  may differ when restoring an earlier snapshot; unused capacity is not semantic state.
+- The oracle's oversized-prefill behavior is an exception to fixed-capacity storage:
+  the first chunk retains all its tokens; later chunks retain up to capacity + chunk - 1.
+  Single-token decode returns to the configured capacity and emits temporal order.
+  Internal trimming follows the oracle's `is_trimmable` restriction: after reaching capacity,
+  trimming returns `InvalidState` because evicted tokens cannot be recovered.
 
 The loader owns manifest entries and strict application through `StateProjection`. Each
 architecture owns `ParsedConfig`, its private JSON `WireConfig`, all model math, and its
