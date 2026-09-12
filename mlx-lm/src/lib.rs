@@ -37,6 +37,11 @@ pub use tokenizer::{ChatContinuation, ChatTemplateOptions, Message, Role, TokenI
 #[allow(missing_docs)]
 pub mod legacy;
 
+#[cfg(feature = "oracle-hooks")]
+#[doc(hidden)]
+#[allow(missing_docs)]
+pub mod oracle_hooks;
+
 struct NotYetImplemented(&'static str);
 impl std::fmt::Display for NotYetImplemented {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

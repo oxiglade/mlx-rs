@@ -11,6 +11,11 @@ pub struct Model {
     config: Config,
 }
 impl Model {
+    #[cfg(feature = "oracle-hooks")]
+    pub(crate) fn decoder_mut(&mut self) -> &mut dyn DecoderModel {
+        self.decoder.as_mut()
+    }
+
     /// Loads a local model with strict safetensors weight matching.
     pub fn from_dir(path: impl AsRef<Path>) -> Result<Self, LoadError> {
         let path = path.as_ref();
