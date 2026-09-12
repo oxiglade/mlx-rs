@@ -27,7 +27,7 @@ jobs:
       - name: Setup Dependencies
         run: brew install gnu-tar
       - name: Install Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v2
       - name: Build docs
         run: |
           cargo doc --no-deps
