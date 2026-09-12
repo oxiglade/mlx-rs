@@ -1,0 +1,148 @@
+{
+  "files": {
+    "fixtures/llama-base/config.json": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+    "fixtures/llama-base/expectations.json": "8aceecefa1dcb0a1c46173f17ae8c66e2db15fdbb231458c8303f20a8a4349cd",
+    "fixtures/llama-base/expectations.safetensors": "951d7673dcdaf4de997339ad7df842ebf12030f2597d3848ca1b3af442e5376d",
+    "fixtures/llama-base/generation_config.json": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+    "fixtures/llama-base/inputs.json": "bfe4a25e819db0004cb8a90b842020ee80c2607a2d4f3beae411df477f741346",
+    "fixtures/llama-base/model.safetensors": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+    "fixtures/llama-base/tokenizer.json": "d3f6e27c58186b601192ffef2c870af3877a3ec271c53468a3368977e07f75ba",
+    "fixtures/llama-base/tokenizer_config.json": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+    "fixtures/llama-quant4/config.json": "53d673967ffa97f501211f100b25d35fd34d56c15c8a8b2959b165d2f7dca217",
+    "fixtures/llama-quant4/expectations.json": "15fed0b7caa504143c0bd6832cdb9fe04f586109c7fa690b3a67fefdd5148fd4",
+    "fixtures/llama-quant4/expectations.safetensors": "1ce16d0296650d6f19ab0141b94eff7ed5e181bfa86e85c40dd1a25cfb739e5e",
+    "fixtures/llama-quant4/generation_config.json": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+    "fixtures/llama-quant4/inputs.json": "095480c9fbeecc567578df4525deb264dd08c3bc1e43f6b968784b61834112f3",
+    "fixtures/llama-quant4/model.safetensors": "7854dd16e0e31a19748ce0a254a57310e36c357944de5d9c844d3f6ad918acbb",
+    "fixtures/llama-quant4/tokenizer.json": "d3f6e27c58186b601192ffef2c870af3877a3ec271c53468a3368977e07f75ba",
+    "fixtures/llama-quant4/tokenizer_config.json": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+    "fixtures/llama-sharded/config.json": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+    "fixtures/llama-sharded/expectations.json": "8aceecefa1dcb0a1c46173f17ae8c66e2db15fdbb231458c8303f20a8a4349cd",
+    "fixtures/llama-sharded/expectations.safetensors": "951d7673dcdaf4de997339ad7df842ebf12030f2597d3848ca1b3af442e5376d",
+    "fixtures/llama-sharded/generation_config.json": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+    "fixtures/llama-sharded/inputs.json": "bfe4a25e819db0004cb8a90b842020ee80c2607a2d4f3beae411df477f741346",
+    "fixtures/llama-sharded/model-00001-of-00002.safetensors": "cce38cfb33c5e94c4cb1db997a5f39e0e43c4ab26ada0895ad58a8456327ebb6",
+    "fixtures/llama-sharded/model-00002-of-00002.safetensors": "51abf485e7841ed34fe5b2372ee30d58acbdd542a662a7bda6070d4c283cfac7",
+    "fixtures/llama-sharded/model.safetensors.index.json": "cf5619c08e82fd693d65b7f51b8f867fb6ba44c055f5f9abdccd13fd4eb1ccd6",
+    "fixtures/llama-sharded/tokenizer.json": "d3f6e27c58186b601192ffef2c870af3877a3ec271c53468a3368977e07f75ba",
+    "fixtures/llama-sharded/tokenizer_config.json": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+    "fixtures/llama-sliding/config.json": "277c6f978d0c5d3bda5278edd451e2c75c715f312eceefeb3b33d8a64fab23e3",
+    "fixtures/llama-sliding/expectations.json": "084d82558e43690b9ab8f50db80b03228d258a39d07108fb724b1bb36fb6d44c",
+    "fixtures/llama-sliding/expectations.safetensors": "14050578068d7a38481abb6f2a92cb3b344b0ee5f96fc6bc1ec044a3d4256d94",
+    "fixtures/llama-sliding/generation_config.json": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+    "fixtures/llama-sliding/inputs.json": "bfe4a25e819db0004cb8a90b842020ee80c2607a2d4f3beae411df477f741346",
+    "fixtures/llama-sliding/model.safetensors": "c6a3cf64a738f4689d7573afef74a3769f959f25933b61880caca1aa76752efc",
+    "fixtures/llama-sliding/tokenizer.json": "d3f6e27c58186b601192ffef2c870af3877a3ec271c53468a3368977e07f75ba",
+    "fixtures/llama-sliding/tokenizer_config.json": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+    "fixtures/qwen3-base/config.json": "bc2491361ab9b3dee4404074b0096bc72d9a6dec4ae27264da9aad97344cc0e6",
+    "fixtures/qwen3-base/expectations.json": "1188aebe03d08ddd6d64c112eec7c0cf189b592a9721d316b83c80c725cdef20",
+    "fixtures/qwen3-base/expectations.safetensors": "ab8625eed38d05661a3b53137ac78968bcc98af198e38efc1b04513d73c4540e",
+    "fixtures/qwen3-base/generation_config.json": "ca1aa316922a741baa628a351e7e7ee8caf0d3bd9a3f76128077a33039690438",
+    "fixtures/qwen3-base/inputs.json": "bfe4a25e819db0004cb8a90b842020ee80c2607a2d4f3beae411df477f741346",
+    "fixtures/qwen3-base/model.safetensors": "fe98a08008b8e38c1b037c60355d8b7a14f71925cd36fb6f1b672b5446b53944",
+    "fixtures/qwen3-base/tokenizer.json": "d3f6e27c58186b601192ffef2c870af3877a3ec271c53468a3368977e07f75ba",
+    "fixtures/qwen3-base/tokenizer_config.json": "320ed7a8112d4f659f3ca9306141e8359b517decd9469117aaaaa04c1f8fb85a",
+    "fixtures/qwen3-quant4/config.json": "d068654fb810713081c3ec71519dde351558af53799258084f91a80c16b4104e",
+    "fixtures/qwen3-quant4/expectations.json": "d616816b043b4ea2e72e0785360a6ecdb2576fd13d4b9b6294ee466fc5a4c541",
+    "fixtures/qwen3-quant4/expectations.safetensors": "e208c5a29b8e4354b8818132632d91e1f5a1ebda5952b82c5c527b8dd7b3c94f",
+    "fixtures/qwen3-quant4/generation_config.json": "ca1aa316922a741baa628a351e7e7ee8caf0d3bd9a3f76128077a33039690438",
+    "fixtures/qwen3-quant4/inputs.json": "095480c9fbeecc567578df4525deb264dd08c3bc1e43f6b968784b61834112f3",
+    "fixtures/qwen3-quant4/model.safetensors": "b9b791fa736d7c30dcc2f6be2bd7561ee6fa7188561b1280b6d20d941826c4bc",
+    "fixtures/qwen3-quant4/tokenizer.json": "d3f6e27c58186b601192ffef2c870af3877a3ec271c53468a3368977e07f75ba",
+    "fixtures/qwen3-quant4/tokenizer_config.json": "320ed7a8112d4f659f3ca9306141e8359b517decd9469117aaaaa04c1f8fb85a",
+    "numpy_reference/out/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "numpy_reference/out/llama-base.safetensors": "bfa3544b599a01a1cd939e6163ec5721579e3d8eb49958b7d312424de57656ac",
+    "numpy_reference/out/llama-quant4.safetensors": "a7f09de3ed852c5fc33e59db87e99d9831ac15731229f54138b75662c4906091",
+    "numpy_reference/out/llama-sharded.safetensors": "bfa3544b599a01a1cd939e6163ec5721579e3d8eb49958b7d312424de57656ac",
+    "numpy_reference/out/llama-sliding.safetensors": "15ed9db2c7994d2a075a32c97d56a5d5d2d08fe91fa49042d7f82de8172f4b04",
+    "numpy_reference/out/qwen3-base.safetensors": "8b13090e02c5e848d4786349690b4c8eca7cf488f4267ea6e32468d434710568",
+    "numpy_reference/out/qwen3-quant4.safetensors": "474a5f366c2df83ba785ade7310f77ddc2a81ebc40d347496d9da53be49faf17"
+  },
+  "schema_version": 1,
+  "tolerance_policies": {
+    "llama-base": {
+      "cache": {
+        "atol": 0.0002,
+        "rtol": 0.0002
+      },
+      "logits": {
+        "atol": 0.0002,
+        "rtol": 0.0002
+      },
+      "logprobs": {
+        "atol": 0.0001,
+        "rtol": 0.0001
+      }
+    },
+    "llama-quant4": {
+      "cache": {
+        "atol": 0.0002,
+        "rtol": 0.0002
+      },
+      "logits": {
+        "atol": 0.0002,
+        "rtol": 0.0002
+      },
+      "logprobs": {
+        "atol": 0.0001,
+        "rtol": 0.0001
+      }
+    },
+    "llama-sharded": {
+      "cache": {
+        "atol": 0.0002,
+        "rtol": 0.0002
+      },
+      "logits": {
+        "atol": 0.0002,
+        "rtol": 0.0002
+      },
+      "logprobs": {
+        "atol": 0.0001,
+        "rtol": 0.0001
+      }
+    },
+    "llama-sliding": {
+      "cache": {
+        "atol": 0.0002,
+        "rtol": 0.0002
+      },
+      "logits": {
+        "atol": 0.0002,
+        "rtol": 0.0002
+      },
+      "logprobs": {
+        "atol": 0.0001,
+        "rtol": 0.0001
+      }
+    },
+    "qwen3-base": {
+      "cache": {
+        "atol": 0.0002,
+        "rtol": 0.0002
+      },
+      "logits": {
+        "atol": 0.0002,
+        "rtol": 0.0002
+      },
+      "logprobs": {
+        "atol": 0.0001,
+        "rtol": 0.0001
+      }
+    },
+    "qwen3-quant4": {
+      "cache": {
+        "atol": 0.0002,
+        "rtol": 0.0002
+      },
+      "logits": {
+        "atol": 0.0002,
+        "rtol": 0.0002
+      },
+      "logprobs": {
+        "atol": 0.0001,
+        "rtol": 0.0001
+      }
+    }
+  }
+}
