@@ -22,14 +22,27 @@ a sliding-window layer pattern and llama3 rope in the `llama-sliding` variant). 
 - `expectations.safetensors` — every array expectation, f32 unless stated, keys below.
 - `inputs.json` — the prompt strings, token id lists, seeds, sampler cases, chunk sizes used.
 
+## Shared math pins
+- RoPE llama3 smoothing follows mlx_lm 0.31.3 `rope_utils.py` exactly (angle = pos / f_i with
+  f_i = theta^(2i/d); low band f_i *= factor; mid band f_i /= ((1-s)/factor + s)); both
+  generators derive from that file's math, the NumPy one without importing it.
+- Affine dequant per /Users/ci/hub/scratch/mlx-lm/t1/affine-packing.md (recorded in-repo as
+  conformance/mlx-lm/numpy_reference/PACKING.md by the NumPy item).
+
 ## Array keys in expectations.safetensors
 - `prefill.full.logits` — `[1, T, V]` for the canonical prompt, one-shot prefill.
 - `prefill.chunk<N>.logits` — same tensor produced with prefill chunk size N, for N in
   {1, 3, T}; N=3 must be a non-divisor of T.
 - `cache.after_prefill.layer<i>.keys` / `.values` — logical K/V `[1, kv_heads, T, head_dim]`
-  after prefill (for rotating layers: the retained window only).
+  after a ONE-SHOT prefill, in temporal (position) order. Sliding-window layers emit all T
+  positions here too: mlx's RotatingKVCache keeps the whole first concat and only trims on
+  later updates, and both oracles pin that exact state rather than an idealized window.
 - `decode.step<j>.logits` — `[1, V]` for greedy decode steps j in 0..8.
-- `cache.after_decode.layer<i>.keys` / `.values` — logical K/V after the 8 decode steps.
+- `cache.after_decode.layer<i>.keys` / `.values` — logical K/V after the 8 decode steps, in
+  temporal order: full layers all T+8 positions; sliding layers (window W) the last
+  min(W, T+8) positions. mlx stores the rotating buffer in rotated memory order; the Python
+  generator must emit temporal order (reorder by the cache's rotation index), and the NumPy
+  reference keeps a logical temporal cache and emits its tail.
 - `sampling.<case>.filtered_logprobs` — `[V]` logprobs after the case's filters (top_p, min_p,
   top_k) at the first decode position, before temperature division; -inf for filtered entries.
 - `quant.<param>` — for quant4 variants: the packed weight/scales/biases arrays of two named
