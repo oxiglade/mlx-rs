@@ -488,5 +488,4 @@ fn validate_dtype(key: &str, expected: Dtype, actual: Dtype) -> Result<(), Weigh
 }
 
 #[cfg(test)]
-#[path = "../../tests/weights.rs"]
 mod tests;

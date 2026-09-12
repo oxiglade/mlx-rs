@@ -214,7 +214,7 @@ mod tests {
         std::fs::write(&generation_config, br#"{"eos_token_id":[3,2]}"#)?;
         assert_eq!(
             Tokenizer::from_dir(directory.path())?.eos_tokens(),
-            &[TokenId::from(3), TokenId::from(2)]
+            &[TokenId::from(2), TokenId::from(3)]
         );
         std::fs::remove_file(&generation_config)?;
         assert_eq!(
@@ -235,9 +235,12 @@ mod tests {
 
         std::fs::write(&config, br#"{"model_type":"llama","eos_token_id":9}"#)?;
         std::fs::write(&generation_config, br#"{"eos_token_id":null}"#)?;
-        assert!(Tokenizer::from_dir(directory.path())?
-            .eos_tokens()
-            .is_empty());
+        // mlx_lm treats a falsy generation_config eos_token_id as absent and falls
+        // through to config.json.
+        assert_eq!(
+            Tokenizer::from_dir(directory.path())?.eos_tokens(),
+            &[TokenId::from(9)]
+        );
         Ok(())
     }
 
