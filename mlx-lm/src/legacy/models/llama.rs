@@ -4,25 +4,23 @@ use std::{
 };
 
 use mlx_rs::{
-    array,
     builder::Builder,
     error::Exception,
     macros::{ModuleParameters, Quantizable},
     module::{Module, ModuleParametersExt},
     nn,
-    ops::indexing::{argmax_axis, IndexOp, NewAxis},
+    ops::indexing::argmax_axis,
     quantization::MaybeQuantized,
-    random::categorical,
     Array,
 };
 use serde::Deserialize;
 use serde_json::Value;
 use tokenizers::Tokenizer;
 
-use crate::{
+use crate::legacy::{
     cache::KeyValueCache,
     error::Error,
-    utils::rope::{initialize_rope, FloatOrString, RopeVariant},
+    rope::{initialize_rope, RopeVariant},
 };
 
 #[derive(Debug, Clone, Deserialize)]
@@ -44,7 +42,7 @@ pub struct ModelArgs {
     pub attention_bias: bool,
     #[serde(default)]
     pub mlp_bias: bool,
-    pub rope_scaling: Option<HashMap<String, FloatOrString>>,
+    pub rope_scaling: Option<HashMap<String, Value>>,
 }
 
 fn default_true() -> bool {
@@ -81,17 +79,23 @@ impl Attention {
 
         let head_dim = args.head_dim;
         let scale = (head_dim as f32).sqrt().recip();
+        let query_width = n_heads
+            .checked_mul(head_dim)
+            .ok_or_else(|| Exception::custom("query projection width overflow"))?;
+        let kv_width = n_kv_heads
+            .checked_mul(head_dim)
+            .ok_or_else(|| Exception::custom("KV projection width overflow"))?;
 
-        let q_proj = nn::LinearBuilder::new(dim, n_heads * head_dim)
+        let q_proj = nn::LinearBuilder::new(dim, query_width)
             .bias(args.attention_bias)
             .build()?;
-        let k_proj = nn::LinearBuilder::new(dim, n_kv_heads * head_dim)
+        let k_proj = nn::LinearBuilder::new(dim, kv_width)
             .bias(args.attention_bias)
             .build()?;
-        let v_proj = nn::LinearBuilder::new(dim, n_kv_heads * head_dim)
+        let v_proj = nn::LinearBuilder::new(dim, kv_width)
             .bias(args.attention_bias)
             .build()?;
-        let o_proj = nn::LinearBuilder::new(n_heads * head_dim, dim)
+        let o_proj = nn::LinearBuilder::new(query_width, dim)
             .bias(args.attention_bias)
             .build()?;
 
@@ -135,8 +139,12 @@ where
         let AttentionInput { x, mask, mut cache } = input;
 
         let shape = x.shape();
-        let B = shape[0];
-        let L = shape[1];
+        let B = *shape
+            .first()
+            .ok_or_else(|| Exception::custom("missing batch dimension"))?;
+        let L = *shape
+            .get(1)
+            .ok_or_else(|| Exception::custom("missing sequence dimension"))?;
 
         let queries = self.q_proj.forward(x)?;
         let keys = self.k_proj.forward(x)?;
@@ -168,8 +176,13 @@ where
             keys = self.rope.forward(nn::RopeInput::new(&keys))?;
         }
 
-        let output = crate::utils::scaled_dot_product_attention(
-            queries, keys, values, cache, self.scale, mask,
+        let output = mlx_rs::fast::scaled_dot_product_attention(
+            queries,
+            keys,
+            values,
+            self.scale,
+            mask.map(mlx_rs::fast::ScaledDotProductAttentionMask::Array),
+            None,
         )?
         .transpose_axes(&[0, 2, 1, 3])?
         .reshape(&[B, L, -1])?;
@@ -336,7 +349,9 @@ pub struct LlamaModel {
 
 impl LlamaModel {
     pub fn new(args: &ModelArgs) -> Result<Self, Exception> {
-        assert!(args.vocab_size.is_positive());
+        if args.vocab_size <= 0 {
+            return Err(Exception::custom("vocabulary size must be positive"));
+        }
 
         let vocab_size = args.vocab_size;
         let num_hidden_layers = args.num_hidden_layers;
@@ -385,9 +400,17 @@ where
         let mask = match mask {
             Some(mask) => Some(mask.clone()),
             None => {
-                if h.shape()[1] > 1 {
-                    let m =
-                        nn::MultiHeadAttention::create_additive_causal_mask::<f32>(h.shape()[1])?;
+                if *h
+                    .shape()
+                    .get(1)
+                    .ok_or_else(|| Exception::custom("missing sequence dimension"))?
+                    > 1
+                {
+                    let m = nn::MultiHeadAttention::create_additive_causal_mask::<f32>(
+                        *h.shape()
+                            .get(1)
+                            .ok_or_else(|| Exception::custom("missing sequence dimension"))?,
+                    )?;
                     Some(m.as_dtype(h.dtype())?)
                 } else {
                     None
@@ -531,245 +554,10 @@ pub fn load_llama_model(model_dir: impl AsRef<Path>) -> Result<Model, Error> {
 }
 
 pub fn sample(logits: &Array, temp: f32) -> Result<Array, Exception> {
-    match temp {
-        0.0 => argmax_axis(logits, -1, None),
-        _ => {
-            let logits = logits.multiply(array!(1.0 / temp))?;
-            categorical(logits, None, None, None)
-        }
+    if temp != 0.0 {
+        return Err(Exception::custom(
+            "legacy adapter supports greedy sampling only",
+        ));
     }
-}
-
-pub struct Generate<'a, C> {
-    model: &'a mut Model,
-    cache: &'a mut Vec<Option<C>>,
-    temp: f32,
-    state: GenerateState<'a>,
-}
-
-impl<'a, C> Generate<'a, C>
-where
-    C: KeyValueCache + Default,
-{
-    pub fn new(
-        model: &'a mut Model,
-        cache: &'a mut Vec<Option<C>>,
-        temp: f32,
-        prompt_token: &'a Array,
-    ) -> Self {
-        Self {
-            model,
-            cache,
-            temp,
-            state: GenerateState::Prefill { prompt_token },
-        }
-    }
-}
-
-pub enum GenerateState<'a> {
-    Prefill { prompt_token: &'a Array },
-    Decode { y: Array },
-}
-
-macro_rules! tri {
-    ($expr:expr) => {
-        match $expr {
-            Ok(val) => val,
-            Err(e) => return Some(Err(e.into())),
-        }
-    };
-}
-
-impl<'a, C> Iterator for Generate<'a, C>
-where
-    C: KeyValueCache + Default,
-{
-    type Item = Result<Array, Exception>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match &self.state {
-            GenerateState::Prefill { prompt_token } => {
-                let input = ModelInput {
-                    inputs: prompt_token,
-                    mask: None,
-                    cache: self.cache,
-                };
-                let logits = tri!(self.model.forward(input));
-                let y = tri!(sample(&logits.index((.., -1, ..)), self.temp));
-                self.state = GenerateState::Decode { y: y.clone() };
-
-                Some(Ok(y))
-            }
-            GenerateState::Decode { y } => {
-                let inputs = y.index((.., NewAxis));
-                let input = ModelInput {
-                    inputs: &inputs,
-                    mask: None,
-                    cache: self.cache,
-                };
-                let logits = tri!(self.model.forward(input));
-                let y = tri!(sample(&logits.index((.., -1, ..)), self.temp));
-
-                self.state = GenerateState::Decode { y: y.clone() };
-
-                Some(Ok(y))
-            }
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::{env::home_dir, fs};
-
-    use lazy_static::lazy_static;
-    use mlx_rs::{
-        ops::indexing::{IndexOp, NewAxis},
-        transforms::eval,
-        Array,
-    };
-
-    use crate::{
-        cache::ConcatKeyValueCache,
-        models::llama::{load_llama_model, load_llama_tokenizer},
-    };
-
-    /// Resolve the HuggingFace cache directory to the actual snapshot path.
-    /// The structure is:
-    ///   models--<org>--<name>/
-    ///     refs/
-    ///       main  (contains the commit hash)
-    ///     snapshots/
-    ///       <commit_hash>/  (actual model files)
-    fn resolve_hf_cache_dir(model_cache_dir: &str) -> String {
-        let refs_main = std::path::Path::new(model_cache_dir)
-            .join("refs")
-            .join("main");
-        let commit_hash = fs::read_to_string(&refs_main)
-            .unwrap_or_default()
-            .trim()
-            .to_string();
-        std::path::Path::new(model_cache_dir)
-            .join("snapshots")
-            .join(commit_hash)
-            .to_string_lossy()
-            .into_owned()
-    }
-
-    lazy_static! {
-        static ref CACHED_TEST_MODEL_DIR: String = {
-            let cache_dir = home_dir()
-                .map(|p| {
-                    p.join(".cache")
-                        .join("huggingface")
-                        .join("hub")
-                        .join("models--meta-llama--Llama-3.2-1B-Instruct")
-                        .to_string_lossy()
-                        .into_owned()
-                })
-                .unwrap_or_default();
-
-            resolve_hf_cache_dir(&cache_dir)
-        };
-    }
-
-    #[test]
-    #[ignore = "requires MLX_LM_FIXTURES_DIR pointing to local model files"]
-    fn test_load_llama_model() {
-        use mlx_rs::module::ModuleParameters;
-
-        let model_dir = CACHED_TEST_MODEL_DIR.as_str();
-        let model_args = super::get_llama_model_args(model_dir).unwrap();
-        let model = super::Model::new(model_args).unwrap();
-
-        // Print some model parameter keys
-        let params = model.parameters().flatten();
-        let mut param_keys: Vec<_> = params.keys().map(|k| k.to_string()).collect();
-        param_keys.sort();
-        println!("=== Model parameter keys (first 20) ===");
-        for key in param_keys.iter().take(20) {
-            println!("  {key}");
-        }
-
-        // Print some safetensor keys
-        let weights_path = std::path::Path::new(model_dir).join("model.safetensors");
-        let loaded = mlx_rs::Array::load_safetensors(&weights_path).unwrap();
-        let mut weight_keys: Vec<_> = loaded.keys().map(|k| k.to_string()).collect();
-        weight_keys.sort();
-        println!("=== Safetensor weight keys (first 20) ===");
-        for key in weight_keys.iter().take(20) {
-            println!("  {key}");
-        }
-
-        // Find unmatched keys
-        let param_set: std::collections::HashSet<_> = param_keys.iter().collect();
-        let weight_set: std::collections::HashSet<_> = weight_keys.iter().collect();
-        let unloaded: Vec<_> = weight_set.difference(&param_set).collect();
-        let missing: Vec<_> = param_set.difference(&weight_set).collect();
-        println!(
-            "=== Weight keys NOT in model params ({}) ===",
-            unloaded.len()
-        );
-        for key in unloaded.iter().take(10) {
-            println!("  {key}");
-        }
-        println!(
-            "=== Model param keys NOT in weights ({}) ===",
-            missing.len()
-        );
-        for key in missing.iter().take(10) {
-            println!("  {key}");
-        }
-        println!(
-            "Total model params: {}, Total weight keys: {}",
-            param_keys.len(),
-            weight_keys.len()
-        );
-    }
-
-    #[test]
-    #[ignore = "requires MLX_LM_FIXTURES_DIR pointing to local model files"]
-    fn test_load_tokenizer() {
-        let tokenizer = load_llama_tokenizer(CACHED_TEST_MODEL_DIR.as_str()).unwrap();
-
-        let _encoding = tokenizer.encode("Hello, world!", true).unwrap();
-    }
-
-    #[test]
-    #[ignore = "requires MLX_LM_FIXTURES_DIR pointing to local model files"]
-    fn test_load_and_run_llama_with_concat_cache() {
-        let tokenizer = load_llama_tokenizer(CACHED_TEST_MODEL_DIR.as_str()).unwrap();
-        let mut model = load_llama_model(CACHED_TEST_MODEL_DIR.as_str()).unwrap();
-
-        let prompt = "<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\nWhat is the capital of France?<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n";
-        let encoding = tokenizer.encode(prompt, false).unwrap();
-        let prompt_tokens = Array::from(encoding.get_ids()).index(NewAxis);
-        let mut cache = Vec::new();
-
-        let eos_token_id = 128001u32;
-        let eot_token_id = 128009u32;
-
-        let mut token_ids = Vec::new();
-        let generate = super::Generate::<ConcatKeyValueCache>::new(
-            &mut model,
-            &mut cache,
-            0.0,
-            &prompt_tokens,
-        );
-        for (token, _ntoks) in generate.zip(0..50) {
-            let token = token.unwrap();
-            eval([&token]).unwrap();
-            let token_id = token.item_exact::<u32>();
-            print!("[{}]", token_id);
-            if token_id == eos_token_id || token_id == eot_token_id {
-                break;
-            }
-            token_ids.push(token_id);
-        }
-        println!();
-
-        let output = tokenizer.decode(&token_ids, true).unwrap();
-        println!("Response: {output}");
-        println!("------");
-    }
+    argmax_axis(logits, -1, None)
 }

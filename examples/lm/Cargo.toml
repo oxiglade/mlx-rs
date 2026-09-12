@@ -11,8 +11,6 @@ documentation.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-mlx-rs.workspace = true
 mlx-lm.workspace = true
-mlx-lm-utils.workspace = true
 
 anyhow = "1"
