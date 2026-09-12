@@ -36,12 +36,7 @@ no model constructor succeeds yet; remove those allowances as the seams gain cal
 | cache | `src/cache/full.rs` | `FullCache::update_and_fetch` | `CacheError::UnsupportedPolicy` |
 | cache | `src/cache/rotating.rs` | `RotatingCache::new` | `CacheError::UnsupportedPolicy` |
 | cache | `src/cache/rotating.rs` | `RotatingCache::update_and_fetch` | `CacheError::UnsupportedPolicy` |
-| loader | `src/weights/mod.rs` | `WeightManifest::discover` | `WeightError::UnsupportedFormat` |
-| loader | `src/weights/mod.rs` | `WeightManifest::from_safetensors` | `WeightError::UnsupportedFormat` |
-| loader | `src/weights/mod.rs` | `WeightManifest::from_sharded_index` | `WeightError::UnsupportedFormat` |
 | loader, tranche 4 | `src/weights/mod.rs` | `WeightManifest::from_gguf` | `WeightError::UnsupportedFormat` |
-| loader | `src/weights/mod.rs` | `WeightManifest::load_strict` | `WeightError::UnsupportedFormat` |
-| loader | `src/weights/mod.rs` | `WeightManifest::read_tensor` | `WeightError::UnsupportedFormat` |
 | llama | `src/arch/llama/mod.rs` | `Factory::parse_config` | `ConfigError::UnsupportedArchitecture` |
 | llama | `src/arch/llama/mod.rs` | `Factory::build` | `LoadError::Config(UnsupportedArchitecture)` |
 | llama | `src/arch/llama/mod.rs` | `Factory::map_safetensors_key` | `WeightDisposition::Reject` |
@@ -57,9 +52,29 @@ transaction structs currently hold no staged arrays; no constructor can expose t
 The storage metadata implementations describe only their declared counters; the rotating
 item must add prefix-aware retained metadata with real storage. No bounded-memory claim is made.
 
-The loader owns manifest entries and strict application through `StateProjection`. Each
-architecture owns `ParsedConfig`, its private JSON `WireConfig`, all model math, and its
-key dispositions. Wire configs currently retain raw fields without resolving defaults.
+The loader implements safetensors discovery, indexed-shard reconciliation, metadata validation,
+and strict application through `StateProjection`. Discovery reads headers without loading tensor
+payloads. Assignment validates every mapped slot before materialization, evaluates all staged
+arrays, then restores one keyed snapshot, retaining absent optional slots. GGUF remains tranche 4.
+
+Architecture constructors use `affine_groups()` to detect packed groups and
+`validate_affine_group(prefix, &AffineQuantization)` to check their configured layout before
+allocating slots. They own quantized module construction and per-layer overrides. Core quantized
+modules project `inner.weight`, `scales`, and `biases`; architecture key maps hide those names
+and explicitly ignore redundant tied heads. No randomly initialized weight is quantized by the
+loader. Each architecture owns `ParsedConfig`, its private JSON `WireConfig`, all model math,
+and its key dispositions.
+
+Loader signature choices: the skeleton's `WeightDisposition::Parameter`, `WeightError::MissingKey`,
+and `WeightError::UnexpectedKey` retain their names (the brief calls these `Assign`, `MissingTensor`,
+and `UnexpectedTensor`). Fixture spellings `MissingShard`, `DuplicateTensor`, and `ShapeMismatch`
+are unchanged. No public API was added. Because test autodiscovery is disabled and the loader
+is private, `tests/weights.rs` is included as a unit-test module from `src/weights/mod.rs`;
+its metadata-only tests can be selected with `weights::tests::pure`. Discovery parses headers with the
+`safetensors` crate types and materialization loads each shard once through
+`Array::load_safetensors`, validating every loaded array against the manifest before assignment.
+
+Wire configs currently retain raw fields without resolving defaults.
 `DecoderModel` is declared exactly as designed; neither factory constructs an implementation.
 The registry contains only `llama::Factory` and `qwen3::Factory`.
 
