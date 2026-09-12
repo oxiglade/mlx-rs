@@ -63,12 +63,61 @@ The factory owns strict keyed assignment, tied-aware ignores such as a redundant
 `lm_head.weight`, and weight evaluation before returning the decoder. `from_dir` only
 discovers the manifest and passes it to the factory; it does not reload the projection.
 
-The tokenizer item owns `src/tokenizer/` and the moved Qwen3 template fixture. Local JSON
-loading, encode/decode, scalar/list EOS precedence, compiled string templates, pycompat,
-textual roles, and safe continuation are implemented. Named-template selection, additional
-special-token cases, invalid EOS coverage, and exact oracle chat/tokenizer parity still need
-qualification. Missing templates fail during rendering, while invalid selected Jinja fails
-during loading. No remote code or tokenizer HTTP feature is enabled.
+The tokenizer item implements local JSON loading, encode/decode, EOS resolution, template
+selection, pycompat, textual roles, continuation, and the private streaming decoder. The
+incoming skeleton already had no tokenizer placeholder rows; none remain to remove. Missing
+templates fail during rendering; invalid selected Jinja fails during loading. String templates,
+named-template dictionaries, and the serialized list of `{name, template}` entries select
+`default`. Other named templates are not compiled. No tokenizer HTTP feature is enabled.
+
+The foundation loader can call crate-private
+`Tokenizer::from_dir_with_eos(path, Vec<TokenId>) -> Result<Tokenizer, TokenizerError>` after
+resolving model EOS metadata. It loads tokenizer assets without rereading model/generation
+config, sorts and deduplicates the supplied IDs, and preserves an explicitly empty set.
+Standalone `from_dir` follows mlx_lm 0.31.3 precedence: a nonempty generation list or nonzero
+scalar overrides model config; null, an empty list, or scalar zero in generation config falls
+back to model config. Null/absent model EOS falls back to the tokenizer's EOS spelling.
+Invalid EOS types and out-of-range IDs fail with `InvalidEos`; invalid JSON is rejected rather
+than silently ignored as in Python's generation-config reader.
+
+Generation uses crate-private `Tokenizer::decode_stream() -> StreamingDecoder<'_>`,
+`step(TokenId) -> Result<Option<String>, TokenizerError>`, and consuming
+`finish() -> Result<String, TokenizerError>`. Feed only generated non-stop tokens; skip the
+sampled EOS and call `finish` on either EOS or length completion. Discard the decoder after
+an error. Special tokens are preserved, matching `decode` and Python’s streaming detokenizer.
+UTF-8 fragments are buffered by `tokenizers::DecodeStream`,
+and `finish` decodes the accumulated IDs once to emit any remaining text, including incomplete
+UTF-8 replacement characters. If final decoding rewrites an already emitted prefix (for example,
+ByteFallback can replace an entire byte run when it ends incomplete), `finish` returns the
+wrapped `DecodeStreamError::InvalidPrefix`; it cannot retract prior deltas. The wrapper retains
+IDs and emitted text, so auxiliary storage
+is linear in the generated sequence; it does not decode the full history per step. Remove its
+narrow dead-code allowances when foundation/generation gain callers.
+
+Tokenizer design deviations and signature choices:
+
+- `ChatTemplateOptions` adds public `enable_thinking: Option<bool>` because the protected Qwen3
+  goldens explicitly pass false. `None` leaves the variable undefined and preserves template
+  defaults. No arbitrary template-kwargs map is exposed. The separately packaged
+  `examples/lm/src/main.rs` literal needs `..Default::default()` when its owner next migrates it;
+  it is outside this item's ownership and outside workspace checks.
+- `decode` preserves special tokens, matching Python's default and the oracle's ordinary
+  decodings; the incoming skeleton omitted them. Private helpers qualify the oracle's explicit
+  add/skip-special-token cases without adding public option types.
+- ContinueLast uses Transformers 5.17.0's marker algorithm, including spacing preservation,
+  trimmed output, and empty final text. An empty conversation returns `IncompatibleContinuation`.
+- `src/tokenizer/tests.rs` contains the tokenizer unit tests. It reads every protected fixture
+  directory and compares all tokenizer expectations, EOS source, exact chat UTF-8 hex, chat
+  token IDs, and per-step streaming deltas. Protected fixtures are never edited.
+
+Tokenizer verification passed: `cargo fmt --check`,
+`cargo clippy -p mlx-lm --all-targets -- -D warnings`, `cargo check --tests`,
+`cargo doc -p mlx-lm --no-deps`, and
+`cargo test -p mlx-lm --lib tokenizer::` (11 tests). The six fixture
+directories cover 36 encodings, 36 decodings, EOS metadata/source, and 18 exact chat cases.
+Five continuation edge cases were checked directly against the pinned Transformers renderer.
+No MLX evaluation, Metal/model inference, or generation-event delta parity was executed.
+The excluded LM example was not built. No commit was created.
 
 ## Prototype removal
 
