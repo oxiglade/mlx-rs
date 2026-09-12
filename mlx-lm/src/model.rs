@@ -250,7 +250,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "NOT RUN: Model::from_dir happy path requires the architecture and loader items"]
     fn local_loading_matches_fixture_expectations() -> anyhow::Result<()> {
         let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("../conformance/mlx-lm/fixtures");
         let mut count = 0;

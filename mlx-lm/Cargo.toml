@@ -9,13 +9,11 @@ categories.workspace = true
 license.workspace = true
 documentation.workspace = true
 description = "Synchronous language model inference with MLX"
-autotests = false
 publish = false
 
 [features]
 default = []
 hf-hub = ["dep:hf-hub"]
-prototype-adapter = []
 oracle-hooks = []
 
 [dependencies]
@@ -35,10 +33,10 @@ tempfile.workspace = true
 
 [[test]]
 name = "parity"
-path = "tests/parity_adapter.rs"
-required-features = ["prototype-adapter", "oracle-hooks"]
+path = "tests/parity.rs"
+required-features = ["oracle-hooks"]
 
 [[test]]
 name = "sentinel"
-path = "tests/sentinel_adapter.rs"
-required-features = ["prototype-adapter", "oracle-hooks"]
+path = "tests/sentinel.rs"
+required-features = ["oracle-hooks"]

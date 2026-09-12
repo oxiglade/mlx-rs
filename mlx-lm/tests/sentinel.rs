@@ -8,12 +8,11 @@ use std::{
 
 use anyhow::{bail, Context, Result};
 use mlx_lm::{
-    cache::KeyValueCache,
-    models::llama::{load_llama_model, load_llama_tokenizer, sample, ModelInput},
+    oracle_hooks::{self, CacheSnapshotView},
+    Model, TokenId,
 };
 use mlx_rs::{
-    module::Module,
-    ops::{concatenate, indexing::IndexOp},
+    ops::indexing::{argmax_axis, IndexOp},
     Array, Dtype,
 };
 use safetensors::{Dtype as SafeDtype, SafeTensors};
@@ -88,49 +87,6 @@ struct Observed {
     prefill_shape: Vec<i32>,
     prefill_dtype: Dtype,
     token_ids: Vec<u32>,
-}
-
-#[derive(Debug, Clone, Default)]
-struct InspectableCache {
-    keys: Option<Array>,
-    values: Option<Array>,
-    offset: i32,
-}
-
-impl KeyValueCache for InspectableCache {
-    fn offset(&self) -> i32 {
-        self.offset
-    }
-
-    fn max_size(&self) -> Option<i32> {
-        None
-    }
-
-    fn update_and_fetch(
-        &mut self,
-        keys: Array,
-        values: Array,
-    ) -> std::result::Result<(Array, Array), mlx_rs::error::Exception> {
-        match (self.keys.take(), self.values.take()) {
-            (Some(existing_keys), Some(existing_values)) => {
-                self.keys = Some(concatenate(&[existing_keys, keys], -2)?);
-                self.values = Some(concatenate(&[existing_values, values], -2)?);
-            }
-            _ => {
-                self.keys = Some(keys);
-                self.values = Some(values);
-            }
-        }
-        let keys = self.keys.as_ref().expect("cache keys must be initialized");
-        self.offset = keys.dim(-2);
-        Ok((
-            keys.clone(),
-            self.values
-                .as_ref()
-                .expect("cache values must be initialized")
-                .clone(),
-        ))
-    }
 }
 
 struct OfflineEnvironment {
@@ -235,17 +191,18 @@ fn read_expected_logits(fixture: &Path, expected: &TensorExpectation) -> Result<
 fn materialize_last_logits(logits: &Array) -> Result<Array> {
     logits
         .index((0, -1, ..))
-        .multiply(Array::from_f32(1.0))
+        .contiguous()
         .context("materialize final-position logits")
 }
 
 fn greedy_token(logits: &Array) -> Result<u32> {
-    let token = sample(logits, 0.0)?;
+    let token = argmax_axis(logits, -1, None)?.contiguous()?;
     token.eval()?;
     Ok(token.item_exact::<u32>())
 }
 
-fn check_cache(caches: &[Option<InspectableCache>], expected: &CacheExpectation) -> Result<()> {
+fn check_cache(view: &CacheSnapshotView, expected: &CacheExpectation) -> Result<()> {
+    let caches = &view.layers;
     if caches.len() != expected.layers.len() {
         bail!(
             "cache has {} layers, expected {}",
@@ -254,11 +211,14 @@ fn check_cache(caches: &[Option<InspectableCache>], expected: &CacheExpectation)
         );
     }
     for (index, (cache, expected)) in caches.iter().zip(&expected.layers).enumerate() {
-        let cache = cache
-            .as_ref()
-            .with_context(|| format!("cache layer {index} is absent"))?;
-        check_cached_array(index, "keys", cache.keys.as_ref(), &expected.keys)?;
-        check_cached_array(index, "values", cache.values.as_ref(), &expected.values)?;
+        if cache.layer != index {
+            bail!(
+                "cache layer {} is out of order, expected {index}",
+                cache.layer
+            );
+        }
+        check_cached_array(index, "keys", &cache.keys, &expected.keys)?;
+        check_cached_array(index, "values", &cache.values, &expected.values)?;
     }
     Ok(())
 }
@@ -266,10 +226,9 @@ fn check_cache(caches: &[Option<InspectableCache>], expected: &CacheExpectation)
 fn check_cached_array(
     layer: usize,
     name: &str,
-    actual: Option<&Array>,
+    actual: &Array,
     expected: &ArrayExpectation,
 ) -> Result<()> {
-    let actual = actual.with_context(|| format!("cache layer {layer} {name} are absent"))?;
     if actual.shape() != expected.shape {
         bail!(
             "cache layer {layer} {name} shape is {:?}, expected {:?}",
@@ -289,53 +248,40 @@ fn check_cached_array(
 
 fn run_fixture(fixture: &Path, expected: &Expectations) -> Result<Observed> {
     let offline = OfflineEnvironment::enter()?;
-    let tokenizer = load_llama_tokenizer(fixture)?;
-    let encoding = tokenizer
-        .encode(expected.prompt.text.as_str(), false)
-        .map_err(|error| anyhow::anyhow!(error.to_string()))?;
-    if encoding.get_ids() != expected.prompt.token_ids {
+    let mut model = Model::from_dir(fixture)?;
+    let tokenizer = model.tokenizer();
+    let tokens: Vec<TokenId> = expected
+        .prompt
+        .token_ids
+        .iter()
+        .copied()
+        .map(TokenId::from)
+        .collect();
+    let encoding = tokenizer.encode(&expected.prompt.text)?;
+    if encoding != tokens {
         bail!(
             "tokenizer encoded {:?}, expected {:?}",
-            encoding.get_ids(),
+            encoding,
             expected.prompt.token_ids
         );
     }
-    let decoded = tokenizer
-        .decode(&expected.prompt.token_ids, false)
-        .map_err(|error| anyhow::anyhow!(error.to_string()))?;
-    let round_trip = tokenizer
-        .encode(decoded, false)
-        .map_err(|error| anyhow::anyhow!(error.to_string()))?;
-    if round_trip.get_ids() != expected.prompt.token_ids {
+    let decoded = tokenizer.decode(&tokens)?;
+    let round_trip = tokenizer.encode(&decoded)?;
+    if round_trip != tokens {
         bail!("tokenizer does not round-trip the sentinel prompt");
     }
 
-    let mut model = load_llama_model(fixture)?;
-    let prompt = Array::from_slice(
-        &expected.prompt.token_ids,
-        &[1, expected.prompt.token_ids.len() as i32],
-    );
-    let mut cache = Vec::<Option<InspectableCache>>::new();
-    let logits = model.forward(ModelInput {
-        inputs: &prompt,
-        mask: None,
-        cache: &mut cache,
-    })?;
+    let (logits, mut session) = oracle_hooks::prefill_logits(&mut model, &tokens, None)?;
     let prefill = materialize_last_logits(&logits)?;
     prefill.eval()?;
-    check_cache(&cache, &expected.prefill_cache)?;
+    check_cache(&session.cache_view()?, &expected.prefill_cache)?;
 
     let mut token_ids = Vec::with_capacity(expected.decode.steps);
     let mut next_token = greedy_token(&prefill)?;
     for step in 0..expected.decode.steps {
         token_ids.push(next_token);
         if step + 1 < expected.decode.steps {
-            let input = Array::from_slice(&[next_token], &[1, 1]);
-            let logits = model.forward(ModelInput {
-                inputs: &input,
-                mask: None,
-                cache: &mut cache,
-            })?;
+            let logits = session.decode_step(TokenId::from(next_token))?;
             next_token = greedy_token(&materialize_last_logits(&logits)?)?;
         }
     }

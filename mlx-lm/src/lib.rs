@@ -31,12 +31,6 @@ pub use model::{
 pub use sampling::{MinPOptions, SamplerOptions};
 pub use tokenizer::{ChatContinuation, ChatTemplateOptions, Message, Role, TokenId, Tokenizer};
 
-/// Temporary implementation access for the unchanged prototype regression adapters.
-#[cfg(feature = "prototype-adapter")]
-#[doc(hidden)]
-#[allow(missing_docs)]
-pub mod legacy;
-
 #[cfg(feature = "oracle-hooks")]
 #[doc(hidden)]
 #[allow(missing_docs)]
