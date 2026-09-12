@@ -176,7 +176,8 @@ impl Tokenizer {
     }
 
     /// Generation feeds only generated non-stop IDs, then consumes `finish` on EOS or length.
-    #[allow(dead_code)] // The generation item consumes this seam in tranche 3.
+    // The generation engine (tranche 3 item 2) is the only caller.
+    #[allow(dead_code)]
     pub(crate) fn decode_stream(&self) -> StreamingDecoder<'_> {
         StreamingDecoder {
             tokenizer: self,
@@ -357,7 +358,7 @@ fn render_chat(
 }
 
 /// DecodeStream delays incomplete UTF-8. Retaining IDs permits one final decode to flush it.
-#[allow(dead_code)] // The generation item consumes this seam in tranche 3.
+#[allow(dead_code)]
 pub(crate) struct StreamingDecoder<'a> {
     tokenizer: &'a Tokenizer,
     inner: tokenizers::DecodeStream<
@@ -372,7 +373,7 @@ pub(crate) struct StreamingDecoder<'a> {
     emitted: String,
 }
 
-#[allow(dead_code)] // The generation item consumes this seam in tranche 3.
+#[allow(dead_code)]
 impl StreamingDecoder<'_> {
     pub(crate) fn step(&mut self, id: TokenId) -> Result<Option<String>, TokenizerError> {
         let delta = self.inner.step(id.0)?;
@@ -404,3 +405,5 @@ impl StreamingDecoder<'_> {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod text_tests;
