@@ -26,9 +26,9 @@ pub use error::{
 pub use model::HubOptions;
 pub use model::{
     FinishReason, Generation, GenerationEvent, GenerationOptions, Model, Prompt,
-    RepetitionPenaltyOptions, StopTokenPolicy,
+    RepetitionPenaltyOptions, StopPolicy, StopTokenPolicy,
 };
-pub use sampling::{MinPOptions, SamplerOptions};
+pub use sampling::{AdditivePenaltyOptions, MinPOptions, SamplerOptions};
 pub use tokenizer::{ChatContinuation, ChatTemplateOptions, Message, Role, TokenId, Tokenizer};
 
 #[cfg(feature = "oracle-hooks")]

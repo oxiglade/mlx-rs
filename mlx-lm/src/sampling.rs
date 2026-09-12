@@ -2,6 +2,8 @@ pub use crate::error::SamplingError;
 use std::num::NonZeroUsize;
 
 /// Reusable temperature and probability-filter settings.
+///
+/// Defaults to greedy temperature zero, all probability filters disabled, and no seed.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct SamplerOptions {
@@ -13,6 +15,8 @@ pub struct SamplerOptions {
     pub top_k: Option<NonZeroUsize>,
     /// None disables min-p filtering.
     pub min_p: Option<MinPOptions>,
+    /// Seed for a private per-generation RNG. Greedy sampling constructs no RNG.
+    pub seed: Option<u64>,
 }
 /// Minimum relative probability and retained support size.
 #[derive(Debug, Clone)]
@@ -29,8 +33,40 @@ impl Default for SamplerOptions {
             top_p: None,
             top_k: None,
             min_p: None,
+            seed: None,
         }
     }
+}
+
+/// Presence or frequency penalty over a trailing token-history window.
+///
+/// Python's history rule starts with the final prompt token and adds accepted
+/// generated tokens, excluding earlier prompt tokens and reused prefixes.
+/// A context size of 20 matches Python's recipe; callers supply both fields.
+#[derive(Debug, Clone)]
+pub struct AdditivePenaltyOptions {
+    /// Finite coefficient to subtract. Negative values reward tokens; zero is an identity.
+    pub penalty: f32,
+    /// Maximum number of history tokens considered by this penalty.
+    pub context_size: NonZeroUsize,
+}
+impl AdditivePenaltyOptions {
+    /// Rejects non-finite coefficients; every finite coefficient is admitted.
+    pub fn validate(&self) -> Result<(), SamplingError> {
+        if !self.penalty.is_finite() {
+            return Err(SamplingError::InvalidAdditivePenalty(self.penalty));
+        }
+        Ok(())
+    }
+}
+
+#[allow(dead_code)] // Implementations and callers belong to the sampling and engine items.
+pub(crate) trait LogitsProcessor {
+    fn process(
+        &self,
+        history: &[crate::TokenId],
+        logits: mlx_rs::Array,
+    ) -> Result<mlx_rs::Array, SamplingError>;
 }
 impl SamplerOptions {
     /// Validates sampler ranges against the runtime vocabulary.
@@ -91,6 +127,40 @@ fn validate_vocabulary(vocabulary_size: usize) -> Result<(), SamplingError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn additive_penalty_range() -> Result<(), SamplingError> {
+        for penalty in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+            assert!(matches!(
+                AdditivePenaltyOptions {
+                    penalty,
+                    context_size: NonZeroUsize::MIN,
+                }
+                .validate(),
+                Err(SamplingError::InvalidAdditivePenalty(_))
+            ));
+        }
+        for penalty in [f32::MIN, -3.0, -0.0, 0.0, f32::MIN_POSITIVE, 3.0, f32::MAX] {
+            AdditivePenaltyOptions {
+                penalty,
+                context_size: NonZeroUsize::MIN,
+            }
+            .validate()?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn seed_accepts_the_full_u64_range_even_for_greedy() -> Result<(), SamplingError> {
+        for seed in [None, Some(0), Some(u64::MAX)] {
+            SamplerOptions {
+                seed,
+                ..Default::default()
+            }
+            .validate(64)?;
+        }
+        Ok(())
+    }
 
     #[test]
     fn sampling_ranges_apply_even_to_greedy() -> Result<(), SamplingError> {

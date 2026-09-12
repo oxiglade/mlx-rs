@@ -107,6 +107,12 @@ impl Cache {
             _thread_bound: PhantomData,
         })
     }
+    /// Token IDs represented by committed cache state, including evicted positions.
+    ///
+    /// Currently an empty placeholder; the represented-token ledger is not implemented.
+    pub fn tokens(&self) -> &[crate::TokenId] {
+        &[]
+    }
     /// Returns logical metadata without evaluating or copying array buffers.
     pub fn info(&self) -> impl ExactSizeIterator<Item = CacheInfo> + '_ {
         self.layers
@@ -228,7 +234,27 @@ pub(crate) struct CacheStep<'cache> {
     updated: Vec<bool>,
     failed: bool,
 }
-impl CacheStep<'_> {
+/// Placeholder guard that cannot be constructed until evaluation is implemented.
+pub(crate) struct EvaluatedCacheStep<'cache> {
+    unavailable: std::convert::Infallible,
+    _cache: PhantomData<&'cache mut Cache>,
+}
+impl EvaluatedCacheStep<'_> {
+    pub(crate) fn commit(self) {
+        match self.unavailable {}
+    }
+}
+impl<'cache> CacheStep<'cache> {
+    /// Eventually evaluates staged state without publishing it; currently always fails.
+    pub(crate) fn evaluate(
+        self,
+        outputs: &[&Array],
+    ) -> Result<EvaluatedCacheStep<'cache>, CacheError> {
+        let _ = outputs;
+        Err(CacheError::InvalidState(
+            crate::NotYetImplemented("cache step evaluation guard").to_string(),
+        ))
+    }
     pub(crate) fn info(&self, layer: usize) -> Result<CacheInfo, CacheError> {
         self.staged
             .get(layer)
