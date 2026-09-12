@@ -2357,13 +2357,23 @@
     {
       "disposition": "internal",
       "evidence": [
-        "conformance/mlx-lm/SCHEMA.md"
+        "conformance/mlx-lm/SCHEMA.md",
+        "conformance/mlx-lm/generate_mlx_lm.py:progress_expectations",
+        "conformance/mlx-lm/text_reference.py",
+        "mlx-lm/tests/parity/mutations.rs"
       ],
       "kind": "function",
       "name": "mlx_lm.generate.generate_step",
       "planned_rust_path": null,
       "rust_path": null,
-      "semantic_differences": [],
+      "semantic_differences": [
+        "Synchronous fallible Prefill and Token events; reserve the final prompt token and report initial/final progress. No decode lookahead in tranche 3.",
+        "StopPolicy admits exact UTF-8 stop strings with held proper-prefix suffixes, mismatch release and match exclusion; a match in final flush beats Length. Empty strings are typed errors.",
+        "Optional u64 seed owns a private RNG per generation; greedy constructs no RNG. Exact stochastic IDs are CPU and pinned-tuple claims.",
+        "generate_with_cache takes the full intended prompt: exact represented prefix, at least one uncached token, and model-instance ownership are required. Penalty history starts fresh at the final prompt token.",
+        "Prompt::Text checks the original string starts_with configured BOS content before special-token encoding; whitespace before BOS inserts a second BOS.",
+        "Text-delta parity is limited to named WordLevel fixtures; unstable final decode is InvalidPrefix."
+      ],
       "signature": "(prompt: mx.array, model: nn.Module, *, max_tokens: int=256, sampler: Optional[Callable[[mx.array], mx.array]]=None, logits_processors: Optional[List[Callable[[mx.array, mx.array], mx.array]]]=None, max_kv_size: Optional[int]=None, prompt_cache: Optional[Any]=None, prefill_step_size: int=2048, kv_bits: Optional[int]=None, kv_group_size: int=64, quantized_kv_start: int=0, prompt_progress_callback: Optional[Callable[[int, int], None]]=None, input_embeddings: Optional[mx.array]=None) -> Generator[Tuple[mx.array, mx.array], None, None]",
       "source_path": "mlx_lm/generate.py",
       "source_sha256": "270778ad53eaca55a8533d82e6752660fe5d2605c4aa0879b48a50a91f69345f",
@@ -2427,8 +2437,9 @@
       "planned_rust_path": "mlx_lm::SamplerOptions",
       "rust_path": null,
       "semantic_differences": [
-        "Only greedy, temperature, top-p, top-k, min-p and repetition penalty admitted.",
-        "XTC, bias, presence/frequency penalties and custom callables deferred until named use cases and fixtures."
+        "Greedy, temperature, top-p, top-k, min-p, repetition, presence and frequency penalties admitted.",
+        "XTC, logit bias and custom callables remain deferred until named use cases and fixtures.",
+        "Per-generation optional u64 seed and private RNG; CPU exact tuple only; greedy constructs no RNG."
       ],
       "signature": "(temp: float=0.0, top_p: float=0.0, min_p: float=0.0, min_tokens_to_keep: int=1, top_k: int=0, xtc_probability: float=0.0, xtc_threshold: float=0.0, xtc_special_tokens: List[int]=[]) -> Callable[[mx.array], mx.array]",
       "source_path": "mlx_lm/sample_utils.py",
@@ -2498,13 +2509,23 @@
     {
       "disposition": "planned_wrapped",
       "evidence": [
-        "conformance/mlx-lm/SCHEMA.md"
+        "conformance/mlx-lm/SCHEMA.md",
+        "conformance/mlx-lm/generate_mlx_lm.py:progress_expectations",
+        "conformance/mlx-lm/text_reference.py",
+        "mlx-lm/tests/parity/mutations.rs"
       ],
       "kind": "function",
       "name": "mlx_lm.generate.stream_generate",
       "planned_rust_path": "mlx_lm::Model::generate",
       "rust_path": null,
-      "semantic_differences": [],
+      "semantic_differences": [
+        "Synchronous fallible Prefill and Token events; reserve the final prompt token and report initial/final progress. No decode lookahead in tranche 3.",
+        "StopPolicy admits exact UTF-8 stop strings with held proper-prefix suffixes, mismatch release and match exclusion; a match in final flush beats Length. Empty strings are typed errors.",
+        "Optional u64 seed owns a private RNG per generation; greedy constructs no RNG. Exact stochastic IDs are CPU and pinned-tuple claims.",
+        "generate_with_cache takes the full intended prompt: exact represented prefix, at least one uncached token, and model-instance ownership are required. Penalty history starts fresh at the final prompt token.",
+        "Prompt::Text checks the original string starts_with configured BOS content before special-token encoding; whitespace before BOS inserts a second BOS.",
+        "Text-delta parity is limited to named WordLevel fixtures; unstable final decode is InvalidPrefix."
+      ],
       "signature": "(model: nn.Module, tokenizer: Union[PreTrainedTokenizer, TokenizerWrapper], prompt: Union[str, mx.array, List[int]], max_tokens: int=256, draft_model: Optional[nn.Module]=None, **kwargs) -> Generator[GenerationResponse, None, None]",
       "source_path": "mlx_lm/generate.py",
       "source_sha256": "270778ad53eaca55a8533d82e6752660fe5d2605c4aa0879b48a50a91f69345f",
@@ -4436,13 +4457,17 @@
     {
       "disposition": "internal",
       "evidence": [
-        "conformance/mlx-lm/SCHEMA.md"
+        "conformance/mlx-lm/SCHEMA.md",
+        "conformance/mlx-lm/generate_mlx_lm.py:trim_expectations"
       ],
       "kind": "function",
       "name": "mlx_lm.models.cache.can_trim_prompt_cache",
       "planned_rust_path": null,
       "rust_path": null,
-      "semantic_differences": [],
+      "semantic_differences": [
+        "No public Rust trim; wrapped rotating caches refuse trim without changing buffers, offset or rotation index.",
+        "Reuse is exact-prefix with model-instance ownership and at least one uncached token."
+      ],
       "signature": "(cache: List[Any]) -> bool",
       "source_path": "mlx_lm/models/cache.py",
       "source_sha256": "819ed95dcbf755652363cfdb15a639890447abb534a06dcefd52c7fff5055750",
@@ -4541,13 +4566,17 @@
     {
       "disposition": "internal",
       "evidence": [
-        "conformance/mlx-lm/SCHEMA.md"
+        "conformance/mlx-lm/SCHEMA.md",
+        "conformance/mlx-lm/generate_mlx_lm.py:trim_expectations"
       ],
       "kind": "function",
       "name": "mlx_lm.models.cache.trim_prompt_cache",
       "planned_rust_path": null,
       "rust_path": null,
-      "semantic_differences": [],
+      "semantic_differences": [
+        "No public Rust trim; wrapped rotating caches refuse trim without changing buffers, offset or rotation index.",
+        "Reuse is exact-prefix with model-instance ownership and at least one uncached token."
+      ],
       "signature": "(cache: List[Any], num_tokens: int) -> List[Any]",
       "source_path": "mlx_lm/models/cache.py",
       "source_sha256": "819ed95dcbf755652363cfdb15a639890447abb534a06dcefd52c7fff5055750",
@@ -4629,19 +4658,24 @@
       "trigger": "Tranche 3 CPU sampler sequences and support parity."
     },
     {
-      "disposition": "deferred",
+      "disposition": "planned_wrapped",
       "evidence": [
-        "conformance/mlx-lm/SCHEMA.md"
+        "conformance/mlx-lm/generate_mlx_lm.py:processing_expectations",
+        "conformance/mlx-lm/generate_mlx_lm.py:sampling_expectations",
+        "mlx-lm/tests/parity/mutations.rs:processor_semantic_mutations_fail_in_processor_class"
       ],
       "kind": "function",
       "name": "mlx_lm.sample_utils.make_frequency_penalty",
-      "planned_rust_path": null,
+      "planned_rust_path": "mlx_lm::AdditivePenaltyOptions",
       "rust_path": null,
-      "semantic_differences": [],
+      "semantic_differences": [
+        "Finite signed coefficients; zero is identity. Each processor uses its own trailing context.",
+        "History starts with the final prompt token, then accepted generated tokens; earlier prompt and reused prefix are excluded."
+      ],
       "signature": "(penalty: float, context_size: int=20)",
       "source_path": "mlx_lm/sample_utils.py",
       "source_sha256": "c0ce439f8dbf0d4e6d0f37f728a324f3f72878e6a9123df41be520804c596d67",
-      "trigger": "Admit these processors with named use cases and isolated sampler fixtures."
+      "trigger": "Tranche 3 built-in additive processor implementation and llama-base oracle qualification."
     },
     {
       "disposition": "planned_wrapped",
@@ -4653,28 +4687,36 @@
       "planned_rust_path": "mlx_lm::RepetitionPenaltyOptions",
       "rust_path": null,
       "semantic_differences": [
-        "Only greedy, temperature, top-p, top-k, min-p and repetition penalty admitted.",
-        "XTC, bias, presence/frequency penalties and custom callables deferred until named use cases and fixtures."
+        "Greedy, temperature, top-p, top-k, min-p, repetition, presence and frequency penalties admitted.",
+        "XTC, logit bias and custom callables remain deferred until named use cases and fixtures.",
+        "Per-generation optional u64 seed and private RNG; CPU exact tuple only; greedy constructs no RNG.",
+        "Private processor seam; repetition then presence then frequency, each with its own context.",
+        "History starts at the last prompt token. Presence deduplicates; frequency counts occurrences."
       ],
       "signature": "(logit_bias: Optional[Dict[int, float]]=None, repetition_penalty: Optional[float]=None, repetition_context_size: Optional[int]=20, presence_penalty: Optional[float]=None, presence_context_size: Optional[int]=20, frequency_penalty: Optional[float]=None, frequency_context_size: Optional[int]=20)",
       "source_path": "mlx_lm/sample_utils.py",
       "source_sha256": "c0ce439f8dbf0d4e6d0f37f728a324f3f72878e6a9123df41be520804c596d67",
-      "trigger": "Tranche 3 repetition processor parity."
+      "trigger": "Tranche 3 built-in processor parity."
     },
     {
-      "disposition": "deferred",
+      "disposition": "planned_wrapped",
       "evidence": [
-        "conformance/mlx-lm/SCHEMA.md"
+        "conformance/mlx-lm/generate_mlx_lm.py:processing_expectations",
+        "conformance/mlx-lm/generate_mlx_lm.py:sampling_expectations",
+        "mlx-lm/tests/parity/mutations.rs:processor_semantic_mutations_fail_in_processor_class"
       ],
       "kind": "function",
       "name": "mlx_lm.sample_utils.make_presence_penalty",
-      "planned_rust_path": null,
+      "planned_rust_path": "mlx_lm::AdditivePenaltyOptions",
       "rust_path": null,
-      "semantic_differences": [],
+      "semantic_differences": [
+        "Finite signed coefficients; zero is identity. Each processor uses its own trailing context.",
+        "History starts with the final prompt token, then accepted generated tokens; earlier prompt and reused prefix are excluded."
+      ],
       "signature": "(penalty: float, context_size: int=20)",
       "source_path": "mlx_lm/sample_utils.py",
       "source_sha256": "c0ce439f8dbf0d4e6d0f37f728a324f3f72878e6a9123df41be520804c596d67",
-      "trigger": "Admit these processors with named use cases and isolated sampler fixtures."
+      "trigger": "Tranche 3 built-in additive processor implementation and llama-base oracle qualification."
     },
     {
       "disposition": "planned_wrapped",
@@ -4701,8 +4743,9 @@
       "planned_rust_path": "mlx_lm::SamplerOptions",
       "rust_path": null,
       "semantic_differences": [
-        "Only greedy, temperature, top-p, top-k, min-p and repetition penalty admitted.",
-        "XTC, bias, presence/frequency penalties and custom callables deferred until named use cases and fixtures."
+        "Greedy, temperature, top-p, top-k, min-p, repetition, presence and frequency penalties admitted.",
+        "XTC, logit bias and custom callables remain deferred until named use cases and fixtures.",
+        "Per-generation optional u64 seed and private RNG; CPU exact tuple only; greedy constructs no RNG."
       ],
       "signature": "(temp: float=0.0, top_p: float=0.0, min_p: float=0.0, min_tokens_to_keep: int=1, top_k: int=0, xtc_probability: float=0.0, xtc_threshold: float=0.0, xtc_special_tokens: List[int]=[]) -> Callable[[mx.array], mx.array]",
       "source_path": "mlx_lm/sample_utils.py",
@@ -4712,13 +4755,23 @@
     {
       "disposition": "planned_wrapped",
       "evidence": [
-        "conformance/mlx-lm/SCHEMA.md"
+        "conformance/mlx-lm/SCHEMA.md",
+        "conformance/mlx-lm/generate_mlx_lm.py:progress_expectations",
+        "conformance/mlx-lm/text_reference.py",
+        "mlx-lm/tests/parity/mutations.rs"
       ],
       "kind": "function",
       "name": "mlx_lm.stream_generate",
       "planned_rust_path": "mlx_lm::Model::generate",
       "rust_path": null,
-      "semantic_differences": [],
+      "semantic_differences": [
+        "Synchronous fallible Prefill and Token events; reserve the final prompt token and report initial/final progress. No decode lookahead in tranche 3.",
+        "StopPolicy admits exact UTF-8 stop strings with held proper-prefix suffixes, mismatch release and match exclusion; a match in final flush beats Length. Empty strings are typed errors.",
+        "Optional u64 seed owns a private RNG per generation; greedy constructs no RNG. Exact stochastic IDs are CPU and pinned-tuple claims.",
+        "generate_with_cache takes the full intended prompt: exact represented prefix, at least one uncached token, and model-instance ownership are required. Penalty history starts fresh at the final prompt token.",
+        "Prompt::Text checks the original string starts_with configured BOS content before special-token encoding; whitespace before BOS inserts a second BOS.",
+        "Text-delta parity is limited to named WordLevel fixtures; unstable final decode is InvalidPrefix."
+      ],
       "signature": "(model: nn.Module, tokenizer: Union[PreTrainedTokenizer, TokenizerWrapper], prompt: Union[str, mx.array, List[int]], max_tokens: int=256, draft_model: Optional[nn.Module]=None, **kwargs) -> Generator[GenerationResponse, None, None]",
       "source_path": "mlx_lm/generate.py",
       "source_sha256": "270778ad53eaca55a8533d82e6752660fe5d2605c4aa0879b48a50a91f69345f",

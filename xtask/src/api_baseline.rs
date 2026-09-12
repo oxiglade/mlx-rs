@@ -78,12 +78,23 @@ enum UseSpec {
 }
 
 pub fn run(repo_root: &Path, args: &[String]) -> i32 {
-    match parse_args(args).and_then(|output| {
-        let baseline = generate(&repo_root.join("mlx-rs"), "mlx_rs")?;
+    match parse_args(args).and_then(|options| {
+        let baseline = generate(
+            &repo_root.join(&options.crate_name),
+            &options.crate_name.replace('-', "_"),
+        )?;
         let mut bytes = serde_json::to_vec_pretty(&baseline)
             .map_err(|error| format!("failed to serialize API baseline: {error}"))?;
         bytes.push(b'\n');
-        if let Some(path) = output {
+        if let Some(path) = options.check {
+            let committed = fs::read(&path)
+                .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+            if committed != bytes {
+                return Err(format!("API baseline differs: {}", path.display()));
+            }
+            println!("API baseline matches: {}", path.display());
+            Ok(())
+        } else if let Some(path) = options.output {
             fs::write(&path, bytes)
                 .map_err(|error| format!("failed to write {}: {error}", path.display()))
         } else {
@@ -100,12 +111,41 @@ pub fn run(repo_root: &Path, args: &[String]) -> i32 {
     }
 }
 
-fn parse_args(args: &[String]) -> Result<Option<PathBuf>, String> {
-    match args {
-        [] => Ok(None),
-        [flag, path] if flag == "--out" => Ok(Some(PathBuf::from(path))),
-        _ => Err("usage: cargo run -p xtask -- api-baseline [--out <path>]".to_owned()),
+#[derive(Debug, PartialEq, Eq)]
+struct Options {
+    crate_name: String,
+    output: Option<PathBuf>,
+    check: Option<PathBuf>,
+}
+
+fn parse_args(args: &[String]) -> Result<Options, String> {
+    let usage = || {
+        "usage: cargo run -p xtask -- api-baseline [--crate mlx-rs|mlx-lm] [--out PATH | --check PATH]".to_owned()
+    };
+    let mut options = Options {
+        crate_name: "mlx-rs".into(),
+        output: None,
+        check: None,
+    };
+    let mut selected = false;
+    let mut args = args.iter();
+    while let Some(flag) = args.next() {
+        let value = args.next().ok_or_else(usage)?;
+        match flag.as_str() {
+            "--crate" if !selected && matches!(value.as_str(), "mlx-rs" | "mlx-lm") => {
+                options.crate_name = value.clone();
+                selected = true;
+            }
+            "--out" if options.output.is_none() && options.check.is_none() => {
+                options.output = Some(value.into())
+            }
+            "--check" if options.check.is_none() && options.output.is_none() => {
+                options.check = Some(value.into())
+            }
+            _ => return Err(usage()),
+        }
     }
+    Ok(options)
 }
 
 pub(crate) fn generate(crate_root: &Path, crate_name: &str) -> Result<ApiBaseline, String> {
@@ -151,7 +191,13 @@ pub(crate) fn generate(crate_root: &Path, crate_name: &str) -> Result<ApiBaselin
     Ok(ApiBaseline {
         schema_version: SCHEMA_VERSION,
         crate_name: crate_name.to_owned(),
-        source_root: "mlx-rs/src/lib.rs".to_owned(),
+        source_root: format!(
+            "{}/src/lib.rs",
+            crate_root
+                .file_name()
+                .and_then(|name| name.to_str())
+                .ok_or_else(|| "crate root has no directory name".to_owned())?
+        ),
         limitations: LIMITATIONS
             .iter()
             .map(|value| (*value).to_owned())
@@ -629,6 +675,51 @@ fn deprecation(attrs: &[Attribute]) -> Option<Deprecation> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn crate_selection_and_check_reject_drift_without_writing() {
+        let root = tempfile::tempdir().unwrap();
+        for name in ["mlx-rs", "mlx-lm"] {
+            let src = root.path().join(name).join("src");
+            fs::create_dir_all(&src).unwrap();
+            fs::write(src.join("lib.rs"), "pub struct Model;").unwrap();
+        }
+        let path = root.path().join("baseline.json");
+        let path_arg = path.to_str().unwrap().to_owned();
+        let args = vec![
+            "--crate".into(),
+            "mlx-lm".into(),
+            "--out".into(),
+            path_arg.clone(),
+        ];
+        assert_eq!(run(root.path(), &args), 0);
+        let original = fs::read(&path).unwrap();
+        let baseline: ApiBaseline = serde_json::from_slice(&original).unwrap();
+        assert_eq!(baseline.crate_name, "mlx_lm");
+        assert_eq!(baseline.source_root, "mlx-lm/src/lib.rs");
+        let check = vec![
+            "--check".into(),
+            path_arg,
+            "--crate".into(),
+            "mlx-lm".into(),
+        ];
+        assert_eq!(run(root.path(), &check), 0);
+        fs::write(root.path().join("mlx-lm/src/lib.rs"), "pub struct Changed;").unwrap();
+        assert_eq!(run(root.path(), &check), 2);
+        assert_eq!(fs::read(path).unwrap(), original);
+        assert_eq!(parse_args(&[]).unwrap().crate_name, "mlx-rs");
+        for invalid in [
+            vec!["--crate", "other"],
+            vec!["--check"],
+            vec!["--check", "a", "--out", "b"],
+            vec!["--out", "a", "--out", "b"],
+            vec!["--crate", "mlx-lm", "--crate", "mlx-rs"],
+        ] {
+            assert!(
+                parse_args(&invalid.into_iter().map(String::from).collect::<Vec<_>>()).is_err()
+            );
+        }
+    }
 
     #[test]
     fn idiom_wave_foundations_and_fft_surface_are_canonical() {

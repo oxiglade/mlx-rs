@@ -118,3 +118,43 @@ inputs, generators, dependency pins, manifests, fixtures, tolerance policies, an
 comparators. Updates belong in a separate oracle change, reviewed independently
 from inference implementation changes. Rust conformance tests consume committed
 fixtures offline and do not regenerate or bless them.
+
+## Tranche 3 regeneration and gates
+
+The five cohorts and their keys are documented in [SCHEMA.md](SCHEMA.md#tranche-3-cohorts).
+They follow position-astra.md's “Oracle-change list” and DECISIONS A/I/J.
+The additive table and seeded cases use pinned Python processors; progress
+comes from the pinned callback, and wrap/trim comes from the guarded cache
+helper. The BOS cases record actual model-call inputs from string prompts.
+Only llama-base receives the BOS post-processor; token-ID-driven forward,
+sampling, decode, and chat goldens must remain byte-identical.
+
+`text_reference.py` imports no MLX. It independently computes stop filtering
+and uses pinned Python tokenizers for final decode bytes. The generator writes
+its output inside both temporary trees, so the path-and-content determinism
+check covers `text_cases.json` along with every model-dependent artifact.
+Its `--check` mode recomputes the document without modifying it.
+
+```sh
+conformance/.venv-mlx-lm/bin/python -B conformance/mlx-lm/manifest.py
+conformance/.venv-mlx-lm/bin/python -B conformance/mlx-lm/generate_mlx_lm.py
+conformance/.venv-mlx-lm/bin/python -B conformance/mlx-lm/text_reference.py --check conformance/mlx-lm/fixtures/llama-base/text_cases.json
+conformance/.venv-mlx-lm/bin/python -B conformance/mlx-lm/numpy_reference/run.py
+conformance/.venv-mlx-lm/bin/python -B conformance/mlx-lm/coordinate.py
+cargo test -p mlx-lm --features oracle-hooks --test parity -- --test-threads=1
+cargo run -p xtask -- verify-lm-parity
+cargo run -p xtask -- api-baseline --crate mlx-lm --check ledger/mlx-lm-api-baseline.json
+cargo run -p xtask -- verify-oracle-boundary --base 919622fd56fddf0268b5db22c88a2618a0bc2a1a
+```
+
+`api-baseline` defaults to mlx-rs. Select mlx-lm with `--crate mlx-lm`, write
+with `--out PATH`, or compare bytes with `--check PATH`. Check mode never
+rewrites the baseline and rejects drift. The core baseline is independent of
+the mlx-lm one.
+
+The Python-side tests for the text reference and the generator contract run
+under the pinned interpreter without extra packages:
+
+```sh
+conformance/.venv-mlx-lm/bin/python -B -m unittest discover -s conformance/mlx-lm -p 'test_*.py'
+```

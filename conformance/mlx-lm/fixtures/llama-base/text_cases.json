@@ -1,0 +1,561 @@
+{
+  "decoders": {
+    "byte_fallback_complete": {
+      "decoded_utf8_hex": "c3a920",
+      "emitted_prefix": "é ",
+      "expected_error": null,
+      "finish_flush": "",
+      "preserves_prefix": true,
+      "token_ids": [
+        1,
+        2,
+        3
+      ],
+      "tokenizer": {
+        "added_tokens": [],
+        "decoder": {
+          "type": "ByteFallback"
+        },
+        "model": {
+          "type": "WordLevel",
+          "unk_token": "<unk>",
+          "vocab": {
+            "<0x20>": 3,
+            "<0xA9>": 2,
+            "<0xC3>": 1,
+            "<unk>": 0
+          }
+        },
+        "normalizer": null,
+        "padding": null,
+        "post_processor": null,
+        "pre_tokenizer": null,
+        "truncation": null,
+        "version": "1.0"
+      }
+    },
+    "byte_fallback_empty": {
+      "decoded_utf8_hex": "",
+      "emitted_prefix": "",
+      "expected_error": null,
+      "finish_flush": "",
+      "preserves_prefix": true,
+      "token_ids": [],
+      "tokenizer": {
+        "added_tokens": [],
+        "decoder": {
+          "type": "ByteFallback"
+        },
+        "model": {
+          "type": "WordLevel",
+          "unk_token": "<unk>",
+          "vocab": {
+            "<0x20>": 3,
+            "<0xA9>": 2,
+            "<0xC3>": 1,
+            "<unk>": 0
+          }
+        },
+        "normalizer": null,
+        "padding": null,
+        "post_processor": null,
+        "pre_tokenizer": null,
+        "truncation": null,
+        "version": "1.0"
+      }
+    },
+    "byte_fallback_incomplete": {
+      "decoded_utf8_hex": "efbfbd",
+      "emitted_prefix": "",
+      "expected_error": null,
+      "finish_flush": "�",
+      "preserves_prefix": true,
+      "token_ids": [
+        1
+      ],
+      "tokenizer": {
+        "added_tokens": [],
+        "decoder": {
+          "type": "ByteFallback"
+        },
+        "model": {
+          "type": "WordLevel",
+          "unk_token": "<unk>",
+          "vocab": {
+            "<0x20>": 3,
+            "<0xA9>": 2,
+            "<0xC3>": 1,
+            "<unk>": 0
+          }
+        },
+        "normalizer": null,
+        "padding": null,
+        "post_processor": null,
+        "pre_tokenizer": null,
+        "truncation": null,
+        "version": "1.0"
+      }
+    },
+    "byte_fallback_rewrite": {
+      "decoded_utf8_hex": "efbfbdefbfbdefbfbd",
+      "emitted_prefix": "é",
+      "expected_error": "DecodeStreamError::InvalidPrefix",
+      "finish_flush": null,
+      "preserves_prefix": false,
+      "token_ids": [
+        1,
+        2,
+        1
+      ],
+      "tokenizer": {
+        "added_tokens": [],
+        "decoder": {
+          "type": "ByteFallback"
+        },
+        "model": {
+          "type": "WordLevel",
+          "unk_token": "<unk>",
+          "vocab": {
+            "<0x20>": 3,
+            "<0xA9>": 2,
+            "<0xC3>": 1,
+            "<unk>": 0
+          }
+        },
+        "normalizer": null,
+        "padding": null,
+        "post_processor": null,
+        "pre_tokenizer": null,
+        "truncation": null,
+        "version": "1.0"
+      }
+    },
+    "byte_level_incomplete_tail": {
+      "decoded_utf8_hex": "c3a9efbfbd",
+      "emitted_prefix": "é",
+      "expected_error": null,
+      "finish_flush": "�",
+      "preserves_prefix": true,
+      "token_ids": [
+        1,
+        2,
+        1
+      ],
+      "tokenizer": {
+        "added_tokens": [],
+        "decoder": {
+          "add_prefix_space": true,
+          "trim_offsets": true,
+          "type": "ByteLevel",
+          "use_regex": true
+        },
+        "model": {
+          "type": "WordLevel",
+          "unk_token": "<unk>",
+          "vocab": {
+            "<unk>": 0,
+            "©": 2,
+            "Ã": 1,
+            "Ġ": 3
+          }
+        },
+        "normalizer": null,
+        "padding": null,
+        "post_processor": null,
+        "pre_tokenizer": null,
+        "truncation": null,
+        "version": "1.0"
+      }
+    }
+  },
+  "errors": {
+    "empty_stop": {
+      "expected_error": "EmptyStopString",
+      "stops": [
+        ""
+      ]
+    }
+  },
+  "provenance": {
+    "generator": "text_reference.py@67bf04f6d633005cbc0d2b5db0bab0a7c33a838f4d716086193e0d1b4392df8d",
+    "tokenizers": "0.23.2"
+  },
+  "schema_version": 1,
+  "stop_strings": {
+    "composed_match": {
+      "deltas": [
+        "caf",
+        "é"
+      ],
+      "events": [
+        {
+          "held": "",
+          "stopped": false,
+          "text": "caf"
+        },
+        {
+          "held": "",
+          "stopped": true,
+          "text": ""
+        }
+      ],
+      "final_delta": "",
+      "finish_flush": null,
+      "finish_reason": "stop",
+      "stopped": true,
+      "stops": [
+        "é"
+      ]
+    },
+    "decomposed_match": {
+      "deltas": [
+        "cafe",
+        "́"
+      ],
+      "events": [
+        {
+          "held": "e",
+          "stopped": false,
+          "text": "caf"
+        },
+        {
+          "held": "",
+          "stopped": true,
+          "text": ""
+        }
+      ],
+      "final_delta": "",
+      "finish_flush": null,
+      "finish_reason": "stop",
+      "stopped": true,
+      "stops": [
+        "é"
+      ]
+    },
+    "decomposed_mismatch": {
+      "deltas": [
+        "cafe",
+        "́"
+      ],
+      "events": [
+        {
+          "held": "",
+          "stopped": false,
+          "text": "cafe"
+        },
+        {
+          "held": "",
+          "stopped": false,
+          "text": "́"
+        }
+      ],
+      "final_delta": "",
+      "finish_flush": "",
+      "finish_reason": "length",
+      "stopped": false,
+      "stops": [
+        "é"
+      ]
+    },
+    "duplicate_stops": {
+      "deltas": [
+        "END"
+      ],
+      "events": [
+        {
+          "held": "",
+          "stopped": true,
+          "text": ""
+        }
+      ],
+      "final_delta": "",
+      "finish_flush": null,
+      "finish_reason": "stop",
+      "stopped": true,
+      "stops": [
+        "END",
+        "END"
+      ]
+    },
+    "exact": {
+      "deltas": [
+        "END"
+      ],
+      "events": [
+        {
+          "held": "",
+          "stopped": true,
+          "text": ""
+        }
+      ],
+      "final_delta": "",
+      "finish_flush": null,
+      "finish_reason": "stop",
+      "stopped": true,
+      "stops": [
+        "END"
+      ]
+    },
+    "final_flush_match": {
+      "deltas": [
+        "hello E"
+      ],
+      "events": [
+        {
+          "held": "E",
+          "stopped": false,
+          "text": "hello "
+        }
+      ],
+      "final_delta": "ND tail",
+      "finish_flush": "",
+      "finish_reason": "stop",
+      "stopped": true,
+      "stops": [
+        "END"
+      ]
+    },
+    "final_flush_mismatch": {
+      "deltas": [
+        "hello E"
+      ],
+      "events": [
+        {
+          "held": "E",
+          "stopped": false,
+          "text": "hello "
+        }
+      ],
+      "final_delta": "x",
+      "finish_flush": "Ex",
+      "finish_reason": "length",
+      "stopped": false,
+      "stops": [
+        "END"
+      ]
+    },
+    "mismatch_release": {
+      "deltas": [
+        "hello E",
+        "x!"
+      ],
+      "events": [
+        {
+          "held": "E",
+          "stopped": false,
+          "text": "hello "
+        },
+        {
+          "held": "",
+          "stopped": false,
+          "text": "Ex!"
+        }
+      ],
+      "final_delta": "",
+      "finish_flush": "",
+      "finish_reason": "length",
+      "stopped": false,
+      "stops": [
+        "END"
+      ]
+    },
+    "multiple": {
+      "deltas": [
+        "hi END STOP"
+      ],
+      "events": [
+        {
+          "held": "",
+          "stopped": true,
+          "text": "hi "
+        }
+      ],
+      "final_delta": "",
+      "finish_flush": null,
+      "finish_reason": "stop",
+      "stopped": true,
+      "stops": [
+        "STOP",
+        "END"
+      ]
+    },
+    "no_stops": {
+      "deltas": [
+        "café",
+        " 雪"
+      ],
+      "events": [
+        {
+          "held": "",
+          "stopped": false,
+          "text": "café"
+        },
+        {
+          "held": "",
+          "stopped": false,
+          "text": " 雪"
+        }
+      ],
+      "final_delta": "",
+      "finish_flush": "",
+      "finish_reason": "length",
+      "stopped": false,
+      "stops": []
+    },
+    "non_ascii": {
+      "deltas": [
+        "café 雪",
+        "é tail"
+      ],
+      "events": [
+        {
+          "held": "雪",
+          "stopped": false,
+          "text": "café "
+        },
+        {
+          "held": "",
+          "stopped": true,
+          "text": ""
+        }
+      ],
+      "final_delta": "",
+      "finish_flush": null,
+      "finish_reason": "stop",
+      "stopped": true,
+      "stops": [
+        "雪é"
+      ]
+    },
+    "overlap_abc_one_delta": {
+      "deltas": [
+        "abc"
+      ],
+      "events": [
+        {
+          "held": "",
+          "stopped": true,
+          "text": ""
+        }
+      ],
+      "final_delta": "",
+      "finish_flush": null,
+      "finish_reason": "stop",
+      "stopped": true,
+      "stops": [
+        "abc",
+        "b"
+      ]
+    },
+    "overlap_abc_split": {
+      "deltas": [
+        "ab",
+        "c"
+      ],
+      "events": [
+        {
+          "held": "",
+          "stopped": true,
+          "text": "a"
+        }
+      ],
+      "final_delta": "",
+      "finish_flush": null,
+      "finish_reason": "stop",
+      "stopped": true,
+      "stops": [
+        "abc",
+        "b"
+      ]
+    },
+    "overlapping": {
+      "deltas": [
+        "zaba"
+      ],
+      "events": [
+        {
+          "held": "",
+          "stopped": true,
+          "text": "z"
+        }
+      ],
+      "final_delta": "",
+      "finish_flush": null,
+      "finish_reason": "stop",
+      "stopped": true,
+      "stops": [
+        "aba",
+        "ab"
+      ]
+    },
+    "same_delta_trailing": {
+      "deltas": [
+        "hello END hidden"
+      ],
+      "events": [
+        {
+          "held": "",
+          "stopped": true,
+          "text": "hello "
+        }
+      ],
+      "final_delta": "",
+      "finish_flush": null,
+      "finish_reason": "stop",
+      "stopped": true,
+      "stops": [
+        "END"
+      ]
+    },
+    "split": {
+      "deltas": [
+        "hello E",
+        "N",
+        "D"
+      ],
+      "events": [
+        {
+          "held": "E",
+          "stopped": false,
+          "text": "hello "
+        },
+        {
+          "held": "EN",
+          "stopped": false,
+          "text": ""
+        },
+        {
+          "held": "",
+          "stopped": true,
+          "text": ""
+        }
+      ],
+      "final_delta": "",
+      "finish_flush": null,
+      "finish_reason": "stop",
+      "stopped": true,
+      "stops": [
+        "END"
+      ]
+    },
+    "unmatched_terminal_prefix": {
+      "deltas": [
+        "hello EN"
+      ],
+      "events": [
+        {
+          "held": "EN",
+          "stopped": false,
+          "text": "hello "
+        }
+      ],
+      "final_delta": "",
+      "finish_flush": "EN",
+      "finish_reason": "length",
+      "stopped": false,
+      "stops": [
+        "END"
+      ]
+    }
+  }
+}

@@ -85,6 +85,7 @@ fn synthetic() -> Expectations {
             text_deltas: Some(vec!["a".into(), " b".into(), "!".into()]),
             finish: Some(("length".into(), None)),
             errors: BTreeMap::from([("missing_weight".into(), "WeightError::MissingKey".into())]),
+            ..Observation::default()
         },
     }
 }
@@ -283,5 +284,220 @@ fn tolerance_and_exact_bit_policies_are_distinct() {
             .bytes[..4]
             .copy_from_slice(&value.to_le_bytes());
         assert_eq!(compare(&expected, &actual)[0].class, Class::CacheValue);
+    }
+}
+
+fn assert_mutation(
+    expected: &Expectations,
+    name: &str,
+    class: Class,
+    mutate: impl FnOnce(&mut Observation),
+) {
+    assert!(compare(expected, &expected.observation).is_empty());
+    let mut actual = expected.observation.clone();
+    mutate(&mut actual);
+    let failures = compare(expected, &actual);
+    assert_eq!(
+        failures
+            .iter()
+            .map(|failure| failure.class)
+            .collect::<BTreeSet<_>>(),
+        BTreeSet::from([class]),
+        "{name}: {failures:?}"
+    );
+}
+
+#[test]
+fn processor_semantic_mutations_fail_in_processor_class() {
+    // Supplied rows isolate duplicates, context expiry and noncommuting processor order.
+    for (name, row, index, wrong) in [
+        ("presence-as-frequency", [0.0, 1.5, -3.5, 1.0, -0.5], 1, 1.0),
+        ("frequency dedup", [0.0, 1.0, -3.5, 1.0, -0.5], 1, 1.5),
+        (
+            "context never expires",
+            [0.0, 1.5, -3.0, 0.5, -1.0],
+            2,
+            -3.5,
+        ),
+        (
+            "repetition after additives",
+            [0.0, 2.0 / 1.3 - 1.4, -4.9, 1.0, -0.5],
+            1,
+            (2.0 - 1.4) / 1.3,
+        ),
+    ] {
+        let key = "processing.case.logits";
+        let expected = Expectations {
+            observation: Observation {
+                tensors: BTreeMap::from([(key.into(), tensor(&[1, 5], &row))]),
+                ..Observation::default()
+            },
+            policies: BTreeMap::from([(
+                key.into(),
+                Policy::Float(Tolerance {
+                    atol: 2e-4,
+                    rtol: 2e-4,
+                }),
+            )]),
+        };
+        assert_mutation(&expected, name, Class::Processor, |o| {
+            o.tensors.get_mut(key).unwrap().bytes[index * 4..index * 4 + 4]
+                .copy_from_slice(&f32::to_le_bytes(wrong));
+        });
+    }
+    let expected = Expectations {
+        observation: Observation {
+            processor_histories: BTreeMap::from([(
+                "presence_penalty".into(),
+                vec![vec![20], vec![20, 1]],
+            )]),
+            ..Observation::default()
+        },
+        policies: BTreeMap::new(),
+    };
+    assert_mutation(&expected, "whole prompt history", Class::Processor, |o| {
+        o.processor_histories.get_mut("presence_penalty").unwrap()[0].insert(0, 12);
+    });
+}
+
+#[test]
+fn stop_string_mutations_fail_in_text_class() -> anyhow::Result<()> {
+    let fixture = super::reader::read(&super::reader::fixture_root().join("llama-base"))?;
+    let expected = &fixture.expected;
+    for (name, case, field, wrong) in [
+        (
+            "partial-stop leak",
+            "split",
+            "/events/0/text",
+            json!("hello E"),
+        ),
+        (
+            "matched text emitted",
+            "exact",
+            "/events/0/text",
+            json!("END"),
+        ),
+        (
+            "held suffix never flushed",
+            "unmatched_terminal_prefix",
+            "/finish_flush",
+            json!(""),
+        ),
+        (
+            "flush match loses to length",
+            "final_flush_match",
+            "/finish_reason",
+            json!("length"),
+        ),
+    ] {
+        assert_mutation(expected, name, Class::TextStop, |o| {
+            *o.text_cases.as_mut().unwrap()["stop_strings"][case]
+                .pointer_mut(field)
+                .unwrap() = wrong;
+        });
+    }
+    assert_mutation(expected, "rewrite accepted", Class::TextStop, |o| {
+        o.text_cases.as_mut().unwrap()["decoders"]["byte_fallback_rewrite"]["expected_error"] =
+            json!(null);
+    });
+    Ok(())
+}
+
+#[test]
+fn progress_and_trim_mutations_have_named_classes() {
+    let expected = Expectations {
+        observation: Observation {
+            progress: Some(json!({"eight_chunk8": {"pairs": [[0,8], [7,8], [8,8]]}})),
+            trim_after_wrap: Some(
+                json!({"trim_return": 0, "after_trim": {"offset": 10, "can_trim": false}}),
+            ),
+            tensors: BTreeMap::from([(
+                "cache.trim_after_wrap.after_trim.temporal_keys".into(),
+                tensor(&[1, 1, 5, 1], &[0.0, 1.0, 7.0, 8.0, 9.0]),
+            )]),
+            ..Observation::default()
+        },
+        policies: BTreeMap::from([(
+            "cache.trim_after_wrap.after_trim.temporal_keys".into(),
+            Policy::ExactBits,
+        )]),
+    };
+    for duplicate in [false, true] {
+        assert_mutation(
+            &expected,
+            if duplicate {
+                "final progress duplicated"
+            } else {
+                "final progress omitted"
+            },
+            Class::Progress,
+            |o| {
+                let pairs = o.progress.as_mut().unwrap()["eight_chunk8"]["pairs"]
+                    .as_array_mut()
+                    .unwrap();
+                if duplicate {
+                    pairs.push(pairs.last().unwrap().clone());
+                } else {
+                    pairs.pop();
+                }
+            },
+        );
+    }
+    assert_mutation(
+        &expected,
+        "trim changing a wrapped cache",
+        Class::CacheTrim,
+        |o| {
+            perturb(o, "cache.trim_after_wrap.after_trim.temporal_keys");
+        },
+    );
+    assert_mutation(
+        &expected,
+        "trim advancing metadata",
+        Class::CacheTrim,
+        |o| {
+            o.trim_after_wrap.as_mut().unwrap()["after_trim"]["offset"] = json!(8);
+        },
+    );
+}
+
+#[test]
+fn bos_first_id_shortcuts_fail_in_tokenizer_class() {
+    let expected = Expectations {
+        observation: Observation {
+            tokenizer: Some(json!({"prompt_encoding": {
+                "canonical": [4,12,14], "canonical_with_bos": [4,12,14],
+                "whitespace_before_bos": [4,4,12,14]
+            }})),
+            ..Observation::default()
+        },
+        policies: BTreeMap::new(),
+    };
+    for decoded in [false, true] {
+        assert_mutation(
+            &expected,
+            if decoded {
+                "decoded-first-id BOS check"
+            } else {
+                "first-id BOS check"
+            },
+            Class::Tokenizer,
+            |o| {
+                let encoded_without_specials = [4, 12, 14];
+                let decoded_first = "<|begin_of_text|>";
+                let suppress_bos = if decoded {
+                    decoded_first == "<|begin_of_text|>"
+                } else {
+                    encoded_without_specials[0] == 4
+                };
+                let ids: Vec<_> = (!suppress_bos)
+                    .then_some(4)
+                    .into_iter()
+                    .chain(encoded_without_specials)
+                    .collect();
+                o.tokenizer.as_mut().unwrap()["prompt_encoding"]["whitespace_before_bos"] =
+                    json!(ids);
+            },
+        );
     }
 }

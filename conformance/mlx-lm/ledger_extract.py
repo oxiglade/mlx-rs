@@ -146,7 +146,9 @@ def disposition(entry):
         status, path, trigger = "planned_wrapped", "mlx_lm::SamplerOptions", "Tranche 3 CPU sampler sequences and support parity."
     elif leaf in ("make_repetition_penalty", "make_logits_processors"):
         status, path, trigger = "planned_wrapped", "mlx_lm::RepetitionPenaltyOptions", "Tranche 3 repetition processor parity."
-    elif leaf in ("apply_xtc", "make_presence_penalty", "make_frequency_penalty"):
+    elif leaf in ("make_presence_penalty", "make_frequency_penalty"):
+        status, path, trigger = "planned_wrapped", "mlx_lm::AdditivePenaltyOptions", "Tranche 3 additive processor parity with context 3 and signed coefficients."
+    elif leaf == "apply_xtc":
         status, trigger = "deferred", "Admit these processors with named use cases and isolated sampler fixtures."
     elif "tokenizer_utils" in parts or leaf in ("load_tokenizer", "TokenizerWrapper") or owner == "TokenizerWrapper":
         if any(word in name for word in ("tool", "think")):
@@ -165,7 +167,7 @@ def disposition(entry):
     if leaf in ("load", "load_model") and "tokenizer_utils" not in parts:
         differences = ["Local safetensors via Model::from_dir; Hub via opt-in Model::from_hub.", "Adapters deferred until adapter design; lazy/custom Python model and remote code skipped."]
     if leaf in ("make_sampler", "make_logits_processors"):
-        differences = ["Only greedy, temperature, top-p, top-k, min-p and repetition penalty admitted.", "XTC, bias, presence/frequency penalties and custom callables deferred until named use cases and fixtures."]
+        differences = ["Greedy, temperature, top-p, top-k, min-p, repetition, presence and frequency penalties admitted.", "XTC, logit bias and custom callables deferred until named use cases and fixtures."]
     if "Tokenizer" in name or "tokenizer_utils" in parts:
         differences.append("Textual chat only; tools/documents deferred until structured-message design; remote code skipped.")
     if leaf == "GenerationResponse":
