@@ -16,6 +16,7 @@ publish = false
 default = []
 hf-hub = ["dep:hf-hub"]
 prototype-adapter = []
+oracle-hooks = []
 
 [dependencies]
 mlx-rs.workspace = true
@@ -35,9 +36,9 @@ tempfile.workspace = true
 [[test]]
 name = "parity"
 path = "tests/parity_adapter.rs"
-required-features = ["prototype-adapter"]
+required-features = ["prototype-adapter", "oracle-hooks"]
 
 [[test]]
 name = "sentinel"
 path = "tests/sentinel_adapter.rs"
-required-features = ["prototype-adapter"]
+required-features = ["prototype-adapter", "oracle-hooks"]

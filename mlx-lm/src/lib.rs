@@ -5,7 +5,6 @@
 mod arch;
 #[allow(dead_code)]
 mod cache;
-#[allow(dead_code)]
 mod config;
 mod error;
 mod model;

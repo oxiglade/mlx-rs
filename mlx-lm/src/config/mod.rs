@@ -1,6 +1,10 @@
 pub use crate::error::ConfigError;
 use std::{collections::BTreeMap, num::NonZeroUsize};
 
+mod parse;
+#[cfg(test)]
+mod tests;
+
 /// Resolved architecture facts validated before model allocation.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Config {
@@ -156,14 +160,139 @@ pub(crate) struct RawConfig {
 }
 impl RawConfig {
     pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self, ConfigError> {
-        Ok(serde_json::from_slice(bytes)?)
+        let value: serde_json::Value = serde_json::from_slice(bytes)?;
+        if value
+            .as_object()
+            .is_some_and(|fields| !fields.contains_key("model_type"))
+        {
+            return Err(ConfigError::MissingField {
+                field: "model_type".into(),
+            });
+        }
+        Ok(serde_json::from_value(value)?)
     }
 }
 impl Config {
     /// Validates resolved dimensions and supported architecture options before allocation.
     pub fn validate(&self) -> Result<(), ConfigError> {
-        Err(ConfigError::UnsupportedArchitecture(
-            crate::NotYetImplemented("config validation").to_string(),
-        ))
+        crate::arch::factory(self.model_type.as_str())?;
+        let d = &self.dimensions;
+        for (field, value) in [
+            ("hidden_size", d.hidden_size),
+            ("num_hidden_layers", d.layer_count),
+            ("intermediate_size", d.intermediate_size),
+            ("num_attention_heads", d.attention_heads),
+            ("num_key_value_heads", d.kv_heads),
+            ("head_dim", d.head_dim),
+            ("vocab_size", d.vocabulary_size),
+        ] {
+            positive_size(field, value)?;
+        }
+        if !d.hidden_size.is_multiple_of(d.attention_heads) {
+            return Err(invalid(
+                "hidden_size",
+                "must be divisible by attention heads",
+            ));
+        }
+        if !d.attention_heads.is_multiple_of(d.kv_heads) {
+            return Err(invalid(
+                "num_key_value_heads",
+                "must divide attention heads",
+            ));
+        }
+        if let Some(positions) = d.max_positions {
+            positive_size("max_position_embeddings", positions)?;
+        }
+        positive_number("rms_norm_eps", d.rms_norm_epsilon)?;
+        if self.attention.len() != d.layer_count {
+            return Err(ConfigError::InvalidLayerPattern {
+                expected: d.layer_count,
+                actual: self.attention.len(),
+            });
+        }
+        positive_number("rope_theta", self.rope.theta)?;
+        if self.rope.dimensions == 0
+            || self.rope.dimensions > d.head_dim
+            || !self.rope.dimensions.is_multiple_of(2)
+        {
+            return Err(invalid(
+                "rope.dimensions",
+                "must be positive, even, and at most head_dim",
+            ));
+        }
+        match self.rope.scaling {
+            RopeScaling::None => {}
+            RopeScaling::Linear { factor } => positive_number("rope_scaling.factor", factor)?,
+            RopeScaling::Llama3 {
+                factor,
+                low_frequency_factor,
+                high_frequency_factor,
+                original_max_positions,
+            } => {
+                positive_number("rope_scaling.factor", factor)?;
+                positive_number("rope_scaling.low_freq_factor", low_frequency_factor)?;
+                positive_number("rope_scaling.high_freq_factor", high_frequency_factor)?;
+                positive_size(
+                    "rope_scaling.original_max_position_embeddings",
+                    original_max_positions,
+                )?;
+                if high_frequency_factor <= low_frequency_factor {
+                    return Err(invalid(
+                        "rope_scaling.high_freq_factor",
+                        "must exceed low_freq_factor",
+                    ));
+                }
+            }
+        }
+        if let Some(quantization) = &self.quantization {
+            validate_affine(&quantization.default)?;
+            for (path, layer) in &quantization.layers {
+                validate_parameter_path(path.as_str())?;
+                if let LayerQuantization::Affine(affine) = layer {
+                    validate_affine(affine)?;
+                }
+            }
+        }
+        Ok(())
     }
+}
+
+fn invalid(field: &str, reason: &str) -> ConfigError {
+    ConfigError::InvalidNumericField {
+        field: field.into(),
+        reason: reason.into(),
+    }
+}
+
+fn positive_size(field: &str, value: usize) -> Result<(), ConfigError> {
+    if value == 0 {
+        return Err(invalid(field, "must be positive"));
+    }
+    Ok(())
+}
+
+fn positive_number(field: &str, value: f32) -> Result<(), ConfigError> {
+    if !value.is_finite() || value <= 0.0 {
+        return Err(invalid(field, "must be finite and positive"));
+    }
+    Ok(())
+}
+
+fn validate_affine(affine: &AffineQuantization) -> Result<(), ConfigError> {
+    if !matches!(affine.bits, 2 | 4 | 8) || !matches!(affine.group_size.get(), 32 | 64 | 128) {
+        return Err(ConfigError::UnsupportedQuantization(format!(
+            "affine bits {}, group_size {}",
+            affine.bits, affine.group_size
+        )));
+    }
+    Ok(())
+}
+
+fn validate_parameter_path(path: &str) -> Result<(), ConfigError> {
+    if path.split('.').any(str::is_empty) {
+        return Err(ConfigError::UnsupportedQuantization(format!(
+            "invalid parameter path {path:?}"
+        )));
+    }
+    Ok(())
 }
