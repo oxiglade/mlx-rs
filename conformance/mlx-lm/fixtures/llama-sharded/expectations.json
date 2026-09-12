@@ -300,7 +300,7 @@
   },
   "provenance": {
     "arch": "arm64",
-    "generator": "generate_mlx_lm.py@91299e1dc99c1c7dd6679d2c39ec8da69a541765c2c35242815101428b821e6d",
+    "generator": "generate_mlx_lm.py@a008c1ec6cb5d8c15d0e3f3d519e17088dd9d863bdea6136114930250deb40ef",
     "mlx": "0.32.2",
     "mlx-metal": "0.32.2",
     "mlx_lm": "0.31.3",

@@ -19,6 +19,10 @@ pub enum Class {
     FinishReason,
     Error,
     OutputCount,
+    Processor,
+    TextStop,
+    Progress,
+    CacheTrim,
 }
 
 impl Class {
@@ -39,6 +43,10 @@ impl Class {
             Self::FinishReason => "finish_reason",
             Self::Error => "error_class",
             Self::OutputCount => "output_count",
+            Self::Processor => "processor",
+            Self::TextStop => "text_stop",
+            Self::Progress => "progress",
+            Self::CacheTrim => "cache_trim",
         }
     }
 }
@@ -130,6 +138,41 @@ pub fn compare(expected: &Expectations, actual: &Observation) -> Vec<Failure> {
         &actual.tokenizer,
     );
     equal(&mut failures, Class::Chat, "chat", &e.chat, &actual.chat);
+    equal(
+        &mut failures,
+        Class::Processor,
+        "processing",
+        &e.processing,
+        &actual.processing,
+    );
+    equal(
+        &mut failures,
+        Class::Processor,
+        "processor histories",
+        &e.processor_histories,
+        &actual.processor_histories,
+    );
+    equal(
+        &mut failures,
+        Class::TextStop,
+        "text cases",
+        &e.text_cases,
+        &actual.text_cases,
+    );
+    equal(
+        &mut failures,
+        Class::Progress,
+        "prefill.progress",
+        &e.progress,
+        &actual.progress,
+    );
+    equal(
+        &mut failures,
+        Class::CacheTrim,
+        "cache.trim_after_wrap",
+        &e.trim_after_wrap,
+        &actual.trim_after_wrap,
+    );
     sequence(
         &mut failures,
         Class::SampledId,
@@ -231,7 +274,11 @@ fn compare_tensor(
         fail(failures, Class::Dtype, key, "dtype differs");
         return;
     }
-    let class = if key.starts_with("cache.") {
+    let class = if key.starts_with("processing.") {
+        Class::Processor
+    } else if key.starts_with("cache.trim_after_wrap.") {
+        Class::CacheTrim
+    } else if key.starts_with("cache.") {
         Class::CacheValue
     } else {
         Class::Value

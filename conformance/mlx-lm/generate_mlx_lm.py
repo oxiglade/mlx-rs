@@ -118,8 +118,8 @@ def resolved_config(model, config):
     }
 
 
-def write_tokenizer(directory, family):
-    from tokenizers import AddedToken, Tokenizer, models, pre_tokenizers
+def write_tokenizer(directory, family, prepend_bos=False):
+    from tokenizers import AddedToken, Tokenizer, models, pre_tokenizers, processors
 
     words = list(SPECIAL_TOKENS) + [
         "hello", "world", "the", "small", "fox", "runs", "over", "green", "hill",
@@ -131,6 +131,11 @@ def write_tokenizer(directory, family):
     tokenizer = Tokenizer(models.WordLevel(vocab=vocab, unk_token="<unk>"))
     tokenizer.pre_tokenizer = pre_tokenizers.WhitespaceSplit()
     tokenizer.add_special_tokens([AddedToken(word, special=True) for word in SPECIAL_TOKENS])
+    if prepend_bos:
+        tokenizer.post_processor = processors.TemplateProcessing(
+            single="<|begin_of_text|> $A", pair="<|begin_of_text|> $A $B:1",
+            special_tokens=[("<|begin_of_text|>", vocab["<|begin_of_text|>"])],
+        )
     write_json(directory / "tokenizer.json", json.loads(tokenizer.to_str()))
     is_llama = family == "llama"
     write_json(directory / "tokenizer_config.json", {
@@ -253,7 +258,7 @@ def forward_expectations(model, prompt, chunk_sizes, arrays):
     return greedy, cache_metadata
 
 
-def sampling_cases():
+def sampling_cases(additive=False):
     default = {
         "temperature": 0.7, "top_p": 0.0, "top_k": 0, "min_p": 0.0,
         "min_tokens_to_keep": 1, "repetition_penalty": None, "repetition_context_size": 20,
@@ -264,6 +269,14 @@ def sampling_cases():
         "min_p": {"min_p": 0.1}, "repetition_penalty": {"repetition_penalty": 1.3},
         "combined": {"top_p": 0.9, "min_p": 0.1, "top_k": 5},
     }
+    if additive:
+        for name, penalties in {
+            "presence_penalty": {"presence_penalty": 0.6},
+            "frequency_penalty": {"frequency_penalty": 0.4},
+            "penalties_combined": {"repetition_penalty": 1.3, "presence_penalty": 0.6, "frequency_penalty": 0.4},
+        }.items():
+            overrides[name] = {**penalties, "repetition_context_size": 3,
+                               "presence_context_size": 3, "frequency_context_size": 3}
     return {name: {**default, **options} for name, options in overrides.items()}
 
 
@@ -281,6 +294,10 @@ def sampling_expectations(model, prompt, cases, arrays):
         processors = make_logits_processors(
             repetition_penalty=options["repetition_penalty"],
             repetition_context_size=options["repetition_context_size"],
+            presence_penalty=options.get("presence_penalty"),
+            presence_context_size=options.get("presence_context_size", 20),
+            frequency_penalty=options.get("frequency_penalty"),
+            frequency_context_size=options.get("frequency_context_size", 20),
         )
         history = []
 
@@ -422,7 +439,7 @@ def generate_fixture(directory, variant, manifest):
     directory.mkdir(parents=True)
     config = model_config(variant)
     write_json(directory / "config.json", config)
-    write_tokenizer(directory, config["model_type"])
+    write_tokenizer(directory, config["model_type"], prepend_bos=variant == "llama-base")
     weights = initial_weights(config)
     write_weights(directory, weights, sharded=variant == "llama-sharded")
     model, tokenizer = mlx_lm.load(directory, tokenizer_config={"local_files_only": True, "trust_remote_code": False})
@@ -433,7 +450,7 @@ def generate_fixture(directory, variant, manifest):
     chunks = [1, 3, len(prompt)]
     arrays = {}
     greedy, cache_metadata = forward_expectations(model, prompt, chunks, arrays)
-    cases = sampling_cases()
+    cases = sampling_cases(additive=variant == "llama-base")
     sampling = sampling_expectations(model, prompt, cases, arrays)
     if greedy != sampling["greedy"]["cpu_ids"]:
         raise RuntimeError("forward and generate_step greedy IDs disagree")
@@ -470,6 +487,14 @@ def generate_fixture(directory, variant, manifest):
         "cache": cache_metadata,
         "sampling": sampling, "errors": errors, "tolerances": TOLERANCES,
     }
+    if variant == "llama-base":
+        expectations["processing"] = processing_expectations(arrays)
+        expectations["prefill"]["progress"] = progress_expectations(model, prompt)
+        tokenizer_data["prompt_encoding"] = prompt_encoding_expectations(model, tokenizer, prompts["canonical"])
+        from text_reference import reference
+        write_json(directory / "text_cases.json", reference())
+    if variant == "llama-sliding":
+        cache_metadata["trim_after_wrap"] = trim_expectations(arrays)
     write_json(directory / "inputs.json", {
         "seed": SEED, "prompts": prompts, "token_ids": tokenizer_data["encodings"],
         "canonical_prompt": "canonical", "decode_steps": DECODE_STEPS,
@@ -480,6 +505,115 @@ def generate_fixture(directory, variant, manifest):
     save_arrays(directory / "expectations.safetensors", arrays)
 
 
+def processing_expectations(arrays):
+    from mlx_lm.sample_utils import make_logits_processors
+
+    history = [1, 2, 1, 2, 4, 1, 3]
+    logits = [0.0, 2.0, -3.0, 1.0, -0.5]
+    cases = {}
+    for kind in ("presence", "frequency"):
+        for label, coefficient in (("negative", -0.5), ("zero", 0.0), ("positive", 0.5)):
+            cases[f"{kind}_{label}"] = {f"{kind}_penalty": coefficient, f"{kind}_context_size": 3}
+    cases["repetition"] = {"repetition_penalty": 1.3, "repetition_context_size": 3}
+    cases["combined"] = {"repetition_penalty": 1.3, "presence_penalty": 0.6, "frequency_penalty": 0.4,
+                         "repetition_context_size": 3, "presence_context_size": 3, "frequency_context_size": 3}
+    results = {}
+    for name, options in cases.items():
+        rows = []
+        histories = [history[:end] for end in range(1, len(history) + 1)]
+        for prefix in histories:
+            row = mx.array([logits], dtype=mx.float32)
+            for processor in make_logits_processors(**options):
+                row = processor(mx.array(prefix, dtype=mx.int32), row)
+            rows.append(numpy_array(row)[0])
+        arrays[f"processing.{name}.logits"] = np.stack(rows)
+        results[name] = {"options": options, "input_logits": logits, "histories": histories}
+    return results
+
+
+def progress_expectations(model, prompt):
+    from mlx_lm.generate import generate_step
+
+    results = {}
+    for name, tokens, ceiling in [(f"eight_chunk{n}", prompt, n) for n in (1, 3, 8)] + [("one_chunk1", prompt[:1], 1)]:
+        pairs = []
+        list(generate_step(mx.array(tokens, dtype=mx.int32), model, max_tokens=0,
+                           prefill_step_size=ceiling, prompt_progress_callback=lambda done, total: pairs.append([done, total])))
+        schedule = [[0, len(tokens)]]
+        processed = 0
+        while processed < len(tokens) - 1:
+            processed += min(ceiling, len(tokens) - 1 - processed)
+            schedule.append([processed, len(tokens)])
+        schedule.append([len(tokens), len(tokens)])
+        if pairs != schedule:
+            raise RuntimeError(f"progress disagrees with integer schedule: {name}: {pairs}")
+        results[name] = {"token_ids": tokens, "ceiling": ceiling, "pairs": pairs}
+    return results
+
+
+def prompt_encoding_expectations(model, tokenizer, canonical):
+    from mlx_lm import stream_generate
+
+    class RecordingPrompt(RecordingModel):
+        def __call__(self, tokens, **kwargs):
+            self.calls.extend(tokens.tolist()[0])
+            return self.model(tokens, **kwargs)
+
+    results = {}
+    for name, text in {"canonical": canonical, "canonical_with_bos": tokenizer.bos_token + canonical,
+                       "whitespace_before_bos": " " + tokenizer.bos_token + canonical}.items():
+        recording = RecordingPrompt(model)
+        try:
+            list(stream_generate(recording, tokenizer, text, max_tokens=0, prefill_step_size=3))
+        except UnboundLocalError:
+            # mlx_lm 0.31.3 forwards the whole prompt before its final-response construction
+            # fails on `token` when zero tokens were generated; the recorded calls are complete.
+            pass
+        results[name] = recording.calls
+    ids = tokenizer.encode(canonical, add_special_tokens=False)
+    bos = tokenizer.convert_tokens_to_ids(tokenizer.bos_token)
+    if results != {"canonical": [bos, *ids], "canonical_with_bos": [bos, *ids],
+                   "whitespace_before_bos": [bos, bos, *ids]}:
+        raise RuntimeError(f"unexpected prompt encoding: {results}")
+    return results
+
+
+def trim_expectations(arrays):
+    from mlx_lm.models.cache import RotatingKVCache, can_trim_prompt_cache, trim_prompt_cache
+
+    cache = RotatingKVCache(max_size=5, keep=2)
+    def append(position):
+        cache.update_and_fetch(mx.array([[[[position]]]], dtype=mx.float32),
+                               mx.array([[[[100 + 3 * position]]]], dtype=mx.float32))
+
+    def snapshot(stage, positions):
+        for kind in ("keys", "values"):
+            raw = getattr(cache, kind)
+            temporal = cache._temporal_order(raw)
+            for label, value in ((f"raw_{kind}", raw), (f"temporal_{kind}", temporal)):
+                arrays[f"cache.trim_after_wrap.{stage}.{label}"] = numpy_array(value)
+        actual = arrays[f"cache.trim_after_wrap.{stage}.temporal_keys"].reshape(-1).tolist()
+        if actual != positions:
+            raise RuntimeError(f"unexpected rotating positions: {actual}")
+        return {"offset": cache.offset, "rotation_index": cache._idx,
+                "can_trim": can_trim_prompt_cache([cache]), "temporal_positions": positions,
+                "retained_prefix": positions[:2], "retained_tail": positions[2:]}
+
+    for position in range(10):
+        append(position)
+    before = snapshot("before_trim", [0, 1, 7, 8, 9])
+    trimmed = trim_prompt_cache([cache], 2)
+    after = snapshot("after_trim", [0, 1, 7, 8, 9])
+    if trimmed != 0 or before != after or before["can_trim"]:
+        raise RuntimeError("wrapped rotating cache must refuse trimming")
+    for kind in ("raw_keys", "raw_values", "temporal_keys", "temporal_values"):
+        np.testing.assert_array_equal(arrays[f"cache.trim_after_wrap.before_trim.{kind}"],
+                                      arrays[f"cache.trim_after_wrap.after_trim.{kind}"])
+    append(10)
+    return {"capacity": 5, "keep": 2, "trim_requested": 2, "trim_return": trimmed,
+            "before_trim": before, "after_trim": after, "after_append": snapshot("after_append", [0, 1, 8, 9, 10])}
+
+
 def tree_hash(path):
     digest = hashlib.sha256()
     for item in sorted(entry for entry in path.rglob("*") if entry.is_file()):
@@ -487,6 +621,52 @@ def tree_hash(path):
         digest.update(b"\0")
         digest.update(item.read_bytes())
     return digest.hexdigest()
+
+
+def check_preserved_fixture(previous, generated):
+    from safetensors.numpy import load_file
+
+    def compare_existing(old, new, path=()):
+        if path == ("provenance",):
+            return
+        if previous.name == "llama-base" and path in (
+            ("tokenizer", "encodings", "special_with_defaults"),
+            ("token_ids", "special_with_defaults"),
+        ):
+            required = old if old[:1] == [4] else [4, *old]
+            if new not in (old, required):
+                raise RuntimeError(f"unexpected BOS defaults: {previous.name}:{'.'.join(path)}")
+            return
+        if isinstance(old, dict):
+            for key, value in old.items():
+                if key not in new:
+                    raise RuntimeError(f"removed golden: {previous.name}:{'.'.join((*path, key))}")
+                compare_existing(value, new[key], (*path, key))
+        elif old != new:
+            raise RuntimeError(f"changed existing golden: {previous.name}:{'.'.join(path)}")
+
+    for filename in ("expectations.json", "inputs.json"):
+        compare_existing(json.loads((previous / filename).read_text()),
+                         json.loads((generated / filename).read_text()))
+    old_arrays = load_file(str(previous / "expectations.safetensors"))
+    new_arrays = load_file(str(generated / "expectations.safetensors"))
+    for key, value in old_arrays.items():
+        actual = new_arrays.get(key)
+        if actual is None or value.dtype != actual.dtype or value.shape != actual.shape or value.tobytes() != actual.tobytes():
+            raise RuntimeError(f"changed existing tensor: {previous.name}:{key}")
+    for filename in ("config.json", "tokenizer_config.json", "generation_config.json"):
+        if (previous / filename).read_bytes() != (generated / filename).read_bytes():
+            raise RuntimeError(f"changed fixture asset: {previous.name}/{filename}")
+    for asset in previous.glob("model*.safetensors*"):
+        if asset.read_bytes() != (generated / asset.name).read_bytes():
+            raise RuntimeError(f"changed weights: {previous.name}/{asset.name}")
+    old_tokenizer = json.loads((previous / "tokenizer.json").read_text())
+    new_tokenizer = json.loads((generated / "tokenizer.json").read_text())
+    if previous.name == "llama-base":
+        old_tokenizer.pop("post_processor", None)
+        new_tokenizer.pop("post_processor", None)
+    if old_tokenizer != new_tokenizer:
+        raise RuntimeError(f"changed tokenizer beyond BOS post-processor: {previous.name}")
 
 
 def generate_tree(path, manifest):
@@ -533,6 +713,10 @@ def main():
         first_hash, second_hash = tree_hash(first), tree_hash(second)
         if first_hash != second_hash:
             raise SystemExit(f"generation is not reproducible: {first_hash} != {second_hash}")
+        for variant in VARIANTS:
+            previous = args.output_dir / variant
+            if previous.exists():
+                check_preserved_fixture(previous, first / variant)
         args.output_dir.mkdir(parents=True, exist_ok=True)
         for variant in VARIANTS:
             destination = args.output_dir / variant
