@@ -234,19 +234,6 @@ fn eos_precedence_and_loader_override() -> Result<(), TokenizerError> {
         )?;
         assert_eq!(Tokenizer::from_dir(path)?.eos_tokens(), parse_eos(&value)?);
     }
-    assert_eq!(
-        Tokenizer::from_dir_with_eos(path, ids(&[3, 2, 3]))?.eos_tokens(),
-        ids(&[2, 3])
-    );
-    assert!(Tokenizer::from_dir_with_eos(path, Vec::new())?
-        .eos_tokens()
-        .is_empty());
-    std::fs::write(path.join("generation_config.json"), b"invalid")?;
-    std::fs::write(path.join("config.json"), b"invalid")?;
-    assert_eq!(
-        Tokenizer::from_dir_with_eos(path, ids(&[8]))?.eos_tokens(),
-        ids(&[8])
-    );
     std::fs::remove_file(path.join("generation_config.json"))?;
     write_json(&path.join("config.json"), json!({"eos_token_id": []}))?;
     assert!(Tokenizer::from_dir(path)?.eos_tokens().is_empty());
@@ -301,7 +288,6 @@ fn invalid_eos_and_asset_errors_are_typed() -> Result<(), TokenizerError> {
         Tokenizer::from_dir(path),
         Err(TokenizerError::Json(_))
     ));
-    assert!(Tokenizer::from_dir_with_eos(path, ids(&[2])).is_err());
     Ok(())
 }
 

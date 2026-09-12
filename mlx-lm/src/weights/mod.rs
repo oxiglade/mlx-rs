@@ -112,12 +112,14 @@ impl WeightManifest {
         Ok(Self { tensors })
     }
 
+    #[allow(dead_code)] // GGUF loading is tranche 4.
     pub(crate) fn from_gguf(_file: &GgufFile) -> Result<Self, WeightError> {
         Err(WeightError::UnsupportedFormat(
             crate::NotYetImplemented("GGUF manifest").to_string(),
         ))
     }
 
+    #[allow(dead_code)] // GGUF loading is tranche 4.
     pub(crate) fn affine_groups(&self) -> Result<BTreeSet<String>, WeightError> {
         let groups = self.affine_group_prefixes();
         for prefix in &groups {
@@ -143,6 +145,7 @@ impl WeightManifest {
         groups
     }
 
+    #[allow(dead_code)] // GGUF loading is tranche 4.
     pub(crate) fn validate_affine_group(
         &self,
         prefix: &str,
@@ -313,6 +316,7 @@ impl WeightManifest {
             .ok_or_else(|| WeightError::MissingKey(external.to_owned()))
     }
 
+    #[allow(dead_code)] // GGUF loading is tranche 4.
     pub(crate) fn read_tensor(&self, external: &str) -> Result<Array, WeightError> {
         let entry = self.entry(external)?;
         let mut arrays = Array::load_safetensors(&entry.shard)

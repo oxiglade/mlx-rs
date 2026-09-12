@@ -3,13 +3,20 @@ use crate::{
     arch::DecoderModel, AdditivePenaltyOptions, Cache, CacheError, CacheOptions, CacheSnapshot,
     Config, LoadError, SamplerOptions, TokenId, Tokenizer,
 };
-use std::{marker::PhantomData, num::NonZeroUsize, path::Path, rc::Rc};
+use crate::{
+    sampling::{PendingSample, SamplingEngine},
+    stop::StopStringFilter,
+    tokenizer::StreamingDecoder,
+};
+use mlx_rs::{ops::indexing::TryIndexOp, random::RandomState, Array};
+use std::{num::NonZeroUsize, path::Path, rc::Rc};
 
 /// A loaded decoder and its resolved tokenizer and configuration.
 pub struct Model {
     decoder: Box<dyn DecoderModel>,
     tokenizer: Tokenizer,
     config: Config,
+    identity: Rc<()>,
 }
 impl Model {
     #[cfg(feature = "oracle-hooks")]
@@ -46,6 +53,7 @@ impl Model {
             decoder,
             tokenizer,
             config,
+            identity: Rc::new(()),
         })
     }
     /// Consumes a typed GGUF container with a separately constructed tokenizer.
@@ -76,45 +84,137 @@ impl Model {
         &self.tokenizer
     }
     /// Creates an empty cache for reuse within this loaded model instance.
-    ///
-    /// Currently returns a not-yet-implemented cache policy error.
     pub fn new_cache(&self, options: CacheOptions) -> Result<Cache, CacheError> {
-        let _ = options;
-        Err(CacheError::UnsupportedPolicy(
-            crate::NotYetImplemented("model cache construction").to_string(),
-        ))
+        Cache::new_for_model(
+            self.config.model_type.clone(),
+            self.decoder.cache_layout(),
+            &options,
+            None,
+            Rc::clone(&self.identity),
+        )
     }
     /// Creates a synchronous single-request streaming generator.
-    ///
-    /// Currently returns a not-yet-implemented inference error.
     pub fn generate<'model>(
         &'model mut self,
         prompt: Prompt<'_>,
         options: GenerationOptions,
     ) -> Result<Generation<'model>, GenerationError> {
-        let _ = (&self.decoder, prompt, options);
-        Err(crate::InferenceError::UnsupportedArchitecture(
-            crate::NotYetImplemented("generation").to_string(),
-        )
-        .into())
+        self.start_generation(prompt, options, None)
     }
     /// Generates from the full intended prompt, including the cached prefix.
     ///
     /// Reuse requires this model instance, the same resolved cache policy, an exact
     /// token prefix, and at least one uncached prompt token. The prompt is encoded
     /// or copied during construction; it is not borrowed by the returned stream.
-    /// Currently returns the same not-yet-implemented inference error as `generate`.
     pub fn generate_with_cache<'model>(
         &'model mut self,
         prompt: Prompt<'_>,
         options: GenerationOptions,
         cache: &'model mut Cache,
     ) -> Result<Generation<'model>, GenerationError> {
-        let _ = (&self.decoder, prompt, options, cache);
-        Err(crate::InferenceError::UnsupportedArchitecture(
-            crate::NotYetImplemented("generation").to_string(),
-        )
-        .into())
+        self.start_generation(prompt, options, Some(cache))
+    }
+
+    fn start_generation<'a>(
+        &'a mut self,
+        prompt: Prompt<'_>,
+        options: GenerationOptions,
+        cache: Option<&'a mut Cache>,
+    ) -> Result<Generation<'a>, GenerationError> {
+        let vocabulary_size = self.config.dimensions.vocabulary_size;
+        let sampling = SamplingEngine::new(
+            options.sampling,
+            vocabulary_size,
+            options.repetition_penalty,
+            options.presence_penalty,
+            options.frequency_penalty,
+        )?;
+        let filter = StopStringFilter::new(options.stop.stop_strings)?;
+        let mut stop_tokens = match options.stop.tokens {
+            StopTokenPolicy::Tokenizer => self.tokenizer.eos_tokens().to_vec(),
+            StopTokenPolicy::TokenizerPlus(mut ids) => {
+                ids.extend_from_slice(self.tokenizer.eos_tokens());
+                ids
+            }
+            StopTokenPolicy::Exact(ids) => ids,
+        };
+        stop_tokens.sort_unstable_by_key(|id| u32::from(*id));
+        stop_tokens.dedup();
+        if let Some(&token_id) = stop_tokens
+            .iter()
+            .find(|id| u32::from(**id) as usize >= vocabulary_size)
+        {
+            return Err(GenerationError::StopTokenOutOfRange {
+                token_id,
+                vocabulary_size,
+            });
+        }
+        let prompt = match prompt {
+            Prompt::Text(text) => self.tokenizer.encode_with_special_tokens(
+                text,
+                !self
+                    .tokenizer
+                    .bos_token()
+                    .is_some_and(|bos| text.starts_with(bos)),
+            )?,
+            Prompt::Tokens(ids) => ids.to_vec(),
+        };
+        let last = *prompt.last().ok_or(GenerationError::EmptyPrompt)?;
+        if let Some((index, &token_id)) = prompt
+            .iter()
+            .enumerate()
+            .find(|(_, id)| u32::from(**id) as usize >= vocabulary_size)
+        {
+            return Err(GenerationError::PromptTokenOutOfRange {
+                index,
+                token_id,
+                vocabulary_size,
+            });
+        }
+        let cached = match &cache {
+            Some(cache) => cache.validate_reuse(
+                &self.identity,
+                &self.config.model_type,
+                self.decoder.cache_layout(),
+                &options.cache,
+                &prompt,
+            )?,
+            None => 0,
+        };
+        let capacity = crate::cache::checked_capacity(prompt.len(), options.max_tokens)?;
+        let reserve = cache.as_ref().map(|_| capacity);
+        let cache = match cache {
+            Some(cache) => GenerationCache::Borrowed(cache),
+            None => GenerationCache::Owned(Cache::new_for_model(
+                self.config.model_type.clone(),
+                self.decoder.cache_layout(),
+                &options.cache,
+                Some(capacity),
+                Rc::clone(&self.identity),
+            )?),
+        };
+        Ok(Generation {
+            decoder: self.decoder.as_mut(),
+            cache,
+            prompt,
+            cached,
+            processed: 0,
+            chunk: options.prefill_chunk_size,
+            max_tokens: options.max_tokens,
+            reserve,
+            sampling,
+            rng: None,
+            history: vec![last],
+            accepted: 0,
+            text: Some(TextState {
+                decoder: self.tokenizer.decode_stream(),
+                filter,
+            }),
+            stop_tokens,
+            state: GenerationState::Start,
+            capture_logprobs: false,
+            first_logprobs: None,
+        })
     }
 }
 /// Text or already-tokenized input for one request.
@@ -250,38 +350,268 @@ pub enum GenerationEvent {
         finish_reason: Option<FinishReason>,
     },
 }
+enum GenerationCache<'a> {
+    Owned(Cache),
+    Borrowed(&'a mut Cache),
+}
+impl GenerationCache<'_> {
+    fn get(&self) -> &Cache {
+        match self {
+            Self::Owned(cache) => cache,
+            Self::Borrowed(cache) => cache,
+        }
+    }
+    fn get_mut(&mut self) -> &mut Cache {
+        match self {
+            Self::Owned(cache) => cache,
+            Self::Borrowed(cache) => cache,
+        }
+    }
+}
+enum GenerationState {
+    Start,
+    Prefill,
+    FirstSample(Array),
+    Decode(TokenId),
+    Done,
+}
+struct TextState<'a> {
+    decoder: StreamingDecoder<'a>,
+    filter: StopStringFilter,
+}
+impl TextState<'_> {
+    fn prepare(
+        mut self,
+        token: TokenId,
+        stop: bool,
+        length: bool,
+    ) -> Result<(Option<Self>, String, Option<FinishReason>), GenerationError> {
+        let delta = if stop {
+            String::new()
+        } else {
+            self.decoder.step(token)?.unwrap_or_default()
+        };
+        let (mut text, matched) = self.filter.process(&delta);
+        if matched {
+            return Ok((None, text, Some(FinishReason::Stop)));
+        }
+        if stop || length {
+            let (tail, matched) = self.filter.finish(&self.decoder.finish()?);
+            text.push_str(&tail);
+            return Ok((
+                None,
+                text,
+                Some(if stop || matched {
+                    FinishReason::Stop
+                } else {
+                    FinishReason::Length
+                }),
+            ));
+        }
+        Ok((Some(self), text, None))
+    }
+}
 /// A synchronous stream fused after its final event or first error.
 pub struct Generation<'model> {
-    _decoder: PhantomData<&'model mut dyn DecoderModel>,
-    _thread_bound: PhantomData<Rc<()>>,
-    cache: Cache,
-    finished: bool,
+    decoder: &'model mut dyn DecoderModel,
+    cache: GenerationCache<'model>,
+    prompt: Vec<TokenId>,
+    cached: usize,
+    processed: usize,
+    chunk: NonZeroUsize,
+    max_tokens: NonZeroUsize,
+    reserve: Option<NonZeroUsize>,
+    sampling: SamplingEngine,
+    rng: Option<RandomState>,
+    history: Vec<TokenId>,
+    accepted: usize,
+    text: Option<TextState<'model>>,
+    stop_tokens: Vec<TokenId>,
+    state: GenerationState,
+    capture_logprobs: bool,
+    first_logprobs: Option<Array>,
 }
-impl Generation<'_> {
+impl<'model> Generation<'model> {
     /// Borrows the cache at the most recent completed event boundary.
-    ///
-    /// Generation construction is currently a placeholder, so no stream is available.
     pub fn cache(&self) -> &Cache {
-        &self.cache
+        self.cache.get()
     }
     /// Captures cache state only, excluding RNG, detokenizer, and iterator state.
-    ///
-    /// Generation construction is currently a placeholder, so no stream is available.
     pub fn snapshot(&mut self) -> Result<CacheSnapshot, CacheError> {
-        self.cache.snapshot()
+        self.cache.get_mut().snapshot()
+    }
+
+    #[cfg(feature = "oracle-hooks")]
+    pub(crate) fn capture_first_logprobs(&mut self) {
+        self.capture_logprobs = true;
+    }
+    #[cfg(feature = "oracle-hooks")]
+    pub(crate) fn first_logprobs(&self) -> Option<&Array> {
+        self.first_logprobs.as_ref()
+    }
+
+    fn advance(&mut self, state: GenerationState) -> Result<GenerationEvent, GenerationError> {
+        let total = self.prompt.len() - self.cached;
+        match state {
+            GenerationState::Start => {
+                self.state = GenerationState::Prefill;
+                Ok(GenerationEvent::Prefill {
+                    processed: 0,
+                    total,
+                })
+            }
+            GenerationState::Prefill => {
+                let remaining = total - self.processed;
+                let count = if remaining == 1 {
+                    1
+                } else {
+                    self.chunk.get().min(remaining - 1)
+                };
+                let start = self.cached + self.processed;
+                let ids = &self.prompt[start..start + count];
+                let tokens = token_array(ids)?;
+                let mut step = self.cache.get_mut().step_with_tokens(ids)?;
+                if let Some(capacity) = self.reserve {
+                    step.reserve(capacity)?;
+                }
+                let logits = self.decoder.forward(&tokens, &mut step)?;
+                let row = if remaining == 1 {
+                    Some(last_row(&logits)?)
+                } else {
+                    None
+                };
+                step.evaluate(&[row.as_ref().unwrap_or(&logits)])
+                    .map_err(evaluation_error)?
+                    .commit();
+                self.reserve = None;
+                self.processed += count;
+                self.state = match row {
+                    Some(row) => GenerationState::FirstSample(row),
+                    None => GenerationState::Prefill,
+                };
+                Ok(GenerationEvent::Prefill {
+                    processed: self.processed,
+                    total,
+                })
+            }
+            GenerationState::FirstSample(logits) => {
+                let sample = self.sampling.sample(
+                    &self.history,
+                    logits,
+                    self.rng.as_ref(),
+                    self.capture_logprobs,
+                )?;
+                self.accept(sample)
+            }
+            GenerationState::Decode(previous) => {
+                let tokens = token_array(&[previous])?;
+                let mut step = self.cache.get_mut().step_with_tokens(&[previous])?;
+                let logits = self.decoder.forward(&tokens, &mut step)?;
+                let row = last_row(&logits)?;
+                let sample = self
+                    .sampling
+                    .sample(&self.history, row, self.rng.as_ref(), false)?;
+                let mut outputs = vec![&logits, &sample.token];
+                if let Some(rng) = &sample.rng {
+                    outputs.push(rng.as_array());
+                }
+                let guard = step.evaluate(&outputs).map_err(evaluation_error)?;
+                let token = sample_token(&sample)?;
+                let stop = self.stop_tokens.contains(&token);
+                let text = self
+                    .text
+                    .take()
+                    .expect("active generation has a text decoder");
+                let (next_text, text, reason) =
+                    text.prepare(token, stop, self.accepted + 1 == self.max_tokens.get())?;
+                guard.commit();
+                self.publish(sample, token, next_text, text, reason)
+            }
+            GenerationState::Done => unreachable!("done is handled by next"),
+        }
+    }
+
+    fn accept(&mut self, sample: PendingSample) -> Result<GenerationEvent, GenerationError> {
+        let token = sample_token(&sample)?;
+        let stop = self.stop_tokens.contains(&token);
+        let text = self
+            .text
+            .take()
+            .expect("active generation has a text decoder");
+        let (next_text, text, reason) =
+            text.prepare(token, stop, self.accepted + 1 == self.max_tokens.get())?;
+        self.publish(sample, token, next_text, text, reason)
+    }
+
+    fn publish(
+        &mut self,
+        sample: PendingSample,
+        token: TokenId,
+        next_text: Option<TextState<'model>>,
+        text: String,
+        reason: Option<FinishReason>,
+    ) -> Result<GenerationEvent, GenerationError> {
+        self.rng = sample.rng;
+        if self.accepted == 0 {
+            self.first_logprobs = sample.filtered_logprobs;
+        }
+        self.accepted += 1;
+        self.history.push(token);
+        self.text = next_text;
+        self.state = if reason.is_some() {
+            GenerationState::Done
+        } else {
+            GenerationState::Decode(token)
+        };
+        Ok(GenerationEvent::Token {
+            token_id: token,
+            text,
+            finish_reason: reason,
+        })
+    }
+}
+fn token_array(ids: &[TokenId]) -> Result<Array, GenerationError> {
+    let length = i32::try_from(ids.len()).map_err(|_| GenerationError::SequenceTooLong {
+        length: ids.len(),
+        limit: i32::MAX as usize,
+    })?;
+    let ids: Vec<u32> = ids.iter().copied().map(u32::from).collect();
+    Ok(Array::from_slice(&ids, &[1, length]))
+}
+fn last_row(logits: &Array) -> Result<Array, GenerationError> {
+    logits
+        .try_index((.., -1, ..))
+        .map_err(crate::InferenceError::from)
+        .map_err(Into::into)
+}
+fn sample_token(sample: &PendingSample) -> Result<TokenId, GenerationError> {
+    sample
+        .token
+        .try_item_exact::<u32>()
+        .map(TokenId::from)
+        .map_err(|error| match error {
+            mlx_rs::error::ConversionError::Exception(source) => GenerationError::Exception(source),
+            other => crate::SamplingError::Conversion(other).into(),
+        })
+}
+fn evaluation_error(error: CacheError) -> GenerationError {
+    match error {
+        CacheError::Exception(source) => GenerationError::Exception(source),
+        other => other.into(),
     }
 }
 impl Iterator for Generation<'_> {
     type Item = Result<GenerationEvent, GenerationError>;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.finished {
+        let state = std::mem::replace(&mut self.state, GenerationState::Done);
+        if matches!(state, GenerationState::Done) {
             return None;
         }
-        self.finished = true;
-        Some(Err(crate::InferenceError::UnsupportedArchitecture(
-            crate::NotYetImplemented("generation step").to_string(),
-        )
-        .into()))
+        let result = self.advance(state);
+        if result.is_err() {
+            self.text = None;
+        }
+        Some(result)
     }
 }
 impl std::iter::FusedIterator for Generation<'_> {}
@@ -300,235 +630,4 @@ pub struct HubOptions {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn public_surface_defaults() {
-        let options = GenerationOptions::default();
-        assert_eq!(options.max_tokens.get(), 256);
-        assert_eq!(options.prefill_chunk_size.get(), 2048);
-        assert_eq!(options.sampling.temperature, 0.0);
-        assert!(options.sampling.top_p.is_none());
-        assert!(options.sampling.top_k.is_none());
-        assert!(options.sampling.min_p.is_none());
-        assert!(options.sampling.seed.is_none());
-        assert!(options.repetition_penalty.is_none());
-        assert!(options.presence_penalty.is_none());
-        assert!(options.frequency_penalty.is_none());
-        assert!(matches!(options.stop.tokens, StopTokenPolicy::Tokenizer));
-        assert!(options.stop.stop_strings.is_empty());
-        assert!(matches!(
-            options.cache.policy,
-            crate::CachePolicy::ModelDefault
-        ));
-        let stop = StopPolicy::default();
-        assert!(matches!(stop.tokens, StopTokenPolicy::Tokenizer));
-        assert!(stop.stop_strings.is_empty());
-    }
-
-    #[test]
-    fn options_and_events_can_cross_threads() {
-        fn assert_send_sync<T: Send + Sync>() {}
-        assert_send_sync::<GenerationOptions>();
-        assert_send_sync::<GenerationEvent>();
-    }
-
-    #[test]
-    fn eos_precedence_generation_config_over_config_over_tokenizer() -> anyhow::Result<()> {
-        let directory = tempfile::tempdir()?;
-        let fixture =
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../conformance/mlx-lm/fixtures/llama-base");
-        for name in ["tokenizer.json", "tokenizer_config.json"] {
-            std::fs::copy(fixture.join(name), directory.path().join(name))?;
-        }
-        let config = directory.path().join("config.json");
-        let generation_config = directory.path().join("generation_config.json");
-        std::fs::write(&config, br#"{"model_type":"llama","eos_token_id":9}"#)?;
-        std::fs::write(&generation_config, br#"{"eos_token_id":[3,2]}"#)?;
-        assert_eq!(
-            Tokenizer::from_dir(directory.path())?.eos_tokens(),
-            &[TokenId::from(2), TokenId::from(3)]
-        );
-        std::fs::remove_file(&generation_config)?;
-        assert_eq!(
-            Tokenizer::from_dir(directory.path())?.eos_tokens(),
-            &[TokenId::from(9)]
-        );
-        std::fs::remove_file(&config)?;
-        let tokenizer = Tokenizer::from_dir(directory.path())?;
-        let metadata: serde_json::Value = serde_json::from_slice(&std::fs::read(
-            directory.path().join("tokenizer_config.json"),
-        )?)?;
-        let eos = metadata["eos_token"]
-            .as_str()
-            .ok_or_else(|| anyhow::anyhow!("fixture eos_token must be a string"))?;
-        let expected = tokenizer.encode(eos)?;
-        assert_eq!(expected.len(), 1);
-        assert_eq!(tokenizer.eos_tokens(), expected);
-
-        std::fs::write(&config, br#"{"model_type":"llama","eos_token_id":9}"#)?;
-        std::fs::write(&generation_config, br#"{"eos_token_id":null}"#)?;
-        // mlx_lm treats a falsy generation_config eos_token_id as absent and falls
-        // through to config.json.
-        assert_eq!(
-            Tokenizer::from_dir(directory.path())?.eos_tokens(),
-            &[TokenId::from(9)]
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn local_loading_matches_fixture_expectations() -> anyhow::Result<()> {
-        let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("../conformance/mlx-lm/fixtures");
-        let mut count = 0;
-        let mut not_run = 0;
-        for entry in std::fs::read_dir(fixtures)? {
-            let path = entry?.path();
-            if !path.is_dir() {
-                continue;
-            }
-            count += 1;
-            let model = match Model::from_dir(&path) {
-                Ok(model) => model,
-                Err(LoadError::Weights(crate::WeightError::UnsupportedFormat(message)))
-                | Err(LoadError::Config(crate::ConfigError::UnsupportedArchitecture(message)))
-                    if message.ends_with("not yet implemented in this tranche") =>
-                {
-                    eprintln!(
-                        "NOT RUN: Model::from_dir happy path for {}: {message}",
-                        path.file_name().unwrap_or_default().to_string_lossy()
-                    );
-                    not_run += 1;
-                    continue;
-                }
-                Err(error) => return Err(error.into()),
-            };
-            let config =
-                crate::config::RawConfig::from_bytes(&std::fs::read(path.join("config.json"))?)?
-                    .resolve()?;
-            assert_eq!(model.config(), &config, "{}", path.display());
-            let expectations: serde_json::Value =
-                serde_json::from_slice(&std::fs::read(path.join("expectations.json"))?)?;
-            let mut expected: Vec<u32> =
-                serde_json::from_value(expectations["tokenizer"]["eos_tokens"].clone())?;
-            let mut actual: Vec<u32> = model
-                .tokenizer()
-                .eos_tokens()
-                .iter()
-                .copied()
-                .map(u32::from)
-                .collect();
-            expected.sort_unstable();
-            actual.sort_unstable();
-            assert_eq!(actual, expected, "{}", path.display());
-        }
-        assert!(count > 0, "no fixture directories found");
-        if not_run > 0 {
-            eprintln!("NOT RUN: Model::from_dir happy path for {not_run}/{count} fixtures");
-            anyhow::bail!(
-                "NOT RUN: {not_run} fixtures still require architecture or loader implementation"
-            );
-        }
-        Ok(())
-    }
-
-    #[test]
-    fn local_loading_rejects_missing_and_invalid_config_before_allocation() -> Result<(), LoadError>
-    {
-        let directory = tempfile::tempdir()?;
-        assert!(
-            matches!(Model::from_dir(directory.path()), Err(LoadError::MissingFile(path)) if path == directory.path().join("config.json"))
-        );
-        let path = directory.path().join("config.json");
-        std::fs::write(&path, b"{")?;
-        assert!(matches!(
-            Model::from_dir(directory.path()),
-            Err(LoadError::Config(crate::ConfigError::Json(_)))
-        ));
-        std::fs::write(&path, b"{}")?;
-        assert!(
-            matches!(Model::from_dir(directory.path()), Err(LoadError::Config(crate::ConfigError::MissingField { field })) if field == "model_type")
-        );
-        std::fs::write(&path, br#"{"model_type":"unsupported_oracle_model"}"#)?;
-        assert!(
-            matches!(Model::from_dir(directory.path()), Err(LoadError::Config(crate::ConfigError::UnsupportedArchitecture(name))) if name == "unsupported_oracle_model")
-        );
-        let mut config: serde_json::Value = serde_json::from_slice(include_bytes!(
-            "../../conformance/mlx-lm/fixtures/llama-base/config.json"
-        ))
-        .map_err(crate::ConfigError::from)?;
-        config["num_attention_heads"] = serde_json::json!(0);
-        std::fs::write(
-            path,
-            serde_json::to_vec(&config).map_err(crate::ConfigError::from)?,
-        )?;
-        assert!(
-            matches!(Model::from_dir(directory.path()), Err(LoadError::Config(crate::ConfigError::InvalidNumericField { field, .. })) if field == "num_attention_heads")
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn local_loading_reads_tokenizer_metadata_before_building() -> Result<(), LoadError> {
-        let directory = tempfile::tempdir()?;
-        let fixture =
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../conformance/mlx-lm/fixtures/llama-base");
-        std::fs::copy(
-            fixture.join("config.json"),
-            directory.path().join("config.json"),
-        )?;
-        assert!(
-            matches!(Model::from_dir(directory.path()), Err(LoadError::MissingFile(path)) if path == directory.path().join("tokenizer.json"))
-        );
-        std::fs::copy(
-            fixture.join("tokenizer.json"),
-            directory.path().join("tokenizer.json"),
-        )?;
-        std::fs::write(directory.path().join("tokenizer_config.json"), b"{")?;
-        assert!(matches!(
-            Model::from_dir(directory.path()),
-            Err(LoadError::Tokenizer(crate::TokenizerError::Json(_)))
-        ));
-        std::fs::copy(
-            fixture.join("tokenizer_config.json"),
-            directory.path().join("tokenizer_config.json"),
-        )?;
-        std::fs::write(
-            directory.path().join("generation_config.json"),
-            br#"{"eos_token_id":-1}"#,
-        )?;
-        assert!(matches!(
-            Model::from_dir(directory.path()),
-            Err(LoadError::Tokenizer(crate::TokenizerError::InvalidEos(_)))
-        ));
-        std::fs::write(directory.path().join("generation_config.json"), b"{")?;
-        assert!(matches!(
-            Model::from_dir(directory.path()),
-            Err(LoadError::Tokenizer(crate::TokenizerError::Json(_)))
-        ));
-        Ok(())
-    }
-
-    #[test]
-    fn repetition_penalty_range() -> Result<(), crate::SamplingError> {
-        for penalty in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY, -1.0, 0.0] {
-            let options = RepetitionPenaltyOptions {
-                penalty,
-                context_size: NonZeroUsize::MIN,
-            };
-            assert!(matches!(
-                options.validate(),
-                Err(crate::SamplingError::InvalidRepetitionPenalty(_))
-            ));
-        }
-        for penalty in [f32::MIN_POSITIVE, 0.5, 1.0, 2.0, f32::MAX] {
-            RepetitionPenaltyOptions {
-                penalty,
-                context_size: NonZeroUsize::MIN,
-            }
-            .validate()?;
-        }
-        Ok(())
-    }
-}
+mod tests;

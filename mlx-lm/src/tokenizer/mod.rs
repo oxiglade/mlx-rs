@@ -34,19 +34,6 @@ impl Tokenizer {
         Ok(tokenizer)
     }
 
-    /// The model loader supplies its resolved EOS set, including an explicitly empty set.
-    #[allow(dead_code)] // The foundation loader is implemented in a separate tranche item.
-    pub(crate) fn from_dir_with_eos(
-        path: impl AsRef<Path>,
-        eos: Vec<TokenId>,
-    ) -> Result<Self, TokenizerError> {
-        let mut tokenizer = Self::load_assets(path.as_ref())?;
-        tokenizer.eos = eos;
-        tokenizer.eos.sort_unstable_by_key(|id| id.0);
-        tokenizer.eos.dedup();
-        Ok(tokenizer)
-    }
-
     fn load_assets(path: &Path) -> Result<Self, TokenizerError> {
         let mut tokenizer = Self::from_file(path.join("tokenizer.json"))?;
         let config = read_optional_json(&path.join("tokenizer_config.json"))?;
@@ -176,8 +163,6 @@ impl Tokenizer {
     }
 
     /// Generation feeds only generated non-stop IDs, then consumes `finish` on EOS or length.
-    // The generation engine (tranche 3 item 2) is the only caller.
-    #[allow(dead_code)]
     pub(crate) fn decode_stream(&self) -> StreamingDecoder<'_> {
         StreamingDecoder {
             tokenizer: self,
@@ -358,7 +343,6 @@ fn render_chat(
 }
 
 /// DecodeStream delays incomplete UTF-8. Retaining IDs permits one final decode to flush it.
-#[allow(dead_code)]
 pub(crate) struct StreamingDecoder<'a> {
     tokenizer: &'a Tokenizer,
     inner: tokenizers::DecodeStream<
@@ -373,7 +357,6 @@ pub(crate) struct StreamingDecoder<'a> {
     emitted: String,
 }
 
-#[allow(dead_code)]
 impl StreamingDecoder<'_> {
     pub(crate) fn step(&mut self, id: TokenId) -> Result<Option<String>, TokenizerError> {
         let delta = self.inner.step(id.0)?;

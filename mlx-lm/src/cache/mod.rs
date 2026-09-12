@@ -80,6 +80,7 @@ pub struct CacheSnapshot {
     _thread_bound: PhantomData<Rc<()>>,
 }
 /// Contiguous K/V for one uninterrupted range of absolute positions.
+#[cfg_attr(not(feature = "oracle-hooks"), allow(dead_code))]
 pub(crate) struct LogicalLayerView {
     pub(crate) layer: usize,
     pub(crate) keys: Array,
@@ -87,6 +88,7 @@ pub(crate) struct LogicalLayerView {
     pub(crate) positions: Range<usize>,
 }
 impl Cache {
+    #[cfg_attr(not(feature = "oracle-hooks"), allow(dead_code))]
     pub(crate) fn new(
         architecture: crate::ModelType,
         layout: &[LayerCacheSpec],
@@ -146,6 +148,7 @@ impl Cache {
     /// exactly the positions `info` reports. Each layer yields its nonempty
     /// prefix followed by its tail; an empty layer yields one empty view.
     /// Views are ordered by layer, then position.
+    #[cfg_attr(not(feature = "oracle-hooks"), allow(dead_code))]
     pub(crate) fn logical_layers(&self) -> Result<Vec<LogicalLayerView>, CacheError> {
         let mut views = Vec::with_capacity(self.layers.len());
         for (layer, cache) in self.layers.iter().enumerate() {
@@ -274,6 +277,7 @@ impl Cache {
         Ok(step)
     }
     // Forward-only oracle sessions do not supply represented token IDs.
+    #[cfg_attr(not(feature = "oracle-hooks"), allow(dead_code))]
     pub(crate) fn step(&mut self) -> Result<CacheStep<'_>, CacheError> {
         if self.tracks_tokens {
             return Err(invalid(
@@ -321,6 +325,7 @@ pub(crate) trait LayerCache: sealed::Sealed {
     fn clone_box(&self) -> Box<dyn LayerCache>;
     fn fingerprint(&self) -> LayerFingerprint;
     fn arrays(&self) -> (&Array, &Array);
+    #[cfg_attr(not(feature = "oracle-hooks"), allow(dead_code))]
     fn logical_arrays(&self) -> Result<(Array, Array), CacheError>;
 }
 /// A staged update whose state is committed only after successful evaluation.
@@ -418,9 +423,11 @@ impl<'cache> CacheStep<'cache> {
         *updated = true;
         Ok(result)
     }
+    #[cfg(test)]
     pub(crate) fn commit(self) -> Result<(), CacheError> {
         self.evaluate_and_commit(&[])
     }
+    #[cfg_attr(not(feature = "oracle-hooks"), allow(dead_code))]
     pub(crate) fn evaluate_and_commit(self, outputs: &[&Array]) -> Result<(), CacheError> {
         self.evaluate(outputs)?.commit();
         Ok(())

@@ -2,6 +2,22 @@ use crate::{Cache, CacheError, CacheOptions, InferenceError, Model, TokenId};
 use mlx_rs::{error::Exception, ops::concatenate, Array};
 use std::{num::NonZeroUsize, ops::Range};
 
+/// Creates the public generation engine with first-sample distribution capture enabled.
+pub fn generate_with_logprobs<'m>(
+    model: &'m mut Model,
+    prompt: crate::Prompt<'_>,
+    options: crate::GenerationOptions,
+) -> Result<crate::Generation<'m>, crate::GenerationError> {
+    let mut generation = model.generate(prompt, options)?;
+    generation.capture_first_logprobs();
+    Ok(generation)
+}
+
+/// Returns the evaluated [1, V] filtered logprobs after the first successful token event.
+pub fn first_filtered_logprobs<'a>(generation: &'a crate::Generation<'_>) -> Option<&'a Array> {
+    generation.first_logprobs()
+}
+
 pub fn prefill_logits<'m>(
     model: &'m mut Model,
     tokens: &[TokenId],

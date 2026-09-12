@@ -19,8 +19,10 @@ pub(crate) trait ArchitectureFactory {
         weights: &WeightManifest,
     ) -> Result<Box<dyn DecoderModel>, LoadError>;
     /// Maps a safetensors name to a parameter, approved ignore, or rejection.
+    #[cfg(test)]
     fn map_safetensors_key(&self, external: &str) -> WeightDisposition;
     /// Maps a GGUF name to a parameter, approved ignore, or rejection.
+    #[allow(dead_code)] // GGUF loading is tranche 4.
     fn map_gguf_key(&self, external: &str) -> WeightDisposition;
 }
 /// Shared execution's private boundary around architecture math.

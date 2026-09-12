@@ -1,386 +1,139 @@
-# Typed skeleton and tranche 3 declarations
+# Local loading and generation
 
-This crate declares the approved synchronous API and loads local Llama and Qwen3 models.
-`publish = false` prevents publishing the skeleton through Cargo. Remove that setting only
-when this table is empty and the model parity gates pass. No skeleton feature or public
-placeholder error type is introduced. The private `NotYetImplemented` formatter supplies
-“not yet implemented in this tranche” diagnostics to typed unsupported-operation errors.
-It must be deleted before publication.
+The crate loads local Llama and Qwen3 safetensors checkpoints and exposes one synchronous
+generation engine. `publish = false` remains until the remaining work and parity gates pass.
+The private `NotYetImplemented` formatter is used only by the remaining loading placeholders.
 
-## Ownership and placeholders
+## Remaining work
 
-Each row is an implementation claim point. An error row always fails; it does not return
-partial state. Key-map hooks have the design's infallible signature, so their placeholder
-rejects every key. Metadata accessors, defaults, newtype conversions, raw JSON deserialization,
-and registry selection are implemented. Some private seams temporarily allow dead code;
-remove those allowances as the seams gain callers.
-
-| Owner | File | Placeholder | Current result |
+| Owner | File | Remaining work | Current result |
 | --- | --- | --- | --- |
 | loader, tranche 4 | `src/model.rs` | `Model::from_gguf` | `LoadError::Weights(UnsupportedFormat)` |
 | foundation, tranche 4 | `src/model.rs` | `Model::from_hub` | `HubError::Load(Config(UnsupportedArchitecture))` |
-| foundation, tranche 3 | `src/model.rs` | `Model::generate` | `GenerationError::Inference(UnsupportedArchitecture)` |
-| foundation, tranche 3 item 2 | `src/model.rs` | `Model::new_cache` | `CacheError::UnsupportedPolicy`; wire the implemented `Cache::new_for_model` seam below |
-| foundation, tranche 3 engine | `src/model.rs` | `Model::generate_with_cache` | Same not-yet-implemented inference error as `generate` |
-| foundation, tranche 3 engine | `src/model.rs` | `Generation::cache` | Borrows a private cache field; no generation constructor succeeds yet |
-| foundation, tranche 3 engine | `src/model.rs` | `Generation::snapshot` | Delegates to the private cache field; no generation constructor succeeds yet |
-| foundation, tranche 3 | `src/model.rs` | `Generation::next` | One typed inference error, then fused exhaustion |
-| sampling, tranche 3 item 3 | `src/sampling.rs` | `SamplingEngine`, `PendingSample` | Implemented; dead-code allowances stay until the generation engine calls `SamplingEngine::sample` |
 | loader, tranche 4 | `src/weights/mod.rs` | `WeightManifest::from_gguf` | `WeightError::UnsupportedFormat` |
 | llama, tranche 4 | `src/arch/llama/mod.rs` | `Factory::map_gguf_key` | `WeightDisposition::Reject` |
 | qwen3, tranche 4 | `src/arch/qwen3/mod.rs` | `Factory::map_gguf_key` | `WeightDisposition::Reject` |
+| engine, tranche 4 | real-checkpoint benchmark | Compare throughput with Python; ruling C admits investigating async evaluation if the missing pipeline costs more than 5% | No lookahead in tranche 3 |
+| text/FFI, tranche 3 item 5 | `tests/generation_ffi.rs` | Long generation, reuse, rotating-cache, cancellation, snapshot, memory, leaks and Guard Malloc qualification | Requires Metal qualification |
+| worker, tranche 3 item 5 | `examples/worker.rs` | Bounded request/response channels and cancellation on a model-owning OS thread | Remains with item 5 |
 
-The tranche 3 serial foundation follows `t3/position-astra.md` sections "Public surface",
-"Processor and sampler contract", "State transitions and completed boundaries",
-"Reuse is an exact-prefix operation", and "Validation and error ordering", with
-`t3/DECISIONS.md` rulings A/J (original-string BOS check) and H/K (error variants and
-runtime-evaluation mapping). These are declarations; generation validation, sampling,
-stop filtering, and model entry-point wiring remain with their implementation owners.
-The cache identity, ledger, validation, and split transaction seams are implemented below. Defaults and additive-penalty validation are
-implemented. The existing negative `Send`/`Sync` assertions cover `Model`, `Generation`,
-`Cache`, and `CacheSnapshot`.
+## Generation and completed boundaries
 
-The cache item implements the sealed `LayerCache` trait, full and rotating storage,
-transaction rollback, and snapshots. Full storage accepts a known total capacity and grows
-geometrically when that capacity is exceeded. Rotating storage uses functional index
-replacement for single-token updates; one-shot and chunked prefill preserve the oracle's
-oversized logical arrays until a subsequent update trims them. No bounded-memory claim is
-made until Metal long-loop measurements qualify the lazy graph and allocator behavior.
+`Model::generate` and `Model::generate_with_cache` call the same constructor and state
+machine in `src/model.rs`, using an internal owned-or-borrowed cache. `Model::new_cache`
+uses the model-bound cache constructor. Loading creates one private `Rc<()>` identity;
+generation does not reload weights. The negative `Send`/`Sync` assertions still apply to
+`Model`, `Generation`, `Cache`, and `CacheSnapshot`; options and events are sendable values.
 
-Cache integration notes and deviations:
+The implementation follows `t3/position-astra.md` sections "State transitions and completed
+boundaries", "Complete the transaction through text preparation", "EOS, length, stop strings
+and stable text", "Reuse is an exact-prefix operation", "Validation and error ordering", and
+"Device, RNG and threading", with `t3/DECISIONS.md` rulings A–L overriding the paper.
 
-- Item 2 adds one private `Rc<()>` to each loaded `Model` and passes clones to
-  `Cache::new_for_model(architecture: ModelType, layout: &[LayerCacheSpec],
-  options: &CacheOptions, capacity: Option<NonZeroUsize>, model_identity: Rc<()>)
-  -> Result<Cache, CacheError>`. `Model::new_cache` passes `None` for ordinary full-layer
-  capacity 16. Fresh generation passes `Some(cache::checked_capacity(prompt_len,
-  max_tokens)?)`; this helper returns `Result<NonZeroUsize, GenerationError>`, checks
-  addition and the i32 position limit, and must run after request/reuse validation.
-  Every full layer reserves that total; rotating layers retain their resolved policy.
-- Borrowed generation calls `cache.validate_reuse(&model_identity, &architecture, layout,
-  &options.cache, &full_prompt) -> Result<usize, GenerationError>` before any mutation.
-  The returned index starts the uncached suffix. Validation orders model identity/layout,
-  resolved policy, aligned positions/ledger, exact prefix, then nonempty suffix. Default
-  policy resolves against each layer; it is not a wildcard. Foreign model instances return
-  `FingerprintMismatch`, policy disagreement returns `PolicyMismatch`, shorter/divergent
-  prompts return `CachePrefixMismatch`, and an equal prompt returns `NoUncachedTokens`.
-- The legacy `Cache::new` and `Cache::step` remain for forward-only oracle sessions, with
-  an isolated identity and no represented IDs. Model-bound caches reject that tokenless
-  step. Generation must use `step_with_tokens` and the model-owned identity.
-- `CacheInfo::retained_prefix: Range<usize>` is an added public field. A single range cannot
-  describe a retained prefix and a disjoint recent tail. `retained_positions` describes the
-  recent range, excluding the prefix. With `keep_prefix = 0`, it keeps the original meaning.
-- `Cache::logical_layers()` is crate-visible for decision 11's oracle hooks. Each
-  `LogicalLayerView` has `layer`, contiguous `keys` and `values` shaped
-  `[batch, kv_heads, positions.len(), head_dim]`, and an absolute `positions` range.
-  Views are ordered by layer, then position. Full layers yield one view; rotating layers
-  with a retained prefix yield separate prefix and tail views, omitting empty segments.
-  An empty layer yields one empty `0..0` view. Reading views leaves cache state intact.
-  A layer's views cover exactly the positions `CacheInfo` reports, so after the oracle's
-  oversized prefill they include every stored position (`llama-sliding` after prefill: 8
-  positions at capacity 5, `0..8`); after decode they match the fixture's `after_decode`
-  arrays (sliding layer 1: `11..16`).
-- Generation calls `Cache::step_with_tokens(&[TokenId]) -> Result<CacheStep<'_>, CacheError>`
-  with exactly the input IDs being forwarded. It validates ledger alignment and reserves
-  append space before evaluation. In the first reused forward, call
-  `CacheStep::reserve(checked_total: NonZeroUsize) -> Result<(), CacheError>` to grow all
-  full layers geometrically in staged state. Rotation ignores that reservation. A failure
-  or dropped step leaves committed capacity, arrays, positions, and token contents intact.
-- `CacheStep::evaluate(&[&Array]) -> Result<EvaluatedCacheStep<'_>, CacheError>` checks
-  complete layers, aligned offsets, and represented-input count, then jointly evaluates
-  every staged K/V array and supplied outputs. Prepare checked scalar/token/text results
-  while the evaluated guard holds the cache borrow. `EvaluatedCacheStep::commit(self)`
-  publishes layers and appends pre-reserved IDs without fallible work or allocation.
-  Evaluation failures preserve `CacheError::Exception`; item 2 maps its original source to
-  `GenerationError::Exception` under ruling K. Dropping either guard rolls back.
-  `evaluate_and_commit` composes these operations;
-  `CacheStep::commit()` composes them without outputs for existing forward-only callers.
-  `CacheStep::info(layer)` exposes staged offsets and retained ranges to model math.
-- `Cache::tokens()` includes evicted positions. Snapshots share an `Rc<Vec<TokenId>>`,
-  the model identity, and array handles; layer metadata costs O(layer count). If a snapshot
-  is retained, the first append prepares a separate ledger with its reservation preserved.
-  Subsequent steps use the unique ledger in place. An abandoned append discards the prepared
-  copy. Restore validates compatibility before publishing saved handles, ledger, and identity
-  together. Full allocation capacity may differ across restore; unused capacity is not
-  semantic state. The last sampled token is not represented until it becomes a decode input;
-  item 2's event engine must preserve that boundary.
-- The oracle's oversized-prefill behavior is an exception to fixed-capacity storage:
-  the first chunk retains all its tokens; later chunks retain up to capacity + chunk - 1.
-  Single-token decode returns to the configured capacity and emits temporal order.
-  Internal trimming follows the oracle's `is_trimmable` restriction: after reaching capacity,
-  trimming returns `InvalidState` because evicted tokens cannot be recovered.
+Construction validates sampling and repetition/presence/frequency penalties, stop strings,
+resolved sorted stop IDs, encoded/copied prompt IDs, borrowed cache compatibility/policy/
+ledger/prefix/uncached suffix, then checked `P + M` and i32 representability. Text encoding
+uses the tokenizer post-processor unless the original string starts with the configured BOS
+content, without trimming or encoding first (A/J). Training `max_positions` is not a new cap.
 
-These cache seams implement `t3/position-astra.md` sections "Complete the transaction
-through text preparation", "Reuse is an exact-prefix operation", "Validation and error
-ordering", and "Memory, snapshots and the FFI gate". The last section's bounded-live-MLX
-storage claim still requires item 5's Metal memory/leak qualification. Rulings D and I in
-`t3/DECISIONS.md` govern the loader seam and guarded trim cohort respectively.
+Start emits `{ processed: 0, total: U }` without a forward or RNG draw. Prefill reserves the
+last prompt token and commits each evaluated chunk before reporting progress. Final prefill
+is a separate completed boundary from FirstSample. Decode forwards only the preceding sampled
+token: after token event `j`, the cache represents `P + j - 1` tokens. Drop does no inference.
+Every error yields once and fuses the stream.
 
-`fixture_trim_after_wrap_golden` pins refusal after wrap, unchanged raw/temporal state,
-and the next append against `llama-sliding`'s `cache.trim_after_wrap`.
+Sampling uses the caller's stream scope and a private candidate RNG. Under ruling B it can
+perform separate value-check and sampling evaluations. Decode holds the cache transaction
+through these evaluations, checked token conversion, decoder step, stop filtering and final
+flush. Only successful text preparation publishes the evaluated cache, RNG and accepted
+history. Runtime evaluation exceptions are preserved as `GenerationError::Exception` (K);
+forward construction, sampling construction/conversion, structural cache and tokenizer errors
+retain their respective typed wrappers.
 
-Item 4 verification: all default library tests and the `oracle-hooks` library tests
-compile. Pure subsets passed: cache 5, weights 10, Qwen3 8, Llama 8 (31 total).
-Default and all-features `cargo clippy -p mlx-lm --all-targets -- -D warnings` passed,
-as did `cargo fmt --check` and `git diff --check`.
-The no-Metal sandbox did not execute the following runtime tests; none were marked ignored:
+Penalty history starts with the last prompt token and adds accepted generated tokens; earlier
+prompt tokens and reused prefixes are excluded. Each request starts fresh history and RNG.
+EOS/explicit stop IDs are returned but never decoded. Text stops return the current raw ID,
+exclude the matching text, and discard the decoder without flushing past the match. EOS and
+length otherwise flush through the filter; a match in that flush takes precedence over Length.
+Exactly one successful Token event carries a terminal reason.
 
-| Module | Compiled, NOT RUN |
-| --- | --- |
-| `cache::tests` | `logical_full_layers_after_appends`, `logical_rotating_layers_after_wrap_and_oversized_prefill`, `full_append_and_growth`, `rotating_wrap_prefix_and_chunk_after_wrap`, `rotating_prefill_over_capacity_and_capacity_one`, `rotating_trim_before_capacity_and_restore_after_wrap`, `transaction_rollback_and_snapshot_restore`, `invalid_steps_and_snapshot_fingerprints`, `committed_fixture_cache_arrays`, `evaluated_guard_rolls_back_layers_and_ledger`, `wrapped_snapshot_restores_exact_state_and_ledger`, `reuse_rejects_before_mutation_and_reserves_staged_growth`, `fixture_trim_after_wrap_golden`, `fixture_reuse_matches_fresh_forward` |
-| `weights::tests::runtime` | `projection_round_trip_and_atomic_failure`, `packed_embedding_and_linear_slots` |
-| `arch::qwen3::tests` | `qwen3_base_prefill_and_cache`, `qwen3_quant4_prefill_and_cache`, `causal_and_sliding_mask_with_prefix_positions`, `fixture_keys_and_shape_rejection` |
-| `arch::llama::tests` | `fixture_wrong_shape_errors`, `fixture_prefill_all_positions_cache_and_chunks`, `fixture_half_precision_forward` |
-| `oracle_hooks::tests` | `empty_prompt_is_rejected_before_mlx` (fixture setup needs Metal), `fixture_prefill_matches_expectations` |
+## Internal seams and oracle adapter
 
-Generation-event progress and the terminal uncommitted-token boundary await item 2's engine.
-Memory, leaks, and Guard Malloc were NOT RUN. Verification used the existing temporary SDK,
-linker, and cached-native-source settings in `/private/tmp/mlx-lm-t2-env.sh`. Recurring Cargo
-locks in the parallel sampling worktree required a command-local `CARGO_TARGET_DIR` override
-to an APFS clone at `/private/tmp/codex-target/mlx-lm-t3-cache`, under the preset target root.
-No repository toolchain configuration changed; no devenv/nix command or commit was made.
+- `Cache::new_for_model(architecture, layout, options, capacity, model_identity)` constructs
+  a tracked cache. `Model::new_cache` supplies no capacity (ordinary full capacity 16); fresh
+  generation supplies `cache::checked_capacity(P, max_tokens)`. Rotating policies retain their
+  configured capacity and prefix.
+- `Cache::validate_reuse(&identity, &architecture, layout, &options, &full_prompt)` checks
+  identity/layout, resolved policy, aligned layer positions and ledger, exact prefix, then
+  a nonempty suffix. Its result is the first uncached index. `ModelDefault` is not a wildcard.
+- `Cache::step_with_tokens(ids)` stages input IDs and reserves ledger space. Reused generation
+  calls `CacheStep::reserve(checked_total)` in its first staged forward. Failure does not
+  publish growth. `evaluate(outputs)` jointly evaluates staged K/V and outputs and returns an
+  `EvaluatedCacheStep`; its infallible `commit()` publishes layers and the reserved ledger append.
+- `Cache::tokens()` includes evicted IDs. Snapshots share the ledger and array handles and copy
+  layer metadata. The first append while a snapshot is retained uses a prepared ledger copy.
+  Restore atomically restores layers, ledger and identity. A snapshot excludes generation RNG,
+  decoder and iterator state. No public trim or iterator restore is exposed.
+- `SamplingEngine::sample(history, logits, rng, capture_logprobs)` accepts `[1,V]` floating
+  logits and returns `PendingSample { token, filtered_logprobs, rng }`. It does not publish
+  request state. Greedy constructs no RNG. Stochastic sampling clones the last committed RNG
+  and splits once. First-position diagnostic logprobs retain masks without renormalization.
+- `Tokenizer::decode_stream()` returns `StreamingDecoder`; `step(TokenId)` returns an optional
+  delta and consuming `finish()` returns final text or the typed InvalidPrefix source. The
+  unused `from_dir_with_eos` helper was removed under L; loading resolves EOS through `from_dir`.
+- `StopStringFilter::new(Vec<String>)` rejects the first empty string. `process(&str)` returns
+  visible text and a match flag, holding back the longest proper-prefix suffix. Consuming
+  `finish(final_delta)` processes the final flush and releases unmatched held text.
 
-The loader implements safetensors discovery, indexed-shard reconciliation, metadata validation,
-and strict application through `StateProjection`. Discovery reads headers without loading tensor
-payloads. Assignment validates every mapped slot before materialization, evaluates all staged
-arrays, then restores one keyed snapshot, retaining absent optional slots. GGUF remains tranche 4.
+With the off-by-default `oracle-hooks` feature, the hidden module now exposes:
 
-`WeightManifest::load_with(&mut StateProjection, disposition)` is crate-visible and retains
-strict planning, materialization, evaluation, and atomic assignment. Both factories call it
-once with a closure capturing `tie_word_embeddings`; Qwen3's `CheckpointFactory` and Llama's
-`WeightMapping` wrappers are removed. Both malformed-shape tests enter through `Factory.build`
-(Llama already did).
+```rust
+pub fn generate_with_logprobs<'m>(
+    model: &'m mut Model,
+    prompt: Prompt<'_>,
+    options: GenerationOptions,
+) -> Result<Generation<'m>, GenerationError>;
+pub fn first_filtered_logprobs<'a>(
+    generation: &'a Generation<'_>,
+) -> Option<&'a mlx_rs::Array>;
+```
 
-Architecture constructors use `affine_groups()` to detect packed groups and
-`validate_affine_group(prefix, &AffineQuantization)` to check their configured layout before
-allocating slots. They own quantized module construction and per-layer overrides. Core quantized
-modules project `inner.weight`, `scales`, and `biases`; architecture key maps hide those names
-and explicitly ignore redundant tied heads. No randomly initialized weight is quantized by the
-loader. Each architecture owns `ParsedConfig`, its private JSON `WireConfig`, all model math,
-and its key dispositions.
+The constructor enables capture in the public engine. The reader returns `None` until the
+first successful Token event, then the evaluated `[1,V]` first-position distribution for the
+remaining lifetime of the generator. Greedy capture returns normalized processed logprobs
+without support filtering. It performs no extra sample or forward. Existing `prefill_logits`,
+`OracleSession::decode_step` and `cache_view` remain forward/cache evidence; their cache after
+feeding all eight oracle decode IDs intentionally differs from generation's final boundary.
+`Cache::logical_layers()` returns contiguous temporal `[batch, kv_heads, positions, head_dim]`
+views with separate prefix/tail ranges when needed.
 
-Loader signature choices: the skeleton's `WeightDisposition::Parameter`, `WeightError::MissingKey`,
-and `WeightError::UnexpectedKey` retain their names (the brief calls these `Assign`, `MissingTensor`,
-and `UnexpectedTensor`). Fixture spellings `MissingShard`, `DuplicateTensor`, and `ShapeMismatch`
-are unchanged. No public API was added. The private loader tests live in `src/weights/tests.rs`;
-its metadata-only tests can be selected with `weights::tests::pure`. Discovery parses headers with the
-`safetensors` crate types and materialization loads each shard once through
-`Array::load_safetensors`, validating every loaded array against the manifest before assignment.
+## Loading and tokenizer contracts
 
-The registry contains `llama::Factory` and `qwen3::Factory`, which construct the
-corresponding `DecoderModel` implementations from resolved wire configs.
+`Model::from_dir` discovers one `WeightManifest` and calls the architecture factory once.
+`WeightManifest::load_with(&mut StateProjection, disposition)` performs strict planning,
+shape validation, materialization, evaluation and atomic assignment. Both architecture
+factories use it with tied-aware mappings. Architecture modules own config parsing, model
+math, quantized construction and per-layer overrides. No randomly initialized weights are
+quantized by the loader.
 
-`Model::from_dir` delegates its single weight load to `ArchitectureFactory::build`.
-The factory owns strict keyed assignment, tied-aware ignores such as a redundant
-`lm_head.weight`, and weight evaluation before returning the decoder. `from_dir` only
-discovers the manifest and passes it to the factory; it does not reload the projection.
+Standalone tokenizer loading resolves nonempty/nonzero generation EOS before model EOS,
+then tokenizer spelling. Invalid EOS and JSON are typed errors. Named chat templates select
+`default`; invalid selected Jinja fails during loading and absent templates fail on rendering.
+`encode` retains its no-specials contract; `encode_with_special_tokens` exposes the explicit
+post-processor switch. Streaming preserves special tokens other than sampled stop IDs.
+The decoder retains generated IDs and emitted text, so auxiliary host storage grows with
+output. Exact per-event text parity is claimed only for the named WordLevel fixtures.
 
-The tokenizer item implements local JSON loading, encode/decode, EOS resolution, template
-selection, pycompat, textual roles, continuation, and the private streaming decoder. The
-incoming skeleton already had no tokenizer placeholder rows; none remain to remove. Missing
-templates fail during rendering; invalid selected Jinja fails during loading. String templates,
-named-template dictionaries, and the serialized list of `{name, template}` entries select
-`default`. Other named templates are not compiled. No tokenizer HTTP feature is enabled.
+## Verification scope
 
-The foundation loader can call crate-private
-`Tokenizer::from_dir_with_eos(path, Vec<TokenId>) -> Result<Tokenizer, TokenizerError>` after
-resolving model EOS metadata. It loads tokenizer assets without rereading model/generation
-config, sorts and deduplicates the supplied IDs, and preserves an explicitly empty set.
-Standalone `from_dir` follows mlx_lm 0.31.3 precedence: a nonempty generation list or nonzero
-scalar overrides model config; null, an empty list, or scalar zero in generation config falls
-back to model config. Null/absent model EOS falls back to the tokenizer's EOS spelling.
-Invalid EOS types and out-of-range IDs fail with `InvalidEos`; invalid JSON is rejected rather
-than silently ignored as in Python's generation-config reader.
+`src/model/tests.rs` exercises public fixture streams, 45 seeded sampling trajectories,
+progress goldens and cancellation, strict cache reuse, original-string BOS handling,
+validation precedence, interleaved RNG isolation, terminal text and rollback boundaries.
+Private scripted decoders inject partial-layer forward failure, empty support and lazy
+singular-inverse evaluation failure; the ByteFallback fixture supplies a real final-prefix
+error after evaluation. Tests remain enabled for execution on a host with MLX initialization.
 
-Generation uses crate-private `Tokenizer::decode_stream() -> StreamingDecoder<'_>`,
-`step(TokenId) -> Result<Option<String>, TokenizerError>`, and consuming
-`finish() -> Result<String, TokenizerError>`. Feed only generated non-stop tokens; skip the
-sampled EOS and call `finish` on either EOS or length completion. Discard the decoder after
-an error. Special tokens are preserved, matching `decode` and Python’s streaming detokenizer.
-UTF-8 fragments are buffered by `tokenizers::DecodeStream`,
-and `finish` decodes the accumulated IDs once to emit any remaining text, including incomplete
-UTF-8 replacement characters. If final decoding rewrites an already emitted prefix (for example,
-ByteFallback can replace an entire byte run when it ends incomplete), `finish` returns the
-wrapped `DecodeStreamError::InvalidPrefix`; it cannot retract prior deltas. The wrapper retains
-IDs and emitted text, so auxiliary storage
-is linear in the generated sequence; it does not decode the full history per step. The
-filter and decoder seams carry narrow dead-code allowances until the generation engine, their
-only caller, lands.
-
-Tranche 3 item 5 implements private `stop::StopStringFilter`, following
-`t3/position-astra.md` section "EOS, length, stop strings and stable text" and
-`t3/DECISIONS.md` item 3. `new(Vec<String>) -> Result<Self, GenerationError>` rejects
-the first empty stop string with its original index; call it during generation validation.
-`process(&str) -> (String, bool)` returns visible text and whether a match stopped the
-stream. It excludes the earliest complete match and everything after it, holding back
-the longest proper-prefix suffix otherwise. Matching uses exact UTF-8 bytes.
-`finish(self, final_delta: &str) -> (String, bool)` processes the decoder's final flush
-before releasing an unmatched suffix. A true result means Stop, including at the length
-limit. After a process call returns true, discard the decoder without flushing it.
-
-The text tests read cohort 2's `llama-base/text_cases.json`: all stop-filter events,
-held suffixes, terminal states and finish flushes, plus five ByteLevel/ByteFallback
-cases with final decode bytes and typed `InvalidPrefix` payload checks. Pure integration
-tests pass decoder flushes through the filter for both matches and mismatches. Existing
-WordLevel, special-token and chat goldens remain covered by the tokenizer suite.
-Generation-event ordering and cache rollback on decoder errors await the engine owner.
-
-Tokenizer design deviations and signature choices:
-
-- `ChatTemplateOptions` adds public `enable_thinking: Option<bool>` because the protected Qwen3
-  goldens explicitly pass false. `None` leaves the variable undefined and preserves template
-  defaults. No arbitrary template-kwargs map is exposed. The separately packaged
-  `examples/lm/src/main.rs` literal needs `..Default::default()` when its owner next migrates it;
-  it is outside this item's ownership and outside workspace checks.
-- `decode` preserves special tokens, matching Python's default and the oracle's ordinary
-  decodings; the incoming skeleton omitted them. Private helpers qualify the oracle's explicit
-  add/skip-special-token cases without adding public option types.
-- ContinueLast uses Transformers 5.17.0's marker algorithm, including spacing preservation,
-  trimmed output, and empty final text. An empty conversation returns `IncompatibleContinuation`.
-- `src/tokenizer/tests.rs` contains the tokenizer unit tests. It reads every protected fixture
-  directory and compares all tokenizer expectations, EOS source, exact chat UTF-8 hex, chat
-  token IDs, and per-step streaming deltas. Protected fixtures are never edited.
-
-Tokenizer verification passed: `cargo fmt --check`,
-`cargo clippy -p mlx-lm --all-targets -- -D warnings`, `cargo check --tests`,
-`cargo doc -p mlx-lm --no-deps`, and
-`cargo test -p mlx-lm --lib tokenizer::` (11 tests). The six fixture
-directories cover 36 encodings, 36 decodings, EOS metadata/source, and 18 exact chat cases.
-Five continuation edge cases were checked directly against the pinned Transformers renderer.
-No MLX evaluation, Metal/model inference, or generation-event delta parity was executed.
-The excluded LM example was not built. No commit was created.
-
-## Test features
-
-Normal Cargo test discovery is enabled. The explicit `parity` and `sentinel` targets use
-`tests/parity.rs` and `tests/sentinel.rs`, both with `required-features = ["oracle-hooks"]`.
-Run them with `cargo test -p mlx-lm --features oracle-hooks --test parity --test sentinel`.
-The default feature set is empty, so plain `cargo test -p mlx-lm` does not link these targets.
-`hf-hub` independently enables the optional Hub API; it is not needed for either test.
-Per-module unit tests run with `cargo test -p mlx-lm --lib <module>::`.
-
-Both adapters load through `Model::from_dir` and use `oracle_hooks` for prefill, cache views,
-and greedy decode. The sentinel reads the tokenizer from the loaded model. Logical K/V
-views have shape `[batch, kv_heads, positions.len(), head_dim]`, matching the sentinel's
-pinned `[1, 1, 4, 4]` arrays directly; no layout mapping or fixture edit is needed.
-
-## Signature choices where the design is silent
-
-Decision 1 requires no trait signature change. The existing factory boundary is
-`fn build(&self, parsed: ParsedArchitecture, weights: &WeightManifest) -> Result<Box<dyn DecoderModel>, LoadError>`.
-Architecture implementations must complete their strict weight load inside this call.
-
-Decision 11 uses the off-by-default `oracle-hooks` feature and hidden public
-`src/oracle_hooks.rs` module. `prefill_logits` returns all-position logits and an
-`OracleSession<'m> { model: &'m mut Model, cache: Cache }`; `decode_step` and `cache_view`
-are session methods. This session-object shape is the decision 11 signature deviation.
-`cache_view` maps `Cache::logical_layers()` into contiguous temporal `LayerView` arrays,
-preserving separate position ranges when a layer retains a disjoint prefix and tail.
-`InferenceError::EmptyPrompt` adds the `prompt is empty` diagnostic because the prefill
-entry point returns `InferenceError`, not `GenerationError`.
-
-`SamplingError::EmptyVocabulary` and `SamplingError::MinTokensToKeepExceedsVocabulary`
-are accepted deviations: validation receives the runtime vocabulary, and neither a zero
-vocabulary nor min-p support larger than the vocabulary fits the design's listed variants.
-
-The design fixes all public option fields and both architecture trait signatures, but does
-not spell out error payloads, `HubOptions` fields, `ParameterPath` access, validation method
-names, or private cache/loader signatures. This step declares these seams in their owning
-files. UnsupportedFormat, UnsupportedPolicy, UnsupportedMode, and inference's
-UnsupportedArchitecture are ordinary typed boundary variants used for placeholder failures;
-there is no catch-all boxed error. The six fixture error-class spellings are preserved:
-`WeightError::MissingShard`, `WeightError::DuplicateTensor`, `WeightError::ShapeMismatch`,
-`ConfigError::UnsupportedArchitecture`, `ConfigError::UnsupportedQuantization`, and
-`ConfigError::UnsupportedRope`.
-
-`Cache`, `CacheKind`, `LayerQuantization`, and `ParameterPath` are re-exported at the root in
-addition to the design's root list because its public signatures name them. Generation
-lives in `src/model.rs` as required by this step, with its types re-exported at the root.
-Hub options use optional revision/cache-directory overrides and an explicit offline flag.
-Sampling defaults to greedy with every probability filter disabled. TokenId converts to
-and from u32; ModelType and ParameterPath expose string construction and borrowing.
-
-The obsolete `examples/lm` consumer now uses only the new public model/tokenizer/generation
-API and no longer depends on the deleted utilities crate. Local checkpoint loading is
-implemented; generation remains a later tranche.
-
-## Foundation verification (before the final round)
-
-| Check | Result |
-| --- | --- |
-| `cargo fmt --check` | Passed |
-| `cargo clippy -p mlx-lm --all-targets -- -D warnings` | Passed |
-| `cargo check --tests` | Passed; existing warnings remain in core/test crates |
-| `cargo doc -p mlx-lm --no-deps` | Passed |
-| `cargo clippy -p mlx-lm --all-targets --all-features -- -D warnings` | Passed, including both unchanged regression adapters and Hub signatures |
-| `cargo check -p mlx-lm --no-default-features --tests` | Passed |
-| `cargo test -p mlx-lm --lib tokenizer::tests -- --test-threads=1` | Both Qwen3 template and Unicode continuation tests passed |
-| Default normal dependency tree | No HTTP client, anyhow, clap, or utilities crate |
-| Protected-path diff and fixture copy comparison | No protected changes; moved Qwen3 fixture is byte-identical |
-| `git diff --check` and example `rustfmt --check` | Passed |
-
-The preset Cargo target directory was retained. Initial checks could not resolve the registry
-or link against the default SDK, and the native build tried to fetch MLX. Successful checks
-used offline Cargo resolution, `/usr/bin/cc`, the installed Xcode SDK, and a temporary CMake
-toolchain file pointing to clean cached MLX `v0.32.2` sources and their cached dependencies.
-A temporary xcrun wrapper directs Metal compiler module-cache writes into `/private/tmp`.
-These settings live in `/private/tmp/mlx-lm-t2-env.sh`; no core build files were changed and
-neither devenv nor nix was run. Temporary verification logs use the
-`/private/tmp/mlx-lm-t2-` prefix.
-
-Model/Metal execution, parity and sentinel inference, real checkpoint loading, cache behavior,
-and Hub downloads were not run. The tokenizer tests do not execute MLX operations. The LM
-example was formatted and migrated but was not executed against a checkpoint.
-
-`model::tests::local_loading_matches_fixture_expectations` is enabled now that both
-architectures are integrated. Its assertions are unchanged and require Metal verification.
-
-Decision 11 is implemented behind `oracle-hooks` in `src/oracle_hooks.rs` using the
-session-object signature recorded above. Each prefill chunk and decode token uses its own
-`Cache::step()` and `CacheStep::evaluate_and_commit(&[&logits])` transaction. Prefill
-concatenates every position's logits on axis 1; `cache_view` uses `Cache::logical_layers()`.
-
-The oracle-hook tests report `NOT RUN` and fail if fixture loading still encounters an
-architecture placeholder; they cannot pass without exercising their assertions. Once
-architectures land, the fixture test checks full and chunked prefill logits, retained K/V
-against the corresponding positions in the full-prefill goldens, each decode step's logits,
-and final decode K/V. The empty-prompt check performs no MLX operation after model loading;
-its fixture setup still requires a real constructor. Metal inference remains unverified.
-
-The foundation step changed implementation-owned files: workspace/package manifests,
-`mlx-lm` sources and handoff documentation, adapter test entry points, the moved Qwen3 fixture,
-the removed `mlx-lm-utils` crate, and the migrated `examples/lm` consumer. That step changed
-no protected-oracle or ledger files and created no commit.
-The final round also repoints the protected `tests/parity/prototype.rs` adapter; the launcher
-will commit that edit separately through the oracle-change process.
-
-## Tranche 3 serial foundation verification
-
-The declaration step passed formatting, default and all-features Clippy with warnings
-denied, workspace/all-target compilation, `cargo doc -p mlx-lm --no-deps`, and 60 pure
-library tests (seven new tests).
-Workspace compilation reported existing warnings in untouched `mlx-rs` and `mlx-tests`
-tests. The excluded LM example passed `rustc --emit=metadata` against the updated library
-and anyhow metadata in the preset target directory.
-
-The initial Clippy attempt failed because the PATH-selected linker could not find
-`libiconv`. Verification then used the existing `/private/tmp/mlx-lm-t2-env.sh` settings
-described above, preserving the preset `CARGO_TARGET_DIR`. No devenv/nix command ran,
-no repository build configuration changed, and no commit was created.
-
-All default library tests compiled. The full unfiltered test command was not executed:
-the sandbox has no Metal device. The test run used `--test-threads=1` with explicit
-`--skip` arguments for these 18 MLX runtime tests; none were marked ignored in source.
-
-| Module | Tests compiled but not executed |
-| --- | --- |
-| `arch::llama::tests` | `fixture_wrong_shape_errors`, `fixture_prefill_all_positions_cache_and_chunks`, `fixture_half_precision_forward` |
-| `arch::qwen3::tests` | `qwen3_base_prefill_and_cache`, `qwen3_quant4_prefill_and_cache`, `causal_and_sliding_mask_with_prefix_positions` |
-| `cache::tests` | `logical_full_layers_after_appends`, `logical_rotating_layers_after_wrap_and_oversized_prefill`, `full_append_and_growth`, `rotating_wrap_prefix_and_chunk_after_wrap`, `rotating_prefill_over_capacity_and_capacity_one`, `rotating_trim_before_capacity_and_restore_after_wrap`, `transaction_rollback_and_snapshot_restore`, `invalid_steps_and_snapshot_fingerprints`, `committed_fixture_cache_arrays` |
-| `weights::tests::runtime` | `projection_round_trip_and_atomic_failure`, `packed_embedding_and_linear_slots` |
-| `model::tests` | `local_loading_matches_fixture_expectations` |
-
-Generation execution, sampling distributions, evaluation-error mapping, cache reuse,
-Metal inference, checkpoint execution of the example, parity/sentinel execution, memory,
-leaks, and Guard Malloc remain unverified. Their implementations or runtime qualification
-belong to later tranche 3 steps.
+The bounded-live-storage claim still requires item 5's Metal measurements. Rotation can
+retain capacity plus a prefill chunk until subsequent updates; snapshots retain old storage.
+No zero-allocation or constant-total-host-memory claim is made. This sandbox's actual build,
+pure-test results and named unexecuted runtime tests are recorded in the engine handoff report.

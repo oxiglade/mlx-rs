@@ -1,9 +1,7 @@
 //! Synchronous, thread-bound language model inference with typed configuration.
 #![deny(missing_docs)]
 
-#[allow(dead_code)] // Interfaces are claimed by the implementation items listed in SKELETON.md.
 mod arch;
-#[allow(dead_code)]
 mod cache;
 mod config;
 mod error;
@@ -11,7 +9,6 @@ mod model;
 mod sampling;
 mod stop;
 mod tokenizer;
-#[allow(dead_code)]
 mod weights;
 
 pub use cache::{Cache, CacheInfo, CacheKind, CacheOptions, CachePolicy, CacheSnapshot};

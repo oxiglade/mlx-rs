@@ -27,6 +27,7 @@ impl ArchitectureFactory for Factory {
         Ok(Box::new(build_decoder(parsed, weights)?))
     }
 
+    #[cfg(test)]
     fn map_safetensors_key(&self, external: &str) -> WeightDisposition {
         map_key(external, false)
     }
