@@ -164,7 +164,8 @@ The `prototype-adapter` feature is off by default. Explicit `parity` and `sentin
 entry points alias their own crate as `mlx_lm` and re-export only `legacy::{cache, models}`.
 This lets the existing test sources retain their imports byte-for-byte, without exposing
 old modules at the library root. Both targets now require
-`--features prototype-adapter,oracle-hooks` for the decision 11 migration.
+`--features prototype-adapter,oracle-hooks` until the llama stage-B round deletes the
+prototype adapter. Decision 11's hooks live in `src/oracle_hooks.rs`.
 Auto-discovery is disabled so Cargo cannot also compile the old entry points directly.
 The comparator's fixture/mutation tests share the parity binary and therefore also require
 this feature until the adapter is ported. New integration tests must be registered explicitly.
@@ -192,6 +193,19 @@ loader is deliberately not the new strict loader and must never back `Model::fro
 Decision 1 requires no trait signature change. The existing factory boundary is
 `fn build(&self, parsed: ParsedArchitecture, weights: &WeightManifest) -> Result<Box<dyn DecoderModel>, LoadError>`.
 Architecture implementations must complete their strict weight load inside this call.
+
+Decision 11 uses the off-by-default `oracle-hooks` feature and hidden public
+`src/oracle_hooks.rs` module. `prefill_logits` returns all-position logits and an
+`OracleSession<'m> { model: &'m mut Model, cache: Cache }`; `decode_step` and `cache_view`
+are session methods. This session-object shape is the decision 11 signature deviation.
+`cache_view` maps `Cache::logical_layers()` into contiguous temporal `LayerView` arrays,
+preserving separate position ranges when a layer retains a disjoint prefix and tail.
+`InferenceError::EmptyPrompt` adds the `prompt is empty` diagnostic because the prefill
+entry point returns `InferenceError`, not `GenerationError`.
+
+`SamplingError::EmptyVocabulary` and `SamplingError::MinTokensToKeepExceedsVocabulary`
+are accepted deviations: validation receives the runtime vocabulary, and neither a zero
+vocabulary nor min-p support larger than the vocabulary fits the design's listed variants.
 
 The design fixes all public option fields and both architecture trait signatures, but does
 not spell out error payloads, `HubOptions` fields, `ParameterPath` access, validation method
@@ -243,19 +257,24 @@ and Hub downloads were not run. The tokenizer tests do not execute MLX operation
 example was formatted and migrated but was not executed against a checkpoint.
 
 `model::tests::local_loading_matches_fixture_expectations` is explicitly ignored with
-`NOT RUN` until the architecture and loader items land. Running it with `--ignored
+`NOT RUN` until llama/qwen3 construction and forwards land. Running it with `--ignored
 --nocapture` reports each unavailable fixture and fails if any remain unavailable, so an
 explicit run cannot count placeholder errors as a passing happy path. Remove the ignore
 when those implementations are integrated.
 
-Decision 11 is blocked in this worktree: `Cache::new` and `Cache::step` still return
-placeholder errors, and `CacheStep` has neither `info` nor `evaluate_and_commit`.
-The wave worktree has the same placeholders. The cache item's real implementation has
-those transaction APIs but exposes no logical K/V read accessor; its `LayerCache::arrays`
-returns private storage buffers, which cannot substitute for temporal views of rotating
-caches. The `oracle-hooks` feature is declared and required by parity/sentinel, but its
-module and entry points remain unimplemented pending cache integration and a logical
-per-layer K/V accessor. The feature is off by default; no protected test sources changed.
+Decision 11 is implemented behind `oracle-hooks` in `src/oracle_hooks.rs` using the
+session-object signature recorded above. Each prefill chunk and decode token uses its own
+`Cache::step()` and `CacheStep::evaluate_and_commit(&[&logits])` transaction. Prefill
+concatenates every position's logits on axis 1; `cache_view` uses `Cache::logical_layers()`.
+Parity/sentinel require `prototype-adapter,oracle-hooks` until the llama stage-B round
+deletes the prototype adapter. No protected test sources changed.
+
+The oracle-hook tests report `NOT RUN` and fail if fixture loading still encounters an
+architecture placeholder; they cannot pass without exercising their assertions. Once
+architectures land, the fixture test checks full and chunked prefill logits, retained K/V
+against the corresponding positions in the full-prefill goldens, each decode step's logits,
+and final decode K/V. The empty-prompt check performs no MLX operation after model loading;
+its fixture setup still requires a real constructor. Metal inference remains unverified.
 
 Changed files are implementation-owned: workspace/package manifests, `mlx-lm` sources and
 handoff documentation, adapter test entry points, the moved Qwen3 fixture, the removed

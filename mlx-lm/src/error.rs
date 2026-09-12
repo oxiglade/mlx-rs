@@ -278,6 +278,9 @@ pub enum SamplingError {
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum InferenceError {
+    /// The prompt contains no tokens.
+    #[error("prompt is empty")]
+    EmptyPrompt,
     /// The architecture forward path is not implemented.
     #[error("unsupported inference architecture: {0}")]
     UnsupportedArchitecture(String),
