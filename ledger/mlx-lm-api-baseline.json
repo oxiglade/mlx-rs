@@ -12,6 +12,16 @@
   "entries": [
     {
       "kind": "struct",
+      "path": "mlx_lm::AdditivePenaltyOptions",
+      "signature": "# [doc = \" Presence or frequency penalty over a trailing token-history window.\"] # [doc = \"\"] # [doc = \" Python's history rule starts with the final prompt token and adds accepted\"] # [doc = \" generated tokens, excluding earlier prompt tokens and reused prefixes.\"] # [doc = \" A context size of 20 matches Python's recipe; callers supply both fields.\"] # [derive (Debug , Clone)] pub struct AdditivePenaltyOptions { # [doc = \" Finite coefficient to subtract. Negative values reward tokens; zero is an identity.\"] pub penalty : f32 , # [doc = \" Maximum number of history tokens considered by this penalty.\"] pub context_size : NonZeroUsize , }"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::AdditivePenaltyOptions::validate",
+      "signature": "pub fn validate (& self) -> Result < () , SamplingError >"
+    },
+    {
+      "kind": "struct",
       "path": "mlx_lm::AffineQuantization",
       "signature": "# [doc = \" Packed affine quantization parameters.\"] # [derive (Debug , Clone , PartialEq)] pub struct AffineQuantization { # [doc = \" Number of values sharing affine scale and bias.\"] pub group_size : NonZeroUsize , # [doc = \" Packed bits per quantized value.\"] pub bits : u8 , }"
     },
@@ -41,9 +51,14 @@
       "signature": "pub fn snapshot (& mut self) -> Result < CacheSnapshot , CacheError >"
     },
     {
+      "kind": "method",
+      "path": "mlx_lm::Cache::tokens",
+      "signature": "pub fn tokens (& self) -> & [crate :: TokenId]"
+    },
+    {
       "kind": "enum",
       "path": "mlx_lm::CacheError",
-      "signature": "# [doc = \" Cache shape, transaction, or restoration failed.\"] # [derive (Debug , thiserror :: Error)] # [non_exhaustive] pub enum CacheError { # [doc = \" The snapshot belongs to an incompatible cache.\"] # [error (\"cache fingerprint mismatch\")] FingerprintMismatch , # [doc = \" A layer update has an incompatible shape.\"] # [error (\"cache shape mismatch at layer {layer}: expected {expected:?}, got {actual:?}\")] ShapeMismatch { # [doc = \" Zero-based cache layer index.\"] layer : usize , # [doc = \" Required value or layout.\"] expected : Vec < usize > , # [doc = \" Observed value or layout.\"] actual : Vec < usize > , } , # [doc = \" The operation conflicts with the cache transaction state.\"] # [error (\"invalid cache state: {0}\")] InvalidState (String) , # [doc = \" The requested cache policy is not implemented.\"] # [error (\"unsupported cache policy: {0}\")] UnsupportedPolicy (String) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Exception (# [from] Exception) , }"
+      "signature": "# [doc = \" Cache shape, transaction, or restoration failed.\"] # [derive (Debug , thiserror :: Error)] # [non_exhaustive] pub enum CacheError { # [doc = \" The snapshot belongs to an incompatible cache.\"] # [error (\"cache fingerprint mismatch\")] FingerprintMismatch , # [doc = \" The resolved request policy differs from the supplied cache policy.\"] # [error (\"cache policy mismatch\")] PolicyMismatch , # [doc = \" A layer update has an incompatible shape.\"] # [error (\"cache shape mismatch at layer {layer}: expected {expected:?}, got {actual:?}\")] ShapeMismatch { # [doc = \" Zero-based cache layer index.\"] layer : usize , # [doc = \" Required value or layout.\"] expected : Vec < usize > , # [doc = \" Observed value or layout.\"] actual : Vec < usize > , } , # [doc = \" The operation conflicts with the cache transaction state.\"] # [error (\"invalid cache state: {0}\")] InvalidState (String) , # [doc = \" The requested cache policy is not implemented.\"] # [error (\"unsupported cache policy: {0}\")] UnsupportedPolicy (String) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Exception (# [from] Exception) , }"
     },
     {
       "kind": "struct",
@@ -103,27 +118,37 @@
     {
       "kind": "enum",
       "path": "mlx_lm::FinishReason",
-      "signature": "# [doc = \" Why the final successful event ended generation.\"] # [derive (Debug , Clone , Copy , PartialEq , Eq)] pub enum FinishReason { # [doc = \" A stop token was sampled.\"] Stop , # [doc = \" The token limit was reached.\"] Length , }"
+      "signature": "# [doc = \" Why the final successful event ended generation.\"] # [derive (Debug , Clone , Copy , PartialEq , Eq)] # [non_exhaustive] pub enum FinishReason { # [doc = \" A stop token or generated-text stop string was matched.\"] Stop , # [doc = \" The token limit was reached.\"] Length , }"
     },
     {
       "kind": "struct",
       "path": "mlx_lm::Generation",
-      "signature": "# [doc = \" A synchronous stream fused after its final event or first error.\"] pub struct Generation < 'model > { _decoder : PhantomData < & 'model mut dyn DecoderModel > , _thread_bound : PhantomData < Rc < () > > , finished : bool , }"
+      "signature": "# [doc = \" A synchronous stream fused after its final event or first error.\"] pub struct Generation < 'model > { _decoder : PhantomData < & 'model mut dyn DecoderModel > , _thread_bound : PhantomData < Rc < () > > , cache : Cache , finished : bool , }"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Generation::cache",
+      "signature": "pub fn cache (& self) -> & Cache"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Generation::snapshot",
+      "signature": "pub fn snapshot (& mut self) -> Result < CacheSnapshot , CacheError >"
     },
     {
       "kind": "enum",
       "path": "mlx_lm::GenerationError",
-      "signature": "# [doc = \" Prompt preparation or streaming generation failed.\"] # [derive (Debug , thiserror :: Error)] # [non_exhaustive] pub enum GenerationError { # [doc = \" The encoded prompt contains no tokens.\"] # [error (\"prompt is empty\")] EmptyPrompt , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Tokenizer (# [from] TokenizerError) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Sampling (# [from] SamplingError) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Cache (# [from] CacheError) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Inference (# [from] InferenceError) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Exception (# [from] Exception) , }"
+      "signature": "# [doc = \" Prompt preparation or streaming generation failed.\"] # [doc = \"\"] # [doc = \" Construction validates sampler options, repetition/presence/frequency penalties,\"] # [doc = \" stop strings and tokens, the encoded prompt, borrowed-cache compatibility and\"] # [doc = \" prefix, then checked sequence lengths, before allocating or mutating a cache.\"] # [derive (Debug , thiserror :: Error)] # [non_exhaustive] pub enum GenerationError { # [doc = \" The encoded prompt contains no tokens.\"] # [error (\"prompt is empty\")] EmptyPrompt , # [doc = \" A configured stop string is empty.\"] # [error (\"stop string at index {index} is empty\")] EmptyStopString { # [doc = \" Zero-based index in the supplied stop-string list.\"] index : usize , } , # [doc = \" A prompt token is outside the runtime vocabulary.\"] # [error (\"prompt token {token_id:?} at index {index} is outside vocabulary {vocabulary_size}\")] PromptTokenOutOfRange { # [doc = \" Zero-based index in the full encoded prompt.\"] index : usize , # [doc = \" Rejected token identifier.\"] token_id : crate :: TokenId , # [doc = \" Runtime vocabulary size.\"] vocabulary_size : usize , } , # [doc = \" An effective stop token is outside the runtime vocabulary.\"] # [error (\"stop token {token_id:?} is outside vocabulary {vocabulary_size}\")] StopTokenOutOfRange { # [doc = \" Rejected token identifier.\"] token_id : crate :: TokenId , # [doc = \" Runtime vocabulary size.\"] vocabulary_size : usize , } , # [doc = \" The full prompt does not extend the exact represented cache prefix.\"] # [error (\"cache prefix mismatch: matched {matched} tokens, cached {cached}, prompt {prompt}\")] CachePrefixMismatch { # [doc = \" Number of equal leading token IDs.\"] matched : usize , # [doc = \" Number of tokens represented by the cache.\"] cached : usize , # [doc = \" Number of tokens in the full prompt.\"] prompt : usize , } , # [doc = \" The full prompt is already represented and has no suffix to prefill.\"] # [error (\"prompt has no uncached tokens\")] NoUncachedTokens , # [doc = \" Adding the prompt length and sample limit overflows `usize`.\"] # [error (\"generation length overflow\")] LengthOverflow , # [doc = \" The requested sequence exceeds MLX dimension or absolute-position limits.\"] # [error (\"sequence length {length} exceeds limit {limit}\")] SequenceTooLong { # [doc = \" Requested sequence length.\"] length : usize , # [doc = \" Maximum representable length.\"] limit : usize , } , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Tokenizer (# [from] TokenizerError) , # [doc = \" Sampling graph-construction or scalar-conversion failure.\"] # [doc = \" Runtime MLX evaluation failures instead use [`Self::Exception`].\"] # [error (transparent)] Sampling (# [from] SamplingError) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Cache (# [from] CacheError) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Inference (# [from] InferenceError) , # [doc = \" Preserves the original exception from any runtime MLX evaluation failure,\"] # [doc = \" including joint evaluation, sampling-only evaluation, and the first sample.\"] # [error (transparent)] Exception (# [from] Exception) , }"
     },
     {
-      "kind": "struct",
+      "kind": "enum",
       "path": "mlx_lm::GenerationEvent",
-      "signature": "# [doc = \" One sampled token and its stable decoded text delta.\"] pub struct GenerationEvent { # [doc = \" Sampled token, including a final stop token.\"] pub token_id : TokenId , # [doc = \" Stable decoded text since the preceding event; it may be empty.\"] pub text : String , # [doc = \" Present only on the final successful event.\"] pub finish_reason : Option < FinishReason > , }"
+      "signature": "# [doc = \" A completed prefill boundary or sampled token and stable text delta.\"] # [derive (Debug , Clone , PartialEq , Eq)] # [non_exhaustive] pub enum GenerationEvent { # [doc = \" Progress over newly prefilling tokens, with the final prompt token reserved.\"] # [non_exhaustive] Prefill { # [doc = \" Newly processed tokens committed to the cache; initially zero.\"] processed : usize , # [doc = \" Number of uncached prompt tokens in this request.\"] total : usize , } , # [doc = \" A sampled token; the cache excludes this token until the next decode step.\"] # [non_exhaustive] Token { # [doc = \" Sampled token, including a final stop token.\"] token_id : TokenId , # [doc = \" Stable decoded text since the preceding event; it may be empty.\"] text : String , # [doc = \" Present only on the final successful event.\"] finish_reason : Option < FinishReason > , } , }"
     },
     {
       "kind": "struct",
       "path": "mlx_lm::GenerationOptions",
-      "signature": "# [doc = \" Reusable limits, sampling, stopping, and cache options.\"] # [derive (Debug , Clone)] # [non_exhaustive] pub struct GenerationOptions { # [doc = \" Maximum number of sampled tokens.\"] pub max_tokens : NonZeroUsize , # [doc = \" Maximum number of prompt tokens per prefill step.\"] pub prefill_chunk_size : NonZeroUsize , # [doc = \" Temperature and support-filter settings.\"] pub sampling : SamplerOptions , # [doc = \" Optional history-dependent repetition penalty.\"] pub repetition_penalty : Option < RepetitionPenaltyOptions > , # [doc = \" Source and precedence of stop tokens.\"] pub stop_tokens : StopTokenPolicy , # [doc = \" Per-request cache policy.\"] pub cache : CacheOptions , }"
+      "signature": "# [doc = \" Reusable limits, sampling, stopping, and cache options.\"] # [doc = \"\"] # [doc = \" Defaults to 256 sampled tokens, prefill chunks of at most 2048, greedy sampling,\"] # [doc = \" no penalties, tokenizer EOS stopping, no stop strings, and model-default caching.\"] # [derive (Debug , Clone)] # [non_exhaustive] pub struct GenerationOptions { # [doc = \" Maximum number of sampled tokens.\"] pub max_tokens : NonZeroUsize , # [doc = \" Maximum number of prompt tokens per prefill step.\"] pub prefill_chunk_size : NonZeroUsize , # [doc = \" Temperature and support-filter settings.\"] pub sampling : SamplerOptions , # [doc = \" Optional history-dependent repetition penalty.\"] pub repetition_penalty : Option < RepetitionPenaltyOptions > , # [doc = \" Subtracts a coefficient once per distinct token in its history window.\"] pub presence_penalty : Option < AdditivePenaltyOptions > , # [doc = \" Subtracts a coefficient per token occurrence in its history window.\"] pub frequency_penalty : Option < AdditivePenaltyOptions > , # [doc = \" Stop-token sources and exact generated-text terminators.\"] pub stop : StopPolicy , # [doc = \" Per-request cache policy.\"] pub cache : CacheOptions , }"
     },
     {
       "kind": "enum",
@@ -197,6 +222,16 @@
     },
     {
       "kind": "method",
+      "path": "mlx_lm::Model::generate_with_cache",
+      "signature": "pub fn generate_with_cache < 'model > (& 'model mut self , prompt : Prompt < '_ > , options : GenerationOptions , cache : & 'model mut Cache ,) -> Result < Generation < 'model > , GenerationError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Model::new_cache",
+      "signature": "pub fn new_cache (& self , options : CacheOptions) -> Result < Cache , CacheError >"
+    },
+    {
+      "kind": "method",
       "path": "mlx_lm::Model::tokenizer",
       "signature": "pub fn tokenizer (& self) -> & Tokenizer"
     },
@@ -233,7 +268,7 @@
     {
       "kind": "enum",
       "path": "mlx_lm::Prompt",
-      "signature": "# [doc = \" Text or already-tokenized input for one request.\"] pub enum Prompt < 'a > { # [doc = \" Text to encode with the model tokenizer.\"] Text (& 'a str) , # [doc = \" Token IDs supplied by the caller.\"] Tokens (& 'a [TokenId]) , }"
+      "signature": "# [doc = \" Text or already-tokenized input for one request.\"] pub enum Prompt < 'a > { # [doc = \" Text encoded with the tokenizer's post-processor adding special tokens,\"] # [doc = \" unless the original string starts with the configured BOS token content.\"] # [doc = \" The check uses `text.starts_with(bos_token)` without trimming or encoding\"] # [doc = \" first; when no BOS token is configured, special tokens are added.\"] Text (& 'a str) , # [doc = \" Token IDs supplied by the caller.\"] Tokens (& 'a [TokenId]) , }"
     },
     {
       "kind": "struct",
@@ -243,7 +278,7 @@
     {
       "kind": "struct",
       "path": "mlx_lm::RepetitionPenaltyOptions",
-      "signature": "# [doc = \" History-dependent logits penalty settings.\"] # [derive (Debug , Clone)] pub struct RepetitionPenaltyOptions { # [doc = \" Positive finite multiplier applied to repeated tokens.\"] pub penalty : f32 , # [doc = \" Maximum number of previous tokens considered.\"] pub context_size : NonZeroUsize , }"
+      "signature": "# [doc = \" History-dependent logits penalty settings.\"] # [doc = \"\"] # [doc = \" Python's history rule starts with the final prompt token, then adds accepted\"] # [doc = \" generated tokens. Earlier prompt tokens and reused prefixes are excluded.\"] # [doc = \" A context size of 20 matches Python's recipe; no penalty is enabled by default.\"] # [derive (Debug , Clone)] pub struct RepetitionPenaltyOptions { # [doc = \" Positive finite multiplier applied to repeated tokens.\"] pub penalty : f32 , # [doc = \" Maximum number of previous tokens considered.\"] pub context_size : NonZeroUsize , }"
     },
     {
       "kind": "method",
@@ -268,7 +303,7 @@
     {
       "kind": "struct",
       "path": "mlx_lm::SamplerOptions",
-      "signature": "# [doc = \" Reusable temperature and probability-filter settings.\"] # [derive (Debug , Clone)] # [non_exhaustive] pub struct SamplerOptions { # [doc = \" Zero selects greedy argmax.\"] pub temperature : f32 , # [doc = \" None disables nucleus filtering.\"] pub top_p : Option < f32 > , # [doc = \" None disables top-k filtering.\"] pub top_k : Option < NonZeroUsize > , # [doc = \" None disables min-p filtering.\"] pub min_p : Option < MinPOptions > , }"
+      "signature": "# [doc = \" Reusable temperature and probability-filter settings.\"] # [doc = \"\"] # [doc = \" Defaults to greedy temperature zero, all probability filters disabled, and no seed.\"] # [derive (Debug , Clone)] # [non_exhaustive] pub struct SamplerOptions { # [doc = \" Zero selects greedy argmax.\"] pub temperature : f32 , # [doc = \" None disables nucleus filtering.\"] pub top_p : Option < f32 > , # [doc = \" None disables top-k filtering.\"] pub top_k : Option < NonZeroUsize > , # [doc = \" None disables min-p filtering.\"] pub min_p : Option < MinPOptions > , # [doc = \" Seed for a private per-generation RNG. Greedy sampling constructs no RNG.\"] pub seed : Option < u64 > , }"
     },
     {
       "kind": "method",
@@ -278,7 +313,12 @@
     {
       "kind": "enum",
       "path": "mlx_lm::SamplingError",
-      "signature": "# [doc = \" Sampling options or token selection failed.\"] # [derive (Debug , thiserror :: Error)] # [non_exhaustive] pub enum SamplingError { # [doc = \" No token can be selected from an empty vocabulary.\"] # [error (\"sampling vocabulary is empty\")] EmptyVocabulary , # [doc = \" Min-p requests more retained candidates than the vocabulary contains.\"] # [error (\"min_tokens_to_keep {min_tokens_to_keep} exceeds vocabulary {vocabulary_size}\")] MinTokensToKeepExceedsVocabulary { # [doc = \" Requested minimum support size.\"] min_tokens_to_keep : usize , # [doc = \" Runtime vocabulary size.\"] vocabulary_size : usize , } , # [doc = \" Temperature is negative or non-finite.\"] # [error (\"invalid temperature: {0}\")] InvalidTemperature (f32) , # [doc = \" A filtering probability is outside its range.\"] # [error (\"invalid {field} probability: {value}\")] InvalidProbability { # [doc = \" Configuration or option field name.\"] field : String , # [doc = \" Rejected numeric option value.\"] value : f32 , } , # [doc = \" Top-k exceeds the runtime vocabulary.\"] # [error (\"top-k {top_k} exceeds vocabulary {vocabulary_size}\")] TopKExceedsVocabulary { # [doc = \" Requested support size.\"] top_k : usize , # [doc = \" Runtime vocabulary size.\"] vocabulary_size : usize , } , # [doc = \" The repetition penalty is non-positive or non-finite.\"] # [error (\"invalid repetition penalty: {0}\")] InvalidRepetitionPenalty (f32) , # [doc = \" The requested sampling mode is not implemented.\"] # [error (\"unsupported sampling mode: {0}\")] UnsupportedMode (String) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Exception (# [from] Exception) , }"
+      "signature": "# [doc = \" Sampling options or token selection failed.\"] # [derive (Debug , thiserror :: Error)] # [non_exhaustive] pub enum SamplingError { # [doc = \" No token can be selected from an empty vocabulary.\"] # [error (\"sampling vocabulary is empty\")] EmptyVocabulary , # [doc = \" Min-p requests more retained candidates than the vocabulary contains.\"] # [error (\"min_tokens_to_keep {min_tokens_to_keep} exceeds vocabulary {vocabulary_size}\")] MinTokensToKeepExceedsVocabulary { # [doc = \" Requested minimum support size.\"] min_tokens_to_keep : usize , # [doc = \" Runtime vocabulary size.\"] vocabulary_size : usize , } , # [doc = \" Temperature is negative or non-finite.\"] # [error (\"invalid temperature: {0}\")] InvalidTemperature (f32) , # [doc = \" A filtering probability is outside its range.\"] # [error (\"invalid {field} probability: {value}\")] InvalidProbability { # [doc = \" Configuration or option field name.\"] field : String , # [doc = \" Rejected numeric option value.\"] value : f32 , } , # [doc = \" Top-k exceeds the runtime vocabulary.\"] # [error (\"top-k {top_k} exceeds vocabulary {vocabulary_size}\")] TopKExceedsVocabulary { # [doc = \" Requested support size.\"] top_k : usize , # [doc = \" Runtime vocabulary size.\"] vocabulary_size : usize , } , # [doc = \" The repetition penalty is non-positive or non-finite.\"] # [error (\"invalid repetition penalty: {0}\")] InvalidRepetitionPenalty (f32) , # [doc = \" A presence or frequency coefficient is non-finite.\"] # [error (\"invalid additive penalty: {0}\")] InvalidAdditivePenalty (f32) , # [doc = \" Logits do not contain one row of the runtime vocabulary.\"] # [error (\"invalid logits shape: expected [1, {vocabulary_size}], got {shape:?}\")] InvalidLogitsShape { # [doc = \" Observed logits shape.\"] shape : Vec < i32 > , # [doc = \" Runtime vocabulary size.\"] vocabulary_size : usize , } , # [doc = \" Logits are not f16, bf16, or f32.\"] # [error (\"invalid logits dtype: {0:?}\")] InvalidLogitsDtype (Dtype) , # [doc = \" Logits contain NaN or positive infinity; negative infinity is a valid mask.\"] # [error (\"logits contain NaN or positive infinity\")] InvalidLogitsValue , # [doc = \" No finite candidate remains available for sampling.\"] # [error (\"sampling support is empty\")] EmptySupport , # [doc = \" Preserves the scalar-conversion diagnostic.\"] # [error (transparent)] Conversion (# [from] mlx_rs :: error :: ConversionError) , # [doc = \" The requested sampling mode is not implemented.\"] # [error (\"unsupported sampling mode: {0}\")] UnsupportedMode (String) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Exception (# [from] Exception) , }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::StopPolicy",
+      "signature": "# [doc = \" Token and text conditions that finish generation with [`FinishReason::Stop`].\"] # [derive (Debug , Clone)] # [non_exhaustive] pub struct StopPolicy { # [doc = \" Source and precedence of stop tokens.\"] pub tokens : StopTokenPolicy , # [doc = \" Exact UTF-8 strings matched only against newly generated text.\"] # [doc = \"\"] # [doc = \" Empty strings are rejected. Matching holds back possible partial matches\"] # [doc = \" and excludes the earliest complete match and all following text. Matching\"] # [doc = \" uses exact UTF-8 without normalization; a match in the final decoder flush\"] # [doc = \" takes precedence over the token limit.\"] pub stop_strings : Vec < String > , }"
     },
     {
       "kind": "enum",
@@ -297,6 +337,11 @@
     },
     {
       "kind": "method",
+      "path": "mlx_lm::Tokenizer::bos_token",
+      "signature": "pub fn bos_token (& self) -> Option < & str >"
+    },
+    {
+      "kind": "method",
       "path": "mlx_lm::Tokenizer::decode",
       "signature": "pub fn decode (& self , ids : & [TokenId]) -> Result < String , TokenizerError >"
     },
@@ -304,6 +349,11 @@
       "kind": "method",
       "path": "mlx_lm::Tokenizer::encode",
       "signature": "pub fn encode (& self , text : & str) -> Result < Vec < TokenId > , TokenizerError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Tokenizer::encode_with_special_tokens",
+      "signature": "pub fn encode_with_special_tokens (& self , text : & str , add_special_tokens : bool ,) -> Result < Vec < TokenId > , TokenizerError >"
     },
     {
       "kind": "method",
