@@ -32,3 +32,4 @@ devenv.local.nix
 .direnv
 conformance/.venv/
 conformance/.venv-target/
+conformance/.venv-mlx-lm/
