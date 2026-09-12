@@ -140,8 +140,27 @@ UTF-8 replacement characters. If final decoding rewrites an already emitted pref
 ByteFallback can replace an entire byte run when it ends incomplete), `finish` returns the
 wrapped `DecodeStreamError::InvalidPrefix`; it cannot retract prior deltas. The wrapper retains
 IDs and emitted text, so auxiliary storage
-is linear in the generated sequence; it does not decode the full history per step. Remove its
-narrow dead-code allowances when foundation/generation gain callers.
+is linear in the generated sequence; it does not decode the full history per step. The
+filter and decoder seams carry narrow dead-code allowances until the generation engine, their
+only caller, lands.
+
+Tranche 3 item 5 implements private `stop::StopStringFilter`, following
+`t3/position-astra.md` section "EOS, length, stop strings and stable text" and
+`t3/DECISIONS.md` item 3. `new(Vec<String>) -> Result<Self, GenerationError>` rejects
+the first empty stop string with its original index; call it during generation validation.
+`process(&str) -> (String, bool)` returns visible text and whether a match stopped the
+stream. It excludes the earliest complete match and everything after it, holding back
+the longest proper-prefix suffix otherwise. Matching uses exact UTF-8 bytes.
+`finish(self, final_delta: &str) -> (String, bool)` processes the decoder's final flush
+before releasing an unmatched suffix. A true result means Stop, including at the length
+limit. After a process call returns true, discard the decoder without flushing it.
+
+The text tests read cohort 2's `llama-base/text_cases.json`: all stop-filter events,
+held suffixes, terminal states and finish flushes, plus five ByteLevel/ByteFallback
+cases with final decode bytes and typed `InvalidPrefix` payload checks. Pure integration
+tests pass decoder flushes through the filter for both matches and mismatches. Existing
+WordLevel, special-token and chat goldens remain covered by the tokenizer suite.
+Generation-event ordering and cache rollback on decoder errors await the engine owner.
 
 Tokenizer design deviations and signature choices:
 

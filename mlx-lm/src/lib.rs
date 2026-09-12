@@ -9,6 +9,7 @@ mod config;
 mod error;
 mod model;
 mod sampling;
+mod stop;
 mod tokenizer;
 #[allow(dead_code)]
 mod weights;
