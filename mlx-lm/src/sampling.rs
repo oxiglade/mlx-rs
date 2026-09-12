@@ -195,8 +195,6 @@ fn scalar(value: f32, dtype: Dtype) -> Result<Array, Exception> {
     Array::from(value).as_dtype(dtype)
 }
 
-// The generation coordinator supplies callers when its engine lands.
-#[allow(dead_code)]
 pub(crate) struct SamplingEngine {
     options: SamplerOptions,
     vocabulary_size: usize,
@@ -205,14 +203,12 @@ pub(crate) struct SamplingEngine {
     frequency: Option<FrequencyPenalty>,
 }
 
-#[allow(dead_code)]
 pub(crate) struct PendingSample {
     pub(crate) token: Array,
     pub(crate) filtered_logprobs: Option<Array>,
     pub(crate) rng: Option<RandomState>,
 }
 
-#[allow(dead_code)]
 impl SamplingEngine {
     pub(crate) fn new(
         options: SamplerOptions,

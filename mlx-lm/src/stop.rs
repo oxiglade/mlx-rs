@@ -1,7 +1,5 @@
 use crate::GenerationError;
 
-// The generation engine (tranche 3 item 2) is the only caller.
-#[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) struct StopStringFilter {
     stops: Vec<String>,
@@ -9,7 +7,6 @@ pub(crate) struct StopStringFilter {
     stopped: bool,
 }
 
-#[allow(dead_code)]
 impl StopStringFilter {
     pub(crate) fn new(stops: Vec<String>) -> Result<Self, GenerationError> {
         if let Some(index) = stops.iter().position(String::is_empty) {

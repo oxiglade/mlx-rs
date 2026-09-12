@@ -22,9 +22,17 @@ fn main() -> anyhow::Result<()> {
     )?;
     let mut stdout = io::stdout().lock();
     for event in model.generate(Prompt::Text(&prompt), GenerationOptions::default())? {
-        if let GenerationEvent::Token { text, .. } = event? {
-            stdout.write_all(text.as_bytes())?;
-            stdout.flush()?;
+        match event? {
+            GenerationEvent::Prefill {
+                processed, total, ..
+            } => {
+                eprintln!("Prefill {processed}/{total}");
+            }
+            GenerationEvent::Token { text, .. } => {
+                stdout.write_all(text.as_bytes())?;
+                stdout.flush()?;
+            }
+            _ => {}
         }
     }
     writeln!(stdout)?;
