@@ -1,8 +1,5 @@
+use crate::config::{AffineQuantization, ParameterPath};
 pub use crate::error::WeightError;
-use crate::{
-    arch::ArchitectureFactory,
-    config::{AffineQuantization, ParameterPath},
-};
 use mlx_rs::{error::IoError, io::GgufFile, utils::StateProjection, Array, Dtype};
 use safetensors::tensor::{Metadata, TensorInfo};
 use serde::{de::MapAccess, Deserialize, Deserializer};
@@ -207,15 +204,7 @@ impl WeightManifest {
         Ok([weight, scales, biases])
     }
 
-    pub(crate) fn load_strict(
-        &self,
-        factory: &dyn ArchitectureFactory,
-        projection: &mut StateProjection<'_>,
-    ) -> Result<(), WeightError> {
-        self.load_with(projection, |key| factory.map_safetensors_key(key))
-    }
-
-    fn load_with(
+    pub(crate) fn load_with(
         &self,
         projection: &mut StateProjection<'_>,
         disposition: impl Fn(&str) -> WeightDisposition,

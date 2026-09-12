@@ -20,14 +20,11 @@ remove those allowances as the seams gain callers.
 | loader, tranche 4 | `src/model.rs` | `Model::from_gguf` | `LoadError::Weights(UnsupportedFormat)` |
 | foundation, tranche 4 | `src/model.rs` | `Model::from_hub` | `HubError::Load(Config(UnsupportedArchitecture))` |
 | foundation, tranche 3 | `src/model.rs` | `Model::generate` | `GenerationError::Inference(UnsupportedArchitecture)` |
-| cache reuse, tranche 3 item 4 | `src/model.rs` | `Model::new_cache` | `CacheError::UnsupportedPolicy`; model identity binding awaits item 4 |
+| foundation, tranche 3 item 2 | `src/model.rs` | `Model::new_cache` | `CacheError::UnsupportedPolicy`; wire the implemented `Cache::new_for_model` seam below |
 | foundation, tranche 3 engine | `src/model.rs` | `Model::generate_with_cache` | Same not-yet-implemented inference error as `generate` |
 | foundation, tranche 3 engine | `src/model.rs` | `Generation::cache` | Borrows a private cache field; no generation constructor succeeds yet |
 | foundation, tranche 3 engine | `src/model.rs` | `Generation::snapshot` | Delegates to the private cache field; no generation constructor succeeds yet |
 | foundation, tranche 3 | `src/model.rs` | `Generation::next` | One typed inference error, then fused exhaustion |
-| cache reuse, tranche 3 item 4 | `src/cache/mod.rs` | `Cache::tokens` | Empty slice until the represented-token ledger lands |
-| cache reuse, tranche 3 item 4 | `src/cache/mod.rs` | `CacheStep::evaluate` | Not-yet-implemented `CacheError::InvalidState`; existing `evaluate_and_commit` is unchanged |
-| cache reuse, tranche 3 item 4 | `src/cache/mod.rs` | `EvaluatedCacheStep::commit` | Uninhabited guard; no successful evaluation can construct it yet |
 | sampling, tranche 3 item 3 | `src/sampling.rs` | `LogitsProcessor` | Private object-safe signature only, with a narrow dead-code allowance and no implementations |
 | loader, tranche 4 | `src/weights/mod.rs` | `WeightManifest::from_gguf` | `WeightError::UnsupportedFormat` |
 | llama, tranche 4 | `src/arch/llama/mod.rs` | `Factory::map_gguf_key` | `WeightDisposition::Reject` |
@@ -38,8 +35,8 @@ The tranche 3 serial foundation follows `t3/position-astra.md` sections "Public 
 "Reuse is an exact-prefix operation", and "Validation and error ordering", with
 `t3/DECISIONS.md` rulings A/J (original-string BOS check) and H/K (error variants and
 runtime-evaluation mapping). These are declarations; generation validation, sampling,
-stop filtering, model-bound cache identity, token ledgers, and split transaction execution
-remain with their implementation owners. Defaults and additive-penalty validation are
+stop filtering, and model entry-point wiring remain with their implementation owners.
+The cache identity, ledger, validation, and split transaction seams are implemented below. Defaults and additive-penalty validation are
 implemented. The existing negative `Send`/`Sync` assertions cover `Model`, `Generation`,
 `Cache`, and `CacheSnapshot`.
 
@@ -52,9 +49,24 @@ made until Metal long-loop measurements qualify the lazy graph and allocator beh
 
 Cache integration notes and deviations:
 
-- `Cache::new` takes `architecture: ModelType` ahead of layout, options, and optional total
-  capacity; the generation caller supplies `prompt_len + max_tokens` as that capacity.
-  Architecture identity is part of the snapshot fingerprint.
+- Item 2 adds one private `Rc<()>` to each loaded `Model` and passes clones to
+  `Cache::new_for_model(architecture: ModelType, layout: &[LayerCacheSpec],
+  options: &CacheOptions, capacity: Option<NonZeroUsize>, model_identity: Rc<()>)
+  -> Result<Cache, CacheError>`. `Model::new_cache` passes `None` for ordinary full-layer
+  capacity 16. Fresh generation passes `Some(cache::checked_capacity(prompt_len,
+  max_tokens)?)`; this helper returns `Result<NonZeroUsize, GenerationError>`, checks
+  addition and the i32 position limit, and must run after request/reuse validation.
+  Every full layer reserves that total; rotating layers retain their resolved policy.
+- Borrowed generation calls `cache.validate_reuse(&model_identity, &architecture, layout,
+  &options.cache, &full_prompt) -> Result<usize, GenerationError>` before any mutation.
+  The returned index starts the uncached suffix. Validation orders model identity/layout,
+  resolved policy, aligned positions/ledger, exact prefix, then nonempty suffix. Default
+  policy resolves against each layer; it is not a wildcard. Foreign model instances return
+  `FingerprintMismatch`, policy disagreement returns `PolicyMismatch`, shorter/divergent
+  prompts return `CachePrefixMismatch`, and an equal prompt returns `NoUncachedTokens`.
+- The legacy `Cache::new` and `Cache::step` remain for forward-only oracle sessions, with
+  an isolated identity and no represented IDs. Model-bound caches reject that tokenless
+  step. Generation must use `step_with_tokens` and the model-owned identity.
 - `CacheInfo::retained_prefix: Range<usize>` is an added public field. A single range cannot
   describe a retained prefix and a disjoint recent tail. `retained_positions` describes the
   recent range, excluding the prefix. With `keep_prefix = 0`, it keeps the original meaning.
@@ -68,25 +80,76 @@ Cache integration notes and deviations:
   oversized prefill they include every stored position (`llama-sliding` after prefill: 8
   positions at capacity 5, `0..8`); after decode they match the fixture's `after_decode`
   arrays (sliding layer 1: `11..16`).
-- `CacheStep::evaluate_and_commit(&[&Array])` evaluates logits/token outputs together with
-  staged K/V. `commit()` uses the same path without extra outputs. Any failed layer update
-  poisons the step; failed or incomplete steps cannot commit. Dropping staged handles leaves
-  the committed cache intact. Every layer must be updated once to the same absolute position.
+- Generation calls `Cache::step_with_tokens(&[TokenId]) -> Result<CacheStep<'_>, CacheError>`
+  with exactly the input IDs being forwarded. It validates ledger alignment and reserves
+  append space before evaluation. In the first reused forward, call
+  `CacheStep::reserve(checked_total: NonZeroUsize) -> Result<(), CacheError>` to grow all
+  full layers geometrically in staged state. Rotation ignores that reservation. A failure
+  or dropped step leaves committed capacity, arrays, positions, and token contents intact.
+- `CacheStep::evaluate(&[&Array]) -> Result<EvaluatedCacheStep<'_>, CacheError>` checks
+  complete layers, aligned offsets, and represented-input count, then jointly evaluates
+  every staged K/V array and supplied outputs. Prepare checked scalar/token/text results
+  while the evaluated guard holds the cache borrow. `EvaluatedCacheStep::commit(self)`
+  publishes layers and appends pre-reserved IDs without fallible work or allocation.
+  Evaluation failures preserve `CacheError::Exception`; item 2 maps its original source to
+  `GenerationError::Exception` under ruling K. Dropping either guard rolls back.
+  `evaluate_and_commit` composes these operations;
+  `CacheStep::commit()` composes them without outputs for existing forward-only callers.
   `CacheStep::info(layer)` exposes staged offsets and retained ranges to model math.
-- Snapshots clone handles keyed by layer and validate architecture, cardinality, layout,
-  policy, dtype, backing shape, absolute position, logical length, and rotation index.
-  Storage is always allocated, so there are no optional array slots. Full allocation sizes
-  may differ when restoring an earlier snapshot; unused capacity is not semantic state.
+- `Cache::tokens()` includes evicted positions. Snapshots share an `Rc<Vec<TokenId>>`,
+  the model identity, and array handles; layer metadata costs O(layer count). If a snapshot
+  is retained, the first append prepares a separate ledger with its reservation preserved.
+  Subsequent steps use the unique ledger in place. An abandoned append discards the prepared
+  copy. Restore validates compatibility before publishing saved handles, ledger, and identity
+  together. Full allocation capacity may differ across restore; unused capacity is not
+  semantic state. The last sampled token is not represented until it becomes a decode input;
+  item 2's event engine must preserve that boundary.
 - The oracle's oversized-prefill behavior is an exception to fixed-capacity storage:
   the first chunk retains all its tokens; later chunks retain up to capacity + chunk - 1.
   Single-token decode returns to the configured capacity and emits temporal order.
   Internal trimming follows the oracle's `is_trimmable` restriction: after reaching capacity,
   trimming returns `InvalidState` because evicted tokens cannot be recovered.
 
+These cache seams implement `t3/position-astra.md` sections "Complete the transaction
+through text preparation", "Reuse is an exact-prefix operation", "Validation and error
+ordering", and "Memory, snapshots and the FFI gate". The last section's bounded-live-MLX
+storage claim still requires item 5's Metal memory/leak qualification. Rulings D and I in
+`t3/DECISIONS.md` govern the loader seam and guarded trim cohort respectively.
+
+`fixture_trim_after_wrap_golden` pins refusal after wrap, unchanged raw/temporal state,
+and the next append against `llama-sliding`'s `cache.trim_after_wrap`.
+
+Item 4 verification: all default library tests and the `oracle-hooks` library tests
+compile. Pure subsets passed: cache 5, weights 10, Qwen3 8, Llama 8 (31 total).
+Default and all-features `cargo clippy -p mlx-lm --all-targets -- -D warnings` passed,
+as did `cargo fmt --check` and `git diff --check`.
+The no-Metal sandbox did not execute the following runtime tests; none were marked ignored:
+
+| Module | Compiled, NOT RUN |
+| --- | --- |
+| `cache::tests` | `logical_full_layers_after_appends`, `logical_rotating_layers_after_wrap_and_oversized_prefill`, `full_append_and_growth`, `rotating_wrap_prefix_and_chunk_after_wrap`, `rotating_prefill_over_capacity_and_capacity_one`, `rotating_trim_before_capacity_and_restore_after_wrap`, `transaction_rollback_and_snapshot_restore`, `invalid_steps_and_snapshot_fingerprints`, `committed_fixture_cache_arrays`, `evaluated_guard_rolls_back_layers_and_ledger`, `wrapped_snapshot_restores_exact_state_and_ledger`, `reuse_rejects_before_mutation_and_reserves_staged_growth`, `fixture_trim_after_wrap_golden`, `fixture_reuse_matches_fresh_forward` |
+| `weights::tests::runtime` | `projection_round_trip_and_atomic_failure`, `packed_embedding_and_linear_slots` |
+| `arch::qwen3::tests` | `qwen3_base_prefill_and_cache`, `qwen3_quant4_prefill_and_cache`, `causal_and_sliding_mask_with_prefix_positions`, `fixture_keys_and_shape_rejection` |
+| `arch::llama::tests` | `fixture_wrong_shape_errors`, `fixture_prefill_all_positions_cache_and_chunks`, `fixture_half_precision_forward` |
+| `oracle_hooks::tests` | `empty_prompt_is_rejected_before_mlx` (fixture setup needs Metal), `fixture_prefill_matches_expectations` |
+
+Generation-event progress and the terminal uncommitted-token boundary await item 2's engine.
+Memory, leaks, and Guard Malloc were NOT RUN. Verification used the existing temporary SDK,
+linker, and cached-native-source settings in `/private/tmp/mlx-lm-t2-env.sh`. Recurring Cargo
+locks in the parallel sampling worktree required a command-local `CARGO_TARGET_DIR` override
+to an APFS clone at `/private/tmp/codex-target/mlx-lm-t3-cache`, under the preset target root.
+No repository toolchain configuration changed; no devenv/nix command or commit was made.
+
 The loader implements safetensors discovery, indexed-shard reconciliation, metadata validation,
 and strict application through `StateProjection`. Discovery reads headers without loading tensor
 payloads. Assignment validates every mapped slot before materialization, evaluates all staged
 arrays, then restores one keyed snapshot, retaining absent optional slots. GGUF remains tranche 4.
+
+`WeightManifest::load_with(&mut StateProjection, disposition)` is crate-visible and retains
+strict planning, materialization, evaluation, and atomic assignment. Both factories call it
+once with a closure capturing `tie_word_embeddings`; Qwen3's `CheckpointFactory` and Llama's
+`WeightMapping` wrappers are removed. Both malformed-shape tests enter through `Factory.build`
+(Llama already did).
 
 Architecture constructors use `affine_groups()` to detect packed groups and
 `validate_affine_group(prefix, &AffineQuantization)` to check their configured layout before

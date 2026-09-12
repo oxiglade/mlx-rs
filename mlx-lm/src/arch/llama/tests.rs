@@ -380,7 +380,7 @@ fn pure_key_dispositions_are_exact() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
     assert!(matches!(
-        WeightMapping { tied: true }.map_safetensors_key("lm_head.weight"),
+        map_key("lm_head.weight", true),
         WeightDisposition::Ignore {
             reason: "llama.redundant_tied_lm_head"
         }

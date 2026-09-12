@@ -10,6 +10,8 @@ use mlx_rs::{
 use std::collections::BTreeMap;
 use std::{marker::PhantomData, num::NonZeroUsize, ops::Range, rc::Rc};
 mod full;
+mod ledger;
+use ledger::{PendingTokens, TokenLedger};
 mod rotating;
 
 /// Per-request cache storage options.
@@ -62,12 +64,18 @@ pub enum CacheKind {
 /// Thread-bound decoder cache with transactional layer state.
 pub struct Cache {
     architecture: crate::ModelType,
+    model_identity: Rc<()>,
+    ledger: TokenLedger,
+    tracks_tokens: bool,
     layers: Vec<Box<dyn LayerCache>>,
     _thread_bound: PhantomData<Rc<()>>,
 }
 /// Opaque thread-bound handles and metadata for restoring a cache.
 pub struct CacheSnapshot {
     architecture: crate::ModelType,
+    model_identity: Rc<()>,
+    ledger: TokenLedger,
+    tracks_tokens: bool,
     layers: BTreeMap<usize, Box<dyn LayerCache>>,
     _thread_bound: PhantomData<Rc<()>>,
 }
@@ -85,6 +93,17 @@ impl Cache {
         options: &CacheOptions,
         capacity: Option<NonZeroUsize>,
     ) -> Result<Self, CacheError> {
+        let mut cache = Self::new_for_model(architecture, layout, options, capacity, Rc::new(()))?;
+        cache.tracks_tokens = false;
+        Ok(cache)
+    }
+    pub(crate) fn new_for_model(
+        architecture: crate::ModelType,
+        layout: &[LayerCacheSpec],
+        options: &CacheOptions,
+        capacity: Option<NonZeroUsize>,
+        model_identity: Rc<()>,
+    ) -> Result<Self, CacheError> {
         if layout.is_empty() {
             return Err(invalid("cache layout must contain a layer"));
         }
@@ -101,17 +120,20 @@ impl Cache {
                 }
             });
         }
+        let mut ledger = TokenLedger::default();
+        ledger.reserve(capacity.map_or(16, NonZeroUsize::get))?;
         Ok(Self {
             architecture,
+            model_identity,
+            ledger,
+            tracks_tokens: true,
             layers,
             _thread_bound: PhantomData,
         })
     }
     /// Token IDs represented by committed cache state, including evicted positions.
-    ///
-    /// Currently an empty placeholder; the represented-token ledger is not implemented.
     pub fn tokens(&self) -> &[crate::TokenId] {
-        &[]
+        self.ledger.tokens()
     }
     /// Returns logical metadata without evaluating or copying array buffers.
     pub fn info(&self) -> impl ExactSizeIterator<Item = CacheInfo> + '_ {
@@ -151,10 +173,14 @@ impl Cache {
         }
         Ok(views)
     }
-    /// Captures O(1) array handles without evaluating or copying buffers.
+    /// Shares token storage and array handles, copying O(layer count) metadata.
+    /// Does not evaluate or copy tensor buffers.
     pub fn snapshot(&mut self) -> Result<CacheSnapshot, CacheError> {
         Ok(CacheSnapshot {
             architecture: self.architecture.clone(),
+            model_identity: Rc::clone(&self.model_identity),
+            ledger: self.ledger.clone(),
+            tracks_tokens: self.tracks_tokens,
             layers: self
                 .layers
                 .iter()
@@ -166,7 +192,10 @@ impl Cache {
     }
     /// Restores compatible handles and absolute-position metadata.
     pub fn restore(&mut self, mut snapshot: CacheSnapshot) -> Result<(), CacheError> {
-        if self.architecture != snapshot.architecture || self.layers.len() != snapshot.layers.len()
+        if !Rc::ptr_eq(&self.model_identity, &snapshot.model_identity)
+            || self.tracks_tokens != snapshot.tracks_tokens
+            || self.architecture != snapshot.architecture
+            || self.layers.len() != snapshot.layers.len()
         {
             return Err(CacheError::FingerprintMismatch);
         }
@@ -189,9 +218,71 @@ impl Cache {
             );
         }
         self.layers = restored;
+        self.ledger = snapshot.ledger;
+        self.model_identity = snapshot.model_identity;
         Ok(())
     }
+    pub(crate) fn validate_reuse(
+        &self,
+        model_identity: &Rc<()>,
+        architecture: &crate::ModelType,
+        layout: &[LayerCacheSpec],
+        options: &CacheOptions,
+        prompt: &[crate::TokenId],
+    ) -> Result<usize, crate::GenerationError> {
+        if !Rc::ptr_eq(&self.model_identity, model_identity)
+            || &self.architecture != architecture
+            || self.layers.len() != layout.len()
+            || self
+                .layers
+                .iter()
+                .zip(layout)
+                .any(|(layer, spec)| layer.fingerprint().spec != *spec)
+        {
+            return Err(CacheError::FingerprintMismatch.into());
+        }
+        for (layer, spec) in self.layers.iter().zip(layout) {
+            validate_policy(&layer.fingerprint(), spec, &options.policy)?;
+        }
+        self.validate_ledger()?;
+        validate_prefix(self.tokens(), prompt)
+    }
+    fn validate_ledger(&self) -> Result<(), CacheError> {
+        if self.layers.is_empty()
+            || self
+                .info()
+                .any(|info| info.processed_tokens != self.tokens().len())
+        {
+            return Err(invalid(
+                "layer positions differ from represented token count",
+            ));
+        }
+        Ok(())
+    }
+    pub(crate) fn step_with_tokens(
+        &mut self,
+        tokens: &[crate::TokenId],
+    ) -> Result<CacheStep<'_>, CacheError> {
+        self.validate_ledger()?;
+        if tokens.is_empty() {
+            return Err(invalid("cache step must represent input tokens"));
+        }
+        let pending = self.ledger.prepare(tokens)?;
+        let mut step = self.begin_step()?;
+        step.token_count = Some(tokens.len());
+        step.pending_tokens = Some(pending);
+        Ok(step)
+    }
+    // Forward-only oracle sessions do not supply represented token IDs.
     pub(crate) fn step(&mut self) -> Result<CacheStep<'_>, CacheError> {
+        if self.tracks_tokens {
+            return Err(invalid(
+                "model-bound steps must supply represented token IDs",
+            ));
+        }
+        self.begin_step()
+    }
+    fn begin_step(&mut self) -> Result<CacheStep<'_>, CacheError> {
         let staged = self.layers.iter().map(|layer| layer.clone_box()).collect();
         let updated = vec![false; self.layers.len()];
         Ok(CacheStep {
@@ -199,6 +290,8 @@ impl Cache {
             staged,
             updated,
             failed: false,
+            pending_tokens: None,
+            token_count: None,
         })
     }
 }
@@ -221,6 +314,9 @@ pub(crate) trait LayerCache: sealed::Sealed {
         keys: Array,
         values: Array,
     ) -> Result<(Array, Array), CacheError>;
+    fn reserve(&mut self, _capacity: usize) -> Result<(), CacheError> {
+        Ok(())
+    }
     fn info(&self, layer: usize) -> CacheInfo;
     fn clone_box(&self) -> Box<dyn LayerCache>;
     fn fingerprint(&self) -> LayerFingerprint;
@@ -233,27 +329,41 @@ pub(crate) struct CacheStep<'cache> {
     staged: Vec<Box<dyn LayerCache>>,
     updated: Vec<bool>,
     failed: bool,
+    pending_tokens: Option<PendingTokens>,
+    token_count: Option<usize>,
 }
-/// Placeholder guard that cannot be constructed until evaluation is implemented.
+/// Evaluated state held until fallible token and text preparation succeeds.
 pub(crate) struct EvaluatedCacheStep<'cache> {
-    unavailable: std::convert::Infallible,
-    _cache: PhantomData<&'cache mut Cache>,
+    cache: &'cache mut Cache,
+    staged: Vec<Box<dyn LayerCache>>,
+    pending_tokens: Option<PendingTokens>,
 }
 impl EvaluatedCacheStep<'_> {
     pub(crate) fn commit(self) {
-        match self.unavailable {}
+        if let Some(pending) = self.pending_tokens {
+            self.cache.ledger.commit(pending);
+        }
+        self.cache.layers = self.staged;
     }
 }
 impl<'cache> CacheStep<'cache> {
-    /// Eventually evaluates staged state without publishing it; currently always fails.
     pub(crate) fn evaluate(
         self,
         outputs: &[&Array],
     ) -> Result<EvaluatedCacheStep<'cache>, CacheError> {
-        let _ = outputs;
-        Err(CacheError::InvalidState(
-            crate::NotYetImplemented("cache step evaluation guard").to_string(),
-        ))
+        self.evaluate_with(outputs, |arrays| {
+            mlx_rs::transforms::eval(arrays.iter().copied()).map_err(CacheError::from)
+        })
+    }
+    pub(crate) fn reserve(&mut self, capacity: NonZeroUsize) -> Result<(), CacheError> {
+        let result = self
+            .staged
+            .iter_mut()
+            .try_for_each(|layer| layer.reserve(capacity.get()));
+        if result.is_err() {
+            self.failed = true;
+        }
+        result
     }
     pub(crate) fn info(&self, layer: usize) -> Result<CacheInfo, CacheError> {
         self.staged
@@ -312,15 +422,14 @@ impl<'cache> CacheStep<'cache> {
         self.evaluate_and_commit(&[])
     }
     pub(crate) fn evaluate_and_commit(self, outputs: &[&Array]) -> Result<(), CacheError> {
-        self.commit_with(outputs, |arrays| {
-            mlx_rs::transforms::eval(arrays.iter().copied()).map_err(CacheError::from)
-        })
+        self.evaluate(outputs)?.commit();
+        Ok(())
     }
-    fn commit_with(
+    fn evaluate_with(
         self,
         outputs: &[&Array],
         evaluate: impl FnOnce(&[&Array]) -> Result<(), CacheError>,
-    ) -> Result<(), CacheError> {
+    ) -> Result<EvaluatedCacheStep<'cache>, CacheError> {
         if self.failed || self.updated.iter().any(|updated| !updated) {
             return Err(invalid("cannot commit a failed or incomplete step"));
         }
@@ -335,6 +444,19 @@ impl<'cache> CacheStep<'cache> {
         {
             return Err(invalid("layer positions differ at step boundary"));
         }
+        if let Some(count) = self.token_count {
+            let expected = self
+                .cache
+                .tokens()
+                .len()
+                .checked_add(count)
+                .ok_or_else(|| invalid("token ledger overflow"))?;
+            if offset != Some(expected) {
+                return Err(invalid(
+                    "staged positions differ from represented input token count",
+                ));
+            }
+        }
         let mut arrays = Vec::with_capacity(self.staged.len() * 2 + outputs.len());
         for layer in &self.staged {
             let (keys, values) = layer.arrays();
@@ -343,9 +465,11 @@ impl<'cache> CacheStep<'cache> {
         }
         arrays.extend(outputs.iter().copied());
         evaluate(&arrays)?;
-        // The committed cache is never borrowed for mutation while lazy work can fail.
-        self.cache.layers = self.staged;
-        Ok(())
+        Ok(EvaluatedCacheStep {
+            cache: self.cache,
+            staged: self.staged,
+            pending_tokens: self.pending_tokens,
+        })
     }
 }
 
@@ -500,3 +624,55 @@ fn grown_capacity(current: usize, required: usize) -> Result<usize, CacheError> 
 
 #[cfg(test)]
 mod tests;
+
+pub(crate) fn checked_capacity(
+    prompt: usize,
+    max_tokens: NonZeroUsize,
+) -> Result<NonZeroUsize, crate::GenerationError> {
+    let length = prompt
+        .checked_add(max_tokens.get())
+        .ok_or(crate::GenerationError::LengthOverflow)?;
+    if length > i32::MAX as usize {
+        return Err(crate::GenerationError::SequenceTooLong {
+            length,
+            limit: i32::MAX as usize,
+        });
+    }
+    NonZeroUsize::new(length).ok_or(crate::GenerationError::LengthOverflow)
+}
+fn validate_prefix(
+    cached: &[crate::TokenId],
+    prompt: &[crate::TokenId],
+) -> Result<usize, crate::GenerationError> {
+    let matched = cached
+        .iter()
+        .zip(prompt)
+        .take_while(|(a, b)| a == b)
+        .count();
+    if matched != cached.len() {
+        return Err(crate::GenerationError::CachePrefixMismatch {
+            matched,
+            cached: cached.len(),
+            prompt: prompt.len(),
+        });
+    }
+    if prompt.len() == cached.len() {
+        return Err(crate::GenerationError::NoUncachedTokens);
+    }
+    Ok(cached.len())
+}
+fn validate_policy(
+    fingerprint: &LayerFingerprint,
+    spec: &LayerCacheSpec,
+    policy: &CachePolicy,
+) -> Result<(), CacheError> {
+    let expected = resolve_policy(spec, policy)?;
+    let actual = match fingerprint.kind {
+        CacheKind::Full => None,
+        CacheKind::Rotating => Some((fingerprint.capacity, fingerprint.keep_prefix)),
+    };
+    if actual != expected {
+        return Err(CacheError::PolicyMismatch);
+    }
+    Ok(())
+}

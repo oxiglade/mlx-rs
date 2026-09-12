@@ -36,19 +36,22 @@ impl LayerCache for FullCache {
             .processed_tokens
             .checked_add(length)
             .ok_or_else(|| invalid("position overflow"))?;
-        let capacity = grown_capacity(self.capacity, end)?;
-        let buffer = if capacity != self.capacity {
-            let (keys, values) = self.buffer.slice(0..self.processed_tokens)?;
-            Buffer::new(&self.spec, capacity)?.replace(0, &keys, &values)?
-        } else {
-            self.buffer.clone()
-        };
+        self.reserve(end)?;
+        let buffer = &self.buffer;
         let buffer = buffer.replace(self.processed_tokens, &keys, &values)?;
         let logical = buffer.slice(0..end)?;
         self.buffer = buffer;
-        self.capacity = capacity;
         self.processed_tokens = end;
         Ok(logical)
+    }
+    fn reserve(&mut self, required: usize) -> Result<(), CacheError> {
+        let capacity = grown_capacity(self.capacity, required)?;
+        if capacity != self.capacity {
+            let (keys, values) = self.buffer.slice(0..self.processed_tokens)?;
+            self.buffer = Buffer::new(&self.spec, capacity)?.replace(0, &keys, &values)?;
+            self.capacity = capacity;
+        }
+        Ok(())
     }
     fn info(&self, layer: usize) -> CacheInfo {
         CacheInfo {

@@ -345,7 +345,7 @@ fn transaction_rollback_and_snapshot_restore() -> TestResult {
             step.update_and_fetch(layer, tokens(&[3.])?, tokens(&[-3.])?)?;
         }
         let output = tokens(&[99.])?;
-        let error = step.commit_with(&[&output], |arrays| {
+        let error = step.evaluate_with(&[&output], |arrays| {
             assert_eq!(arrays.len(), 5);
             assert_eq!(
                 arrays.last().map(|array| array.shape()),
@@ -387,12 +387,14 @@ fn invalid_steps_and_snapshot_fingerprints() -> TestResult {
         assert!(matches!(step.commit(), Err(CacheError::InvalidState(_))));
     }
     let mut wrong_arch = make_cache(CachePolicy::Full, 2, 2)?;
+    wrong_arch.model_identity = cache.model_identity.clone();
     wrong_arch.architecture = crate::ModelType::new("qwen3");
     assert!(matches!(
         cache.restore(wrong_arch.snapshot()?),
         Err(CacheError::FingerprintMismatch)
     ));
     let mut wrong_count = make_cache(CachePolicy::Full, 1, 2)?;
+    wrong_count.model_identity = cache.model_identity.clone();
     assert!(matches!(
         cache.restore(wrong_count.snapshot()?),
         Err(CacheError::FingerprintMismatch)
@@ -406,7 +408,10 @@ fn invalid_steps_and_snapshot_fingerprints() -> TestResult {
         2,
     )?;
     assert!(matches!(
-        cache.restore(wrong_kind.snapshot()?),
+        cache.restore({
+            wrong_kind.model_identity = cache.model_identity.clone();
+            wrong_kind.snapshot()?
+        }),
         Err(CacheError::FingerprintMismatch)
     ));
     let mut wrong_capacity = make_cache(
@@ -418,7 +423,10 @@ fn invalid_steps_and_snapshot_fingerprints() -> TestResult {
         2,
     )?;
     assert!(matches!(
-        wrong_kind.restore(wrong_capacity.snapshot()?),
+        wrong_kind.restore({
+            wrong_capacity.model_identity = wrong_kind.model_identity.clone();
+            wrong_capacity.snapshot()?
+        }),
         Err(CacheError::FingerprintMismatch)
     ));
     let mut snapshot = cache.snapshot()?;
@@ -570,5 +578,598 @@ fn committed_fixture_cache_arrays() -> TestResult {
             assert_eq!(retained, sliding.map_or(total, |w| total.min(w as usize)));
         }
     }
+    Ok(())
+}
+
+#[test]
+fn pure_exact_prefix_and_length_limits() -> Result<(), crate::GenerationError> {
+    let cached = [1.into(), 2.into(), 3.into()];
+    for (prompt, matched) in [
+        (vec![1.into(), 2.into()], 2),
+        (vec![1.into(), 9.into(), 3.into(), 4.into()], 1),
+    ] {
+        assert!(matches!(
+            validate_prefix(&cached, &prompt),
+            Err(crate::GenerationError::CachePrefixMismatch { matched: n, cached: 3, prompt: p })
+                if n == matched && p == prompt.len()
+        ));
+    }
+    assert!(matches!(
+        validate_prefix(&cached, &cached),
+        Err(crate::GenerationError::NoUncachedTokens)
+    ));
+    assert_eq!(
+        validate_prefix(&cached, &[1.into(), 2.into(), 3.into(), 4.into()])?,
+        3
+    );
+    assert_eq!(checked_capacity(8, nonzero(4)?)?.get(), 12);
+    assert!(matches!(
+        checked_capacity(usize::MAX, nonzero(1)?),
+        Err(crate::GenerationError::LengthOverflow)
+    ));
+    assert!(matches!(
+        checked_capacity(i32::MAX as usize, nonzero(1)?),
+        Err(crate::GenerationError::SequenceTooLong { .. })
+    ));
+    Ok(())
+}
+
+#[test]
+fn pure_ledger_shares_until_append_and_reserves_commit() -> TestResult {
+    let mut ledger = TokenLedger::default();
+    ledger.reserve(128)?;
+    let first = ledger.prepare(&[1.into(), 2.into()])?;
+    assert!(ledger.tokens().is_empty());
+    ledger.commit(first);
+    let snapshot = ledger.clone();
+    assert!(Rc::ptr_eq(&ledger.ids, &snapshot.ids));
+    let append = ledger.prepare(&[3.into()])?;
+    assert_eq!(ledger.tokens(), snapshot.tokens());
+    ledger.commit(append);
+    assert_eq!(snapshot.tokens(), &[1.into(), 2.into()]);
+    assert_eq!(ledger.tokens(), &[1.into(), 2.into(), 3.into()]);
+    assert!(!Rc::ptr_eq(&ledger.ids, &snapshot.ids));
+    let allocation = ledger.ids.as_ptr();
+    for token in 4..100u32 {
+        let append = ledger.prepare(&[token.into()])?;
+        ledger.commit(append);
+        assert_eq!(allocation, ledger.ids.as_ptr());
+    }
+    let before = ledger.tokens().to_vec();
+    let append = ledger.prepare(&[100.into()])?;
+    drop(append);
+    assert_eq!(ledger.tokens(), before);
+    Ok(())
+}
+
+fn append_ids(cache: &mut Cache, ids: &[u32]) -> TestResult {
+    let represented: Vec<_> = ids.iter().copied().map(crate::TokenId::from).collect();
+    let data: Vec<_> = ids.iter().map(|&id| id as f32).collect();
+    let mut step = cache.step_with_tokens(&represented)?;
+    for layer in 0..step.staged.len() {
+        step.update_and_fetch(
+            layer,
+            tokens(&data)?,
+            tokens(&data.iter().map(|x| -x).collect::<Vec<_>>())?,
+        )?;
+    }
+    step.evaluate(&[])?.commit();
+    Ok(())
+}
+
+#[derive(Debug, PartialEq)]
+struct CacheState {
+    fingerprints: Vec<LayerFingerprint>,
+    raw: Vec<(Vec<f32>, Vec<f32>)>,
+    temporal: Vec<(Vec<f32>, Vec<f32>)>,
+    ids: Vec<crate::TokenId>,
+}
+fn cache_state(cache: &Cache) -> Result<CacheState, CacheError> {
+    Ok(CacheState {
+        fingerprints: cache
+            .layers
+            .iter()
+            .map(|layer| layer.fingerprint())
+            .collect(),
+        raw: cache
+            .layers
+            .iter()
+            .map(|layer| {
+                let (keys, values) = layer.arrays();
+                Ok((contents(keys)?, contents(values)?))
+            })
+            .collect::<Result<_, CacheError>>()?,
+        temporal: cache
+            .layers
+            .iter()
+            .map(|layer| {
+                let (keys, values) = layer.logical_arrays()?;
+                Ok((contents(&keys)?, contents(&values)?))
+            })
+            .collect::<Result<_, CacheError>>()?,
+        ids: cache.tokens().to_vec(),
+    })
+}
+
+#[test]
+fn evaluated_guard_rolls_back_layers_and_ledger() -> TestResult {
+    let mut cache = Cache::new_for_model(
+        crate::ModelType::new("llama"),
+        &[spec(), spec()],
+        &CacheOptions::default(),
+        Some(nonzero(2)?),
+        Rc::new(()),
+    )?;
+    assert!(matches!(cache.step(), Err(CacheError::InvalidState(_))));
+    append_ids(&mut cache, &[1, 2])?;
+    let snapshot = cache.snapshot()?;
+    let before = cache_state(&cache)?;
+    for failure in [
+        "drop",
+        "evaluation",
+        "incomplete",
+        "count",
+        "layer",
+        "evaluated",
+    ] {
+        let mut step = cache.step_with_tokens(&[3.into()])?;
+        step.reserve(nonzero(32)?)?;
+        step.update_and_fetch(0, tokens(&[3.])?, tokens(&[-3.])?)?;
+        match failure {
+            "drop" => drop(step),
+            "incomplete" => assert!(matches!(
+                step.evaluate(&[]),
+                Err(CacheError::InvalidState(_))
+            )),
+            "layer" => {
+                assert!(step
+                    .update_and_fetch(1, tokens(&[3.])?, tokens(&[-3., -4.])?)
+                    .is_err());
+                assert!(matches!(
+                    step.evaluate(&[]),
+                    Err(CacheError::InvalidState(_))
+                ));
+            }
+            "count" => {
+                step.update_and_fetch(1, tokens(&[3., 4.])?, tokens(&[-3., -4.])?)?;
+                assert!(matches!(
+                    step.evaluate(&[]),
+                    Err(CacheError::InvalidState(_))
+                ));
+            }
+            _ => {
+                step.update_and_fetch(1, tokens(&[3.])?, tokens(&[-3.])?)?;
+                let output = tokens(&[99.])?;
+                if failure == "evaluation" {
+                    assert!(matches!(
+                        step.evaluate_with(&[&output], |arrays| {
+                            assert_eq!(arrays.len(), 5);
+                            Err(invalid("injected evaluation failure"))
+                        }),
+                        Err(CacheError::InvalidState(_))
+                    ));
+                } else {
+                    let evaluated = step.evaluate(&[&output])?;
+                    assert_eq!(cache_state(evaluated.cache)?, before);
+                    drop(evaluated);
+                }
+            }
+        }
+        assert_eq!(cache_state(&cache)?, before);
+        assert!(Rc::ptr_eq(&cache.ledger.ids, &snapshot.ledger.ids));
+    }
+    let mut step = cache.step_with_tokens(&[3.into(), 4.into()])?;
+    for layer in 0..2 {
+        step.update_and_fetch(layer, tokens(&[3.])?, tokens(&[-3.])?)?;
+    }
+    assert!(matches!(
+        step.evaluate(&[]),
+        Err(CacheError::InvalidState(_))
+    ));
+    assert_eq!(cache_state(&cache)?, before);
+    append_ids(&mut cache, &[5])?;
+    assert_eq!(cache.tokens(), &[1.into(), 2.into(), 5.into()]);
+    Ok(())
+}
+
+#[test]
+fn wrapped_snapshot_restores_exact_state_and_ledger() -> TestResult {
+    let options = CacheOptions {
+        policy: CachePolicy::Rotating {
+            capacity: nonzero(5)?,
+            keep_prefix: 2,
+        },
+    };
+    let identity = Rc::new(());
+    let mut cache = Cache::new_for_model(
+        crate::ModelType::new("llama"),
+        &[spec(), spec()],
+        &options,
+        None,
+        identity.clone(),
+    )?;
+    let mut reference = Cache::new_for_model(
+        crate::ModelType::new("llama"),
+        &[spec(), spec()],
+        &options,
+        None,
+        identity,
+    )?;
+    for id in 0..9 {
+        append_ids(&mut cache, &[id])?;
+        append_ids(&mut reference, &[id])?;
+    }
+    let before = cache_state(&cache)?;
+    let snapshot = cache.snapshot()?;
+    assert!(Rc::ptr_eq(&cache.ledger.ids, &snapshot.ledger.ids));
+    for id in 9..20 {
+        append_ids(&mut cache, &[id])?;
+    }
+    assert_eq!(snapshot.ledger.tokens(), before.ids);
+    cache.restore(snapshot)?;
+    assert_eq!(cache_state(&cache)?, before);
+    for ids in [&[21][..], &[22, 23, 24][..], &[25][..]] {
+        append_ids(&mut cache, ids)?;
+        append_ids(&mut reference, ids)?;
+        assert_eq!(cache_state(&cache)?, cache_state(&reference)?);
+    }
+    Ok(())
+}
+
+#[test]
+fn reuse_rejects_before_mutation_and_reserves_staged_growth() -> Result<(), crate::GenerationError>
+{
+    let architecture = crate::ModelType::new("llama");
+    let identity = Rc::new(());
+    let layout = [spec(), spec()];
+    let options = CacheOptions::default();
+    let mut cache = Cache::new_for_model(
+        architecture.clone(),
+        &layout,
+        &options,
+        Some(nonzero(2)?),
+        identity.clone(),
+    )?;
+    append_ids(&mut cache, &[1, 2])?;
+    let before = cache_state(&cache)?;
+    let prompt = [1.into(), 2.into(), 3.into()];
+    assert!(matches!(
+        cache.validate_reuse(&Rc::new(()), &architecture, &layout, &options, &[]),
+        Err(crate::GenerationError::Cache(
+            CacheError::FingerprintMismatch
+        ))
+    ));
+    let wrong = CacheOptions {
+        policy: CachePolicy::Rotating {
+            capacity: nonzero(5)?,
+            keep_prefix: 2,
+        },
+    };
+    assert!(matches!(
+        cache.validate_reuse(&identity, &architecture, &layout, &wrong, &[]),
+        Err(crate::GenerationError::Cache(CacheError::PolicyMismatch))
+    ));
+    for ids in [&[1.into()][..], &[9.into(), 2.into(), 3.into()][..]] {
+        assert!(matches!(
+            cache.validate_reuse(&identity, &architecture, &layout, &options, ids),
+            Err(crate::GenerationError::CachePrefixMismatch { .. })
+        ));
+    }
+    assert!(matches!(
+        cache.validate_reuse(&identity, &architecture, &layout, &options, &prompt[..2]),
+        Err(crate::GenerationError::NoUncachedTokens)
+    ));
+    assert_eq!(
+        cache.validate_reuse(&identity, &architecture, &layout, &options, &prompt)?,
+        2
+    );
+    let mut foreign =
+        Cache::new_for_model(architecture.clone(), &layout, &options, None, Rc::new(()))?;
+    assert!(matches!(
+        cache.restore(foreign.snapshot()?),
+        Err(CacheError::FingerprintMismatch)
+    ));
+    assert_eq!(cache_state(&cache)?, before);
+    let ledger = cache.ledger.clone();
+    cache.ledger = TokenLedger::default();
+    assert!(matches!(
+        cache.validate_reuse(&identity, &architecture, &layout, &options, &prompt),
+        Err(crate::GenerationError::Cache(CacheError::InvalidState(_)))
+    ));
+    cache.ledger = ledger;
+    let mut step = cache.step_with_tokens(&prompt[2..])?;
+    step.reserve(checked_capacity(prompt.len(), nonzero(20)?)?)?;
+    assert_eq!(
+        step.cache.info().map(|i| i.capacity).collect::<Vec<_>>(),
+        [2, 2]
+    );
+    for layer in 0..2 {
+        step.update_and_fetch(layer, tokens(&[3.])?, tokens(&[-3.])?)?;
+    }
+    step.evaluate_and_commit(&[])?;
+    assert_eq!(
+        cache.info().map(|i| i.capacity).collect::<Vec<_>>(),
+        [32, 32]
+    );
+    assert_eq!(cache.tokens(), prompt);
+    let fresh = Cache::new_for_model(
+        architecture,
+        &layout,
+        &options,
+        Some(checked_capacity(3, nonzero(20)?)?),
+        identity,
+    )?;
+    assert_eq!(
+        fresh.info().map(|i| i.capacity).collect::<Vec<_>>(),
+        [23, 23]
+    );
+    Ok(())
+}
+
+#[test]
+fn fixture_trim_after_wrap_golden() -> TestResult {
+    fn number(value: &serde_json::Value) -> Result<usize, CacheError> {
+        value
+            .as_u64()
+            .and_then(|value| usize::try_from(value).ok())
+            .ok_or_else(|| invalid("expected fixture integer"))
+    }
+    fn positions(value: &serde_json::Value) -> Result<Vec<usize>, CacheError> {
+        value
+            .as_array()
+            .ok_or_else(|| invalid("expected fixture positions"))?
+            .iter()
+            .map(number)
+            .collect()
+    }
+
+    let directory =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../conformance/mlx-lm/fixtures/llama-sliding");
+    let bytes = fs::read(directory.join("expectations.safetensors"))
+        .map_err(|error| invalid(&error.to_string()))?;
+    let tensors = SafeTensors::deserialize(&bytes).map_err(|error| invalid(&error.to_string()))?;
+    let document: serde_json::Value = serde_json::from_slice(
+        &fs::read(directory.join("expectations.json"))
+            .map_err(|error| invalid(&error.to_string()))?,
+    )
+    .map_err(|error| invalid(&error.to_string()))?;
+    let golden = &document["cache"]["trim_after_wrap"];
+    let capacity = number(&golden["capacity"])?;
+    let keep = number(&golden["keep"])?;
+    let trim_requested = number(&golden["trim_requested"])?;
+    assert_eq!(number(&golden["trim_return"])?, 0);
+    let check_stage = |storage: &rotating::RotatingCache,
+                       stage: &str|
+     -> Result<(Array, Array), CacheError> {
+        let metadata = &golden[stage];
+        let offset = number(&metadata["offset"])?;
+        let fingerprint = storage.fingerprint();
+        assert_eq!(fingerprint.processed_tokens, offset, "{stage}");
+        assert_eq!(
+            fingerprint.index,
+            number(&metadata["rotation_index"])?,
+            "{stage}"
+        );
+        assert_eq!(metadata["can_trim"].as_bool(), Some(false), "{stage}");
+        assert_eq!(
+            metadata["can_trim"].as_bool(),
+            Some(offset < capacity),
+            "{stage}"
+        );
+        let info = storage.info(0);
+        let prefix = positions(&metadata["retained_prefix"])?;
+        let tail = positions(&metadata["retained_tail"])?;
+        assert_eq!(info.retained_prefix.collect::<Vec<_>>(), prefix, "{stage}");
+        assert_eq!(info.retained_positions.collect::<Vec<_>>(), tail, "{stage}");
+        assert_eq!(
+            prefix.into_iter().chain(tail).collect::<Vec<_>>(),
+            positions(&metadata["temporal_positions"])?,
+            "{stage}"
+        );
+        let array =
+            |name: &str| fixture_array(&tensors, &format!("cache.trim_after_wrap.{stage}.{name}"));
+        let raw = storage.arrays();
+        equal_array(raw.0, &array("raw_keys")?)?;
+        equal_array(raw.1, &array("raw_values")?)?;
+        let temporal = storage.logical_arrays()?;
+        let expected = (array("temporal_keys")?, array("temporal_values")?);
+        equal_array(&temporal.0, &expected.0)?;
+        equal_array(&temporal.1, &expected.1)?;
+        Ok(expected)
+    };
+
+    let mut storage = rotating::RotatingCache::new(&spec(), capacity, keep)?;
+    for position in 0..number(&golden["before_trim"]["offset"])? {
+        let p = position as f32;
+        storage.update_and_fetch(tokens(&[p])?, tokens(&[100.0 + 3.0 * p])?)?;
+    }
+    check_stage(&storage, "before_trim")?;
+    assert!(matches!(
+        storage.trim(trim_requested),
+        Err(CacheError::InvalidState(_))
+    ));
+    check_stage(&storage, "after_trim")?;
+    let p = number(&golden["after_trim"]["offset"])? as f32;
+    let actual = storage.update_and_fetch(tokens(&[p])?, tokens(&[100.0 + 3.0 * p])?)?;
+    let expected = check_stage(&storage, "after_append")?;
+    equal_array(&actual.0, &expected.0)?;
+    equal_array(&actual.1, &expected.1)?;
+    Ok(())
+}
+
+fn forward_ids(
+    decoder: &mut dyn crate::arch::DecoderModel,
+    cache: &mut Cache,
+    ids: &[crate::TokenId],
+    capacity: Option<NonZeroUsize>,
+) -> Result<Array, Box<dyn std::error::Error>> {
+    let raw: Vec<u32> = ids.iter().copied().map(u32::from).collect();
+    let input = Array::from_slice(&raw, &[1, dimension(raw.len())?]);
+    let mut step = cache.step_with_tokens(ids)?;
+    if let Some(capacity) = capacity {
+        step.reserve(capacity)?;
+    }
+    let output = decoder.forward(&input, &mut step)?;
+    step.evaluate_and_commit(&[&output])?;
+    Ok(output)
+}
+
+fn close_array(
+    actual: &Array,
+    expected: &Array,
+    tolerance: &serde_json::Value,
+) -> Result<(), Box<dyn std::error::Error>> {
+    assert_eq!(actual.shape(), expected.shape());
+    let atol = tolerance["atol"].as_f64().ok_or("missing atol")?;
+    let rtol = tolerance["rtol"].as_f64().ok_or("missing rtol")?;
+    for (a, b) in contents(actual)?.into_iter().zip(contents(expected)?) {
+        assert!(
+            a.is_finite()
+                && b.is_finite()
+                && f64::from((a - b).abs()) <= atol + rtol * f64::from(b.abs()),
+            "{a} differs from {b}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn fixture_reuse_matches_fresh_forward() -> Result<(), Box<dyn std::error::Error>> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../conformance/mlx-lm/fixtures");
+    for name in [
+        "llama-base",
+        "llama-sliding",
+        "llama-quant4",
+        "llama-sharded",
+        "qwen3-base",
+        "qwen3-quant4",
+    ] {
+        let directory = root.join(name);
+        let raw = crate::config::RawConfig::from_bytes(&fs::read(directory.join("config.json"))?)?;
+        let factory = crate::arch::factory(&raw.model_type)?;
+        let manifest = crate::weights::WeightManifest::discover(&directory)?;
+        let mut decoder = factory.build(factory.parse_config(&raw)?, &manifest)?;
+        let document: serde_json::Value =
+            serde_json::from_slice(&fs::read(directory.join("expectations.json"))?)?;
+        let ids: Vec<u32> = serde_json::from_value(document["prefill"]["token_ids"].clone())?;
+        let prompt: Vec<_> = ids.into_iter().map(crate::TokenId::from).collect();
+        assert!(prompt.len() > 3);
+        for policy in [
+            CachePolicy::ModelDefault,
+            CachePolicy::Full,
+            CachePolicy::Rotating {
+                capacity: nonzero(5)?,
+                keep_prefix: 2,
+            },
+        ] {
+            let identity = Rc::new(());
+            let options = CacheOptions { policy };
+            let capacity = checked_capacity(prompt.len(), nonzero(4)?)?;
+            let mut reused = Cache::new_for_model(
+                crate::ModelType::new(raw.model_type.clone()),
+                decoder.cache_layout(),
+                &options,
+                Some(nonzero(2)?),
+                identity.clone(),
+            )?;
+            let mut fresh = Cache::new_for_model(
+                crate::ModelType::new(raw.model_type.clone()),
+                decoder.cache_layout(),
+                &options,
+                Some(capacity),
+                identity.clone(),
+            )?;
+            forward_ids(decoder.as_mut(), &mut reused, &prompt[..3], None)?;
+            let start = reused.validate_reuse(
+                &identity,
+                &crate::ModelType::new(raw.model_type.clone()),
+                decoder.cache_layout(),
+                &options,
+                &prompt,
+            )?;
+            assert_eq!(start, 3);
+            let actual = forward_ids(
+                decoder.as_mut(),
+                &mut reused,
+                &prompt[start..],
+                Some(capacity),
+            )?;
+            let full = forward_ids(decoder.as_mut(), &mut fresh, &prompt, None)?;
+            let expected = full.try_index((.., dimension(start)?.., ..))?;
+            close_array(&actual, &expected, &document["tolerances"]["logits"])?;
+            assert_eq!(reused.tokens(), prompt);
+            for id in &prompt[..4] {
+                let actual = forward_ids(decoder.as_mut(), &mut reused, &[*id], None)?;
+                let expected = forward_ids(decoder.as_mut(), &mut fresh, &[*id], None)?;
+                close_array(&actual, &expected, &document["tolerances"]["logits"])?;
+                assert_eq!(reused.tokens(), fresh.tokens());
+                let actual = reused.logical_layers()?;
+                let expected = fresh.logical_layers()?;
+                assert_eq!(actual.len(), expected.len());
+                for (a, b) in actual.iter().zip(&expected) {
+                    assert_eq!(a.layer, b.layer);
+                    assert_eq!(a.positions, b.positions);
+                    close_array(&a.keys, &b.keys, &document["tolerances"]["cache"])?;
+                    close_array(&a.values, &b.values, &document["tolerances"]["cache"])?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn pure_resolved_policy_agreement() -> TestResult {
+    let mut layout = spec();
+    layout.attention = crate::AttentionKind::Sliding {
+        window: nonzero(5)?,
+    };
+    let mut fingerprint = LayerFingerprint {
+        spec: layout.clone(),
+        kind: CacheKind::Rotating,
+        capacity: 5,
+        keep_prefix: 0,
+        processed_tokens: 9,
+        length: 5,
+        index: 4,
+        keys_shape: vec![1, 1, 5, 1],
+        values_shape: vec![1, 1, 5, 1],
+        keys_dtype: Dtype::Float32,
+        values_dtype: Dtype::Float32,
+    };
+    validate_policy(&fingerprint, &layout, &CachePolicy::ModelDefault)?;
+    fingerprint.keep_prefix = 2;
+    assert!(matches!(
+        validate_policy(&fingerprint, &layout, &CachePolicy::ModelDefault),
+        Err(CacheError::PolicyMismatch)
+    ));
+    validate_policy(
+        &fingerprint,
+        &layout,
+        &CachePolicy::Rotating {
+            capacity: nonzero(5)?,
+            keep_prefix: 2,
+        },
+    )?;
+    assert!(matches!(
+        validate_policy(
+            &fingerprint,
+            &layout,
+            &CachePolicy::Rotating {
+                capacity: nonzero(6)?,
+                keep_prefix: 2
+            }
+        ),
+        Err(CacheError::PolicyMismatch)
+    ));
+    fingerprint.kind = CacheKind::Full;
+    fingerprint.capacity = 256;
+    validate_policy(&fingerprint, &layout, &CachePolicy::Full)?;
+    assert!(matches!(
+        validate_policy(&fingerprint, &layout, &CachePolicy::ModelDefault),
+        Err(CacheError::PolicyMismatch)
+    ));
+    layout.attention = crate::AttentionKind::Full;
+    validate_policy(&fingerprint, &layout, &CachePolicy::ModelDefault)?;
     Ok(())
 }
