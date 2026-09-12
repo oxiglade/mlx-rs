@@ -153,8 +153,8 @@ mod tests {
         name: &str,
     ) -> anyhow::Result<()> {
         assert_eq!(actual.shape(), expected.shape(), "{name}");
-        let actual = actual.to_vec_exact::<f32>()?;
-        let expected = expected.to_vec_exact::<f32>()?;
+        let actual = actual.contiguous()?.to_vec_exact::<f32>()?;
+        let expected = expected.contiguous()?.to_vec_exact::<f32>()?;
         for (index, (actual, expected)) in actual.iter().zip(&expected).enumerate() {
             anyhow::ensure!(
                 actual.is_finite()
