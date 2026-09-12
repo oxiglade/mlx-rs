@@ -45,17 +45,32 @@ pub struct Prefill {
 }
 
 #[derive(Deserialize)]
-struct Decode {
-    greedy_ids: Vec<u32>,
-    text_deltas: Vec<String>,
-    finish_reason: String,
-    stop_token: Option<u32>,
+pub struct Decode {
+    pub greedy_ids: Vec<u32>,
+    pub text_deltas: Vec<String>,
+    pub finish_reason: String,
+    pub stop_token: Option<u32>,
+    #[serde(default)]
+    pub token_ids: Vec<u32>,
+    #[serde(default)]
+    pub length_case: Option<StreamCase>,
+    #[serde(default)]
+    pub stop_case: Option<StreamCase>,
 }
 
 #[derive(Deserialize)]
-struct Sampling {
-    options: Value,
-    seed: u64,
+pub struct StreamCase {
+    pub eos_tokens: Vec<u32>,
+    pub token_ids: Vec<u32>,
+    pub text_deltas: Vec<String>,
+    pub finish_reason: String,
+    pub stop_token: Option<u32>,
+}
+
+#[derive(Deserialize)]
+pub struct Sampling {
+    pub options: Value,
+    pub seed: u64,
     cpu_ids: Vec<u32>,
     #[serde(default)]
     processor_token_histories: Vec<Vec<u32>>,
@@ -71,6 +86,8 @@ pub struct Fixture {
     pub expected: Expectations,
     pub prefill: Prefill,
     pub inputs: Value,
+    pub decode: Decode,
+    pub sampling: BTreeMap<String, Sampling>,
 }
 
 pub fn fixture_root() -> PathBuf {
@@ -164,17 +181,19 @@ pub fn read(path: &Path) -> Result<Fixture> {
         progress: document.prefill.progress.clone(),
         trim_after_wrap: document.cache.get("trim_after_wrap").cloned(),
         text_cases,
-        greedy_ids: Some(document.decode.greedy_ids),
-        text_deltas: Some(document.decode.text_deltas),
-        finish: Some((document.decode.finish_reason, document.decode.stop_token)),
+        greedy_ids: Some(document.decode.greedy_ids.clone()),
+        text_deltas: Some(document.decode.text_deltas.clone()),
+        finish: Some((
+            document.decode.finish_reason.clone(),
+            document.decode.stop_token,
+        )),
         ..Observation::default()
     };
-    for (name, case) in document.sampling {
+    for (name, case) in &document.sampling {
         ensure!(
             case.options.is_object(),
             "sampling options must be an object: {name}"
         );
-        let _seed = case.seed;
         ensure!(
             case.cpu_ids.len() == 8,
             "sampling {name} requires eight CPU IDs"
@@ -186,9 +205,11 @@ pub fn read(path: &Path) -> Result<Fixture> {
             );
             observation
                 .processor_histories
-                .insert(name.clone(), case.processor_token_histories);
+                .insert(name.clone(), case.processor_token_histories.clone());
         }
-        observation.sampled_ids.insert(name, case.cpu_ids);
+        observation
+            .sampled_ids
+            .insert(name.clone(), case.cpu_ids.clone());
     }
     for (name, case) in document.errors {
         ensure!(
@@ -337,6 +358,8 @@ pub fn read(path: &Path) -> Result<Fixture> {
         },
         prefill: document.prefill,
         inputs,
+        decode: document.decode,
+        sampling: document.sampling,
     })
 }
 
