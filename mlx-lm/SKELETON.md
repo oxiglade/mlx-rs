@@ -22,9 +22,6 @@ no model constructor succeeds yet; remove those allowances as the seams gain cal
 | foundation, tranche 3 | `src/model.rs` | `Model::generate` | `GenerationError::Inference(UnsupportedArchitecture)` |
 | foundation, tranche 3 | `src/model.rs` | `Generation::next` | One typed inference error, then fused exhaustion |
 | loader, tranche 4 | `src/weights/mod.rs` | `WeightManifest::from_gguf` | `WeightError::UnsupportedFormat` |
-| llama | `src/arch/llama/mod.rs` | `Factory::parse_config` | `ConfigError::UnsupportedArchitecture` |
-| llama | `src/arch/llama/mod.rs` | `Factory::build` | `LoadError::Config(UnsupportedArchitecture)` |
-| llama | `src/arch/llama/mod.rs` | `Factory::map_safetensors_key` | `WeightDisposition::Reject` |
 | llama, tranche 4 | `src/arch/llama/mod.rs` | `Factory::map_gguf_key` | `WeightDisposition::Reject` |
 | qwen3 | `src/arch/qwen3/mod.rs` | `Factory::parse_config` | `ConfigError::UnsupportedArchitecture` |
 | qwen3 | `src/arch/qwen3/mod.rs` | `Factory::build` | `LoadError::Config(UnsupportedArchitecture)` |
