@@ -233,6 +233,17 @@ pub enum CacheError {
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum SamplingError {
+    /// No token can be selected from an empty vocabulary.
+    #[error("sampling vocabulary is empty")]
+    EmptyVocabulary,
+    /// Min-p requests more retained candidates than the vocabulary contains.
+    #[error("min_tokens_to_keep {min_tokens_to_keep} exceeds vocabulary {vocabulary_size}")]
+    MinTokensToKeepExceedsVocabulary {
+        /// Requested minimum support size.
+        min_tokens_to_keep: usize,
+        /// Runtime vocabulary size.
+        vocabulary_size: usize,
+    },
     /// Temperature is negative or non-finite.
     #[error("invalid temperature: {0}")]
     InvalidTemperature(f32),

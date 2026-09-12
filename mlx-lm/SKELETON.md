@@ -17,15 +17,10 @@ no model constructor succeeds yet; remove those allowances as the seams gain cal
 
 | Owner | File | Placeholder | Current result |
 | --- | --- | --- | --- |
-| foundation | `src/config/mod.rs` | `Config::validate` | `ConfigError::UnsupportedArchitecture` |
-| foundation | `src/model.rs` | `Model::from_dir` | `LoadError::Config(UnsupportedArchitecture)` |
 | loader, tranche 4 | `src/model.rs` | `Model::from_gguf` | `LoadError::Weights(UnsupportedFormat)` |
 | foundation, tranche 4 | `src/model.rs` | `Model::from_hub` | `HubError::Load(Config(UnsupportedArchitecture))` |
 | foundation, tranche 3 | `src/model.rs` | `Model::generate` | `GenerationError::Inference(UnsupportedArchitecture)` |
 | foundation, tranche 3 | `src/model.rs` | `Generation::next` | One typed inference error, then fused exhaustion |
-| foundation, tranche 3 | `src/model.rs` | `RepetitionPenaltyOptions::validate` | `SamplingError::UnsupportedMode` |
-| foundation, tranche 3 | `src/sampling.rs` | `SamplerOptions::validate` | `SamplingError::UnsupportedMode` |
-| foundation, tranche 3 | `src/sampling.rs` | `MinPOptions::validate` | `SamplingError::UnsupportedMode` |
 | cache | `src/cache/mod.rs` | `Cache::new` | `CacheError::UnsupportedPolicy` |
 | cache, tranche 3 | `src/cache/mod.rs` | `Cache::snapshot` | `CacheError::UnsupportedPolicy` |
 | cache, tranche 3 | `src/cache/mod.rs` | `Cache::restore` | `CacheError::UnsupportedPolicy` |
@@ -63,6 +58,11 @@ key dispositions. Wire configs currently retain raw fields without resolving def
 `DecoderModel` is declared exactly as designed; neither factory constructs an implementation.
 The registry contains only `llama::Factory` and `qwen3::Factory`.
 
+`Model::from_dir` delegates its single weight load to `ArchitectureFactory::build`.
+The factory owns strict keyed assignment, tied-aware ignores such as a redundant
+`lm_head.weight`, and weight evaluation before returning the decoder. `from_dir` only
+discovers the manifest and passes it to the factory; it does not reload the projection.
+
 The tokenizer item owns `src/tokenizer/` and the moved Qwen3 template fixture. Local JSON
 loading, encode/decode, scalar/list EOS precedence, compiled string templates, pycompat,
 textual roles, and safe continuation are implemented. Named-template selection, additional
@@ -75,10 +75,17 @@ during loading. No remote code or tokenizer HTTP feature is enabled.
 The `prototype-adapter` feature is off by default. Explicit `parity` and `sentinel` test
 entry points alias their own crate as `mlx_lm` and re-export only `legacy::{cache, models}`.
 This lets the existing test sources retain their imports byte-for-byte, without exposing
-old modules at the library root. Run them with `--features prototype-adapter`.
+old modules at the library root. Both targets now require
+`--features prototype-adapter,oracle-hooks` for the decision 11 migration.
 Auto-discovery is disabled so Cargo cannot also compile the old entry points directly.
 The comparator's fixture/mutation tests share the parity binary and therefore also require
 this feature until the adapter is ported. New integration tests must be registered explicitly.
+
+There are no `tests/weights.rs`, `tests/cache.rs`, `tests/tokenizer.rs`,
+`tests/arch_llama.rs`, or `tests/arch_qwen3.rs` integration entry points in this worktree.
+Keep `autotests = false`; per-module tests run with
+`cargo test -p mlx-lm --lib <module>::`, using `weights`, `cache`, `tokenizer`,
+`arch::llama`, or `arch::qwen3` as the module name. Do not register `#[path]` shims.
 
 The llama item must repoint the prototype adapter and sentinel at the new `Model`, preserve
 their assertions, delete `src/legacy/` and both wrapper entry points, remove the feature,
@@ -93,6 +100,10 @@ both unchanged regression adapters call it; it rejects nonzero temperature. The 
 loader is deliberately not the new strict loader and must never back `Model::from_dir`.
 
 ## Signature choices where the design is silent
+
+Decision 1 requires no trait signature change. The existing factory boundary is
+`fn build(&self, parsed: ParsedArchitecture, weights: &WeightManifest) -> Result<Box<dyn DecoderModel>, LoadError>`.
+Architecture implementations must complete their strict weight load inside this call.
 
 The design fixes all public option fields and both architecture trait signatures, but does
 not spell out error payloads, `HubOptions` fields, `ParameterPath` access, validation method
@@ -142,6 +153,21 @@ neither devenv nor nix was run. Temporary verification logs use the
 Model/Metal execution, parity and sentinel inference, real checkpoint loading, cache behavior,
 and Hub downloads were not run. The tokenizer tests do not execute MLX operations. The LM
 example was formatted and migrated but was not executed against a checkpoint.
+
+`model::tests::local_loading_matches_fixture_expectations` is explicitly ignored with
+`NOT RUN` until the architecture and loader items land. Running it with `--ignored
+--nocapture` reports each unavailable fixture and fails if any remain unavailable, so an
+explicit run cannot count placeholder errors as a passing happy path. Remove the ignore
+when those implementations are integrated.
+
+Decision 11 is blocked in this worktree: `Cache::new` and `Cache::step` still return
+placeholder errors, and `CacheStep` has neither `info` nor `evaluate_and_commit`.
+The wave worktree has the same placeholders. The cache item's real implementation has
+those transaction APIs but exposes no logical K/V read accessor; its `LayerCache::arrays`
+returns private storage buffers, which cannot substitute for temporal views of rotating
+caches. The `oracle-hooks` feature is declared and required by parity/sentinel, but its
+module and entry points remain unimplemented pending cache integration and a logical
+per-layer K/V accessor. The feature is off by default; no protected test sources changed.
 
 Changed files are implementation-owned: workspace/package manifests, `mlx-lm` sources and
 handoff documentation, adapter test entry points, the moved Qwen3 fixture, the removed
