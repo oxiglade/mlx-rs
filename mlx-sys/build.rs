@@ -10,7 +10,7 @@ use std::{
 #[cfg(feature = "metal")]
 use std::fs;
 
-#[path = "../xtask/src/bindgen_config.rs"]
+#[path = "src/bindgen_config.rs"]
 mod bindgen_config;
 
 /// Find the clang runtime library path dynamically using xcrun

@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 mod api_baseline;
+#[path = "../../mlx-sys/src/bindgen_config.rs"]
 mod bindgen_config;
 mod fingerprint;
 mod verify_bump;
