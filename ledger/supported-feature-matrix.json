@@ -99,6 +99,19 @@
         "guard_malloc": "mlx-tests/tests/ffi_safety.rs",
         "qualification": "conformance/qualification.json"
       }
+    },
+    {
+      "feature": "mlx-lm-oracle-gate",
+      "canonical_path": "mlx-lm/tests/parity.rs",
+      "status": "tranche-1-gate-only",
+      "evidence": {
+        "contract": "conformance/mlx-lm/SCHEMA.md",
+        "qualification": "mlx-lm/tests/parity/mutations.rs",
+        "prototype": "mlx-lm/tests/parity/prototype.rs",
+        "ledger": "ledger/mlx-lm-parity.json",
+        "verification": "cargo run -p xtask -- verify-lm-parity",
+        "fixture_runtime": "mlx-lm/tests/parity.rs: committed_fixture_layout_and_policies and prototype_llama_base_prefill_cache_and_greedy_parity; each prints NOT RUN on stderr when conformance/mlx-lm/fixtures is absent"
+      }
     }
   ],
   "builds": [

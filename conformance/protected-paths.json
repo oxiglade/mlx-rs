@@ -5,11 +5,18 @@
     "mlx-tests/tests/conformance.rs",
     "mlx-tests/tests/conformance/oracle.rs",
     "xtask/src/main.rs",
-    "xtask/src/verify_oracle_boundary.rs"
+    "xtask/src/verify_oracle_boundary.rs",
+    "conformance/mlx-lm/**",
+    "mlx-lm/tests/parity.rs",
+    "mlx-lm/tests/parity/**",
+    "xtask/src/verify_lm_parity.rs"
   ],
   "implementation_paths": [
     "mlx-rs/src/**",
-    "mlx-tests/tests/conformance/adapters.rs"
+    "mlx-tests/tests/conformance/adapters.rs",
+    "mlx-lm/src/**",
+    "mlx-lm-cli/**",
+    "mlx-lm-utils/src/**"
   ],
   "staged_case_marker": "oracle-change:"
 }
