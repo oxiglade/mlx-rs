@@ -33,7 +33,7 @@
     {
       "kind": "struct",
       "path": "mlx_lm::Cache",
-      "signature": "# [doc = \" Thread-bound decoder cache with transactional layer state.\"] pub struct Cache { architecture : crate :: ModelType , layers : Vec < Box < dyn LayerCache > > , _thread_bound : PhantomData < Rc < () > > , }"
+      "signature": "# [doc = \" Thread-bound decoder cache with transactional layer state.\"] pub struct Cache { architecture : crate :: ModelType , model_identity : Rc < () > , ledger : TokenLedger , tracks_tokens : bool , layers : Vec < Box < dyn LayerCache > > , _thread_bound : PhantomData < Rc < () > > , }"
     },
     {
       "kind": "method",
@@ -83,7 +83,7 @@
     {
       "kind": "struct",
       "path": "mlx_lm::CacheSnapshot",
-      "signature": "# [doc = \" Opaque thread-bound handles and metadata for restoring a cache.\"] pub struct CacheSnapshot { architecture : crate :: ModelType , layers : BTreeMap < usize , Box < dyn LayerCache > > , _thread_bound : PhantomData < Rc < () > > , }"
+      "signature": "# [doc = \" Opaque thread-bound handles and metadata for restoring a cache.\"] pub struct CacheSnapshot { architecture : crate :: ModelType , model_identity : Rc < () > , ledger : TokenLedger , tracks_tokens : bool , layers : BTreeMap < usize , Box < dyn LayerCache > > , _thread_bound : PhantomData < Rc < () > > , }"
     },
     {
       "kind": "enum",
