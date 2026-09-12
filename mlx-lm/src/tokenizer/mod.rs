@@ -142,7 +142,8 @@ impl Tokenizer {
         self.encode_with_special_tokens(text, false)
     }
 
-    fn encode_with_special_tokens(
+    /// Encodes text with optional special-token insertion by the post-processor.
+    pub fn encode_with_special_tokens(
         &self,
         text: &str,
         add_special_tokens: bool,
@@ -155,6 +156,10 @@ impl Tokenizer {
             .copied()
             .map(TokenId)
             .collect())
+    }
+    /// Configured BOS token content from `tokenizer_config.json`, or `None` if absent.
+    pub fn bos_token(&self) -> Option<&str> {
+        self.special_tokens.get("bos_token").and_then(Value::as_str)
     }
     /// Decodes IDs, preserving special tokens as in Transformers’ default decode.
     pub fn decode(&self, ids: &[TokenId]) -> Result<String, TokenizerError> {

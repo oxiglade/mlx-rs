@@ -208,6 +208,9 @@ pub enum CacheError {
     /// The snapshot belongs to an incompatible cache.
     #[error("cache fingerprint mismatch")]
     FingerprintMismatch,
+    /// The resolved request policy differs from the supplied cache policy.
+    #[error("cache policy mismatch")]
+    PolicyMismatch,
     /// A layer update has an incompatible shape.
     #[error("cache shape mismatch at layer {layer}: expected {expected:?}, got {actual:?}")]
     ShapeMismatch {
@@ -266,6 +269,29 @@ pub enum SamplingError {
     /// The repetition penalty is non-positive or non-finite.
     #[error("invalid repetition penalty: {0}")]
     InvalidRepetitionPenalty(f32),
+    /// A presence or frequency coefficient is non-finite.
+    #[error("invalid additive penalty: {0}")]
+    InvalidAdditivePenalty(f32),
+    /// Logits do not contain one row of the runtime vocabulary.
+    #[error("invalid logits shape: expected [1, {vocabulary_size}], got {shape:?}")]
+    InvalidLogitsShape {
+        /// Observed logits shape.
+        shape: Vec<i32>,
+        /// Runtime vocabulary size.
+        vocabulary_size: usize,
+    },
+    /// Logits are not f16, bf16, or f32.
+    #[error("invalid logits dtype: {0:?}")]
+    InvalidLogitsDtype(Dtype),
+    /// Logits contain NaN or positive infinity; negative infinity is a valid mask.
+    #[error("logits contain NaN or positive infinity")]
+    InvalidLogitsValue,
+    /// No finite candidate remains available for sampling.
+    #[error("sampling support is empty")]
+    EmptySupport,
+    /// Preserves the scalar-conversion diagnostic.
+    #[error(transparent)]
+    Conversion(#[from] mlx_rs::error::ConversionError),
     /// The requested sampling mode is not implemented.
     #[error("unsupported sampling mode: {0}")]
     UnsupportedMode(String),
@@ -293,16 +319,69 @@ pub enum InferenceError {
 }
 
 /// Prompt preparation or streaming generation failed.
+///
+/// Construction validates sampler options, repetition/presence/frequency penalties,
+/// stop strings and tokens, the encoded prompt, borrowed-cache compatibility and
+/// prefix, then checked sequence lengths, before allocating or mutating a cache.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum GenerationError {
     /// The encoded prompt contains no tokens.
     #[error("prompt is empty")]
     EmptyPrompt,
+    /// A configured stop string is empty.
+    #[error("stop string at index {index} is empty")]
+    EmptyStopString {
+        /// Zero-based index in the supplied stop-string list.
+        index: usize,
+    },
+    /// A prompt token is outside the runtime vocabulary.
+    #[error("prompt token {token_id:?} at index {index} is outside vocabulary {vocabulary_size}")]
+    PromptTokenOutOfRange {
+        /// Zero-based index in the full encoded prompt.
+        index: usize,
+        /// Rejected token identifier.
+        token_id: crate::TokenId,
+        /// Runtime vocabulary size.
+        vocabulary_size: usize,
+    },
+    /// An effective stop token is outside the runtime vocabulary.
+    #[error("stop token {token_id:?} is outside vocabulary {vocabulary_size}")]
+    StopTokenOutOfRange {
+        /// Rejected token identifier.
+        token_id: crate::TokenId,
+        /// Runtime vocabulary size.
+        vocabulary_size: usize,
+    },
+    /// The full prompt does not extend the exact represented cache prefix.
+    #[error("cache prefix mismatch: matched {matched} tokens, cached {cached}, prompt {prompt}")]
+    CachePrefixMismatch {
+        /// Number of equal leading token IDs.
+        matched: usize,
+        /// Number of tokens represented by the cache.
+        cached: usize,
+        /// Number of tokens in the full prompt.
+        prompt: usize,
+    },
+    /// The full prompt is already represented and has no suffix to prefill.
+    #[error("prompt has no uncached tokens")]
+    NoUncachedTokens,
+    /// Adding the prompt length and sample limit overflows `usize`.
+    #[error("generation length overflow")]
+    LengthOverflow,
+    /// The requested sequence exceeds MLX dimension or absolute-position limits.
+    #[error("sequence length {length} exceeds limit {limit}")]
+    SequenceTooLong {
+        /// Requested sequence length.
+        length: usize,
+        /// Maximum representable length.
+        limit: usize,
+    },
     /// Preserves the source diagnostic.
     #[error(transparent)]
     Tokenizer(#[from] TokenizerError),
-    /// Preserves the source diagnostic.
+    /// Sampling graph-construction or scalar-conversion failure.
+    /// Runtime MLX evaluation failures instead use [`Self::Exception`].
     #[error(transparent)]
     Sampling(#[from] SamplingError),
     /// Preserves the source diagnostic.
@@ -311,7 +390,8 @@ pub enum GenerationError {
     /// Preserves the source diagnostic.
     #[error(transparent)]
     Inference(#[from] InferenceError),
-    /// Preserves the source diagnostic.
+    /// Preserves the original exception from any runtime MLX evaluation failure,
+    /// including joint evaluation, sampling-only evaluation, and the first sample.
     #[error(transparent)]
     Exception(#[from] Exception),
 }
@@ -341,4 +421,111 @@ pub enum HubError {
     #[cfg(feature = "hf-hub")]
     #[error(transparent)]
     Api(#[from] hf_hub::api::sync::ApiError),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn generation_error_payloads_and_display() {
+        let cases = [
+            (
+                GenerationError::EmptyStopString { index: 2 },
+                "stop string at index 2 is empty",
+            ),
+            (
+                GenerationError::PromptTokenOutOfRange {
+                    index: 3,
+                    token_id: 64.into(),
+                    vocabulary_size: 64,
+                },
+                "prompt token TokenId(64) at index 3 is outside vocabulary 64",
+            ),
+            (
+                GenerationError::StopTokenOutOfRange {
+                    token_id: 65.into(),
+                    vocabulary_size: 64,
+                },
+                "stop token TokenId(65) is outside vocabulary 64",
+            ),
+            (
+                GenerationError::CachePrefixMismatch {
+                    matched: 2,
+                    cached: 8,
+                    prompt: 4,
+                },
+                "cache prefix mismatch: matched 2 tokens, cached 8, prompt 4",
+            ),
+            (
+                GenerationError::NoUncachedTokens,
+                "prompt has no uncached tokens",
+            ),
+            (
+                GenerationError::LengthOverflow,
+                "generation length overflow",
+            ),
+            (
+                GenerationError::SequenceTooLong {
+                    length: 9,
+                    limit: 8,
+                },
+                "sequence length 9 exceeds limit 8",
+            ),
+        ];
+        for (error, expected) in cases {
+            assert_eq!(error.to_string(), expected);
+        }
+    }
+
+    #[test]
+    fn sampling_and_cache_error_payloads_and_wrapping() {
+        let cases = [
+            (
+                SamplingError::InvalidAdditivePenalty(f32::INFINITY),
+                "invalid additive penalty: inf",
+            ),
+            (
+                SamplingError::InvalidLogitsShape {
+                    shape: vec![2, 64],
+                    vocabulary_size: 64,
+                },
+                "invalid logits shape: expected [1, 64], got [2, 64]",
+            ),
+            (
+                SamplingError::InvalidLogitsDtype(Dtype::Int32),
+                "invalid logits dtype: Int32",
+            ),
+            (
+                SamplingError::InvalidLogitsValue,
+                "logits contain NaN or positive infinity",
+            ),
+            (SamplingError::EmptySupport, "sampling support is empty"),
+        ];
+        for (error, expected) in cases {
+            let wrapped = GenerationError::from(error);
+            assert!(matches!(wrapped, GenerationError::Sampling(_)));
+            assert_eq!(wrapped.to_string(), expected);
+        }
+        let wrapped = GenerationError::from(CacheError::PolicyMismatch);
+        assert!(matches!(
+            wrapped,
+            GenerationError::Cache(CacheError::PolicyMismatch)
+        ));
+        assert_eq!(wrapped.to_string(), "cache policy mismatch");
+    }
+
+    #[test]
+    fn scalar_conversion_preserves_the_original_error() {
+        let source = mlx_rs::error::ConversionError::NotScalar { actual: 2 };
+        let expected = source.to_string();
+        let error = GenerationError::from(SamplingError::from(source));
+        assert_eq!(error.to_string(), expected);
+        assert!(matches!(
+            error,
+            GenerationError::Sampling(SamplingError::Conversion(
+                mlx_rs::error::ConversionError::NotScalar { actual: 2 }
+            ))
+        ));
+    }
 }

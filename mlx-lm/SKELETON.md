@@ -1,4 +1,4 @@
-# Tranche 2 typed skeleton
+# Typed skeleton and tranche 3 declarations
 
 This crate declares the approved synchronous API and loads local Llama and Qwen3 models.
 `publish = false` prevents publishing the skeleton through Cargo. Remove that setting only
@@ -20,10 +20,28 @@ remove those allowances as the seams gain callers.
 | loader, tranche 4 | `src/model.rs` | `Model::from_gguf` | `LoadError::Weights(UnsupportedFormat)` |
 | foundation, tranche 4 | `src/model.rs` | `Model::from_hub` | `HubError::Load(Config(UnsupportedArchitecture))` |
 | foundation, tranche 3 | `src/model.rs` | `Model::generate` | `GenerationError::Inference(UnsupportedArchitecture)` |
+| cache reuse, tranche 3 item 4 | `src/model.rs` | `Model::new_cache` | `CacheError::UnsupportedPolicy`; model identity binding awaits item 4 |
+| foundation, tranche 3 engine | `src/model.rs` | `Model::generate_with_cache` | Same not-yet-implemented inference error as `generate` |
+| foundation, tranche 3 engine | `src/model.rs` | `Generation::cache` | Borrows a private cache field; no generation constructor succeeds yet |
+| foundation, tranche 3 engine | `src/model.rs` | `Generation::snapshot` | Delegates to the private cache field; no generation constructor succeeds yet |
 | foundation, tranche 3 | `src/model.rs` | `Generation::next` | One typed inference error, then fused exhaustion |
+| cache reuse, tranche 3 item 4 | `src/cache/mod.rs` | `Cache::tokens` | Empty slice until the represented-token ledger lands |
+| cache reuse, tranche 3 item 4 | `src/cache/mod.rs` | `CacheStep::evaluate` | Not-yet-implemented `CacheError::InvalidState`; existing `evaluate_and_commit` is unchanged |
+| cache reuse, tranche 3 item 4 | `src/cache/mod.rs` | `EvaluatedCacheStep::commit` | Uninhabited guard; no successful evaluation can construct it yet |
+| sampling, tranche 3 item 3 | `src/sampling.rs` | `LogitsProcessor` | Private object-safe signature only, with a narrow dead-code allowance and no implementations |
 | loader, tranche 4 | `src/weights/mod.rs` | `WeightManifest::from_gguf` | `WeightError::UnsupportedFormat` |
 | llama, tranche 4 | `src/arch/llama/mod.rs` | `Factory::map_gguf_key` | `WeightDisposition::Reject` |
 | qwen3, tranche 4 | `src/arch/qwen3/mod.rs` | `Factory::map_gguf_key` | `WeightDisposition::Reject` |
+
+The tranche 3 serial foundation follows `t3/position-astra.md` sections "Public surface",
+"Processor and sampler contract", "State transitions and completed boundaries",
+"Reuse is an exact-prefix operation", and "Validation and error ordering", with
+`t3/DECISIONS.md` rulings A/J (original-string BOS check) and H/K (error variants and
+runtime-evaluation mapping). These are declarations; generation validation, sampling,
+stop filtering, model-bound cache identity, token ledgers, and split transaction execution
+remain with their implementation owners. Defaults and additive-penalty validation are
+implemented. The existing negative `Send`/`Sync` assertions cover `Model`, `Generation`,
+`Cache`, and `CacheSnapshot`.
 
 The cache item implements the sealed `LayerCache` trait, full and rotating storage,
 transaction rollback, and snapshots. Full storage accepts a known total capacity and grows
@@ -253,3 +271,34 @@ the removed `mlx-lm-utils` crate, and the migrated `examples/lm` consumer. That 
 no protected-oracle or ledger files and created no commit.
 The final round also repoints the protected `tests/parity/prototype.rs` adapter; the launcher
 will commit that edit separately through the oracle-change process.
+
+## Tranche 3 serial foundation verification
+
+The declaration step passed formatting, default and all-features Clippy with warnings
+denied, workspace/all-target compilation, `cargo doc -p mlx-lm --no-deps`, and 60 pure
+library tests (seven new tests).
+Workspace compilation reported existing warnings in untouched `mlx-rs` and `mlx-tests`
+tests. The excluded LM example passed `rustc --emit=metadata` against the updated library
+and anyhow metadata in the preset target directory.
+
+The initial Clippy attempt failed because the PATH-selected linker could not find
+`libiconv`. Verification then used the existing `/private/tmp/mlx-lm-t2-env.sh` settings
+described above, preserving the preset `CARGO_TARGET_DIR`. No devenv/nix command ran,
+no repository build configuration changed, and no commit was created.
+
+All default library tests compiled. The full unfiltered test command was not executed:
+the sandbox has no Metal device. The test run used `--test-threads=1` with explicit
+`--skip` arguments for these 18 MLX runtime tests; none were marked ignored in source.
+
+| Module | Tests compiled but not executed |
+| --- | --- |
+| `arch::llama::tests` | `fixture_wrong_shape_errors`, `fixture_prefill_all_positions_cache_and_chunks`, `fixture_half_precision_forward` |
+| `arch::qwen3::tests` | `qwen3_base_prefill_and_cache`, `qwen3_quant4_prefill_and_cache`, `causal_and_sliding_mask_with_prefix_positions` |
+| `cache::tests` | `logical_full_layers_after_appends`, `logical_rotating_layers_after_wrap_and_oversized_prefill`, `full_append_and_growth`, `rotating_wrap_prefix_and_chunk_after_wrap`, `rotating_prefill_over_capacity_and_capacity_one`, `rotating_trim_before_capacity_and_restore_after_wrap`, `transaction_rollback_and_snapshot_restore`, `invalid_steps_and_snapshot_fingerprints`, `committed_fixture_cache_arrays` |
+| `weights::tests::runtime` | `projection_round_trip_and_atomic_failure`, `packed_embedding_and_linear_slots` |
+| `model::tests` | `local_loading_matches_fixture_expectations` |
+
+Generation execution, sampling distributions, evaluation-error mapping, cache reuse,
+Metal inference, checkpoint execution of the example, parity/sentinel execution, memory,
+leaks, and Guard Malloc remain unverified. Their implementations or runtime qualification
+belong to later tranche 3 steps.

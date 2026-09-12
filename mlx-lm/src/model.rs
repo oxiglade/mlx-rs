@@ -1,6 +1,7 @@
 pub use crate::error::GenerationError;
 use crate::{
-    arch::DecoderModel, CacheOptions, Config, LoadError, SamplerOptions, TokenId, Tokenizer,
+    arch::DecoderModel, AdditivePenaltyOptions, Cache, CacheError, CacheOptions, CacheSnapshot,
+    Config, LoadError, SamplerOptions, TokenId, Tokenizer,
 };
 use std::{marker::PhantomData, num::NonZeroUsize, path::Path, rc::Rc};
 
@@ -74,7 +75,18 @@ impl Model {
     pub fn tokenizer(&self) -> &Tokenizer {
         &self.tokenizer
     }
+    /// Creates an empty cache for reuse within this loaded model instance.
+    ///
+    /// Currently returns a not-yet-implemented cache policy error.
+    pub fn new_cache(&self, options: CacheOptions) -> Result<Cache, CacheError> {
+        let _ = options;
+        Err(CacheError::UnsupportedPolicy(
+            crate::NotYetImplemented("model cache construction").to_string(),
+        ))
+    }
     /// Creates a synchronous single-request streaming generator.
+    ///
+    /// Currently returns a not-yet-implemented inference error.
     pub fn generate<'model>(
         &'model mut self,
         prompt: Prompt<'_>,
@@ -86,15 +98,39 @@ impl Model {
         )
         .into())
     }
+    /// Generates from the full intended prompt, including the cached prefix.
+    ///
+    /// Reuse requires this model instance, the same resolved cache policy, an exact
+    /// token prefix, and at least one uncached prompt token. The prompt is encoded
+    /// or copied during construction; it is not borrowed by the returned stream.
+    /// Currently returns the same not-yet-implemented inference error as `generate`.
+    pub fn generate_with_cache<'model>(
+        &'model mut self,
+        prompt: Prompt<'_>,
+        options: GenerationOptions,
+        cache: &'model mut Cache,
+    ) -> Result<Generation<'model>, GenerationError> {
+        let _ = (&self.decoder, prompt, options, cache);
+        Err(crate::InferenceError::UnsupportedArchitecture(
+            crate::NotYetImplemented("generation").to_string(),
+        )
+        .into())
+    }
 }
 /// Text or already-tokenized input for one request.
 pub enum Prompt<'a> {
-    /// Text to encode with the model tokenizer.
+    /// Text encoded with the tokenizer's post-processor adding special tokens,
+    /// unless the original string starts with the configured BOS token content.
+    /// The check uses `text.starts_with(bos_token)` without trimming or encoding
+    /// first; when no BOS token is configured, special tokens are added.
     Text(&'a str),
     /// Token IDs supplied by the caller.
     Tokens(&'a [TokenId]),
 }
 /// Reusable limits, sampling, stopping, and cache options.
+///
+/// Defaults to 256 sampled tokens, prefill chunks of at most 2048, greedy sampling,
+/// no penalties, tokenizer EOS stopping, no stop strings, and model-default caching.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct GenerationOptions {
@@ -106,8 +142,12 @@ pub struct GenerationOptions {
     pub sampling: SamplerOptions,
     /// Optional history-dependent repetition penalty.
     pub repetition_penalty: Option<RepetitionPenaltyOptions>,
-    /// Source and precedence of stop tokens.
-    pub stop_tokens: StopTokenPolicy,
+    /// Subtracts a coefficient once per distinct token in its history window.
+    pub presence_penalty: Option<AdditivePenaltyOptions>,
+    /// Subtracts a coefficient per token occurrence in its history window.
+    pub frequency_penalty: Option<AdditivePenaltyOptions>,
+    /// Stop-token sources and exact generated-text terminators.
+    pub stop: StopPolicy,
     /// Per-request cache policy.
     pub cache: CacheOptions,
 }
@@ -118,8 +158,32 @@ impl Default for GenerationOptions {
             prefill_chunk_size: NonZeroUsize::new(2048).unwrap_or(NonZeroUsize::MIN),
             sampling: SamplerOptions::default(),
             repetition_penalty: None,
-            stop_tokens: StopTokenPolicy::Tokenizer,
+            presence_penalty: None,
+            frequency_penalty: None,
+            stop: StopPolicy::default(),
             cache: CacheOptions::default(),
+        }
+    }
+}
+/// Token and text conditions that finish generation with [`FinishReason::Stop`].
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct StopPolicy {
+    /// Source and precedence of stop tokens.
+    pub tokens: StopTokenPolicy,
+    /// Exact UTF-8 strings matched only against newly generated text.
+    ///
+    /// Empty strings are rejected. Matching holds back possible partial matches
+    /// and excludes the earliest complete match and all following text. Matching
+    /// uses exact UTF-8 without normalization; a match in the final decoder flush
+    /// takes precedence over the token limit.
+    pub stop_strings: Vec<String>,
+}
+impl Default for StopPolicy {
+    fn default() -> Self {
+        Self {
+            tokens: StopTokenPolicy::Tokenizer,
+            stop_strings: Vec::new(),
         }
     }
 }
@@ -134,6 +198,10 @@ pub enum StopTokenPolicy {
     Exact(Vec<TokenId>),
 }
 /// History-dependent logits penalty settings.
+///
+/// Python's history rule starts with the final prompt token, then adds accepted
+/// generated tokens. Earlier prompt tokens and reused prefixes are excluded.
+/// A context size of 20 matches Python's recipe; no penalty is enabled by default.
 #[derive(Debug, Clone)]
 pub struct RepetitionPenaltyOptions {
     /// Positive finite multiplier applied to repeated tokens.
@@ -152,26 +220,56 @@ impl RepetitionPenaltyOptions {
 }
 /// Why the final successful event ended generation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum FinishReason {
-    /// A stop token was sampled.
+    /// A stop token or generated-text stop string was matched.
     Stop,
     /// The token limit was reached.
     Length,
 }
-/// One sampled token and its stable decoded text delta.
-pub struct GenerationEvent {
-    /// Sampled token, including a final stop token.
-    pub token_id: TokenId,
-    /// Stable decoded text since the preceding event; it may be empty.
-    pub text: String,
-    /// Present only on the final successful event.
-    pub finish_reason: Option<FinishReason>,
+/// A completed prefill boundary or sampled token and stable text delta.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum GenerationEvent {
+    /// Progress over newly prefilling tokens, with the final prompt token reserved.
+    #[non_exhaustive]
+    Prefill {
+        /// Newly processed tokens committed to the cache; initially zero.
+        processed: usize,
+        /// Number of uncached prompt tokens in this request.
+        total: usize,
+    },
+    /// A sampled token; the cache excludes this token until the next decode step.
+    #[non_exhaustive]
+    Token {
+        /// Sampled token, including a final stop token.
+        token_id: TokenId,
+        /// Stable decoded text since the preceding event; it may be empty.
+        text: String,
+        /// Present only on the final successful event.
+        finish_reason: Option<FinishReason>,
+    },
 }
 /// A synchronous stream fused after its final event or first error.
 pub struct Generation<'model> {
     _decoder: PhantomData<&'model mut dyn DecoderModel>,
     _thread_bound: PhantomData<Rc<()>>,
+    cache: Cache,
     finished: bool,
+}
+impl Generation<'_> {
+    /// Borrows the cache at the most recent completed event boundary.
+    ///
+    /// Generation construction is currently a placeholder, so no stream is available.
+    pub fn cache(&self) -> &Cache {
+        &self.cache
+    }
+    /// Captures cache state only, excluding RNG, detokenizer, and iterator state.
+    ///
+    /// Generation construction is currently a placeholder, so no stream is available.
+    pub fn snapshot(&mut self) -> Result<CacheSnapshot, CacheError> {
+        self.cache.snapshot()
+    }
 }
 impl Iterator for Generation<'_> {
     type Item = Result<GenerationEvent, GenerationError>;
@@ -204,6 +302,37 @@ pub struct HubOptions {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn public_surface_defaults() {
+        let options = GenerationOptions::default();
+        assert_eq!(options.max_tokens.get(), 256);
+        assert_eq!(options.prefill_chunk_size.get(), 2048);
+        assert_eq!(options.sampling.temperature, 0.0);
+        assert!(options.sampling.top_p.is_none());
+        assert!(options.sampling.top_k.is_none());
+        assert!(options.sampling.min_p.is_none());
+        assert!(options.sampling.seed.is_none());
+        assert!(options.repetition_penalty.is_none());
+        assert!(options.presence_penalty.is_none());
+        assert!(options.frequency_penalty.is_none());
+        assert!(matches!(options.stop.tokens, StopTokenPolicy::Tokenizer));
+        assert!(options.stop.stop_strings.is_empty());
+        assert!(matches!(
+            options.cache.policy,
+            crate::CachePolicy::ModelDefault
+        ));
+        let stop = StopPolicy::default();
+        assert!(matches!(stop.tokens, StopTokenPolicy::Tokenizer));
+        assert!(stop.stop_strings.is_empty());
+    }
+
+    #[test]
+    fn options_and_events_can_cross_threads() {
+        fn assert_send_sync<T: Send + Sync>() {}
+        assert_send_sync::<GenerationOptions>();
+        assert_send_sync::<GenerationEvent>();
+    }
 
     #[test]
     fn eos_precedence_generation_config_over_config_over_tokenizer() -> anyhow::Result<()> {
