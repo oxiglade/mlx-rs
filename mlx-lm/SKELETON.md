@@ -28,7 +28,7 @@ remove those allowances as the seams gain callers.
 | cache reuse, tranche 3 item 4 | `src/cache/mod.rs` | `Cache::tokens` | Empty slice until the represented-token ledger lands |
 | cache reuse, tranche 3 item 4 | `src/cache/mod.rs` | `CacheStep::evaluate` | Not-yet-implemented `CacheError::InvalidState`; existing `evaluate_and_commit` is unchanged |
 | cache reuse, tranche 3 item 4 | `src/cache/mod.rs` | `EvaluatedCacheStep::commit` | Uninhabited guard; no successful evaluation can construct it yet |
-| sampling, tranche 3 item 3 | `src/sampling.rs` | `LogitsProcessor` | Private object-safe signature only, with a narrow dead-code allowance and no implementations |
+| sampling, tranche 3 item 3 | `src/sampling.rs` | `SamplingEngine`, `PendingSample` | Implemented; dead-code allowances stay until the generation engine calls `SamplingEngine::sample` |
 | loader, tranche 4 | `src/weights/mod.rs` | `WeightManifest::from_gguf` | `WeightError::UnsupportedFormat` |
 | llama, tranche 4 | `src/arch/llama/mod.rs` | `Factory::map_gguf_key` | `WeightDisposition::Reject` |
 | qwen3, tranche 4 | `src/arch/qwen3/mod.rs` | `Factory::map_gguf_key` | `WeightDisposition::Reject` |
