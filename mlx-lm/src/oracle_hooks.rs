@@ -85,7 +85,9 @@ mod tests {
     struct Expectations {
         prefill: Prefill,
         decode: Decode,
-        cache: HashMap<String, Vec<CacheState>>,
+        // The fixture's cache map also carries the trim-after-wrap cohort, whose value is an
+        // object rather than a per-layer list; the hooks test reads only the layer lists.
+        cache: HashMap<String, serde_json::Value>,
         tolerances: HashMap<String, Tolerance>,
     }
 
@@ -174,10 +176,13 @@ mod tests {
         stage: &str,
         chunk: Option<NonZeroUsize>,
     ) -> anyhow::Result<()> {
-        let states = expectations
-            .cache
-            .get(stage)
-            .context("missing cache state")?;
+        let states: Vec<CacheState> = serde_json::from_value(
+            expectations
+                .cache
+                .get(stage)
+                .context("missing cache state")?
+                .clone(),
+        )?;
         let tolerance = expectations
             .tolerances
             .get("cache")
