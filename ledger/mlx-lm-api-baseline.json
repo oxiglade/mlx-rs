@@ -123,7 +123,7 @@
     {
       "kind": "struct",
       "path": "mlx_lm::Generation",
-      "signature": "# [doc = \" A synchronous stream fused after its final event or first error.\"] pub struct Generation < 'model > { _decoder : PhantomData < & 'model mut dyn DecoderModel > , _thread_bound : PhantomData < Rc < () > > , cache : Cache , finished : bool , }"
+      "signature": "# [doc = \" A synchronous stream fused after its final event or first error.\"] pub struct Generation < 'model > { decoder : & 'model mut dyn DecoderModel , cache : GenerationCache < 'model > , prompt : Vec < TokenId > , cached : usize , processed : usize , chunk : NonZeroUsize , max_tokens : NonZeroUsize , reserve : Option < NonZeroUsize > , sampling : SamplingEngine , rng : Option < RandomState > , history : Vec < TokenId > , accepted : usize , text : Option < TextState < 'model > > , stop_tokens : Vec < TokenId > , state : GenerationState , capture_logprobs : bool , first_logprobs : Option < Array > , }"
     },
     {
       "kind": "method",
@@ -193,7 +193,7 @@
     {
       "kind": "struct",
       "path": "mlx_lm::Model",
-      "signature": "# [doc = \" A loaded decoder and its resolved tokenizer and configuration.\"] pub struct Model { decoder : Box < dyn DecoderModel > , tokenizer : Tokenizer , config : Config , }"
+      "signature": "# [doc = \" A loaded decoder and its resolved tokenizer and configuration.\"] pub struct Model { decoder : Box < dyn DecoderModel > , tokenizer : Tokenizer , config : Config , identity : Rc < () > , }"
     },
     {
       "kind": "method",
@@ -424,6 +424,16 @@
       "kind": "method",
       "path": "mlx_lm::oracle_hooks::OracleSession::decode_step",
       "signature": "pub fn decode_step (& mut self , token : TokenId) -> Result < Array , InferenceError >"
+    },
+    {
+      "kind": "function",
+      "path": "mlx_lm::oracle_hooks::first_filtered_logprobs",
+      "signature": "pub fn first_filtered_logprobs < 'a > (generation : & 'a crate :: Generation < '_ >) -> Option < & 'a Array >"
+    },
+    {
+      "kind": "function",
+      "path": "mlx_lm::oracle_hooks::generate_with_logprobs",
+      "signature": "pub fn generate_with_logprobs < 'm > (model : & 'm mut Model , prompt : crate :: Prompt < '_ > , options : crate :: GenerationOptions ,) -> Result < crate :: Generation < 'm > , crate :: GenerationError >"
     },
     {
       "kind": "function",
