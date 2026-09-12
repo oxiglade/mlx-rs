@@ -1,6 +1,6 @@
 # Tranche 2 typed skeleton
 
-This crate declares the approved synchronous API. It does not yet load or run models.
+This crate declares the approved synchronous API and loads local Llama and Qwen3 models.
 `publish = false` prevents publishing the skeleton through Cargo. Remove that setting only
 when this table is empty and the model parity gates pass. No skeleton feature or public
 placeholder error type is introduced. The private `NotYetImplemented` formatter supplies
@@ -12,8 +12,8 @@ It must be deleted before publication.
 Each row is an implementation claim point. An error row always fails; it does not return
 partial state. Key-map hooks have the design's infallible signature, so their placeholder
 rejects every key. Metadata accessors, defaults, newtype conversions, raw JSON deserialization,
-and registry selection are implemented. The private seams temporarily allow dead code because
-no model constructor succeeds yet; remove those allowances as the seams gain callers.
+and registry selection are implemented. Some private seams temporarily allow dead code;
+remove those allowances as the seams gain callers.
 
 | Owner | File | Placeholder | Current result |
 | --- | --- | --- | --- |
@@ -81,15 +81,13 @@ and its key dispositions.
 Loader signature choices: the skeleton's `WeightDisposition::Parameter`, `WeightError::MissingKey`,
 and `WeightError::UnexpectedKey` retain their names (the brief calls these `Assign`, `MissingTensor`,
 and `UnexpectedTensor`). Fixture spellings `MissingShard`, `DuplicateTensor`, and `ShapeMismatch`
-are unchanged. No public API was added. Because test autodiscovery is disabled and the loader
-is private, `tests/weights.rs` is included as a unit-test module from `src/weights/mod.rs`;
+are unchanged. No public API was added. The private loader tests live in `src/weights/tests.rs`;
 its metadata-only tests can be selected with `weights::tests::pure`. Discovery parses headers with the
 `safetensors` crate types and materialization loads each shard once through
 `Array::load_safetensors`, validating every loaded array against the manifest before assignment.
 
-Wire configs currently retain raw fields without resolving defaults.
-`DecoderModel` is declared exactly as designed; neither factory constructs an implementation.
-The registry contains only `llama::Factory` and `qwen3::Factory`.
+The registry contains `llama::Factory` and `qwen3::Factory`, which construct the
+corresponding `DecoderModel` implementations from resolved wire configs.
 
 `Model::from_dir` delegates its single weight load to `ArchitectureFactory::build`.
 The factory owns strict keyed assignment, tied-aware ignores such as a redundant
@@ -152,35 +150,19 @@ Five continuation edge cases were checked directly against the pinned Transforme
 No MLX evaluation, Metal/model inference, or generation-event delta parity was executed.
 The excluded LM example was not built. No commit was created.
 
-## Prototype removal
+## Test features
 
-The `prototype-adapter` feature is off by default. Explicit `parity` and `sentinel` test
-entry points alias their own crate as `mlx_lm` and re-export only `legacy::{cache, models}`.
-This lets the existing test sources retain their imports byte-for-byte, without exposing
-old modules at the library root. Both targets now require
-`--features prototype-adapter,oracle-hooks` until the llama stage-B round deletes the
-prototype adapter. Decision 11's hooks live in `src/oracle_hooks.rs`.
-Auto-discovery is disabled so Cargo cannot also compile the old entry points directly.
-The comparator's fixture/mutation tests share the parity binary and therefore also require
-this feature until the adapter is ported. New integration tests must be registered explicitly.
+Normal Cargo test discovery is enabled. The explicit `parity` and `sentinel` targets use
+`tests/parity.rs` and `tests/sentinel.rs`, both with `required-features = ["oracle-hooks"]`.
+Run them with `cargo test -p mlx-lm --features oracle-hooks --test parity --test sentinel`.
+The default feature set is empty, so plain `cargo test -p mlx-lm` does not link these targets.
+`hf-hub` independently enables the optional Hub API; it is not needed for either test.
+Per-module unit tests run with `cargo test -p mlx-lm --lib <module>::`.
 
-There are no `tests/weights.rs`, `tests/cache.rs`, `tests/tokenizer.rs`,
-`tests/arch_llama.rs`, or `tests/arch_qwen3.rs` integration entry points in this worktree.
-Keep `autotests = false`; per-module tests run with
-`cargo test -p mlx-lm --lib <module>::`, using `weights`, `cache`, `tokenizer`,
-`arch::llama`, or `arch::qwen3` as the module name. Do not register `#[path]` shims.
-
-The llama item must repoint the prototype adapter and sentinel at the new `Model`, preserve
-their assertions, delete `src/legacy/` and both wrapper entry points, remove the feature,
-and restore normal test discovery. Changes to the protected parity adapter still require
-the repository's oracle-change process. No protected source is modified in this step.
-
-Only the legacy Llama forward, parameter loader, RoPE, caller-provided cache trait, model
-input, and greedy adapter remain. Legacy stochastic sampling, both generation iterators,
-Qwen3 prototype math, concatenating cache implementations, FloatOrStr/FloatOrString, and
-quantized cache wrappers are deleted. The remaining `sample` function exists only because
-both unchanged regression adapters call it; it rejects nonzero temperature. The legacy
-loader is deliberately not the new strict loader and must never back `Model::from_dir`.
+Both adapters load through `Model::from_dir` and use `oracle_hooks` for prefill, cache views,
+and greedy decode. The sentinel reads the tokenizer from the loaded model. Logical K/V
+views have shape `[batch, kv_heads, positions.len(), head_dim]`, matching the sentinel's
+pinned `[1, 1, 4, 4]` arrays directly; no layout mapping or fixture edit is needed.
 
 ## Signature choices where the design is silent
 
@@ -219,10 +201,10 @@ Sampling defaults to greedy with every probability filter disabled. TokenId conv
 and from u32; ModelType and ParameterPath expose string construction and borrowing.
 
 The obsolete `examples/lm` consumer now uses only the new public model/tokenizer/generation
-API and no longer depends on the deleted utilities crate. It will return the typed loader
-placeholder until the foundation and model items implement loading.
+API and no longer depends on the deleted utilities crate. Local checkpoint loading is
+implemented; generation remains a later tranche.
 
-## Verification of this step
+## Foundation verification (before the final round)
 
 | Check | Result |
 | --- | --- |
@@ -250,18 +232,13 @@ Model/Metal execution, parity and sentinel inference, real checkpoint loading, c
 and Hub downloads were not run. The tokenizer tests do not execute MLX operations. The LM
 example was formatted and migrated but was not executed against a checkpoint.
 
-`model::tests::local_loading_matches_fixture_expectations` is explicitly ignored with
-`NOT RUN` until llama/qwen3 construction and forwards land. Running it with `--ignored
---nocapture` reports each unavailable fixture and fails if any remain unavailable, so an
-explicit run cannot count placeholder errors as a passing happy path. Remove the ignore
-when those implementations are integrated.
+`model::tests::local_loading_matches_fixture_expectations` is enabled now that both
+architectures are integrated. Its assertions are unchanged and require Metal verification.
 
 Decision 11 is implemented behind `oracle-hooks` in `src/oracle_hooks.rs` using the
 session-object signature recorded above. Each prefill chunk and decode token uses its own
 `Cache::step()` and `CacheStep::evaluate_and_commit(&[&logits])` transaction. Prefill
 concatenates every position's logits on axis 1; `cache_view` uses `Cache::logical_layers()`.
-Parity/sentinel require `prototype-adapter,oracle-hooks` until the llama stage-B round
-deletes the prototype adapter. No protected test sources changed.
 
 The oracle-hook tests report `NOT RUN` and fail if fixture loading still encounters an
 architecture placeholder; they cannot pass without exercising their assertions. Once
@@ -270,7 +247,9 @@ against the corresponding positions in the full-prefill goldens, each decode ste
 and final decode K/V. The empty-prompt check performs no MLX operation after model loading;
 its fixture setup still requires a real constructor. Metal inference remains unverified.
 
-Changed files are implementation-owned: workspace/package manifests, `mlx-lm` sources and
-handoff documentation, adapter test entry points, the moved Qwen3 fixture, the removed
-`mlx-lm-utils` crate, and the migrated `examples/lm` consumer. Protected-oracle files: none.
-Ledger files: none. No commit was created.
+The foundation step changed implementation-owned files: workspace/package manifests,
+`mlx-lm` sources and handoff documentation, adapter test entry points, the moved Qwen3 fixture,
+the removed `mlx-lm-utils` crate, and the migrated `examples/lm` consumer. That step changed
+no protected-oracle or ledger files and created no commit.
+The final round also repoints the protected `tests/parity/prototype.rs` adapter; the launcher
+will commit that edit separately through the oracle-change process.
