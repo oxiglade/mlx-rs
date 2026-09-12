@@ -8,8 +8,10 @@ mod observation;
 mod prototype;
 #[path = "parity/reader.rs"]
 mod reader;
+#[path = "parity/surfaces.rs"]
+mod surfaces;
 
-use anyhow::{ensure, Result};
+use anyhow::{ensure, Context, Result};
 
 #[test]
 fn committed_fixture_layout_and_policies() -> Result<()> {
@@ -40,23 +42,23 @@ fn committed_fixture_layout_and_policies() -> Result<()> {
 }
 
 #[test]
-fn prototype_llama_base_prefill_cache_and_greedy_parity() -> Result<()> {
-    let path = reader::fixture_root().join("llama-base");
-    if !reader::present(&path)? {
+fn public_generation_cpu_parity() -> Result<()> {
+    let root = reader::fixture_root();
+    if !reader::present(&root)? {
         return Ok(());
     }
-    let fixture = reader::read(&path)?;
-    let expected = fixture.expected.prototype_prefill_and_greedy();
-    let observed = mlx_rs::with_device(mlx_rs::Device::cpu(), || prototype::run(&path, &fixture))?;
-    let failures = comparator::compare(&expected, &observed);
-    ensure!(
-        failures.is_empty(),
-        "{}",
-        failures
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<_>>()
-            .join("\n")
-    );
+    for name in [
+        "llama-base",
+        "llama-sharded",
+        "llama-sliding",
+        "llama-quant4",
+        "qwen3-base",
+        "qwen3-quant4",
+    ] {
+        let path = root.join(name);
+        let fixture = reader::read(&path).with_context(|| name)?;
+        mlx_rs::with_device(mlx_rs::Device::cpu(), || prototype::run(&path, &fixture))
+            .with_context(|| name)?;
+    }
     Ok(())
 }

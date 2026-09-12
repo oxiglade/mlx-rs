@@ -102,40 +102,6 @@ pub struct Expectations {
     pub policies: BTreeMap<String, Policy>,
 }
 
-impl Expectations {
-    pub fn prototype_prefill_and_greedy(&self) -> Self {
-        let tensors: BTreeMap<_, _> = self
-            .observation
-            .tensors
-            .iter()
-            .filter(|(key, _)| {
-                *key == "prefill.full.logits" || key.starts_with("cache.after_prefill.")
-            })
-            .map(|(key, value)| (key.clone(), value.clone()))
-            .collect();
-        Self {
-            policies: self
-                .policies
-                .iter()
-                .filter(|(key, _)| tensors.contains_key(*key))
-                .map(|(key, value)| (key.clone(), *value))
-                .collect(),
-            observation: Observation {
-                tensors,
-                caches: self
-                    .observation
-                    .caches
-                    .iter()
-                    .filter(|(key, _)| key.starts_with("cache.after_prefill."))
-                    .map(|(key, value)| (key.clone(), value.clone()))
-                    .collect(),
-                greedy_ids: self.observation.greedy_ids.clone(),
-                ..Observation::default()
-            },
-        }
-    }
-}
-
 fn float16(bits: u16) -> f64 {
     let sign = if bits & 0x8000 == 0 { 1.0 } else { -1.0 };
     let exponent = (bits >> 10) & 31;

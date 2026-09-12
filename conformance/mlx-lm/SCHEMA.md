@@ -86,6 +86,11 @@ config, tokenizer, chat, shape, dtype, value, cache_offset, cache_range, cache_v
 sampling_support, sampled_id, text_delta, finish_reason, error_class, output_count,
 processor, text_stop, progress, cache_trim.
 
+The protected parity adapter (`mlx-lm/tests/parity/**`) produces observations for every class
+except `processor`, `text_stop` and `cache_trim`; those three are consumed from the same
+goldens by the crate's own tests (`sampling/tests.rs`, `tokenizer/text_tests.rs`,
+`cache/tests.rs`), while their mutation qualification stays in `tests/parity/mutations.rs`.
+
 ## Tranche 3 cohorts
 
 The normative contracts are position-astra.md, “Processor and sampler contract”,
