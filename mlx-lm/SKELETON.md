@@ -26,9 +26,6 @@ no model constructor succeeds yet; remove those allowances as the seams gain cal
 | llama | `src/arch/llama/mod.rs` | `Factory::build` | `LoadError::Config(UnsupportedArchitecture)` |
 | llama | `src/arch/llama/mod.rs` | `Factory::map_safetensors_key` | `WeightDisposition::Reject` |
 | llama, tranche 4 | `src/arch/llama/mod.rs` | `Factory::map_gguf_key` | `WeightDisposition::Reject` |
-| qwen3 | `src/arch/qwen3/mod.rs` | `Factory::parse_config` | `ConfigError::UnsupportedArchitecture` |
-| qwen3 | `src/arch/qwen3/mod.rs` | `Factory::build` | `LoadError::Config(UnsupportedArchitecture)` |
-| qwen3 | `src/arch/qwen3/mod.rs` | `Factory::map_safetensors_key` | `WeightDisposition::Reject` |
 | qwen3, tranche 4 | `src/arch/qwen3/mod.rs` | `Factory::map_gguf_key` | `WeightDisposition::Reject` |
 
 The cache item implements the sealed `LayerCache` trait, full and rotating storage,
