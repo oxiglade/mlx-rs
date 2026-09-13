@@ -235,6 +235,8 @@ def coordinator(args):
     if args.python_no_lookahead and not args.baseline:
         raise ValueError("--python-no-lookahead requires --baseline for independent prefix and attribution checks")
     context = run_context(args.run_context, args.rust_runner)
+    context["devices"] = args.devices
+    context["devices_justification"] = args.devices_justification
     baseline = json.loads(args.baseline.read_text()) if args.baseline else None
     if baseline and (baseline["benchmark"] != benchmark or baseline["python_no_lookahead"] or
                      baseline["entries"] != manifest["entries"] or baseline["environment"] != environment or
@@ -343,6 +345,7 @@ def main():
     parser.add_argument("--rust-runner", type=Path)
     parser.add_argument("--run-context", type=Path)
     parser.add_argument("--devices", nargs="+", default=["cpu", "metal"])
+    parser.add_argument("--devices-justification")
     parser.add_argument("--device", choices=["cpu", "metal"])
     parser.add_argument("--prompt-tokens", type=int, default=128)
     parser.add_argument("--max-tokens", type=int, default=256)
@@ -362,8 +365,10 @@ def main():
     if args.output.exists():
         raise FileExistsError(args.output)
     if (args.case != "qwen3-06b-4bit" or args.prompt_tokens != 128 or args.max_tokens != 256 or
-            args.warmups != 3 or args.pairs < 10 or args.devices != ["cpu", "metal"]):
-        parser.error("fixed protocol: qwen3-06b-4bit, cpu metal, 128 IDs, 256 tokens, 3 warmups, >=10 pairs")
+            args.warmups != 3 or args.pairs < 10):
+        parser.error("fixed protocol: qwen3-06b-4bit, 128 IDs, 256 tokens, 3 warmups, >=10 pairs")
+    if args.devices != ["cpu", "metal"] and not args.devices_justification:
+        parser.error("a device subset requires --devices-justification, recorded in the report")
     os.environ.update(HF_HUB_OFFLINE="1", TRANSFORMERS_OFFLINE="1")
     if args.worker:
         if not args.device:
