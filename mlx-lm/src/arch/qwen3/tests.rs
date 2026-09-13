@@ -292,7 +292,7 @@ fn exact_checkpoint_dispositions() {
     ));
     assert!(matches!(
         Factory.map_gguf_key("token_embd.weight"),
-        WeightDisposition::Reject
+        WeightDisposition::Parameter(path) if path.as_str() == "model.embed_tokens.weight"
     ));
 }
 

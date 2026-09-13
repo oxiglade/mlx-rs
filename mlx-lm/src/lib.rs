@@ -34,7 +34,10 @@ pub use tokenizer::{ChatContinuation, ChatTemplateOptions, Message, Role, TokenI
 #[allow(missing_docs)]
 pub mod oracle_hooks;
 
+// Only the Hub placeholder still needs it; GGUF loading is implemented.
+#[cfg(feature = "hf-hub")]
 struct NotYetImplemented(&'static str);
+#[cfg(feature = "hf-hub")]
 impl std::fmt::Display for NotYetImplemented {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}: not yet implemented in this tranche", self.0)

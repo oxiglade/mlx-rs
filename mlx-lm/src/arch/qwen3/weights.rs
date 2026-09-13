@@ -262,6 +262,12 @@ pub(super) enum Linear {
     Affine(nn::QuantizedLinear),
 }
 impl Linear {
+    pub(super) fn dtype(&self) -> Dtype {
+        match self {
+            Self::Float(layer) => layer.weight.dtype(),
+            Self::Affine(layer) => layer.scales.dtype(),
+        }
+    }
     pub(super) fn forward(&mut self, x: &Array) -> Result<Array, InferenceError> {
         // The core floating Linear uses the panic-based transpose convenience method.
         match self {
@@ -314,12 +320,6 @@ impl Embedding {
                 },
             }),
         })
-    }
-    pub(super) fn dtype(&self) -> Dtype {
-        match self {
-            Self::Float(layer) => layer.weight.dtype(),
-            Self::Affine(layer) => layer.scales.dtype(),
-        }
     }
     pub(super) fn forward(&self, tokens: &Array) -> Result<Array, InferenceError> {
         match self {

@@ -242,24 +242,33 @@ impl Decoder {
             add_norm(format!("{prefix}.input_layernorm.weight"))?;
             add_norm(format!("{prefix}.post_attention_layernorm.weight"))?;
         }
-        let embedding = matrices
-            .get("model.embed_tokens")
-            .ok_or_else(|| WeightError::MissingKey("model.embed_tokens.weight".into()))?;
-        let dtype = match &embedding.affine {
-            Some((_, scales, _)) => scales.dtype(),
-            None => embedding.weight.dtype(),
-        };
         let layout = config
             .attention
             .iter()
-            .map(|attention| LayerCacheSpec {
-                attention: attention.clone(),
-                batch_size: 1,
-                kv_heads: dims.kv_heads,
-                head_dim: dims.head_dim,
-                dtype,
+            .enumerate()
+            .map(|(layer, attention)| {
+                let prefix = format!("model.layers.{layer}");
+                let norm_key = format!("{prefix}.input_layernorm.weight");
+                let norm = norms
+                    .get(&norm_key)
+                    .ok_or_else(|| WeightError::MissingKey(norm_key.clone()))?;
+                let projection_key = format!("{prefix}.self_attn.k_proj");
+                let projection = matrices
+                    .get(&projection_key)
+                    .ok_or_else(|| WeightError::MissingKey(format!("{projection_key}.weight")))?;
+                let projection_dtype = match &projection.affine {
+                    Some((_, scales, _)) => scales.dtype(),
+                    None => projection.weight.dtype(),
+                };
+                Ok(LayerCacheSpec {
+                    attention: attention.clone(),
+                    batch_size: 1,
+                    kv_heads: dims.kv_heads,
+                    head_dim: dims.head_dim,
+                    dtype: Dtype::from_promoting_types(norm.dtype(), projection_dtype),
+                })
             })
-            .collect();
+            .collect::<Result<Vec<_>, WeightError>>()?;
         let rope = Rope::new(config.rope.clone())?;
         Ok(Self {
             config,

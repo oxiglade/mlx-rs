@@ -32,8 +32,8 @@ impl ArchitectureFactory for Factory {
         map_key(external, false)
     }
 
-    fn map_gguf_key(&self, _external: &str) -> WeightDisposition {
-        WeightDisposition::Reject
+    fn map_gguf_key(&self, external: &str) -> WeightDisposition {
+        super::gguf::map(external, false)
     }
 }
 

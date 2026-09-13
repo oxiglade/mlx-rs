@@ -59,11 +59,7 @@ impl Model {
     }
     /// Consumes a typed GGUF container with a separately constructed tokenizer.
     pub fn from_gguf(file: mlx_rs::io::GgufFile, tokenizer: Tokenizer) -> Result<Self, LoadError> {
-        let _ = (file, tokenizer);
-        Err(crate::WeightError::UnsupportedFormat(
-            crate::NotYetImplemented("GGUF model loading").to_string(),
-        )
-        .into())
+        gguf::load(file, tokenizer)
     }
     /// Resolves an allowlisted Hub snapshot and loads it through the local loader.
     #[cfg(feature = "hf-hub")]
