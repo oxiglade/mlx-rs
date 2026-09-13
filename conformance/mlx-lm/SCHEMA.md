@@ -267,6 +267,13 @@ The Rust comparator consumes the actual mutated output and checks the recorded
 metadata and error-expectation corruption qualify exact comparison separately.
 Malformed data recipes and typed fields live in `gguf_cases.json`; they do not
 multiply the model files. Q5_0 is a pre-Model opaque core exception.
+Each case's `materialized_sha256` is the lowercase, 64-digit SHA-256 of the
+complete file produced by `gguf_recipes.materialize`. For `load_core` it hashes
+the existing core fixture unchanged. `generate_gguf.py` freezes these hashes;
+`--recipes-only` refreshes them from `--base-fixtures` without Python MLX.
+Rust materializes the recipes from committed base bytes, checks the frozen hash
+before loading, and then checks the exact typed error. Its tests run offline
+without Python. Metadata types and tensor operations remain in the JSON contract.
 
 Tiny fixtures prove reader/writer self-consistency plus mapping, orientation and
 quantization arithmetic. They do not prove third-party GGUF compatibility.

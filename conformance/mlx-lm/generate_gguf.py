@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 
 import gguf_writer as writer
+from gguf_recipes import freeze_hashes
 from numpy_reference.common import load_weights, read_json, write_safetensors
 from numpy_reference import gguf as independent
 
@@ -280,7 +281,12 @@ def main():
     parser = argparse.ArgumentParser(description="Generate and qualify ten GGUF model fixtures on the Metal host")
     parser.add_argument("--base-fixtures", type=Path, default=ROOT / "fixtures")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "fixtures")
+    parser.add_argument("--recipes-only", action="store_true",
+                        help="freeze malformed-recipe hashes from existing fixtures without Python MLX")
     args = parser.parse_args()
+    if args.recipes_only:
+        freeze_hashes(args.base_fixtures, ROOT / "gguf_cases.json")
+        return
     from manifest import check_environment
     manifest = check_environment()
     import mlx.core as mx
@@ -293,6 +299,11 @@ def main():
             name = f"gguf-{family}-{storage}"
             generate(args.base_fixtures / f"{family}-base", staging / name, family, storage, manifest)
             print(f"qualified: {name}", flush=True)
+    freeze_hashes(staging, ROOT / "gguf_cases.json")
+    for path in sorted(staging.iterdir()):
+        doc = read_json(path / "expectations.json")
+        doc["provenance"]["sources"]["gguf_cases.json"] = digest(ROOT / "gguf_cases.json")
+        write_json(path / "expectations.json", doc)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     for path in sorted(staging.iterdir()):
         shutil.copytree(path, args.output_dir / path.name, dirs_exist_ok=True)

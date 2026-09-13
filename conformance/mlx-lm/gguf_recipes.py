@@ -1,6 +1,9 @@
 """Materialize malformed GGUF cases from the qualified fixtures, without MLX."""
 
+import hashlib
+import json
 import math
+import tempfile
 from pathlib import Path
 
 import gguf_writer
@@ -44,3 +47,26 @@ def materialize(source, destination, recipe):
     else:
         raise ValueError(operation)
     gguf_writer.write(destination, metadata, tensors)
+
+
+def freeze_hashes(fixtures, cases_path):
+    cases_path = Path(cases_path)
+    document = json.loads(cases_path.read_text())
+    with tempfile.TemporaryDirectory(prefix="gguf-recipes-") as temporary:
+        output = Path(temporary) / "recipe.gguf"
+        for recipe in document["cases"]:
+            if recipe["operation"] == "load_core":
+                data = (cases_path.parent / "fixtures" / recipe["base"]).read_bytes()
+            else:
+                materialize(Path(fixtures) / recipe["base"] / "model.gguf", output, recipe)
+                data = output.read_bytes()
+            recipe["materialized_sha256"] = hashlib.sha256(data).hexdigest()
+    # Keep one recipe per line so changes to the protected contract remain reviewable.
+    lines = ["{", '  "schema_version": ' + str(document["schema_version"]) + ",",
+             '  "scope": ' + json.dumps(document["scope"]) + ","]
+    for field in ("cases", "tokenizer_mutations"):
+        lines.append(f'  "{field}": [')
+        lines.extend("    " + json.dumps(item, allow_nan=False) + ("," if i + 1 < len(document[field]) else "")
+                     for i, item in enumerate(document[field]))
+        lines.append("  ]" + ("," if field == "cases" else ""))
+    cases_path.write_text("\n".join([*lines, "}", ""]))
