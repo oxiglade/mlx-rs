@@ -161,9 +161,9 @@ The module tests consume the ten frozen GGUF fixtures with each fixture's fixed
 policy: f32-v1 (2e-4/2e-4), gguf-f16-v1 (5e-3/5e-3), or gguf-affine-v1
 (2e-2/2e-3), expressed as atol/rtol. They compare every prefill position, chunks
 1/3/8, per-layer K/V caches, eight fed decode steps and the exact greedy prefix.
-Malformed-recipe tests use the frozen Python recipe materializer, selected by
-`MLX_LM_GGUF_RECIPE_PYTHON` or `conformance/.venv-mlx-lm/bin/python`; no fixture is
-regenerated. Forward and array-backed tests require a host with MLX initialization.
+Malformed-recipe tests materialize committed recipes in Rust and check their bytes
+against frozen Python SHA-256 hashes before asserting typed errors. The byte checks
+run without MLX initialization; forward and array-backed tests require it.
 Tiny fixtures establish mapping and arithmetic self-consistency, not real-world
 Qwen3 compatibility; the local real-checkpoint release qualification is separate.
 
