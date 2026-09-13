@@ -31,6 +31,7 @@ impl RotatingCache {
             index: 0,
         })
     }
+    #[cfg(test)]
     pub(crate) fn trim(&mut self, count: usize) -> Result<usize, CacheError> {
         if count == 0 {
             return Ok(0);

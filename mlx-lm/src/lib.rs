@@ -1,16 +1,14 @@
 //! Synchronous, thread-bound language model inference with typed configuration.
 #![deny(missing_docs)]
 
-#[allow(dead_code)] // Interfaces are claimed by the implementation items listed in SKELETON.md.
 mod arch;
-#[allow(dead_code)]
 mod cache;
 mod config;
 mod error;
 mod model;
 mod sampling;
+mod stop;
 mod tokenizer;
-#[allow(dead_code)]
 mod weights;
 
 pub use cache::{Cache, CacheInfo, CacheKind, CacheOptions, CachePolicy, CacheSnapshot};
@@ -26,9 +24,9 @@ pub use error::{
 pub use model::HubOptions;
 pub use model::{
     FinishReason, Generation, GenerationEvent, GenerationOptions, Model, Prompt,
-    RepetitionPenaltyOptions, StopTokenPolicy,
+    RepetitionPenaltyOptions, StopPolicy, StopTokenPolicy,
 };
-pub use sampling::{MinPOptions, SamplerOptions};
+pub use sampling::{AdditivePenaltyOptions, MinPOptions, SamplerOptions};
 pub use tokenizer::{ChatContinuation, ChatTemplateOptions, Message, Role, TokenId, Tokenizer};
 
 #[cfg(feature = "oracle-hooks")]

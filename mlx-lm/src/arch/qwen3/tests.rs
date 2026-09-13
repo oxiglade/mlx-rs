@@ -480,18 +480,9 @@ fn fixture_keys_and_shape_rejection() -> Result<(), Box<dyn std::error::Error>> 
             &target.path().join("model.safetensors"),
         )?;
         let manifest = WeightManifest::discover(target.path())?;
-        let slots = Slots {
-            config: &parsed.config,
-            manifest: &manifest,
-        };
         assert!(matches!(
-            slots.array(
-                "layers.0.self_attn.q_proj",
-                "weight",
-                &expected_shape,
-                name == "qwen3-quant4"
-            ),
-            Err(WeightError::ShapeMismatch { .. })
+            Factory.build(ParsedArchitecture::Qwen3(parsed), &manifest),
+            Err(LoadError::Weights(WeightError::ShapeMismatch { .. }))
         ));
     }
     Ok(())

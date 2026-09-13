@@ -1,8 +1,5 @@
+use crate::config::{AffineQuantization, ParameterPath};
 pub use crate::error::WeightError;
-use crate::{
-    arch::ArchitectureFactory,
-    config::{AffineQuantization, ParameterPath},
-};
 use mlx_rs::{error::IoError, io::GgufFile, utils::StateProjection, Array, Dtype};
 use safetensors::tensor::{Metadata, TensorInfo};
 use serde::{de::MapAccess, Deserialize, Deserializer};
@@ -115,12 +112,14 @@ impl WeightManifest {
         Ok(Self { tensors })
     }
 
+    #[allow(dead_code)] // GGUF loading is tranche 4.
     pub(crate) fn from_gguf(_file: &GgufFile) -> Result<Self, WeightError> {
         Err(WeightError::UnsupportedFormat(
             crate::NotYetImplemented("GGUF manifest").to_string(),
         ))
     }
 
+    #[allow(dead_code)] // GGUF loading is tranche 4.
     pub(crate) fn affine_groups(&self) -> Result<BTreeSet<String>, WeightError> {
         let groups = self.affine_group_prefixes();
         for prefix in &groups {
@@ -146,6 +145,7 @@ impl WeightManifest {
         groups
     }
 
+    #[allow(dead_code)] // GGUF loading is tranche 4.
     pub(crate) fn validate_affine_group(
         &self,
         prefix: &str,
@@ -207,15 +207,7 @@ impl WeightManifest {
         Ok([weight, scales, biases])
     }
 
-    pub(crate) fn load_strict(
-        &self,
-        factory: &dyn ArchitectureFactory,
-        projection: &mut StateProjection<'_>,
-    ) -> Result<(), WeightError> {
-        self.load_with(projection, |key| factory.map_safetensors_key(key))
-    }
-
-    fn load_with(
+    pub(crate) fn load_with(
         &self,
         projection: &mut StateProjection<'_>,
         disposition: impl Fn(&str) -> WeightDisposition,
@@ -253,8 +245,12 @@ impl WeightManifest {
         }
         let mut loaded: BTreeMap<_, _> = expected.keys().map(|key| (key.clone(), None)).collect();
         for (shard, assignments) in shards {
+            // MLX has no GPU implementation of the safetensors Load primitive, so a caller that
+            // scopes a GPU stream around loading would otherwise get "[Load::eval_gpu] Not
+            // implemented".
             let mut arrays =
-                Array::load_safetensors(shard).map_err(|error| shard_error(shard, error))?;
+                mlx_rs::with_stream(&mlx_rs::Stream::cpu(), || Array::load_safetensors(shard))
+                    .map_err(|error| shard_error(shard, error))?;
             for (key, external, entry) in assignments {
                 let array = arrays
                     .remove(&external)
@@ -324,6 +320,7 @@ impl WeightManifest {
             .ok_or_else(|| WeightError::MissingKey(external.to_owned()))
     }
 
+    #[allow(dead_code)] // GGUF loading is tranche 4.
     pub(crate) fn read_tensor(&self, external: &str) -> Result<Array, WeightError> {
         let entry = self.entry(external)?;
         let mut arrays = Array::load_safetensors(&entry.shard)

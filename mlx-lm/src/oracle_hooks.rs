@@ -2,6 +2,22 @@ use crate::{Cache, CacheError, CacheOptions, InferenceError, Model, TokenId};
 use mlx_rs::{error::Exception, ops::concatenate, Array};
 use std::{num::NonZeroUsize, ops::Range};
 
+/// Creates the public generation engine with first-sample distribution capture enabled.
+pub fn generate_with_logprobs<'m>(
+    model: &'m mut Model,
+    prompt: crate::Prompt<'_>,
+    options: crate::GenerationOptions,
+) -> Result<crate::Generation<'m>, crate::GenerationError> {
+    let mut generation = model.generate(prompt, options)?;
+    generation.capture_first_logprobs();
+    Ok(generation)
+}
+
+/// Returns the evaluated [1, V] filtered logprobs after the first successful token event.
+pub fn first_filtered_logprobs<'a>(generation: &'a crate::Generation<'_>) -> Option<&'a Array> {
+    generation.first_logprobs()
+}
+
 pub fn prefill_logits<'m>(
     model: &'m mut Model,
     tokens: &[TokenId],
@@ -85,7 +101,9 @@ mod tests {
     struct Expectations {
         prefill: Prefill,
         decode: Decode,
-        cache: HashMap<String, Vec<CacheState>>,
+        // The fixture's cache map also carries the trim-after-wrap cohort, whose value is an
+        // object rather than a per-layer list; the hooks test reads only the layer lists.
+        cache: HashMap<String, serde_json::Value>,
         tolerances: HashMap<String, Tolerance>,
     }
 
@@ -174,10 +192,13 @@ mod tests {
         stage: &str,
         chunk: Option<NonZeroUsize>,
     ) -> anyhow::Result<()> {
-        let states = expectations
-            .cache
-            .get(stage)
-            .context("missing cache state")?;
+        let states: Vec<CacheState> = serde_json::from_value(
+            expectations
+                .cache
+                .get(stage)
+                .context("missing cache state")?
+                .clone(),
+        )?;
         let tolerance = expectations
             .tolerances
             .get("cache")

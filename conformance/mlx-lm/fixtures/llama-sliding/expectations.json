@@ -45,7 +45,76 @@
           8
         ]
       }
-    ]
+    ],
+    "trim_after_wrap": {
+      "after_append": {
+        "can_trim": false,
+        "offset": 11,
+        "retained_prefix": [
+          0,
+          1
+        ],
+        "retained_tail": [
+          8,
+          9,
+          10
+        ],
+        "rotation_index": 5,
+        "temporal_positions": [
+          0,
+          1,
+          8,
+          9,
+          10
+        ]
+      },
+      "after_trim": {
+        "can_trim": false,
+        "offset": 10,
+        "retained_prefix": [
+          0,
+          1
+        ],
+        "retained_tail": [
+          7,
+          8,
+          9
+        ],
+        "rotation_index": 4,
+        "temporal_positions": [
+          0,
+          1,
+          7,
+          8,
+          9
+        ]
+      },
+      "before_trim": {
+        "can_trim": false,
+        "offset": 10,
+        "retained_prefix": [
+          0,
+          1
+        ],
+        "retained_tail": [
+          7,
+          8,
+          9
+        ],
+        "rotation_index": 4,
+        "temporal_positions": [
+          0,
+          1,
+          7,
+          8,
+          9
+        ]
+      },
+      "capacity": 5,
+      "keep": 2,
+      "trim_requested": 2,
+      "trim_return": 0
+    }
   },
   "chat": {
     "closed": {
@@ -325,7 +394,7 @@
   },
   "provenance": {
     "arch": "arm64",
-    "generator": "generate_mlx_lm.py@91299e1dc99c1c7dd6679d2c39ec8da69a541765c2c35242815101428b821e6d",
+    "generator": "generate_mlx_lm.py@a008c1ec6cb5d8c15d0e3f3d519e17088dd9d863bdea6136114930250deb40ef",
     "mlx": "0.32.2",
     "mlx-metal": "0.32.2",
     "mlx_lm": "0.31.3",

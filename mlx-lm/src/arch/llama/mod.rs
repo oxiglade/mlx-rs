@@ -27,34 +27,9 @@ impl ArchitectureFactory for Factory {
         Ok(Box::new(build_decoder(parsed, weights)?))
     }
 
+    #[cfg(test)]
     fn map_safetensors_key(&self, external: &str) -> WeightDisposition {
         map_key(external, false)
-    }
-
-    fn map_gguf_key(&self, _external: &str) -> WeightDisposition {
-        WeightDisposition::Reject
-    }
-}
-
-struct WeightMapping {
-    tied: bool,
-}
-
-impl ArchitectureFactory for WeightMapping {
-    fn parse_config(&self, raw: &RawConfig) -> Result<ParsedArchitecture, ConfigError> {
-        Factory.parse_config(raw)
-    }
-
-    fn build(
-        &self,
-        parsed: ParsedArchitecture,
-        weights: &WeightManifest,
-    ) -> Result<Box<dyn DecoderModel>, LoadError> {
-        Factory.build(parsed, weights)
-    }
-
-    fn map_safetensors_key(&self, external: &str) -> WeightDisposition {
-        map_key(external, self.tied)
     }
 
     fn map_gguf_key(&self, _external: &str) -> WeightDisposition {
@@ -128,11 +103,9 @@ fn build_decoder(
             ConfigError::UnsupportedArchitecture("expected llama configuration".into()).into(),
         );
     };
-    let mapping = WeightMapping {
-        tied: parsed.config.tie_word_embeddings,
-    };
+    let tied = parsed.config.tie_word_embeddings;
     let mut decoder = decoder::Decoder::new(parsed, weights)?;
-    weights.load_strict(&mapping, &mut decoder.weight_projection()?)?;
+    weights.load_with(&mut decoder.weight_projection()?, |key| map_key(key, tied))?;
     for parameter in decoder.weight_projection()?.values() {
         parameter.eval()?;
     }

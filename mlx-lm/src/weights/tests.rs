@@ -425,6 +425,19 @@ mod runtime {
             })
     }
 
+    // MLX has no GPU implementation of the safetensors Load primitive, so loading must not
+    // inherit a caller's GPU stream.
+    #[test]
+    fn loading_succeeds_inside_a_caller_scoped_gpu_stream() -> anyhow::Result<()> {
+        for name in ["llama-base", "llama-sharded", "llama-quant4"] {
+            let model = mlx_rs::with_device(mlx_rs::Device::gpu(), || {
+                crate::Model::from_dir(fixture(name))
+            })?;
+            assert_eq!(model.config().model_type.as_str(), "llama");
+        }
+        Ok(())
+    }
+
     #[test]
     fn projection_round_trip_and_atomic_failure() -> Result<(), WeightError> {
         let copy = tempfile::tempdir()?;

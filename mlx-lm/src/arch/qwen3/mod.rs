@@ -33,6 +33,7 @@ impl ArchitectureFactory for Factory {
         };
         Ok(Box::new(build_decoder(parsed, weights)?))
     }
+    #[cfg(test)]
     fn map_safetensors_key(&self, external: &str) -> WeightDisposition {
         weights::map_key(external, false)
     }
@@ -43,33 +44,11 @@ impl ArchitectureFactory for Factory {
 
 fn build_decoder(parsed: ParsedConfig, weights: &WeightManifest) -> Result<Decoder, LoadError> {
     let mut decoder = Decoder::new(parsed, weights)?;
-    let factory = CheckpointFactory {
-        tied: decoder.config.tie_word_embeddings,
-    };
-    weights.load_strict(&factory, &mut decoder.weight_projection()?)?;
+    let tied = decoder.config.tie_word_embeddings;
+    weights.load_with(&mut decoder.weight_projection()?, |key| {
+        weights::map_key(key, tied)
+    })?;
     Ok(decoder)
-}
-
-struct CheckpointFactory {
-    tied: bool,
-}
-impl ArchitectureFactory for CheckpointFactory {
-    fn parse_config(&self, raw: &RawConfig) -> Result<ParsedArchitecture, ConfigError> {
-        Factory.parse_config(raw)
-    }
-    fn build(
-        &self,
-        parsed: ParsedArchitecture,
-        weights: &WeightManifest,
-    ) -> Result<Box<dyn DecoderModel>, LoadError> {
-        Factory.build(parsed, weights)
-    }
-    fn map_safetensors_key(&self, external: &str) -> WeightDisposition {
-        weights::map_key(external, self.tied)
-    }
-    fn map_gguf_key(&self, external: &str) -> WeightDisposition {
-        Factory.map_gguf_key(external)
-    }
 }
 
 struct Layer {

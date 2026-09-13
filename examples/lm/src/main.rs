@@ -1,7 +1,8 @@
 use std::io::{self, Write};
 
 use mlx_lm::{
-    ChatContinuation, ChatTemplateOptions, GenerationOptions, Message, Model, Prompt, Role,
+    ChatContinuation, ChatTemplateOptions, GenerationEvent, GenerationOptions, Message, Model,
+    Prompt, Role,
 };
 
 fn main() -> anyhow::Result<()> {
@@ -16,12 +17,23 @@ fn main() -> anyhow::Result<()> {
         }],
         ChatTemplateOptions {
             continuation: ChatContinuation::StartAssistant,
+            ..Default::default()
         },
     )?;
     let mut stdout = io::stdout().lock();
     for event in model.generate(Prompt::Text(&prompt), GenerationOptions::default())? {
-        stdout.write_all(event?.text.as_bytes())?;
-        stdout.flush()?;
+        match event? {
+            GenerationEvent::Prefill {
+                processed, total, ..
+            } => {
+                eprintln!("Prefill {processed}/{total}");
+            }
+            GenerationEvent::Token { text, .. } => {
+                stdout.write_all(text.as_bytes())?;
+                stdout.flush()?;
+            }
+            _ => {}
+        }
     }
     writeln!(stdout)?;
     Ok(())

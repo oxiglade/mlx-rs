@@ -34,19 +34,6 @@ impl Tokenizer {
         Ok(tokenizer)
     }
 
-    /// The model loader supplies its resolved EOS set, including an explicitly empty set.
-    #[allow(dead_code)] // The foundation loader is implemented in a separate tranche item.
-    pub(crate) fn from_dir_with_eos(
-        path: impl AsRef<Path>,
-        eos: Vec<TokenId>,
-    ) -> Result<Self, TokenizerError> {
-        let mut tokenizer = Self::load_assets(path.as_ref())?;
-        tokenizer.eos = eos;
-        tokenizer.eos.sort_unstable_by_key(|id| id.0);
-        tokenizer.eos.dedup();
-        Ok(tokenizer)
-    }
-
     fn load_assets(path: &Path) -> Result<Self, TokenizerError> {
         let mut tokenizer = Self::from_file(path.join("tokenizer.json"))?;
         let config = read_optional_json(&path.join("tokenizer_config.json"))?;
@@ -142,7 +129,8 @@ impl Tokenizer {
         self.encode_with_special_tokens(text, false)
     }
 
-    fn encode_with_special_tokens(
+    /// Encodes text with optional special-token insertion by the post-processor.
+    pub fn encode_with_special_tokens(
         &self,
         text: &str,
         add_special_tokens: bool,
@@ -155,6 +143,10 @@ impl Tokenizer {
             .copied()
             .map(TokenId)
             .collect())
+    }
+    /// Configured BOS token content from `tokenizer_config.json`, or `None` if absent.
+    pub fn bos_token(&self) -> Option<&str> {
+        self.special_tokens.get("bos_token").and_then(Value::as_str)
     }
     /// Decodes IDs, preserving special tokens as in Transformers’ default decode.
     pub fn decode(&self, ids: &[TokenId]) -> Result<String, TokenizerError> {
@@ -171,7 +163,6 @@ impl Tokenizer {
     }
 
     /// Generation feeds only generated non-stop IDs, then consumes `finish` on EOS or length.
-    #[allow(dead_code)] // The generation item consumes this seam in tranche 3.
     pub(crate) fn decode_stream(&self) -> StreamingDecoder<'_> {
         StreamingDecoder {
             tokenizer: self,
@@ -352,7 +343,6 @@ fn render_chat(
 }
 
 /// DecodeStream delays incomplete UTF-8. Retaining IDs permits one final decode to flush it.
-#[allow(dead_code)] // The generation item consumes this seam in tranche 3.
 pub(crate) struct StreamingDecoder<'a> {
     tokenizer: &'a Tokenizer,
     inner: tokenizers::DecodeStream<
@@ -367,7 +357,6 @@ pub(crate) struct StreamingDecoder<'a> {
     emitted: String,
 }
 
-#[allow(dead_code)] // The generation item consumes this seam in tranche 3.
 impl StreamingDecoder<'_> {
     pub(crate) fn step(&mut self, id: TokenId) -> Result<Option<String>, TokenizerError> {
         let delta = self.inner.step(id.0)?;
@@ -399,3 +388,5 @@ impl StreamingDecoder<'_> {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod text_tests;

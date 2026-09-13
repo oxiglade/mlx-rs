@@ -10,6 +10,11 @@ pub struct Observation {
     pub config: Option<Value>,
     pub tokenizer: Option<Value>,
     pub chat: Option<Value>,
+    pub processing: Option<Value>,
+    pub processor_histories: BTreeMap<String, Vec<Vec<u32>>>,
+    pub text_cases: Option<Value>,
+    pub progress: Option<Value>,
+    pub trim_after_wrap: Option<Value>,
     pub tensors: BTreeMap<String, Tensor>,
     pub caches: BTreeMap<String, CacheState>,
     pub greedy_ids: Option<Vec<u32>>,
@@ -95,40 +100,6 @@ pub enum Policy {
 pub struct Expectations {
     pub observation: Observation,
     pub policies: BTreeMap<String, Policy>,
-}
-
-impl Expectations {
-    pub fn prototype_prefill_and_greedy(&self) -> Self {
-        let tensors: BTreeMap<_, _> = self
-            .observation
-            .tensors
-            .iter()
-            .filter(|(key, _)| {
-                *key == "prefill.full.logits" || key.starts_with("cache.after_prefill.")
-            })
-            .map(|(key, value)| (key.clone(), value.clone()))
-            .collect();
-        Self {
-            policies: self
-                .policies
-                .iter()
-                .filter(|(key, _)| tensors.contains_key(*key))
-                .map(|(key, value)| (key.clone(), *value))
-                .collect(),
-            observation: Observation {
-                tensors,
-                caches: self
-                    .observation
-                    .caches
-                    .iter()
-                    .filter(|(key, _)| key.starts_with("cache.after_prefill."))
-                    .map(|(key, value)| (key.clone(), value.clone()))
-                    .collect(),
-                greedy_ids: self.observation.greedy_ids.clone(),
-                ..Observation::default()
-            },
-        }
-    }
 }
 
 fn float16(bits: u16) -> f64 {

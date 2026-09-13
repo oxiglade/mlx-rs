@@ -23,6 +23,10 @@ struct Document {
     sampling: BTreeMap<String, Sampling>,
     errors: BTreeMap<String, ErrorCase>,
     tolerances: BTreeMap<String, Tolerance>,
+    #[serde(default)]
+    processing: Option<Value>,
+    #[serde(default)]
+    cache: Value,
 }
 
 #[derive(Deserialize)]
@@ -36,21 +40,40 @@ pub struct Prefill {
     pub token_ids: Vec<u32>,
     #[serde(rename = "T")]
     pub length: usize,
+    #[serde(default)]
+    pub progress: Option<Value>,
 }
 
 #[derive(Deserialize)]
-struct Decode {
-    greedy_ids: Vec<u32>,
-    text_deltas: Vec<String>,
-    finish_reason: String,
-    stop_token: Option<u32>,
+pub struct Decode {
+    pub greedy_ids: Vec<u32>,
+    pub text_deltas: Vec<String>,
+    pub finish_reason: String,
+    pub stop_token: Option<u32>,
+    #[serde(default)]
+    pub token_ids: Vec<u32>,
+    #[serde(default)]
+    pub length_case: Option<StreamCase>,
+    #[serde(default)]
+    pub stop_case: Option<StreamCase>,
 }
 
 #[derive(Deserialize)]
-struct Sampling {
-    options: Value,
-    seed: u64,
+pub struct StreamCase {
+    pub eos_tokens: Vec<u32>,
+    pub token_ids: Vec<u32>,
+    pub text_deltas: Vec<String>,
+    pub finish_reason: String,
+    pub stop_token: Option<u32>,
+}
+
+#[derive(Deserialize)]
+pub struct Sampling {
+    pub options: Value,
+    pub seed: u64,
     cpu_ids: Vec<u32>,
+    #[serde(default)]
+    processor_token_histories: Vec<Vec<u32>>,
 }
 
 #[derive(Deserialize)]
@@ -63,6 +86,8 @@ pub struct Fixture {
     pub expected: Expectations,
     pub prefill: Prefill,
     pub inputs: Value,
+    pub decode: Decode,
+    pub sampling: BTreeMap<String, Sampling>,
 }
 
 pub fn fixture_root() -> PathBuf {
@@ -131,26 +156,60 @@ pub fn read(path: &Path) -> Result<Fixture> {
             "invalid tolerance {name}"
         );
     }
+    let text_path = path.join("text_cases.json");
+    let text_cases = match fs::read(&text_path) {
+        Ok(bytes) => {
+            let mut text: Value = serde_json::from_slice(&bytes)?;
+            ensure!(text["schema_version"] == 1, "unsupported text schema");
+            ensure!(
+                text["stop_strings"].is_object() && text["decoders"].is_object(),
+                "missing text cohorts"
+            );
+            text.as_object_mut()
+                .context("text document must be an object")?
+                .remove("provenance");
+            Some(text)
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(error) => return Err(error.into()),
+    };
     let mut observation = Observation {
         config: Some(document.config.resolved.clone()),
         tokenizer: Some(document.tokenizer),
         chat: Some(document.chat),
-        greedy_ids: Some(document.decode.greedy_ids),
-        text_deltas: Some(document.decode.text_deltas),
-        finish: Some((document.decode.finish_reason, document.decode.stop_token)),
+        processing: document.processing,
+        progress: document.prefill.progress.clone(),
+        trim_after_wrap: document.cache.get("trim_after_wrap").cloned(),
+        text_cases,
+        greedy_ids: Some(document.decode.greedy_ids.clone()),
+        text_deltas: Some(document.decode.text_deltas.clone()),
+        finish: Some((
+            document.decode.finish_reason.clone(),
+            document.decode.stop_token,
+        )),
         ..Observation::default()
     };
-    for (name, case) in document.sampling {
+    for (name, case) in &document.sampling {
         ensure!(
             case.options.is_object(),
             "sampling options must be an object: {name}"
         );
-        let _seed = case.seed;
         ensure!(
             case.cpu_ids.len() == 8,
             "sampling {name} requires eight CPU IDs"
         );
-        observation.sampled_ids.insert(name, case.cpu_ids);
+        if !case.processor_token_histories.is_empty() {
+            ensure!(
+                case.processor_token_histories.len() == 8,
+                "sampling {name} requires eight processor histories"
+            );
+            observation
+                .processor_histories
+                .insert(name.clone(), case.processor_token_histories.clone());
+        }
+        observation
+            .sampled_ids
+            .insert(name.clone(), case.cpu_ids.clone());
     }
     for (name, case) in document.errors {
         ensure!(
@@ -163,14 +222,16 @@ pub fn read(path: &Path) -> Result<Fixture> {
     let tensors = SafeTensors::deserialize(&bytes)?;
     let mut policies = BTreeMap::new();
     for (key, tensor) in tensors.tensors() {
-        let policy = if key.starts_with("quant.") {
+        let policy = if key.starts_with("quant.") || key.starts_with("cache.trim_after_wrap.") {
             Policy::ExactBits
         } else {
             let name = if key.starts_with("cache.") {
                 "cache"
             } else if key.starts_with("sampling.") && key.ends_with(".filtered_logprobs") {
                 "logprobs"
-            } else if (key.starts_with("prefill.") || key.starts_with("decode.step"))
+            } else if (key.starts_with("prefill.")
+                || key.starts_with("decode.step")
+                || key.starts_with("processing."))
                 && key.ends_with(".logits")
             {
                 "logits"
@@ -188,6 +249,45 @@ pub fn read(path: &Path) -> Result<Fixture> {
                 bytes: tensor.data().to_vec(),
             },
         );
+    }
+    if let Some(processing) = &observation.processing {
+        for (name, case) in processing
+            .as_object()
+            .context("processing must be an object")?
+        {
+            let rows = case["histories"]
+                .as_array()
+                .context("missing processor histories")?
+                .len();
+            let columns = case["input_logits"]
+                .as_array()
+                .context("missing processor logits")?
+                .len();
+            let key = format!("processing.{name}.logits");
+            let tensor = observation
+                .tensors
+                .get(&key)
+                .with_context(|| format!("missing {key}"))?;
+            ensure!(
+                rows > 0 && columns > 0 && tensor.shape == [rows, columns],
+                "invalid processor table {key}"
+            );
+        }
+    }
+    if observation.trim_after_wrap.is_some() {
+        for stage in ["before_trim", "after_trim", "after_append"] {
+            for kind in ["raw_keys", "raw_values", "temporal_keys", "temporal_values"] {
+                let key = format!("cache.trim_after_wrap.{stage}.{kind}");
+                let tensor = observation
+                    .tensors
+                    .get(&key)
+                    .with_context(|| format!("missing {key}"))?;
+                ensure!(
+                    tensor.shape == [1, 1, 5, 1],
+                    "invalid wrapped cache tensor {key}"
+                );
+            }
+        }
     }
     let kinds = document.config.resolved["attention_kinds"]
         .as_array()
@@ -258,6 +358,8 @@ pub fn read(path: &Path) -> Result<Fixture> {
         },
         prefill: document.prefill,
         inputs,
+        decode: document.decode,
+        sampling: document.sampling,
     })
 }
 
@@ -278,6 +380,8 @@ mod tests {
             "chat": {}, "prefill": {"prompt": "prompt", "token_ids": [1, 2, 3, 4, 5], "T": 5},
             "decode": {"greedy_ids": [1, 1, 1, 1, 1, 1, 1, 1], "text_deltas": ["a", ""], "finish_reason": "length", "stop_token": null},
             "sampling": {}, "errors": {},
+            "processing": {"presence_positive": {"input_logits": [0, 2], "histories": [[1]], "options": {"presence_penalty": 0.5, "presence_context_size": 3}}},
+            "cache": {"trim_after_wrap": {"capacity": 5, "keep": 2, "trim_return": 0}},
             "tolerances": {"logits": {"atol": 0.0002, "rtol": 0.0002}, "cache": {"atol": 0.0002, "rtol": 0.0002}, "logprobs": {"atol": 0.0001, "rtol": 0.0001}}
         });
         fs::write(path.join("inputs.json"), b"{\"seeds\": [0]}")?;
@@ -286,6 +390,18 @@ mod tests {
             serde_json::to_vec(&document)?,
         )?;
         let mut arrays: BTreeMap<String, (Vec<usize>, Vec<u8>)> = BTreeMap::new();
+        arrays.insert(
+            "processing.presence_positive.logits".into(),
+            (vec![1, 2], vec![0; 8]),
+        );
+        for stage in ["before_trim", "after_trim", "after_append"] {
+            for kind in ["raw_keys", "raw_values", "temporal_keys", "temporal_values"] {
+                arrays.insert(
+                    format!("cache.trim_after_wrap.{stage}.{kind}"),
+                    (vec![1, 1, 5, 1], vec![0; 20]),
+                );
+            }
+        }
         for key in [
             "prefill.full.logits",
             "prefill.chunk1.logits",
@@ -327,6 +443,12 @@ mod tests {
             safetensors::serialize(views, None)?,
         )?;
         let fixture = read(path)?;
+        assert!(fixture.expected.observation.processing.is_some());
+        assert!(fixture.expected.observation.trim_after_wrap.is_some());
+        assert!(matches!(
+            fixture.expected.policies["cache.trim_after_wrap.after_trim.raw_keys"],
+            Policy::ExactBits
+        ));
         let caches = &fixture.expected.observation.caches;
         assert_eq!(
             caches["cache.after_prefill.layer1"],

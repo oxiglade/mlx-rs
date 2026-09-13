@@ -1,0 +1,444 @@
+{
+  "schema_version": 1,
+  "crate_name": "mlx_lm",
+  "source_root": "mlx-lm/src/lib.rs",
+  "limitations": [
+    "cfg attributes are not evaluated or attached to entries, so the inventory is the union of source-visible configurations without per-entry availability",
+    "default_device function twins and generate_macro exported macros are enumerated from their source attributes without expanding procedural macros",
+    "derive macros, generate_builder output, and other procedural or declarative macro expansions are not inventoried",
+    "glob reexports from external crates are recorded as unresolved wildcard entries rather than expanded",
+    "non-function declarations are source-token snapshots and can include private fields or default implementation bodies"
+  ],
+  "entries": [
+    {
+      "kind": "struct",
+      "path": "mlx_lm::AdditivePenaltyOptions",
+      "signature": "# [doc = \" Presence or frequency penalty over a trailing token-history window.\"] # [doc = \"\"] # [doc = \" Python's history rule starts with the final prompt token and adds accepted\"] # [doc = \" generated tokens, excluding earlier prompt tokens and reused prefixes.\"] # [doc = \" A context size of 20 matches Python's recipe; callers supply both fields.\"] # [derive (Debug , Clone)] pub struct AdditivePenaltyOptions { # [doc = \" Finite coefficient to subtract. Negative values reward tokens; zero is an identity.\"] pub penalty : f32 , # [doc = \" Maximum number of history tokens considered by this penalty.\"] pub context_size : NonZeroUsize , }"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::AdditivePenaltyOptions::validate",
+      "signature": "pub fn validate (& self) -> Result < () , SamplingError >"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::AffineQuantization",
+      "signature": "# [doc = \" Packed affine quantization parameters.\"] # [derive (Debug , Clone , PartialEq)] pub struct AffineQuantization { # [doc = \" Number of values sharing affine scale and bias.\"] pub group_size : NonZeroUsize , # [doc = \" Packed bits per quantized value.\"] pub bits : u8 , }"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_lm::AttentionKind",
+      "signature": "# [doc = \" The attention visibility policy for one layer.\"] # [derive (Debug , Clone , PartialEq)] pub enum AttentionKind { # [doc = \" Attends to every previous token.\"] Full , # [doc = \" Attends within a bounded recent window.\"] Sliding { # [doc = \" Number of visible recent token positions.\"] window : NonZeroUsize , } , }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::Cache",
+      "signature": "# [doc = \" Thread-bound decoder cache with transactional layer state.\"] pub struct Cache { architecture : crate :: ModelType , model_identity : Rc < () > , ledger : TokenLedger , tracks_tokens : bool , layers : Vec < Box < dyn LayerCache > > , _thread_bound : PhantomData < Rc < () > > , }"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Cache::info",
+      "signature": "pub fn info (& self) -> impl ExactSizeIterator < Item = CacheInfo > + '_"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Cache::restore",
+      "signature": "pub fn restore (& mut self , mut snapshot : CacheSnapshot) -> Result < () , CacheError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Cache::snapshot",
+      "signature": "pub fn snapshot (& mut self) -> Result < CacheSnapshot , CacheError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Cache::tokens",
+      "signature": "pub fn tokens (& self) -> & [crate :: TokenId]"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_lm::CacheError",
+      "signature": "# [doc = \" Cache shape, transaction, or restoration failed.\"] # [derive (Debug , thiserror :: Error)] # [non_exhaustive] pub enum CacheError { # [doc = \" The snapshot belongs to an incompatible cache.\"] # [error (\"cache fingerprint mismatch\")] FingerprintMismatch , # [doc = \" The resolved request policy differs from the supplied cache policy.\"] # [error (\"cache policy mismatch\")] PolicyMismatch , # [doc = \" A layer update has an incompatible shape.\"] # [error (\"cache shape mismatch at layer {layer}: expected {expected:?}, got {actual:?}\")] ShapeMismatch { # [doc = \" Zero-based cache layer index.\"] layer : usize , # [doc = \" Required value or layout.\"] expected : Vec < usize > , # [doc = \" Observed value or layout.\"] actual : Vec < usize > , } , # [doc = \" The operation conflicts with the cache transaction state.\"] # [error (\"invalid cache state: {0}\")] InvalidState (String) , # [doc = \" The requested cache policy is not implemented.\"] # [error (\"unsupported cache policy: {0}\")] UnsupportedPolicy (String) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Exception (# [from] Exception) , }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::CacheInfo",
+      "signature": "# [doc = \" Logical state and allocation information for one cache layer.\"] # [derive (Debug , Clone)] pub struct CacheInfo { # [doc = \" Zero-based decoder layer index.\"] pub layer : usize , # [doc = \" Resolved storage kind.\"] pub kind : CacheKind , # [doc = \" Absolute count of processed input tokens.\"] pub processed_tokens : usize , # [doc = \" Retained prefix, separate from the recent range after a rotating wrap.\"] pub retained_prefix : Range < usize > , # [doc = \" Absolute recent range; excludes positions already in `retained_prefix`.\"] pub retained_positions : Range < usize > , # [doc = \" Full-cache allocation size or configured rotating capacity.\"] pub capacity : usize , }"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_lm::CacheKind",
+      "signature": "# [doc = \" Admitted cache storage kinds.\"] # [derive (Debug , Clone , Copy , PartialEq , Eq)] pub enum CacheKind { # [doc = \" Storage retaining all processed positions.\"] Full , # [doc = \" Fixed-capacity rotating storage.\"] Rotating , }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::CacheOptions",
+      "signature": "# [doc = \" Per-request cache storage options.\"] # [derive (Debug , Clone , Default)] # [non_exhaustive] pub struct CacheOptions { # [doc = \" Policy used to resolve each layer's storage.\"] pub policy : CachePolicy , }"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_lm::CachePolicy",
+      "signature": "# [doc = \" Selects model defaults or an explicit storage policy.\"] # [derive (Debug , Clone , Default)] pub enum CachePolicy { # [doc = \" Uses the architecture's per-layer attention pattern.\"] # [default] ModelDefault , # [doc = \" Retains every processed position.\"] Full , # [doc = \" Retains a prefix and a bounded recent window.\"] Rotating { # [doc = \" Single-token storage capacity; chunked prefill can temporarily retain more.\"] capacity : NonZeroUsize , # [doc = \" Number of initial positions retained across wraps.\"] keep_prefix : usize , } , }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::CacheSnapshot",
+      "signature": "# [doc = \" Opaque thread-bound handles and metadata for restoring a cache.\"] pub struct CacheSnapshot { architecture : crate :: ModelType , model_identity : Rc < () > , ledger : TokenLedger , tracks_tokens : bool , layers : BTreeMap < usize , Box < dyn LayerCache > > , _thread_bound : PhantomData < Rc < () > > , }"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_lm::ChatContinuation",
+      "signature": "# [doc = \" Selects how the rendered conversation ends.\"] # [derive (Debug , Clone , Copy , Default)] pub enum ChatContinuation { # [doc = \" Closes every message normally.\"] # [default] Closed , # [doc = \" Appends the template's assistant-start prompt.\"] StartAssistant , # [doc = \" Leaves the final message open for continuation.\"] ContinueLast , }"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_lm::ChatTemplateError",
+      "signature": "# [doc = \" Chat template selection or rendering failed.\"] # [derive (Debug , thiserror :: Error)] # [non_exhaustive] pub enum ChatTemplateError { # [doc = \" No selected template is available.\"] # [error (\"missing chat template\")] MissingTemplate , # [doc = \" The conversation cannot be continued.\"] # [error (\"chat continuation requires a nonempty final message\")] IncompatibleContinuation , # [doc = \" The template removed the final message content.\"] # [error (\"final message is absent from rendered chat\")] FinalMessageNotFound , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Io (# [from] std :: io :: Error) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Json (# [from] serde_json :: Error) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Minijinja (# [from] minijinja :: Error) , }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::ChatTemplateOptions",
+      "signature": "# [doc = \" Options for rendering one textual conversation.\"] # [derive (Debug , Clone , Default)] pub struct ChatTemplateOptions { # [doc = \" How the final message should be continued.\"] pub continuation : ChatContinuation , # [doc = \" `None` leaves the template variable undefined; a value overrides its thinking default.\"] pub enable_thinking : Option < bool > , }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::Config",
+      "signature": "# [doc = \" Resolved architecture facts validated before model allocation.\"] # [derive (Debug , Clone , PartialEq)] pub struct Config { # [doc = \" Architecture identifier.\"] pub model_type : ModelType , # [doc = \" Resolved transformer sizes and normalization epsilon.\"] pub dimensions : TransformerDimensions , # [doc = \" Resolved rotary embedding settings.\"] pub rope : RopeConfig , # [doc = \" Attention policy in decoder-layer order.\"] pub attention : Vec < AttentionKind > , # [doc = \" Whether output projection shares input embeddings.\"] pub tie_word_embeddings : bool , # [doc = \" Whether attention projections contain bias slots.\"] pub attention_bias : bool , # [doc = \" Whether MLP projections contain bias slots.\"] pub mlp_bias : bool , # [doc = \" Optional packed affine weight layout.\"] pub quantization : Option < QuantizationConfig > , }"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Config::validate",
+      "signature": "pub fn validate (& self) -> Result < () , ConfigError >"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_lm::ConfigError",
+      "signature": "# [doc = \" Configuration parsing and validation failed.\"] # [derive (Debug , thiserror :: Error)] # [non_exhaustive] pub enum ConfigError { # [doc = \" A required JSON field is absent.\"] # [error (\"missing configuration field {field}\")] MissingField { # [doc = \" Configuration or option field name.\"] field : String , } , # [doc = \" A numeric field violates its domain.\"] # [error (\"invalid {field}: {reason}\")] InvalidNumericField { # [doc = \" Configuration or option field name.\"] field : String , # [doc = \" Stable local explanation of the rejection.\"] reason : String , } , # [doc = \" The attention pattern has the wrong length.\"] # [error (\"expected {expected} attention layers, got {actual}\")] InvalidLayerPattern { # [doc = \" Required value or layout.\"] expected : usize , # [doc = \" Observed value or layout.\"] actual : usize , } , # [doc = \" The architecture is not admitted.\"] # [error (\"unsupported architecture: {0}\")] UnsupportedArchitecture (String) , # [doc = \" The quantization scheme is not admitted.\"] # [error (\"unsupported quantization: {0}\")] UnsupportedQuantization (String) , # [doc = \" The rotary embedding scheme is not admitted.\"] # [error (\"unsupported RoPE: {0}\")] UnsupportedRope (String) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Io (# [from] std :: io :: Error) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Json (# [from] serde_json :: Error) , }"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_lm::FinishReason",
+      "signature": "# [doc = \" Why the final successful event ended generation.\"] # [derive (Debug , Clone , Copy , PartialEq , Eq)] # [non_exhaustive] pub enum FinishReason { # [doc = \" A stop token or generated-text stop string was matched.\"] Stop , # [doc = \" The token limit was reached.\"] Length , }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::Generation",
+      "signature": "# [doc = \" A synchronous stream fused after its final event or first error.\"] pub struct Generation < 'model > { decoder : & 'model mut dyn DecoderModel , cache : GenerationCache < 'model > , prompt : Vec < TokenId > , cached : usize , processed : usize , chunk : NonZeroUsize , max_tokens : NonZeroUsize , reserve : Option < NonZeroUsize > , sampling : SamplingEngine , rng : Option < RandomState > , history : Vec < TokenId > , accepted : usize , text : Option < TextState < 'model > > , stop_tokens : Vec < TokenId > , state : GenerationState , capture_logprobs : bool , first_logprobs : Option < Array > , }"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Generation::cache",
+      "signature": "pub fn cache (& self) -> & Cache"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Generation::snapshot",
+      "signature": "pub fn snapshot (& mut self) -> Result < CacheSnapshot , CacheError >"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_lm::GenerationError",
+      "signature": "# [doc = \" Prompt preparation or streaming generation failed.\"] # [doc = \"\"] # [doc = \" Construction validates sampler options, repetition/presence/frequency penalties,\"] # [doc = \" stop strings and tokens, the encoded prompt, borrowed-cache compatibility and\"] # [doc = \" prefix, then checked sequence lengths, before allocating or mutating a cache.\"] # [derive (Debug , thiserror :: Error)] # [non_exhaustive] pub enum GenerationError { # [doc = \" The encoded prompt contains no tokens.\"] # [error (\"prompt is empty\")] EmptyPrompt , # [doc = \" A configured stop string is empty.\"] # [error (\"stop string at index {index} is empty\")] EmptyStopString { # [doc = \" Zero-based index in the supplied stop-string list.\"] index : usize , } , # [doc = \" A prompt token is outside the runtime vocabulary.\"] # [error (\"prompt token {token_id:?} at index {index} is outside vocabulary {vocabulary_size}\")] PromptTokenOutOfRange { # [doc = \" Zero-based index in the full encoded prompt.\"] index : usize , # [doc = \" Rejected token identifier.\"] token_id : crate :: TokenId , # [doc = \" Runtime vocabulary size.\"] vocabulary_size : usize , } , # [doc = \" An effective stop token is outside the runtime vocabulary.\"] # [error (\"stop token {token_id:?} is outside vocabulary {vocabulary_size}\")] StopTokenOutOfRange { # [doc = \" Rejected token identifier.\"] token_id : crate :: TokenId , # [doc = \" Runtime vocabulary size.\"] vocabulary_size : usize , } , # [doc = \" The full prompt does not extend the exact represented cache prefix.\"] # [error (\"cache prefix mismatch: matched {matched} tokens, cached {cached}, prompt {prompt}\")] CachePrefixMismatch { # [doc = \" Number of equal leading token IDs.\"] matched : usize , # [doc = \" Number of tokens represented by the cache.\"] cached : usize , # [doc = \" Number of tokens in the full prompt.\"] prompt : usize , } , # [doc = \" The full prompt is already represented and has no suffix to prefill.\"] # [error (\"prompt has no uncached tokens\")] NoUncachedTokens , # [doc = \" Adding the prompt length and sample limit overflows `usize`.\"] # [error (\"generation length overflow\")] LengthOverflow , # [doc = \" The requested sequence exceeds MLX dimension or absolute-position limits.\"] # [error (\"sequence length {length} exceeds limit {limit}\")] SequenceTooLong { # [doc = \" Requested sequence length.\"] length : usize , # [doc = \" Maximum representable length.\"] limit : usize , } , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Tokenizer (# [from] TokenizerError) , # [doc = \" Sampling graph-construction or scalar-conversion failure.\"] # [doc = \" Runtime MLX evaluation failures instead use [`Self::Exception`].\"] # [error (transparent)] Sampling (# [from] SamplingError) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Cache (# [from] CacheError) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Inference (# [from] InferenceError) , # [doc = \" Preserves the original exception from any runtime MLX evaluation failure,\"] # [doc = \" including joint evaluation, sampling-only evaluation, and the first sample.\"] # [error (transparent)] Exception (# [from] Exception) , }"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_lm::GenerationEvent",
+      "signature": "# [doc = \" A completed prefill boundary or sampled token and stable text delta.\"] # [derive (Debug , Clone , PartialEq , Eq)] # [non_exhaustive] pub enum GenerationEvent { # [doc = \" Progress over newly prefilling tokens, with the final prompt token reserved.\"] # [non_exhaustive] Prefill { # [doc = \" Newly processed tokens committed to the cache; initially zero.\"] processed : usize , # [doc = \" Number of uncached prompt tokens in this request.\"] total : usize , } , # [doc = \" A sampled token; the cache excludes this token until the next decode step.\"] # [non_exhaustive] Token { # [doc = \" Sampled token, including a final stop token.\"] token_id : TokenId , # [doc = \" Stable decoded text since the preceding event; it may be empty.\"] text : String , # [doc = \" Present only on the final successful event.\"] finish_reason : Option < FinishReason > , } , }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::GenerationOptions",
+      "signature": "# [doc = \" Reusable limits, sampling, stopping, and cache options.\"] # [doc = \"\"] # [doc = \" Defaults to 256 sampled tokens, prefill chunks of at most 2048, greedy sampling,\"] # [doc = \" no penalties, tokenizer EOS stopping, no stop strings, and model-default caching.\"] # [derive (Debug , Clone)] # [non_exhaustive] pub struct GenerationOptions { # [doc = \" Maximum number of sampled tokens.\"] pub max_tokens : NonZeroUsize , # [doc = \" Maximum number of prompt tokens per prefill step.\"] pub prefill_chunk_size : NonZeroUsize , # [doc = \" Temperature and support-filter settings.\"] pub sampling : SamplerOptions , # [doc = \" Optional history-dependent repetition penalty.\"] pub repetition_penalty : Option < RepetitionPenaltyOptions > , # [doc = \" Subtracts a coefficient once per distinct token in its history window.\"] pub presence_penalty : Option < AdditivePenaltyOptions > , # [doc = \" Subtracts a coefficient per token occurrence in its history window.\"] pub frequency_penalty : Option < AdditivePenaltyOptions > , # [doc = \" Stop-token sources and exact generated-text terminators.\"] pub stop : StopPolicy , # [doc = \" Per-request cache policy.\"] pub cache : CacheOptions , }"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_lm::HubError",
+      "signature": "# [doc = \" Optional Hub resolution, download, or local loading failed.\"] # [derive (Debug , thiserror :: Error)] # [non_exhaustive] pub enum HubError { # [doc = \" The requested revision is unavailable offline.\"] # [error (\"offline cache miss for {repo}@{revision}\")] OfflineCacheMiss { # [doc = \" Requested repository identifier.\"] repo : String , # [doc = \" Requested revision.\"] revision : String , } , # [doc = \" The requested revision is invalid.\"] # [error (\"invalid revision: {0}\")] InvalidRevision (String) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Io (# [from] std :: io :: Error) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Load (# [from] LoadError) , # [doc = \" Preserves the Hub client diagnostic.\"] # [cfg (feature = \"hf-hub\")] # [error (transparent)] Api (# [from] hf_hub :: api :: sync :: ApiError) , }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::HubOptions",
+      "signature": "# [doc = \" Revision and local-cache controls for optional Hub loading.\"] # [cfg (feature = \"hf-hub\")] # [derive (Debug , Clone , Default)] # [non_exhaustive] pub struct HubOptions { # [doc = \" Optional requested revision; immutable commit SHAs are recommended.\"] pub revision : Option < String > , # [doc = \" Requires all assets to be available without downloading.\"] pub offline : bool , # [doc = \" Optional cache directory override.\"] pub cache_dir : Option < std :: path :: PathBuf > , }"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_lm::InferenceError",
+      "signature": "# [doc = \" Architecture execution or evaluation failed.\"] # [derive (Debug , thiserror :: Error)] # [non_exhaustive] pub enum InferenceError { # [doc = \" The prompt contains no tokens.\"] # [error (\"prompt is empty\")] EmptyPrompt , # [doc = \" The architecture forward path is not implemented.\"] # [error (\"unsupported inference architecture: {0}\")] UnsupportedArchitecture (String) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Exception (# [from] Exception) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Cache (# [from] CacheError) , }"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_lm::LayerQuantization",
+      "signature": "# [doc = \" The resolved quantization choice for one parameter group.\"] # [derive (Debug , Clone , PartialEq)] pub enum LayerQuantization { # [doc = \" Keeps the parameter group in its original floating dtype.\"] Unquantized , # [doc = \" Stores packed affine weight, scale, and bias tensors.\"] Affine (AffineQuantization) , }"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_lm::LoadError",
+      "signature": "# [doc = \" Local model loading failed.\"] # [derive (Debug , thiserror :: Error)] # [non_exhaustive] pub enum LoadError { # [doc = \" A required model asset is absent.\"] # [error (\"missing model file: {0:?}\")] MissingFile (PathBuf) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Io (# [from] std :: io :: Error) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Config (# [from] ConfigError) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Weights (# [from] WeightError) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Tokenizer (# [from] TokenizerError) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] ChatTemplate (# [from] ChatTemplateError) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Gguf (# [from] GgufError) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Exception (# [from] Exception) , }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::Message",
+      "signature": "# [doc = \" One textual conversation message.\"] # [derive (Debug , Clone , Serialize)] pub struct Message { # [doc = \" Semantic role passed to the template.\"] pub role : Role , # [doc = \" UTF-8 message content.\"] pub content : String , }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::MinPOptions",
+      "signature": "# [doc = \" Minimum relative probability and retained support size.\"] # [derive (Debug , Clone)] pub struct MinPOptions { # [doc = \" Minimum probability relative to the most likely token.\"] pub probability : f32 , # [doc = \" Minimum number of candidates retained by min-p.\"] pub min_tokens_to_keep : NonZeroUsize , }"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::MinPOptions::validate",
+      "signature": "pub fn validate (& self , vocabulary_size : usize) -> Result < () , SamplingError >"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::Model",
+      "signature": "# [doc = \" A loaded decoder and its resolved tokenizer and configuration.\"] pub struct Model { decoder : Box < dyn DecoderModel > , tokenizer : Tokenizer , config : Config , identity : Rc < () > , }"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Model::config",
+      "signature": "pub fn config (& self) -> & Config"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Model::from_dir",
+      "signature": "pub fn from_dir (path : impl AsRef < Path >) -> Result < Self , LoadError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Model::from_gguf",
+      "signature": "pub fn from_gguf (file : mlx_rs :: io :: GgufFile , tokenizer : Tokenizer) -> Result < Self , LoadError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Model::from_hub",
+      "signature": "pub fn from_hub (repo : & str , options : HubOptions) -> Result < Self , crate :: HubError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Model::generate",
+      "signature": "pub fn generate < 'model > (& 'model mut self , prompt : Prompt < '_ > , options : GenerationOptions ,) -> Result < Generation < 'model > , GenerationError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Model::generate_with_cache",
+      "signature": "pub fn generate_with_cache < 'model > (& 'model mut self , prompt : Prompt < '_ > , options : GenerationOptions , cache : & 'model mut Cache ,) -> Result < Generation < 'model > , GenerationError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Model::new_cache",
+      "signature": "pub fn new_cache (& self , options : CacheOptions) -> Result < Cache , CacheError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Model::tokenizer",
+      "signature": "pub fn tokenizer (& self) -> & Tokenizer"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::ModelType",
+      "signature": "# [doc = \" An architecture identifier independent of the built-in registry.\"] # [derive (Debug , Clone , PartialEq)] pub struct ModelType (Box < str >) ;"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::ModelType::as_str",
+      "signature": "pub fn as_str (& self) -> & str"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::ModelType::new",
+      "signature": "pub fn new (name : impl Into < Box < str > >) -> Self"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::ParameterPath",
+      "signature": "# [doc = \" A stable dotted parameter key independent of checkpoint order.\"] # [derive (Debug , Clone , PartialEq , Eq , PartialOrd , Ord , Hash)] pub struct ParameterPath (Box < str >) ;"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::ParameterPath::as_str",
+      "signature": "pub fn as_str (& self) -> & str"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::ParameterPath::new",
+      "signature": "pub fn new (path : impl Into < Box < str > >) -> Self"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_lm::Prompt",
+      "signature": "# [doc = \" Text or already-tokenized input for one request.\"] pub enum Prompt < 'a > { # [doc = \" Text encoded with the tokenizer's post-processor adding special tokens,\"] # [doc = \" unless the original string starts with the configured BOS token content.\"] # [doc = \" The check uses `text.starts_with(bos_token)` without trimming or encoding\"] # [doc = \" first; when no BOS token is configured, special tokens are added.\"] Text (& 'a str) , # [doc = \" Token IDs supplied by the caller.\"] Tokens (& 'a [TokenId]) , }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::QuantizationConfig",
+      "signature": "# [doc = \" Default affine settings and keyed per-layer overrides.\"] # [derive (Debug , Clone , PartialEq)] pub struct QuantizationConfig { # [doc = \" Default affine settings for quantized parameter groups.\"] pub default : AffineQuantization , # [doc = \" Overrides indexed by stable parameter paths.\"] pub layers : std :: collections :: BTreeMap < ParameterPath , LayerQuantization > , }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::RepetitionPenaltyOptions",
+      "signature": "# [doc = \" History-dependent logits penalty settings.\"] # [doc = \"\"] # [doc = \" Python's history rule starts with the final prompt token, then adds accepted\"] # [doc = \" generated tokens. Earlier prompt tokens and reused prefixes are excluded.\"] # [doc = \" A context size of 20 matches Python's recipe; no penalty is enabled by default.\"] # [derive (Debug , Clone)] pub struct RepetitionPenaltyOptions { # [doc = \" Positive finite multiplier applied to repeated tokens.\"] pub penalty : f32 , # [doc = \" Maximum number of previous tokens considered.\"] pub context_size : NonZeroUsize , }"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::RepetitionPenaltyOptions::validate",
+      "signature": "pub fn validate (& self) -> Result < () , crate :: SamplingError >"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_lm::Role",
+      "signature": "# [doc = \" A textual message's role in a conversation.\"] # [derive (Debug , Clone)] # [non_exhaustive] pub enum Role { # [doc = \" Instructions for the conversation.\"] System , # [doc = \" Input from the user.\"] User , # [doc = \" Output from the assistant.\"] Assistant , # [doc = \" Text returned by a tool.\"] Tool , # [doc = \" A model-specific textual role.\"] Other (String) , }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::RopeConfig",
+      "signature": "# [doc = \" Resolved rotary embedding dimensions and scaling.\"] # [derive (Debug , Clone , PartialEq)] pub struct RopeConfig { # [doc = \" Number of rotary dimensions.\"] pub dimensions : usize , # [doc = \" Positive rotary frequency base.\"] pub theta : f32 , # [doc = \" Whether rotary pairs use traditional adjacent layout.\"] pub traditional : bool , # [doc = \" Resolved position scaling scheme.\"] pub scaling : RopeScaling , }"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_lm::RopeScaling",
+      "signature": "# [doc = \" Admitted rotary position scaling schemes.\"] # [derive (Debug , Clone , PartialEq)] pub enum RopeScaling { # [doc = \" Uses unscaled rotary positions.\"] None , # [doc = \" Scales positions by a fixed factor.\"] Linear { # [doc = \" Positive position scaling factor.\"] factor : f32 , } , # [doc = \" Uses frequency-dependent Llama 3 scaling.\"] Llama3 { # [doc = \" Positive position scaling factor.\"] factor : f32 , # [doc = \" Low-frequency wavelength cutoff factor.\"] low_frequency_factor : f32 , # [doc = \" High-frequency wavelength cutoff factor.\"] high_frequency_factor : f32 , # [doc = \" Original context length used to derive wavelength cutoffs.\"] original_max_positions : usize , } , }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::SamplerOptions",
+      "signature": "# [doc = \" Reusable temperature and probability-filter settings.\"] # [doc = \"\"] # [doc = \" Defaults to greedy temperature zero, all probability filters disabled, and no seed.\"] # [derive (Debug , Clone)] # [non_exhaustive] pub struct SamplerOptions { # [doc = \" Zero selects greedy argmax.\"] pub temperature : f32 , # [doc = \" None disables nucleus filtering.\"] pub top_p : Option < f32 > , # [doc = \" None disables top-k filtering.\"] pub top_k : Option < NonZeroUsize > , # [doc = \" None disables min-p filtering.\"] pub min_p : Option < MinPOptions > , # [doc = \" Seed for a private per-generation RNG. Greedy sampling constructs no RNG.\"] pub seed : Option < u64 > , }"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::SamplerOptions::validate",
+      "signature": "pub fn validate (& self , vocabulary_size : usize) -> Result < () , SamplingError >"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_lm::SamplingError",
+      "signature": "# [doc = \" Sampling options or token selection failed.\"] # [derive (Debug , thiserror :: Error)] # [non_exhaustive] pub enum SamplingError { # [doc = \" No token can be selected from an empty vocabulary.\"] # [error (\"sampling vocabulary is empty\")] EmptyVocabulary , # [doc = \" Min-p requests more retained candidates than the vocabulary contains.\"] # [error (\"min_tokens_to_keep {min_tokens_to_keep} exceeds vocabulary {vocabulary_size}\")] MinTokensToKeepExceedsVocabulary { # [doc = \" Requested minimum support size.\"] min_tokens_to_keep : usize , # [doc = \" Runtime vocabulary size.\"] vocabulary_size : usize , } , # [doc = \" Temperature is negative or non-finite.\"] # [error (\"invalid temperature: {0}\")] InvalidTemperature (f32) , # [doc = \" A filtering probability is outside its range.\"] # [error (\"invalid {field} probability: {value}\")] InvalidProbability { # [doc = \" Configuration or option field name.\"] field : String , # [doc = \" Rejected numeric option value.\"] value : f32 , } , # [doc = \" Top-k exceeds the runtime vocabulary.\"] # [error (\"top-k {top_k} exceeds vocabulary {vocabulary_size}\")] TopKExceedsVocabulary { # [doc = \" Requested support size.\"] top_k : usize , # [doc = \" Runtime vocabulary size.\"] vocabulary_size : usize , } , # [doc = \" The repetition penalty is non-positive or non-finite.\"] # [error (\"invalid repetition penalty: {0}\")] InvalidRepetitionPenalty (f32) , # [doc = \" A presence or frequency coefficient is non-finite.\"] # [error (\"invalid additive penalty: {0}\")] InvalidAdditivePenalty (f32) , # [doc = \" Logits do not contain one row of the runtime vocabulary.\"] # [error (\"invalid logits shape: expected [1, {vocabulary_size}], got {shape:?}\")] InvalidLogitsShape { # [doc = \" Observed logits shape.\"] shape : Vec < i32 > , # [doc = \" Runtime vocabulary size.\"] vocabulary_size : usize , } , # [doc = \" Logits are not f16, bf16, or f32.\"] # [error (\"invalid logits dtype: {0:?}\")] InvalidLogitsDtype (Dtype) , # [doc = \" Logits contain NaN or positive infinity; negative infinity is a valid mask.\"] # [error (\"logits contain NaN or positive infinity\")] InvalidLogitsValue , # [doc = \" No finite candidate remains available for sampling.\"] # [error (\"sampling support is empty\")] EmptySupport , # [doc = \" Preserves the scalar-conversion diagnostic.\"] # [error (transparent)] Conversion (# [from] mlx_rs :: error :: ConversionError) , # [doc = \" The requested sampling mode is not implemented.\"] # [error (\"unsupported sampling mode: {0}\")] UnsupportedMode (String) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Exception (# [from] Exception) , }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::StopPolicy",
+      "signature": "# [doc = \" Token and text conditions that finish generation with [`FinishReason::Stop`].\"] # [derive (Debug , Clone)] # [non_exhaustive] pub struct StopPolicy { # [doc = \" Source and precedence of stop tokens.\"] pub tokens : StopTokenPolicy , # [doc = \" Exact UTF-8 strings matched only against newly generated text.\"] # [doc = \"\"] # [doc = \" Empty strings are rejected. Matching holds back possible partial matches\"] # [doc = \" and excludes the earliest complete match and all following text. Matching\"] # [doc = \" uses exact UTF-8 without normalization; a match in the final decoder flush\"] # [doc = \" takes precedence over the token limit.\"] pub stop_strings : Vec < String > , }"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_lm::StopTokenPolicy",
+      "signature": "# [doc = \" Selects the source of the effective stop-token set.\"] # [derive (Debug , Clone)] pub enum StopTokenPolicy { # [doc = \" Uses the tokenizer's resolved EOS set.\"] Tokenizer , # [doc = \" Extends the tokenizer's EOS set with explicit IDs.\"] TokenizerPlus (Vec < TokenId >) , # [doc = \" Replaces the tokenizer's EOS set with explicit IDs.\"] Exact (Vec < TokenId >) , }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::TokenId",
+      "signature": "# [doc = \" A token identifier in the model's vocabulary.\"] # [derive (Debug , Clone , Copy , PartialEq , Eq , Hash)] pub struct TokenId (u32) ;"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::Tokenizer",
+      "signature": "# [doc = \" Token encoding, decoding, EOS metadata, and compiled chat templates.\"] pub struct Tokenizer { inner : tokenizers :: Tokenizer , env : Environment < 'static > , eos : Vec < TokenId > , special_tokens : serde_json :: Map < String , Value > , has_template : bool , }"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Tokenizer::bos_token",
+      "signature": "pub fn bos_token (& self) -> Option < & str >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Tokenizer::decode",
+      "signature": "pub fn decode (& self , ids : & [TokenId]) -> Result < String , TokenizerError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Tokenizer::encode",
+      "signature": "pub fn encode (& self , text : & str) -> Result < Vec < TokenId > , TokenizerError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Tokenizer::encode_with_special_tokens",
+      "signature": "pub fn encode_with_special_tokens (& self , text : & str , add_special_tokens : bool ,) -> Result < Vec < TokenId > , TokenizerError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Tokenizer::eos_tokens",
+      "signature": "pub fn eos_tokens (& self) -> & [TokenId]"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Tokenizer::from_bytes",
+      "signature": "pub fn from_bytes (bytes : & [u8]) -> Result < Self , TokenizerError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Tokenizer::from_dir",
+      "signature": "pub fn from_dir (path : impl AsRef < Path >) -> Result < Self , TokenizerError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Tokenizer::from_file",
+      "signature": "pub fn from_file (path : impl AsRef < Path >) -> Result < Self , TokenizerError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Tokenizer::render_chat",
+      "signature": "pub fn render_chat (& self , messages : & [Message] , options : ChatTemplateOptions ,) -> Result < String , ChatTemplateError >"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_lm::TokenizerError",
+      "signature": "# [doc = \" Tokenizer parsing, encoding, or decoding failed.\"] # [derive (Debug , thiserror :: Error)] # [non_exhaustive] pub enum TokenizerError { # [doc = \" A required tokenizer asset is absent.\"] # [error (\"missing tokenizer file: {0:?}\")] MissingFile (PathBuf) , # [doc = \" EOS metadata is not a token ID or token ID list.\"] # [error (\"invalid EOS tokens: {0}\")] InvalidEos (String) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Io (# [from] std :: io :: Error) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Json (# [from] serde_json :: Error) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Tokenizer (# [from] tokenizers :: Error) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] ChatTemplate (# [from] ChatTemplateError) , }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::TransformerDimensions",
+      "signature": "# [doc = \" Resolved transformer sizes in host-sized units.\"] # [derive (Debug , Clone , PartialEq)] pub struct TransformerDimensions { # [doc = \" Width of each hidden token representation.\"] pub hidden_size : usize , # [doc = \" Number of transformer layers.\"] pub layer_count : usize , # [doc = \" Width of the MLP intermediate representation.\"] pub intermediate_size : usize , # [doc = \" Number of query heads.\"] pub attention_heads : usize , # [doc = \" Number of key and value heads.\"] pub kv_heads : usize , # [doc = \" Width of each attention head.\"] pub head_dim : usize , # [doc = \" Number of token logits.\"] pub vocabulary_size : usize , # [doc = \" Optional model position limit.\"] pub max_positions : Option < usize > , # [doc = \" Stabilizing epsilon used by RMS normalization.\"] pub rms_norm_epsilon : f32 , }"
+    },
+    {
+      "kind": "enum",
+      "path": "mlx_lm::WeightError",
+      "signature": "# [doc = \" Weight discovery or strict keyed assignment failed.\"] # [derive (Debug , thiserror :: Error)] # [non_exhaustive] pub enum WeightError { # [doc = \" A required weights file is absent.\"] # [error (\"missing weights file: {0:?}\")] MissingFile (PathBuf) , # [doc = \" An indexed shard is absent.\"] # [error (\"missing shard: {0:?}\")] MissingShard (PathBuf) , # [doc = \" An expected tensor is absent.\"] # [error (\"missing tensor: {0}\")] MissingKey (String) , # [doc = \" An external tensor has no approved disposition.\"] # [error (\"unexpected tensor: {0}\")] UnexpectedKey (String) , # [doc = \" A tensor name appears more than once.\"] # [error (\"duplicate tensor: {0}\")] DuplicateTensor (String) , # [doc = \" A shard disagrees with its index.\"] # [error (\"conflicting index entry for {key} in {shard:?}\")] ConflictingIndex { # [doc = \" External tensor or parameter key.\"] key : String , # [doc = \" Shard associated with the conflicting entry.\"] shard : PathBuf , } , # [doc = \" A tensor shape differs from its parameter slot.\"] # [error (\"shape mismatch for {key}: expected {expected:?}, got {actual:?}\")] ShapeMismatch { # [doc = \" External tensor or parameter key.\"] key : String , # [doc = \" Required value or layout.\"] expected : Vec < usize > , # [doc = \" Observed value or layout.\"] actual : Vec < usize > , } , # [doc = \" A tensor dtype differs from its parameter slot.\"] # [error (\"dtype mismatch for {key}: expected {expected:?}, got {actual:?}\")] DtypeMismatch { # [doc = \" External tensor or parameter key.\"] key : String , # [doc = \" Required value or layout.\"] expected : Dtype , # [doc = \" Observed value or layout.\"] actual : Dtype , } , # [doc = \" A checkpoint dtype is not admitted.\"] # [error (\"unsupported dtype {dtype} for {key}\")] UnsupportedDtype { # [doc = \" External tensor or parameter key.\"] key : String , # [doc = \" Unsupported checkpoint dtype.\"] dtype : String , } , # [doc = \" The weight representation is not admitted.\"] # [error (\"unsupported weights format: {0}\")] UnsupportedFormat (String) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Io (# [from] std :: io :: Error) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Json (# [from] serde_json :: Error) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Safetensors (# [from] safetensors :: SafeTensorError) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Gguf (# [from] GgufError) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Exception (# [from] Exception) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Projection (# [from] mlx_rs :: error :: StateProjectionError) , }"
+    },
+    {
+      "kind": "module",
+      "path": "mlx_lm::oracle_hooks",
+      "signature": "pub mod oracle_hooks"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::oracle_hooks::CacheSnapshotView",
+      "signature": "pub struct CacheSnapshotView { pub layers : Vec < LayerView > , }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::oracle_hooks::LayerView",
+      "signature": "pub struct LayerView { pub layer : usize , pub keys : Array , pub values : Array , pub positions : Range < usize > , }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::oracle_hooks::OracleSession",
+      "signature": "pub struct OracleSession < 'm > { model : & 'm mut Model , cache : Cache , }"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::oracle_hooks::OracleSession::cache_view",
+      "signature": "pub fn cache_view (& self) -> Result < CacheSnapshotView , CacheError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::oracle_hooks::OracleSession::decode_step",
+      "signature": "pub fn decode_step (& mut self , token : TokenId) -> Result < Array , InferenceError >"
+    },
+    {
+      "kind": "function",
+      "path": "mlx_lm::oracle_hooks::first_filtered_logprobs",
+      "signature": "pub fn first_filtered_logprobs < 'a > (generation : & 'a crate :: Generation < '_ >) -> Option < & 'a Array >"
+    },
+    {
+      "kind": "function",
+      "path": "mlx_lm::oracle_hooks::generate_with_logprobs",
+      "signature": "pub fn generate_with_logprobs < 'm > (model : & 'm mut Model , prompt : crate :: Prompt < '_ > , options : crate :: GenerationOptions ,) -> Result < crate :: Generation < 'm > , crate :: GenerationError >"
+    },
+    {
+      "kind": "function",
+      "path": "mlx_lm::oracle_hooks::prefill_logits",
+      "signature": "pub fn prefill_logits < 'm > (model : & 'm mut Model , tokens : & [TokenId] , chunk : Option < NonZeroUsize > ,) -> Result < (Array , OracleSession < 'm >) , InferenceError >"
+    }
+  ]
+}

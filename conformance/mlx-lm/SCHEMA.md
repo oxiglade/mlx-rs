@@ -83,4 +83,98 @@ produce identical trees.
 
 ## Comparator failure classes (Rust side, one class per failure)
 config, tokenizer, chat, shape, dtype, value, cache_offset, cache_range, cache_value,
-sampling_support, sampled_id, text_delta, finish_reason, error_class, output_count.
+sampling_support, sampled_id, text_delta, finish_reason, error_class, output_count,
+processor, text_stop, progress, cache_trim.
+
+The protected parity adapter (`mlx-lm/tests/parity/**`) produces observations for every class
+except `processor`, `text_stop` and `cache_trim`; those three are consumed from the same
+goldens by the crate's own tests (`sampling/tests.rs`, `tokenizer/text_tests.rs`,
+`cache/tests.rs`), while their mutation qualification stays in `tests/parity/mutations.rs`.
+
+## Tranche 3 cohorts
+
+The normative contracts are position-astra.md, “Processor and sampler contract”,
+“EOS, length, stop strings and stable text”, and “Oracle-change list / Minimal new
+golden cohorts”, with DECISIONS A/I/J overriding the prompt rule. No tolerance
+changes accompany these additions.
+
+Only llama-base adds the following expectation keys:
+
+- `sampling.presence_penalty`, `sampling.frequency_penalty`, and
+  `sampling.penalties_combined`, with matching `inputs.sampling` recipes and
+  `sampling.<case>.filtered_logprobs` tensors. They use temperature 0.7, disabled
+  support filters, seed 1729, eight CPU IDs, and context 3. Enabled coefficients
+  are repetition 1.3, presence 0.6, and frequency 0.4. Options add
+  `presence_penalty`, `presence_context_size`, `frequency_penalty`, and
+  `frequency_context_size` as applicable. `processor_token_histories` records
+  each of the eight calls before per-processor cropping; history starts with the
+  final prompt token and appends previously accepted generated IDs.
+- `processing.<case>` contains `options`, `input_logits`, and `histories`.
+  Cases are `presence_negative`, `presence_zero`, `presence_positive`,
+  `frequency_negative`, `frequency_zero`, `frequency_positive`, `repetition`,
+  and `combined`. The additive coefficients are -0.5, 0, 0.5; repetition is
+  1.3; combined uses 1.3/0.6/0.4. All windows are 3. Each corresponding
+  `processing.<case>.logits` f32 tensor has shape `[7, 5]`, with one row per
+  nonempty prefix of `[1,2,1,2,4,1,3]`, processed from `[0,2,-3,1,-0.5]` by
+  pinned `make_logits_processors`. The existing logits tolerance applies.
+- `prefill.progress.<case>` contains `token_ids`, `ceiling`, and ordered
+  `[processed,total]` `pairs`. Cases are `eight_chunk1`, `eight_chunk3`,
+  `eight_chunk8`, and `one_chunk1`. Callback capture uses `max_tokens=0` and
+  is cross-checked with an independent integer schedule. Eight-token counts
+  are `[0,1,2,3,4,5,6,7,8]`, `[0,3,6,7,8]`, and `[0,7,8]`; one token gives
+  `[0,1]`. Initial and final pairs occur exactly once.
+- `tokenizer.prompt_encoding` contains `canonical`, `canonical_with_bos`,
+  and `whitespace_before_bos` ID lists captured at the model call from
+  `stream_generate`. The base tokenizer has a TemplateProcessing post-processor
+  prepending configured BOS ID 4. The first two cases forward `[4,12,...]`;
+  the third forwards `[4,4,12,...]`. The decision uses the original string's
+  prefix, without trimming, encoding first, or decoding the first ID.
+  `tokenizer.encodings.special_with_defaults` and the corresponding input
+  encoding gain ID 4. All token-ID-driven arrays, sampling, decode, and chat
+  expectations remain unchanged.
+
+Only llama-sliding adds `cache.trim_after_wrap`. Its `capacity`, `keep`,
+`trim_requested`, and `trim_return` are 5, 2, 2, and 0. Stages `before_trim`,
+`after_trim`, and `after_append` record `offset`, `rotation_index`, `can_trim`,
+`temporal_positions`, `retained_prefix`, and `retained_tail`. Prefix and tail
+are position lists, not a contiguous retained range. Temporal positions are
+`[0,1,7,8,9]` before/after trim and `[0,1,8,9,10]` after appending position 10.
+For each stage, `cache.trim_after_wrap.<stage>.<kind>` stores f32 `[1,1,5,1]`
+for kinds `raw_keys`, `raw_values`, `temporal_keys`, and `temporal_values`.
+Keys encode position p; values encode `100 + 3*p`. These synthetic tensors
+compare with exact bits. The guarded helper `trim_prompt_cache` is called;
+calling the unguarded cache object's `trim` would change wrapped state.
+
+### text_cases.json
+
+This independent llama-base artifact has `schema_version: 1` and `provenance`
+with the pinned `tokenizers` version and `text_reference.py@sha256`.
+`stop_strings.<case>` contains input `stops`, `deltas`, `final_delta`, the
+consumed `events` (`text`, `held`, `stopped`), `finish_flush`, `stopped`, and
+`finish_reason`. A null flush means a match already terminated the stream;
+an empty string means finishing ran and emitted nothing. Events stop at the
+first complete match; later input deltas remain recorded but are not consumed.
+Matching is exact Unicode content/UTF-8, without normalization. An unmatched
+held suffix is released only after processing the final delta. With stops
+`abc` and `b`, `abc` emits nothing, while `ab`, `c` emits `a` and stops in
+its first event.
+
+`decoders.<case>` contains a standalone `tokenizer` definition, `token_ids`,
+`decoded_utf8_hex` from pinned Python tokenizers, `emitted_prefix`,
+`preserves_prefix`, `finish_flush`, and `expected_error`. Named cases reproduce
+ByteFallback complete/incomplete/empty/rewrite and ByteLevel incomplete-tail
+inputs from tokenizer/tests.rs. Emitted prefixes are the explicitly admitted
+Rust traces; final decode bytes are independently computed. The ByteFallback
+rewrite has `DecodeStreamError::InvalidPrefix` and a null flush.
+`errors.empty_stop` records `stops: [""]` and `expected_error: EmptyStopString`.
+
+### Comparison and qualification
+
+New classes are `processor` (raw table and processor histories), `text_stop`
+(the text artifact excluding provenance), `progress` (including counts), and
+`cache_trim` (synthetic wrapped-cache metadata and tensors). BOS encoding stays
+in `tokenizer`. Existing classes and tolerance policies are unchanged.
+Mutations qualify presence-as-frequency, frequency deduplication, expired
+context retention, reversed processor order, partial-stop leakage, match
+emission, missing held-suffix flush, omitted/duplicated final progress, changed
+wrapped trim state, and first-ID/decoded-first-ID BOS shortcuts.
