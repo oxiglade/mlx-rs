@@ -31,7 +31,8 @@ fn fixture_resolved_configs() -> Result<(), ConfigError> {
     let mut count = 0;
     for entry in std::fs::read_dir(fixtures())? {
         let path = entry?.path();
-        if !path.is_dir() {
+        // GGUF fixtures carry no config.json; they are covered by the gguf module tests.
+        if !path.is_dir() || !path.join("config.json").exists() {
             continue;
         }
         let input = read_json(&path.join("config.json"))?;
@@ -124,7 +125,8 @@ fn fixture_config_rejections() -> Result<(), ConfigError> {
     let mut count = 0;
     for entry in std::fs::read_dir(fixtures())? {
         let path = entry?.path();
-        if !path.is_dir() {
+        // GGUF fixtures carry no config.json; they are covered by the gguf module tests.
+        if !path.is_dir() || !path.join("config.json").exists() {
             continue;
         }
         let input = read_json(&path.join("config.json"))?;
