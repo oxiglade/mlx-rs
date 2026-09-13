@@ -42,6 +42,11 @@ path = "tests/sentinel.rs"
 required-features = ["oracle-hooks"]
 
 [[test]]
+name = "hub_offline"
+path = "tests/hub_offline.rs"
+required-features = ["hf-hub"]
+
+[[test]]
 name = "generation_ffi"
 path = "tests/generation_ffi.rs"
 
