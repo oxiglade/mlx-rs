@@ -64,13 +64,15 @@ impl Model {
     /// Resolves an allowlisted Hub snapshot and loads it through the local loader.
     #[cfg(feature = "hf-hub")]
     pub fn from_hub(repo: &str, options: HubOptions) -> Result<Self, crate::HubError> {
-        let _ = (repo, options);
-        Err(
-            LoadError::Config(crate::ConfigError::UnsupportedArchitecture(
-                crate::NotYetImplemented("Hub loading").to_string(),
-            ))
-            .into(),
-        )
+        hub::load(repo, options)
+    }
+    /// Borrows the Hub source identity, or returns `None` for a local or GGUF load.
+    ///
+    /// Cache contents must remain immutable during loading. Receipt hashes detect
+    /// local changes; they do not authenticate the repository's author.
+    #[cfg(feature = "hf-hub")]
+    pub fn hub_provenance(&self) -> Option<&HubProvenance> {
+        self.hub_provenance.as_ref()
     }
     /// Borrows the resolved model configuration.
     pub fn config(&self) -> &Config {
