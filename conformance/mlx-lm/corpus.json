@@ -1,5 +1,75 @@
 {
   "files": {
+    "fixtures/gguf-llama-f16/converted.safetensors": "61337c0f692aa028ea78295c9d1b86a98dfc08e354db4623ddcaf4f8d04caad7",
+    "fixtures/gguf-llama-f16/expectations.json": "597a5bf633aecff7a25d0bf53d4c1655b01a416f82e61b5f3e3ed9b319c66c22",
+    "fixtures/gguf-llama-f16/expectations.safetensors": "1768b68b3330d80a5819c80c54c2e8377ca7f3ca3a9df10ec8c546946e3a986d",
+    "fixtures/gguf-llama-f16/inputs.json": "c09c4830d03805c42b195d2f51b27133b4d26fe50d00fadaa3e7ba9278eb5a22",
+    "fixtures/gguf-llama-f16/model.gguf": "d071bb69a3b2cc9db9f00ad1cefa0b27782c258214a05050f9b055752146a1f8",
+    "fixtures/gguf-llama-f16/mutations.safetensors": "5d4b84c4e3132dbdcd1a08645559aa1dd4f97c8c10ede040bcf62a51c46ba520",
+    "fixtures/gguf-llama-f16/reference-agreement.json": "e4c216b90f095b64bde900e296c4c8e63212e353e3cbd4d23943a02317d42062",
+    "fixtures/gguf-llama-f32/converted.safetensors": "c30312886adbf32b39a5160350e575526a4f079f4985d1c559fa48b3fc8c96da",
+    "fixtures/gguf-llama-f32/expectations.json": "07862df92883190bc680da79a5da9b9225144a0b741c94dc463dc4baadd9ecce",
+    "fixtures/gguf-llama-f32/expectations.safetensors": "54920d37ac99880bf8220b8c841e2e344a23e90fec9a3c49b4b021c48ecf4812",
+    "fixtures/gguf-llama-f32/inputs.json": "c09c4830d03805c42b195d2f51b27133b4d26fe50d00fadaa3e7ba9278eb5a22",
+    "fixtures/gguf-llama-f32/model.gguf": "227b751d4d999f973a0d56d466c9df09253da98dc1746a156033cd0157217c51",
+    "fixtures/gguf-llama-f32/mutations.safetensors": "c66d3ca65e4d2c89e3d7b6c9851857ec57579eff648f66e99be9d0c2eaa15f20",
+    "fixtures/gguf-llama-f32/reference-agreement.json": "21cad89c6cc3782748706e148ef817b78d612e31f7ddcde66329bde15715b9e0",
+    "fixtures/gguf-llama-q4_0/converted.safetensors": "1658972b58e7ea9d837c55c8fb0ff6126021a6c5bfd24c78905d6cf5f0392e34",
+    "fixtures/gguf-llama-q4_0/expectations.json": "fd0632c51e7c74adbf1ead9ce05bf42964a2849dde74163f141e0bb673cc40eb",
+    "fixtures/gguf-llama-q4_0/expectations.safetensors": "d682c51f2e35f1e356175f602f07687a17f8a2266e13f08ff41c483174c4f906",
+    "fixtures/gguf-llama-q4_0/inputs.json": "c09c4830d03805c42b195d2f51b27133b4d26fe50d00fadaa3e7ba9278eb5a22",
+    "fixtures/gguf-llama-q4_0/model.gguf": "dff000b5a9f6869155fd6fc1d1da3939f8dc977d179252f856d288d95b5aa2af",
+    "fixtures/gguf-llama-q4_0/mutations.safetensors": "ec4b06239104764e244a1ec1956bae17a3bb49e85d16ff62fdb915287a1233e4",
+    "fixtures/gguf-llama-q4_0/reference-agreement.json": "ec17af0ed306df8be911468a3677a8161d80b4cd196b00b7bfee268ab60efc28",
+    "fixtures/gguf-llama-q4_1/converted.safetensors": "2fadd24eab162c4d398c069836dcc823850ca9955a59879eef99cb29e3ff5f3f",
+    "fixtures/gguf-llama-q4_1/expectations.json": "4719bd954fcd63aa9623ec6aaf4d35ea7de95fb01b5f211a9b976f0b4ddc3b3c",
+    "fixtures/gguf-llama-q4_1/expectations.safetensors": "6d38e9fb77d359983d98561d703e2563fafb7fbca3c0ce1b3bb0d37092942c06",
+    "fixtures/gguf-llama-q4_1/inputs.json": "c09c4830d03805c42b195d2f51b27133b4d26fe50d00fadaa3e7ba9278eb5a22",
+    "fixtures/gguf-llama-q4_1/model.gguf": "8c7bf77e0eb8c6bfdcec3b50b8765ddfa81465990d9da74a938fccf863aa7995",
+    "fixtures/gguf-llama-q4_1/mutations.safetensors": "19ff5daef9e82ab46450d4f0ffca206b787986dc26060085bf8296e5c9d331b5",
+    "fixtures/gguf-llama-q4_1/reference-agreement.json": "81214c1f4f11c58e8083d06191308ebd59e6afec0b7e3bcb2c27785bb801b64f",
+    "fixtures/gguf-llama-q8_0/converted.safetensors": "5fc46d8797aa9ae5aad99056044af3751821c0eef8e4df1c544704377dcb10de",
+    "fixtures/gguf-llama-q8_0/expectations.json": "394d1cc40e570b33d7363d70ebbb20e8284fd06c63f1cdebbe22c627aaf08e5f",
+    "fixtures/gguf-llama-q8_0/expectations.safetensors": "3cd2e74ac6c3a816535e2aecc9effad7780555141b71b8c8c2065ee537b31779",
+    "fixtures/gguf-llama-q8_0/inputs.json": "c09c4830d03805c42b195d2f51b27133b4d26fe50d00fadaa3e7ba9278eb5a22",
+    "fixtures/gguf-llama-q8_0/model.gguf": "9b59414099c7d6f6781cc9941761f5121d37fcf537b9b4babdf2f591778cc1fb",
+    "fixtures/gguf-llama-q8_0/mutations.safetensors": "cdade72ab70686b05be10e88bf404bd8348d1f31bc3232d54970a7e131676b55",
+    "fixtures/gguf-llama-q8_0/reference-agreement.json": "ea3dbb9b5716a432a9a31d54f61c8f81af6e5b4a6466eb43ed7deffe60a6d276",
+    "fixtures/gguf-qwen3-f16/converted.safetensors": "2ade9a320d8a21fb899b354f632bda2181312bfe3601f193fc5456592e2626bf",
+    "fixtures/gguf-qwen3-f16/expectations.json": "cb9d887a0a9bdfd0eb3036d946adb6e79ab71f5f9dc7bde9a440943024813a7b",
+    "fixtures/gguf-qwen3-f16/expectations.safetensors": "9a6d2f984a3d8ccb7974d8e4c47059a8278e9ff2d4e7dbc11fae3048387ae335",
+    "fixtures/gguf-qwen3-f16/inputs.json": "7fb1d61c97b85c23d8cba41478b6cf862fe5cfee9e97ba7401c2f9c218369a79",
+    "fixtures/gguf-qwen3-f16/model.gguf": "19bb5a556ceff94f2ed042a4d3cc837ac4162e44f1ca05203f5897d69ed13a41",
+    "fixtures/gguf-qwen3-f16/mutations.safetensors": "1258f29646c309e12f63f10401f5aab7e6686daa3e0488f3a83c8d3df45cece7",
+    "fixtures/gguf-qwen3-f16/reference-agreement.json": "b5f1f56f44a00257cc94a99020037d8c1f5b7bf209b287cb7b5280db01fd056d",
+    "fixtures/gguf-qwen3-f32/converted.safetensors": "d4acc08853d3d7e98c814b587e06e9b6c98de029538642e7a8d7989fe0ec1ef4",
+    "fixtures/gguf-qwen3-f32/expectations.json": "b85f0075a21d7606a371a0e67a3d121f8ea0b0544dd26c59cffc4420af9ed84c",
+    "fixtures/gguf-qwen3-f32/expectations.safetensors": "9df2d40a24eaa8f3d08087ad2fbedeafbecb2a5966a1d3578fba0eb3d1fd66d5",
+    "fixtures/gguf-qwen3-f32/inputs.json": "7fb1d61c97b85c23d8cba41478b6cf862fe5cfee9e97ba7401c2f9c218369a79",
+    "fixtures/gguf-qwen3-f32/model.gguf": "42b3a69c4983b0ca58a35c3cacacaa9d9b0d69e20c72b355203e3c7aac5e9887",
+    "fixtures/gguf-qwen3-f32/mutations.safetensors": "f5dfb28049dbf35d97df1d939b5d8dfc51a1bb57f6d8e41201aa415570ee4eba",
+    "fixtures/gguf-qwen3-f32/reference-agreement.json": "612d9835a353b6bb89d6ea4dd04745983f50ee25bfb3cb7038bc4fa16a6dfc28",
+    "fixtures/gguf-qwen3-q4_0/converted.safetensors": "fec52cb5f650965e38bc792dca5b3dd2af4502827aa0f80e5f50c95958affed1",
+    "fixtures/gguf-qwen3-q4_0/expectations.json": "114156ddf351846500e94f727eb93b8bd0bdc6593bf0607d3c27c3f426aea4a0",
+    "fixtures/gguf-qwen3-q4_0/expectations.safetensors": "4a68869ea61169481ba32c3ae3055961809385c3c25879e46bafe86cb49e03dc",
+    "fixtures/gguf-qwen3-q4_0/inputs.json": "7fb1d61c97b85c23d8cba41478b6cf862fe5cfee9e97ba7401c2f9c218369a79",
+    "fixtures/gguf-qwen3-q4_0/model.gguf": "89ba52ec07ccf344992d6af3c4df77e7f2b190e7671210f691462ce65f8990c2",
+    "fixtures/gguf-qwen3-q4_0/mutations.safetensors": "ed34c6b10a0995c28d4e7dd5850079b8e5c65110999a31d5e4073882f9cb3a80",
+    "fixtures/gguf-qwen3-q4_0/reference-agreement.json": "7f53140b60ffdc0da36c8b97b463c483faae47de330e2b28391e6b154c1d436c",
+    "fixtures/gguf-qwen3-q4_1/converted.safetensors": "ce8923c8c3b0f7d40e82e6192a2d7cf6cc746c5ba7ea6856951453a4f5704456",
+    "fixtures/gguf-qwen3-q4_1/expectations.json": "5805fa45501030d45b2a4229402f625018a7a1ac16c89efa4413aa74f15c0b42",
+    "fixtures/gguf-qwen3-q4_1/expectations.safetensors": "d77f32957279087a452266d6f424222bd4471f9057747853ea8f62f04f06a80b",
+    "fixtures/gguf-qwen3-q4_1/inputs.json": "7fb1d61c97b85c23d8cba41478b6cf862fe5cfee9e97ba7401c2f9c218369a79",
+    "fixtures/gguf-qwen3-q4_1/model.gguf": "92311c924243e77643efc5c47a92d21978b2b334a6e585c31d0da7c266b15c59",
+    "fixtures/gguf-qwen3-q4_1/mutations.safetensors": "3196af8bef8708e866e322627fb94f0722be71067978ed2bfa424bb4b999ab85",
+    "fixtures/gguf-qwen3-q4_1/reference-agreement.json": "086e9cb48b7264273115cce65fcf0ccb25871e95a3b80378643ff0aa435d886b",
+    "fixtures/gguf-qwen3-q8_0/converted.safetensors": "bdd0ccc0471069fd3187ac86cbde67f75fe9f00379d0b14919efcb4ca991ba8d",
+    "fixtures/gguf-qwen3-q8_0/expectations.json": "c56ea8d663ccaac74677282512e61ec4ebc403daee892a458f88bfd9c979ea49",
+    "fixtures/gguf-qwen3-q8_0/expectations.safetensors": "a7a35502a54339ee434d0378c71e8a65e6226467784126f8000f405a24c91a4c",
+    "fixtures/gguf-qwen3-q8_0/inputs.json": "7fb1d61c97b85c23d8cba41478b6cf862fe5cfee9e97ba7401c2f9c218369a79",
+    "fixtures/gguf-qwen3-q8_0/model.gguf": "870bcb25abf2a5a27d1548bebbd572c2159e39388073499d22de5b9eca0904a5",
+    "fixtures/gguf-qwen3-q8_0/mutations.safetensors": "4666f5520a1a1fc393bc09ef3c06740724f2b445705cf2146e39d84e6d0a471d",
+    "fixtures/gguf-qwen3-q8_0/reference-agreement.json": "9019d8d5798acd487875edf8c2459af3b7122ca5f2ffaa6e93faf261f90d7106",
     "fixtures/llama-base/config.json": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
     "fixtures/llama-base/expectations.json": "faeedde392c11950fa3e93b3fea4774e0ff4689a346d9500ac0f35ee469e811c",
     "fixtures/llama-base/expectations.safetensors": "8d5aabb69cd3be92e9577490b5de0a8b7db81e35c6976870b5bd90e927a2e02e",
@@ -52,6 +122,16 @@
     "fixtures/qwen3-quant4/tokenizer.json": "d3f6e27c58186b601192ffef2c870af3877a3ec271c53468a3368977e07f75ba",
     "fixtures/qwen3-quant4/tokenizer_config.json": "320ed7a8112d4f659f3ca9306141e8359b517decd9469117aaaaa04c1f8fb85a",
     "numpy_reference/out/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "numpy_reference/out/gguf-llama-f16.safetensors": "df126758dae66b64eaf3f0dfc1768861eaca866d038942c4a8276d28fef80619",
+    "numpy_reference/out/gguf-llama-f32.safetensors": "c76ffe7f57bef34e8ada19b9e64db95b2c0de318931a2b41559f9eeef9e2878a",
+    "numpy_reference/out/gguf-llama-q4_0.safetensors": "f1384a73b3eef2deb1307ea4181e734a2bdd6522526e9cbb2c15fef10f229b8e",
+    "numpy_reference/out/gguf-llama-q4_1.safetensors": "ba3f4de6a52b21c44ccd468e80cfa60f9664d8187502adf284938bcc82f5dfe7",
+    "numpy_reference/out/gguf-llama-q8_0.safetensors": "06048dbc125fa75eac1d3830e6163719b0b1f475ca0297441a91e2045b3359cc",
+    "numpy_reference/out/gguf-qwen3-f16.safetensors": "10576e3cda51f80fe2a977c90eef9b5e7195ca379eba9016b0d01cded9bc114b",
+    "numpy_reference/out/gguf-qwen3-f32.safetensors": "4237e6ce46ae5d01cf28864291fd3b1e183ecaab6e20f63b3b32e4e35c619552",
+    "numpy_reference/out/gguf-qwen3-q4_0.safetensors": "c599a39709bcc5d502235fde2b541ef499cde36f3b708cd0e9f1d39f56d0fbd1",
+    "numpy_reference/out/gguf-qwen3-q4_1.safetensors": "37d113488374c7689f32b1bacdfdeadcf1ece37d19f014c28d8e3bf165821f81",
+    "numpy_reference/out/gguf-qwen3-q8_0.safetensors": "4719c635f5feffe8237187e811b0c82ef690b385876a9333120ef5eb8baf19e0",
     "numpy_reference/out/llama-base.safetensors": "bfa3544b599a01a1cd939e6163ec5721579e3d8eb49958b7d312424de57656ac",
     "numpy_reference/out/llama-quant4.safetensors": "a7f09de3ed852c5fc33e59db87e99d9831ac15731229f54138b75662c4906091",
     "numpy_reference/out/llama-sharded.safetensors": "bfa3544b599a01a1cd939e6163ec5721579e3d8eb49958b7d312424de57656ac",
@@ -61,6 +141,106 @@
   },
   "schema_version": 1,
   "tolerance_policies": {
+    "gguf-llama-f16": {
+      "cache": {
+        "atol": 0.005,
+        "rtol": 0.005
+      },
+      "logits": {
+        "atol": 0.005,
+        "rtol": 0.005
+      }
+    },
+    "gguf-llama-f32": {
+      "cache": {
+        "atol": 0.0002,
+        "rtol": 0.0002
+      },
+      "logits": {
+        "atol": 0.0002,
+        "rtol": 0.0002
+      }
+    },
+    "gguf-llama-q4_0": {
+      "cache": {
+        "atol": 0.02,
+        "rtol": 0.002
+      },
+      "logits": {
+        "atol": 0.02,
+        "rtol": 0.002
+      }
+    },
+    "gguf-llama-q4_1": {
+      "cache": {
+        "atol": 0.02,
+        "rtol": 0.002
+      },
+      "logits": {
+        "atol": 0.02,
+        "rtol": 0.002
+      }
+    },
+    "gguf-llama-q8_0": {
+      "cache": {
+        "atol": 0.02,
+        "rtol": 0.002
+      },
+      "logits": {
+        "atol": 0.02,
+        "rtol": 0.002
+      }
+    },
+    "gguf-qwen3-f16": {
+      "cache": {
+        "atol": 0.005,
+        "rtol": 0.005
+      },
+      "logits": {
+        "atol": 0.005,
+        "rtol": 0.005
+      }
+    },
+    "gguf-qwen3-f32": {
+      "cache": {
+        "atol": 0.0002,
+        "rtol": 0.0002
+      },
+      "logits": {
+        "atol": 0.0002,
+        "rtol": 0.0002
+      }
+    },
+    "gguf-qwen3-q4_0": {
+      "cache": {
+        "atol": 0.02,
+        "rtol": 0.002
+      },
+      "logits": {
+        "atol": 0.02,
+        "rtol": 0.002
+      }
+    },
+    "gguf-qwen3-q4_1": {
+      "cache": {
+        "atol": 0.02,
+        "rtol": 0.002
+      },
+      "logits": {
+        "atol": 0.02,
+        "rtol": 0.002
+      }
+    },
+    "gguf-qwen3-q8_0": {
+      "cache": {
+        "atol": 0.02,
+        "rtol": 0.002
+      },
+      "logits": {
+        "atol": 0.02,
+        "rtol": 0.002
+      }
+    },
     "llama-base": {
       "cache": {
         "atol": 0.0002,

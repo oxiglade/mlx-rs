@@ -1,5 +1,7 @@
 #[path = "parity/comparator.rs"]
 mod comparator;
+#[path = "parity/gguf.rs"]
+mod gguf;
 #[path = "parity/mutations.rs"]
 mod mutations;
 #[path = "parity/observation.rs"]
@@ -25,6 +27,16 @@ fn committed_fixture_layout_and_policies() -> Result<()> {
         if !path.is_dir() {
             continue;
         }
+        if path
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .starts_with("gguf-")
+        {
+            gguf::validate_fixture(&path)?;
+            count += 1;
+            continue;
+        }
         let fixture = reader::read(&path)?;
         ensure!(fixture.inputs.is_object(), "invalid inputs");
         ensure!(
@@ -39,6 +51,21 @@ fn committed_fixture_layout_and_policies() -> Result<()> {
         "fixture directory exists but contains no fixtures"
     );
     Ok(())
+}
+
+#[test]
+fn gguf_models_cpu() -> Result<()> {
+    gguf::run_all(mlx_rs::Device::cpu())
+}
+
+#[test]
+fn gguf_models_metal() -> Result<()> {
+    gguf::run_all(mlx_rs::Device::gpu())
+}
+
+#[test]
+fn gguf_mutation_qualification() -> Result<()> {
+    gguf::qualify_mutations()
 }
 
 #[test]

@@ -6240,6 +6240,25 @@
       "trigger": "Approve a separate CLI, distributed execution, or checkpoint-conversion product."
     }
   ],
+  "gguf_qualification": {
+    "capability": "mlx-lm 0.31.3 supplies the architecture and generation oracle and a Llama-family GGUF exporter; it does NOT supply a GGUF model loader. GGUF ingestion is qualified by Python MLX container conversion plus a reviewed reference bridge and independent NumPy decoding.",
+    "core_container_conversion": "Converted slots match independent raw-block NumPy derivation bit for bit; NumPy dequantization rounds affine multiply and addition in F16",
+    "core_save": "conformance/qualification/gguf-save.json",
+    "evidence": [
+      "conformance/mlx-lm/GGUF_BRIDGE.md",
+      "conformance/mlx-lm/gguf_cases.json",
+      "mlx-lm/tests/parity/gguf.rs"
+    ],
+    "python_numpy": "qualified; fixed f32-v1, gguf-f16-v1 and gguf-affine-v1 before Rust",
+    "real_compatibility": {
+      "llama": "NOT RUN: local-only TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF tinyllama-1.1b-chat-v1.0.Q4_0.gguf; release gate in 4b",
+      "qwen3": "NOT RUN: local-only ggml-org/Qwen3-0.6B-GGUF Qwen3-0.6B-Q8_0.gguf; release gate in 4b"
+    },
+    "rust_cpu": "not_run",
+    "rust_metal": "not_run",
+    "tiny_evidence_scope": "Self-consistency with our writer plus mapping, orientation and quantization arithmetic. Llama naming additionally matches the pinned upstream exporter. Neither architecture's tiny fixtures establish third-party compatibility.",
+    "tiny_fixtures": "python_numpy_qualified"
+  },
   "inventory_rule": "Public module definitions and package-owned reexports; root __all__; public class methods/properties. External dependency reexports excluded.",
   "schema_version": 1,
   "scope": [

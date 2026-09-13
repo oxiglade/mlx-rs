@@ -100,15 +100,42 @@ def coordinate(fixtures, numpy_dir, fixtures_root, oracle_dir=None):
     reports = {}
     for fixture in fixtures:
         try:
-            config = read_json(fixture / "config.json")
             expectations = read_json(fixture / "expectations.json")
+            is_gguf = expectations.get("source") == "gguf"
+            config = expectations["config"]["bridge"] if is_gguf else read_json(fixture / "config.json")
             shapes = expected_shapes(config, expectations["prefill"]["T"])
+            if is_gguf:
+                from numpy_reference.gguf import read
+                if not expectations["reference_qualified"]:
+                    raise ValueError("GGUF references not qualified")
+                policy, atol, rtol = {
+                    "f32": ("f32-v1", 2e-4, 2e-4),
+                    "f16": ("gguf-f16-v1", 5e-3, 5e-3),
+                    "q4_0": ("gguf-affine-v1", 2e-2, 2e-3),
+                    "q4_1": ("gguf-affine-v1", 2e-2, 2e-3),
+                    "q8_0": ("gguf-affine-v1", 2e-2, 2e-3),
+                }[expectations["gguf"]["storage"]]
+                if (expectations["tolerance_policy"] != policy or
+                        expectations["tolerances"] != {key: {"atol": atol, "rtol": rtol} for key in ("logits", "cache")}):
+                    raise ValueError("GGUF tolerance policy changed")
+                for chunk in (1, 3, 8):
+                    shapes[f"prefill.chunk{chunk}.logits"] = shapes["prefill.full.logits"]
+                converted = read_safetensors(fixture / "converted.safetensors")
+                independently_converted = read(fixture / "model.gguf")[3]
+                if converted.keys() != independently_converted.keys():
+                    raise ValueError("GGUF converted keys differ")
+                for key, value in converted.items():
+                    other = independently_converted[key]
+                    if value.dtype != other.dtype or value.shape != other.shape or value.tobytes() != other.tobytes():
+                        raise ValueError(f"GGUF converted array mismatch: {key}")
             oracle_path = (
                 oracle_dir / f"{fixture.name}.safetensors"
                 if oracle_dir is not None
                 else fixture / "expectations.safetensors"
             )
             oracle = read_safetensors(oracle_path)
+            if is_gguf and oracle.keys() != expectations["native_dtypes"].keys():
+                raise ValueError("missing native GGUF dtype observation")
             reference = read_safetensors(numpy_dir / f"{fixture.name}.safetensors")
             comparisons = compare_tensors(oracle, reference, shapes, expectations["tolerances"])
             reports[fixture.name] = {

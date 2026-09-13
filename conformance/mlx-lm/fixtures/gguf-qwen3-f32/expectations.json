@@ -1,0 +1,641 @@
+{
+  "cache": {
+    "after_decode": [
+      {
+        "offset": 16,
+        "retained_range": [
+          0,
+          16
+        ]
+      },
+      {
+        "offset": 16,
+        "retained_range": [
+          0,
+          16
+        ]
+      }
+    ],
+    "after_prefill": [
+      {
+        "offset": 8,
+        "retained_range": [
+          0,
+          8
+        ]
+      },
+      {
+        "offset": 8,
+        "retained_range": [
+          0,
+          8
+        ]
+      }
+    ]
+  },
+  "config": {
+    "bridge": {
+      "head_dim": 16,
+      "hidden_size": 64,
+      "intermediate_size": 64,
+      "max_position_embeddings": 128,
+      "model_type": "qwen3",
+      "num_attention_heads": 4,
+      "num_hidden_layers": 2,
+      "num_key_value_heads": 2,
+      "rms_norm_eps": 9.999999747378752e-06,
+      "rope_scaling": null,
+      "rope_theta": 10000.0,
+      "tie_word_embeddings": false,
+      "vocab_size": 64
+    },
+    "quantization": {},
+    "resolved": {
+      "attention_heads": 4,
+      "attention_kinds": [
+        "full",
+        "full"
+      ],
+      "head_dim": 16,
+      "hidden_size": 64,
+      "intermediate_size": 64,
+      "kv_heads": 2,
+      "layer_count": 2,
+      "quantization": null,
+      "rms_norm_epsilon": 9.999999747378752e-06,
+      "rope": {
+        "dimensions": 16,
+        "scaling": null,
+        "theta": 10000.0,
+        "traditional": false
+      },
+      "tie_word_embeddings": false,
+      "vocabulary_size": 64
+    }
+  },
+  "converted_mutations": {},
+  "decode": {
+    "greedy_ids": [
+      24,
+      15,
+      15,
+      15,
+      15,
+      15,
+      15,
+      15
+    ]
+  },
+  "gguf": {
+    "architecture": "qwen3",
+    "metadata": {
+      "general.alignment": 32,
+      "general.architecture": "qwen3",
+      "general.file_type": 1,
+      "qwen3.attention.head_count": 4,
+      "qwen3.attention.head_count_kv": 2,
+      "qwen3.attention.key_length": 16,
+      "qwen3.attention.layer_norm_rms_epsilon": 9.999999747378752e-06,
+      "qwen3.attention.value_length": 16,
+      "qwen3.block_count": 2,
+      "qwen3.context_length": 128,
+      "qwen3.embedding_length": 64,
+      "qwen3.feed_forward_length": 64,
+      "qwen3.rope.dimension_count": 16,
+      "qwen3.rope.freq_base": 10000.0,
+      "qwen3.rope.scaling.type": "none",
+      "tokenizer.ggml.eos_token_id": 8
+    },
+    "metadata_types": {
+      "general.alignment": 4,
+      "general.architecture": 8,
+      "general.file_type": 4,
+      "qwen3.attention.head_count": 4,
+      "qwen3.attention.head_count_kv": 4,
+      "qwen3.attention.key_length": 4,
+      "qwen3.attention.layer_norm_rms_epsilon": 6,
+      "qwen3.attention.value_length": 4,
+      "qwen3.block_count": 4,
+      "qwen3.context_length": 4,
+      "qwen3.embedding_length": 4,
+      "qwen3.feed_forward_length": 4,
+      "qwen3.rope.dimension_count": 4,
+      "qwen3.rope.freq_base": 6,
+      "qwen3.rope.scaling.type": 8,
+      "tokenizer.ggml.eos_token_id": 4
+    },
+    "orientation_d16": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "storage": "f32",
+    "tensor_types": {
+      "blk.0.attn_k.weight": 0,
+      "blk.0.attn_k_norm.weight": 0,
+      "blk.0.attn_norm.weight": 0,
+      "blk.0.attn_output.weight": 0,
+      "blk.0.attn_q.weight": 0,
+      "blk.0.attn_q_norm.weight": 0,
+      "blk.0.attn_v.weight": 0,
+      "blk.0.ffn_down.weight": 0,
+      "blk.0.ffn_gate.weight": 0,
+      "blk.0.ffn_norm.weight": 0,
+      "blk.0.ffn_up.weight": 0,
+      "blk.1.attn_k.weight": 0,
+      "blk.1.attn_k_norm.weight": 0,
+      "blk.1.attn_norm.weight": 0,
+      "blk.1.attn_output.weight": 0,
+      "blk.1.attn_q.weight": 0,
+      "blk.1.attn_q_norm.weight": 0,
+      "blk.1.attn_v.weight": 0,
+      "blk.1.ffn_down.weight": 0,
+      "blk.1.ffn_gate.weight": 0,
+      "blk.1.ffn_norm.weight": 0,
+      "blk.1.ffn_up.weight": 0,
+      "output.weight": 0,
+      "output_norm.weight": 0,
+      "token_embd.weight": 0
+    },
+    "tokenizer_files": {
+      "config.json": {
+        "path": "../qwen3-base/config.json",
+        "sha256": "bc2491361ab9b3dee4404074b0096bc72d9a6dec4ae27264da9aad97344cc0e6"
+      },
+      "generation_config.json": {
+        "path": "../qwen3-base/generation_config.json",
+        "sha256": "ca1aa316922a741baa628a351e7e7ee8caf0d3bd9a3f76128077a33039690438"
+      },
+      "tokenizer.json": {
+        "path": "../qwen3-base/tokenizer.json",
+        "sha256": "d3f6e27c58186b601192ffef2c870af3877a3ec271c53468a3368977e07f75ba"
+      },
+      "tokenizer_config.json": {
+        "path": "../qwen3-base/tokenizer_config.json",
+        "sha256": "320ed7a8112d4f659f3ca9306141e8359b517decd9469117aaaaa04c1f8fb85a"
+      }
+    }
+  },
+  "mutations": {
+    "permute_qwen3": {
+      "class": "value",
+      "failed_tensors": [
+        "prefill.full.logits",
+        "cache.after_prefill.layer0.keys",
+        "cache.after_prefill.layer1.keys",
+        "cache.after_prefill.layer1.values",
+        "decode.step0.logits",
+        "decode.step1.logits",
+        "decode.step2.logits",
+        "decode.step3.logits",
+        "decode.step4.logits",
+        "decode.step5.logits",
+        "decode.step6.logits",
+        "decode.step7.logits",
+        "cache.after_decode.layer0.keys",
+        "cache.after_decode.layer0.values",
+        "cache.after_decode.layer1.keys",
+        "cache.after_decode.layer1.values",
+        "prefill.chunk1.logits",
+        "prefill.chunk3.logits",
+        "prefill.chunk8.logits"
+      ],
+      "greedy_ids": [
+        24,
+        3,
+        41,
+        47,
+        18,
+        39,
+        23,
+        3
+      ],
+      "margin": 7947.477618507906,
+      "max_abs": 2.307897448539734,
+      "witness": "prefill.full.logits"
+    },
+    "swap_gate_up": {
+      "class": "value",
+      "failed_tensors": [
+        "prefill.full.logits",
+        "cache.after_prefill.layer1.keys",
+        "cache.after_prefill.layer1.values",
+        "decode.step0.logits",
+        "decode.step1.logits",
+        "decode.step2.logits",
+        "decode.step3.logits",
+        "decode.step4.logits",
+        "decode.step5.logits",
+        "decode.step6.logits",
+        "decode.step7.logits",
+        "cache.after_decode.layer0.keys",
+        "cache.after_decode.layer0.values",
+        "cache.after_decode.layer1.keys",
+        "cache.after_decode.layer1.values",
+        "prefill.chunk1.logits",
+        "prefill.chunk3.logits",
+        "prefill.chunk8.logits"
+      ],
+      "greedy_ids": [
+        10,
+        22,
+        34,
+        4,
+        12,
+        3,
+        4,
+        12
+      ],
+      "margin": 7809.301690679722,
+      "max_abs": 2.403314471244812,
+      "witness": "prefill.full.logits"
+    },
+    "swap_qk_norm": {
+      "class": "cache_value",
+      "failed_tensors": [
+        "prefill.full.logits",
+        "cache.after_prefill.layer0.keys",
+        "cache.after_prefill.layer1.keys",
+        "cache.after_prefill.layer1.values",
+        "decode.step0.logits",
+        "decode.step1.logits",
+        "decode.step2.logits",
+        "decode.step3.logits",
+        "decode.step4.logits",
+        "decode.step5.logits",
+        "decode.step6.logits",
+        "decode.step7.logits",
+        "cache.after_decode.layer0.keys",
+        "cache.after_decode.layer1.keys",
+        "cache.after_decode.layer1.values",
+        "prefill.chunk1.logits",
+        "prefill.chunk3.logits",
+        "prefill.chunk8.logits"
+      ],
+      "greedy_ids": [
+        24,
+        15,
+        15,
+        15,
+        15,
+        15,
+        15,
+        15
+      ],
+      "margin": 4252.845154129614,
+      "max_abs": 2.0008902549743652,
+      "witness": "cache.after_prefill.layer0.keys"
+    }
+  },
+  "native_dtypes": {
+    "cache.after_decode.layer0.keys": "float32",
+    "cache.after_decode.layer0.values": "float32",
+    "cache.after_decode.layer1.keys": "float32",
+    "cache.after_decode.layer1.values": "float32",
+    "cache.after_prefill.layer0.keys": "float32",
+    "cache.after_prefill.layer0.values": "float32",
+    "cache.after_prefill.layer1.keys": "float32",
+    "cache.after_prefill.layer1.values": "float32",
+    "decode.step0.logits": "float32",
+    "decode.step1.logits": "float32",
+    "decode.step2.logits": "float32",
+    "decode.step3.logits": "float32",
+    "decode.step4.logits": "float32",
+    "decode.step5.logits": "float32",
+    "decode.step6.logits": "float32",
+    "decode.step7.logits": "float32",
+    "prefill.chunk1.logits": "float32",
+    "prefill.chunk3.logits": "float32",
+    "prefill.chunk8.logits": "float32",
+    "prefill.full.logits": "float32"
+  },
+  "prefill": {
+    "T": 8,
+    "prompt": "canonical",
+    "token_ids": [
+      12,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20
+    ]
+  },
+  "provenance": {
+    "arch": "arm64",
+    "base": "qwen3-base",
+    "base_model_sha256": "fe98a08008b8e38c1b037c60355d8b7a14f71925cd36fb6f1b672b5446b53944",
+    "capability": "mlx-lm 0.31.3 supplies the architecture and generation oracle and a Llama-family GGUF exporter; it does NOT supply a GGUF model loader. GGUF ingestion is qualified by Python MLX container conversion plus a reviewed reference bridge and independent NumPy decoding.",
+    "mlx": "0.32.2",
+    "mlx-metal": "0.32.2",
+    "mlx_lm": "0.31.3",
+    "mlx_lm_wheel_sha256": "758cfddf1180053b7613db76fad3d246a331a2a905808e1164a275621fc983b8",
+    "model_sha256": "42b3a69c4983b0ca58a35c3cacacaa9d9b0d69e20c72b355203e3c7aac5e9887",
+    "numpy": "2.2.6",
+    "packages": {
+      "annotated-doc": "0.0.5",
+      "anyio": "4.15.1",
+      "certifi": "2026.7.22",
+      "click": "8.5.0",
+      "filelock": "3.32.6",
+      "fsspec": "2026.7.0",
+      "h11": "0.16.0",
+      "hf-xet": "1.6.0",
+      "httpcore": "1.0.9",
+      "httpx": "0.28.1",
+      "huggingface-hub": "1.31.0",
+      "idna": "3.19",
+      "jinja2": "3.1.6",
+      "markdown-it-py": "4.2.0",
+      "markupsafe": "3.0.3",
+      "mdurl": "0.1.2",
+      "mlx": "0.32.2",
+      "mlx-lm": "0.31.3",
+      "mlx-metal": "0.32.2",
+      "numpy": "2.2.6",
+      "packaging": "26.3",
+      "protobuf": "7.36.1",
+      "pygments": "2.21.0",
+      "pyyaml": "6.0.3",
+      "regex": "2026.9.10",
+      "rich": "15.0.0",
+      "safetensors": "0.8.0",
+      "sentencepiece": "0.2.2",
+      "shellingham": "1.5.4",
+      "tokenizers": "0.23.2",
+      "tqdm": "4.70.1",
+      "transformers": "5.17.0",
+      "typer": "0.27.2",
+      "typing-extensions": "4.16.0"
+    },
+    "python": "3.12.14",
+    "reference_agreement": {
+      "greedy_ids_equal": true,
+      "keys": {
+        "cache.after_decode.layer0.keys": {
+          "margin": 0.0010495559014114357,
+          "max_abs": 7.152557373046875e-07,
+          "max_rel": 4.655132283342385e-05,
+          "passed": true,
+          "rel_to_peak": 1.6419579363215873e-07
+        },
+        "cache.after_decode.layer0.values": {
+          "margin": 0.0013617572933167334,
+          "max_abs": 4.76837158203125e-07,
+          "max_rel": 6.333613595734944e-06,
+          "passed": true,
+          "rel_to_peak": 1.2522927915647562e-07
+        },
+        "cache.after_decode.layer1.keys": {
+          "margin": 0.009127113159212169,
+          "max_abs": 2.682209014892578e-06,
+          "max_rel": 0.00011925486244919082,
+          "passed": true,
+          "rel_to_peak": 8.258911365363227e-07
+        },
+        "cache.after_decode.layer1.values": {
+          "margin": 0.005773717130887331,
+          "max_abs": 1.7285346984863281e-06,
+          "max_rel": 0.0004065247217846435,
+          "passed": true,
+          "rel_to_peak": 5.32654278719984e-07
+        },
+        "cache.after_prefill.layer0.keys": {
+          "margin": 0.0010023314228896412,
+          "max_abs": 7.152557373046875e-07,
+          "max_rel": 4.655132283342385e-05,
+          "passed": true,
+          "rel_to_peak": 1.6419579363215873e-07
+        },
+        "cache.after_prefill.layer0.values": {
+          "margin": 0.0013617572933167334,
+          "max_abs": 4.76837158203125e-07,
+          "max_rel": 6.333613595734944e-06,
+          "passed": true,
+          "rel_to_peak": 1.2522927915647562e-07
+        },
+        "cache.after_prefill.layer1.keys": {
+          "margin": 0.009127113159212169,
+          "max_abs": 2.682209014892578e-06,
+          "max_rel": 0.00011500189652250405,
+          "passed": true,
+          "rel_to_peak": 8.258911365363227e-07
+        },
+        "cache.after_prefill.layer1.values": {
+          "margin": 0.005773717130887331,
+          "max_abs": 1.7285346984863281e-06,
+          "max_rel": 0.0004065247217846435,
+          "passed": true,
+          "rel_to_peak": 5.32654278719984e-07
+        },
+        "decode.step0.logits": {
+          "margin": 0.006595704876984108,
+          "max_abs": 1.6391277313232422e-06,
+          "max_rel": 5.422985753245586e-05,
+          "passed": true,
+          "rel_to_peak": 6.335443243275123e-07
+        },
+        "decode.step1.logits": {
+          "margin": 0.008003935649500797,
+          "max_abs": 1.6689300537109375e-06,
+          "max_rel": 3.920585735508885e-05,
+          "passed": true,
+          "rel_to_peak": 4.605092587689022e-07
+        },
+        "decode.step2.logits": {
+          "margin": 0.005880068707426833,
+          "max_abs": 1.430511474609375e-06,
+          "max_rel": 8.7188519015816e-05,
+          "passed": true,
+          "rel_to_peak": 3.8820194757035076e-07
+        },
+        "decode.step3.logits": {
+          "margin": 0.0046079103190062075,
+          "max_abs": 1.1920928955078125e-06,
+          "max_rel": 2.738633387706617e-05,
+          "passed": true,
+          "rel_to_peak": 3.2398208715999374e-07
+        },
+        "decode.step4.logits": {
+          "margin": 0.0032889481398270374,
+          "max_abs": 1.430511474609375e-06,
+          "max_rel": 5.2792295659084026e-05,
+          "passed": true,
+          "rel_to_peak": 3.900725495934989e-07
+        },
+        "decode.step5.logits": {
+          "margin": 0.007067887471456777,
+          "max_abs": 1.430511474609375e-06,
+          "max_rel": 0.00011941308468875476,
+          "passed": true,
+          "rel_to_peak": 3.911156770244962e-07
+        },
+        "decode.step6.logits": {
+          "margin": 0.0036690213572160763,
+          "max_abs": 1.9073486328125e-06,
+          "max_rel": 6.8238890708592645e-06,
+          "passed": true,
+          "rel_to_peak": 5.536042543379737e-07
+        },
+        "decode.step7.logits": {
+          "margin": 0.003709775369391608,
+          "max_abs": 1.1920928955078125e-06,
+          "max_rel": 2.954117023653246e-05,
+          "passed": true,
+          "rel_to_peak": 3.768875659967817e-07
+        },
+        "prefill.chunk1.logits": {
+          "margin": 0.004535989322775969,
+          "max_abs": 1.430511474609375e-06,
+          "max_rel": 0.0008388902680168805,
+          "passed": true,
+          "rel_to_peak": 4.525045561552498e-07
+        },
+        "prefill.chunk3.logits": {
+          "margin": 0.0050353195624362225,
+          "max_abs": 1.5497207641601562e-06,
+          "max_rel": 0.0005518002483101117,
+          "passed": true,
+          "rel_to_peak": 4.902132321975671e-07
+        },
+        "prefill.chunk8.logits": {
+          "margin": 0.00882128221301354,
+          "max_abs": 2.5331974029541016e-06,
+          "max_rel": 0.0012146590121432923,
+          "passed": true,
+          "rel_to_peak": 8.013100306594415e-07
+        },
+        "prefill.full.logits": {
+          "margin": 0.00882128221301354,
+          "max_abs": 2.5331974029541016e-06,
+          "max_rel": 0.0012146590121432923,
+          "passed": true,
+          "rel_to_peak": 8.013100306594415e-07
+        }
+      },
+      "margin": 0.009127113159212169,
+      "max_abs": 2.682209014892578e-06,
+      "max_rel": 0.0012146590121432923,
+      "numpy_greedy_ids": [
+        24,
+        15,
+        15,
+        15,
+        15,
+        15,
+        15,
+        15
+      ],
+      "passed": true,
+      "python_greedy_ids": [
+        24,
+        15,
+        15,
+        15,
+        15,
+        15,
+        15,
+        15
+      ]
+    },
+    "requirements_lock_sha256": "94537fca297d4e6dacb5ea901cd5dd7ef0e297a6e1ec426c1922c74fa0f5cf6d",
+    "sources": {
+      "generate_gguf.py": "8ea1f2ec1131bcaaa43c2d01dd5be3a23074796ef9ebc171c656ff6ade3ce08c",
+      "gguf_bridge.py": "a41de6a6538ba2c7cb2a4a2201fde4ed609edd789dca25372a03b6050298f384",
+      "gguf_cases.json": "f3c6aa8d5b07fa33f987753c3ae315f54d5c0784cd293804328ca2e5938abab6",
+      "gguf_recipes.py": "8ed694b9bc6a0b9771981dfdc08635427b3a450dc9159bd0d2c419159ae1f36c",
+      "gguf_writer.py": "348f914ca4a14742ef9df314754e8ee0cbf67e41ec59eb2a37fbc507c130dfb2",
+      "numpy_reference/common.py": "7e1114503baa8dea080a8f91425244110136bcdb12000e214401cfa3fa07ff68",
+      "numpy_reference/gguf.py": "c2f920d81ba7bf8042bc9e3b419dabc666618150976decdf91b30937ea1f2894",
+      "numpy_reference/llama.py": "646a17486391fb146117526602f43bd84088637d0093bb32775de4a319a01e63",
+      "numpy_reference/qwen3.py": "e2d6bcc88fe5dca500589e2a411326013574fb8896a73ccbb8aafd5bb737f114"
+    },
+    "transformers": "5.17.0",
+    "transformers_major": 5,
+    "upstream_commit": "ed1fca4cef15a824c5f1702c80f70b4cffc8e4dd",
+    "upstream_sources": {
+      "mlx.nn.layers.quantized": "1797a3571484ad3134224354b7f130c0931f495691aa8e54eb55329d674bb00b",
+      "mlx_lm.gguf": "56b35b6f5942ff184ce9e756c94cb0e6a1d85e094f5f52ed6232d8c48cb2247b",
+      "mlx_lm.models.base": "61330e1c065739cd712bfeb09d673f33797cde7e613e95bf6d9ebbee9006f373",
+      "mlx_lm.models.cache": "819ed95dcbf755652363cfdb15a639890447abb534a06dcefd52c7fff5055750",
+      "mlx_lm.models.qwen3": "2284df96ecb669109b281df4534470b18f285aa9a5e41735ad682f601f93c639",
+      "mlx_lm.models.rope_utils": "9f68c938c040fa111d13f2ed95c70e8261515fb3b54f8a0a474c096baf4e087a"
+    }
+  },
+  "reference_qualified": true,
+  "schema_version": 1,
+  "source": "gguf",
+  "tokenizer": {
+    "bos_token_id": null,
+    "encodings": {
+      "canonical": [
+        12,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20
+      ],
+      "repeated": [
+        12,
+        12,
+        13,
+        12,
+        13
+      ],
+      "special": [
+        7,
+        23,
+        12,
+        8
+      ],
+      "special_with_defaults": [
+        7,
+        23,
+        12,
+        8
+      ],
+      "unicode": [
+        29,
+        30
+      ],
+      "whitespace": [
+        12,
+        13,
+        21
+      ]
+    },
+    "eos_tokens": [
+      8,
+      9
+    ]
+  },
+  "tolerance_policy": "f32-v1",
+  "tolerances": {
+    "cache": {
+      "atol": 0.0002,
+      "rtol": 0.0002
+    },
+    "logits": {
+      "atol": 0.0002,
+      "rtol": 0.0002
+    }
+  }
+}

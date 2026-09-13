@@ -35,7 +35,7 @@ pub fn expectations(fixture: &Fixture) -> Result<Expectations> {
     Ok(expected)
 }
 
-fn normalize_config_floats(value: &mut Value) {
+pub(super) fn normalize_config_floats(value: &mut Value) {
     match value {
         Value::Number(number) if number.is_f64() => *value = json!(number.as_f64().unwrap() as f32),
         Value::Object(fields) => fields.values_mut().for_each(normalize_config_floats),
@@ -44,7 +44,7 @@ fn normalize_config_floats(value: &mut Value) {
     }
 }
 
-fn config(config: &Config) -> Value {
+pub(super) fn config(config: &Config) -> Value {
     let d = &config.dimensions;
     let rope = &config.rope;
     let scaling = match rope.scaling {
