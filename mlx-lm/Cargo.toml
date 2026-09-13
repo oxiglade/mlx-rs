@@ -40,3 +40,11 @@ required-features = ["oracle-hooks"]
 name = "sentinel"
 path = "tests/sentinel.rs"
 required-features = ["oracle-hooks"]
+
+[[test]]
+name = "generation_ffi"
+path = "tests/generation_ffi.rs"
+
+[[example]]
+name = "worker"
+path = "examples/worker.rs"
