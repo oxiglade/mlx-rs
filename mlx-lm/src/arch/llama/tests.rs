@@ -164,7 +164,7 @@ fn mutated_weights(
     let shards: BTreeSet<_> = manifest
         .tensors
         .values()
-        .map(|entry| &entry.shard)
+        .filter_map(crate::weights::WeightEntry::safetensors_shard)
         .collect();
     let bytes = shards
         .into_iter()
