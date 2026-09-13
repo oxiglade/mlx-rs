@@ -745,12 +745,21 @@ fn metal_distribution_and_filtered_support() -> TestResult {
                 ..Default::default()
             },
         ];
+        // Guard Malloc gives every allocation its own page, so the full draw count takes hours;
+        // the bound below scales with the count, so a smaller sample stays a valid guard.
+        let draws: usize = if std::env::var("DYLD_INSERT_LIBRARIES")
+            .is_ok_and(|value| value.contains("libgmalloc"))
+        {
+            1_024
+        } else {
+            16_384
+        };
         for (variant, options) in variants.into_iter().enumerate() {
             let sampler = SamplingEngine::new(options, 3, None, None, None)?;
             let mut rng = None;
             let mut counts = [0usize; 3];
             let mut probabilities = Vec::new();
-            for draw in 0..16_384 {
+            for draw in 0..draws {
                 let pending = sampler.sample(&[], row.clone(), rng.as_ref(), draw == 0)?;
                 if let Some(filtered) = &pending.filtered_logprobs {
                     probabilities = values(filtered).into_iter().map(f32::exp).collect();
@@ -775,7 +784,7 @@ fn metal_distribution_and_filtered_support() -> TestResult {
                     assert_eq!(observed, 0);
                 } else {
                     let p = f64::from(probability);
-                    let expected = 16_384.0 * p;
+                    let expected = draws as f64 * p;
                     assert!(
                         (observed as f64 - expected).abs()
                             <= 8.0 * (expected * (1.0 - p)).sqrt() + 8.0
