@@ -1,5 +1,263 @@
 {
+  "cohorts": {
+    "cli_contract_v1": {
+      "argument_failures": 21,
+      "evidence": "wire_contract; public Text capture status is explicit",
+      "file": "cli_cases.json",
+      "info_cases": 1,
+      "public_text_captures": 0,
+      "writer_cases": 2
+    },
+    "hub_contract_v1": {
+      "cases": 23,
+      "evidence": "reviewed_rust_product_contract",
+      "file": "hub_cases.json"
+    }
+  },
+  "contract_comparator_qualification": [
+    {
+      "class": "hub_transport",
+      "name": "online_single_snapshot"
+    },
+    {
+      "class": "hub_transport",
+      "name": "online_indexed_snapshot"
+    },
+    {
+      "class": "hub_transport",
+      "name": "moving_ref_pinned_after_info"
+    },
+    {
+      "class": "error_class",
+      "name": "server_returns_different_commit"
+    },
+    {
+      "class": "error_class",
+      "name": "requested_sha_not_honored"
+    },
+    {
+      "class": "hub_transport",
+      "name": "wrong_repository_blob"
+    },
+    {
+      "class": "error_class",
+      "name": "wrong_repository_blob_accepted_corruption"
+    },
+    {
+      "class": "hub_transport",
+      "name": "wrong_repository_blob_client_constructed"
+    },
+    {
+      "class": "hub_transport",
+      "name": "snapshot_directory_escape"
+    },
+    {
+      "class": "error_class",
+      "name": "snapshot_directory_escape_accepted_corruption"
+    },
+    {
+      "class": "hub_transport",
+      "name": "snapshot_directory_escape_client_constructed"
+    },
+    {
+      "class": "hub_transport",
+      "name": "wrong_snapshot_file"
+    },
+    {
+      "class": "error_class",
+      "name": "wrong_snapshot_file_accepted_corruption"
+    },
+    {
+      "class": "hub_transport",
+      "name": "wrong_snapshot_file_client_constructed"
+    },
+    {
+      "class": "hub_transport",
+      "name": "missing_shard_link"
+    },
+    {
+      "class": "error_class",
+      "name": "missing_shard_link_accepted_corruption"
+    },
+    {
+      "class": "hub_transport",
+      "name": "missing_shard_link_client_constructed"
+    },
+    {
+      "class": "hub_transport",
+      "name": "broken_shard_link"
+    },
+    {
+      "class": "error_class",
+      "name": "broken_shard_link_accepted_corruption"
+    },
+    {
+      "class": "hub_transport",
+      "name": "broken_shard_link_client_constructed"
+    },
+    {
+      "class": "error_class",
+      "name": "duplicate_index_entry"
+    },
+    {
+      "class": "error_class",
+      "name": "traversing_index_entry"
+    },
+    {
+      "class": "hub_transport",
+      "name": "recorded_absence_appears_generation_config.json"
+    },
+    {
+      "class": "error_class",
+      "name": "recorded_absence_appears_generation_config.json_accepted_corruption"
+    },
+    {
+      "class": "hub_transport",
+      "name": "recorded_absence_appears_generation_config.json_client_constructed"
+    },
+    {
+      "class": "hub_transport",
+      "name": "recorded_absence_appears_tokenizer_config.json"
+    },
+    {
+      "class": "error_class",
+      "name": "recorded_absence_appears_tokenizer_config.json_accepted_corruption"
+    },
+    {
+      "class": "hub_transport",
+      "name": "recorded_absence_appears_tokenizer_config.json_client_constructed"
+    },
+    {
+      "class": "hub_transport",
+      "name": "recorded_absence_appears_model.safetensors.index.json"
+    },
+    {
+      "class": "error_class",
+      "name": "recorded_absence_appears_model.safetensors.index.json_accepted_corruption"
+    },
+    {
+      "class": "hub_transport",
+      "name": "recorded_absence_appears_model.safetensors.index.json_client_constructed"
+    },
+    {
+      "class": "hub_transport",
+      "name": "hash_changed"
+    },
+    {
+      "class": "error_class",
+      "name": "hash_changed_accepted_corruption"
+    },
+    {
+      "class": "hub_transport",
+      "name": "hash_changed_client_constructed"
+    },
+    {
+      "class": "hub_transport",
+      "name": "unreceipted_cache"
+    },
+    {
+      "class": "error_class",
+      "name": "unreceipted_cache_accepted_corruption"
+    },
+    {
+      "class": "hub_transport",
+      "name": "unreceipted_cache_client_constructed"
+    },
+    {
+      "class": "hub_transport",
+      "name": "public_offline_sha_without_refs_entry"
+    },
+    {
+      "class": "hub_transport",
+      "name": "public_offline_sha_without_refs_entry_client_constructed"
+    },
+    {
+      "class": "hub_transport",
+      "name": "public_offline_named_ref"
+    },
+    {
+      "class": "hub_transport",
+      "name": "public_offline_named_ref_client_constructed"
+    },
+    {
+      "class": "hub_transport",
+      "name": "offline_missing_ref"
+    },
+    {
+      "class": "error_class",
+      "name": "offline_missing_ref_accepted_corruption"
+    },
+    {
+      "class": "hub_transport",
+      "name": "offline_missing_ref_client_constructed"
+    },
+    {
+      "class": "error_class",
+      "name": "online_failure_no_fallback_info"
+    },
+    {
+      "class": "error_class",
+      "name": "online_failure_no_fallback_download_config.json"
+    },
+    {
+      "class": "hub_transport",
+      "name": "public_offline_local_load_error"
+    },
+    {
+      "class": "error_class",
+      "name": "public_offline_local_load_error_accepted_corruption"
+    },
+    {
+      "class": "hub_transport",
+      "name": "public_offline_local_load_error_client_constructed"
+    },
+    {
+      "class": "output_count",
+      "name": "drop_empty_token"
+    },
+    {
+      "class": "finish_reason",
+      "name": "change_finish_reason"
+    },
+    {
+      "class": "sampled_id",
+      "name": "change_token_id"
+    },
+    {
+      "class": "stdout",
+      "name": "diagnostics_on_stdout"
+    },
+    {
+      "class": "stdout",
+      "name": "extra_text_newline"
+    },
+    {
+      "class": "config",
+      "name": "changed_info_dimension"
+    },
+    {
+      "class": "exit_code",
+      "name": "accept_zero_positive_flag"
+    },
+    {
+      "class": "hub_provenance",
+      "name": "changed_provenance"
+    },
+    {
+      "class": "hub_selection",
+      "name": "changed_selected_files"
+    },
+    {
+      "class": "hub_integrity",
+      "name": "changed_recorded_absences"
+    },
+    {
+      "class": "hub_integrity",
+      "name": "changed_receipt"
+    }
+  ],
   "files": {
+    "cli_cases.json": "9f8b7cbe11d428fa78ad2e1c3c6f65d2acb3e7ddd2c7e9e91655b550f5fa2c2c",
     "fixtures/gguf-llama-f16/converted.safetensors": "61337c0f692aa028ea78295c9d1b86a98dfc08e354db4623ddcaf4f8d04caad7",
     "fixtures/gguf-llama-f16/expectations.json": "597a5bf633aecff7a25d0bf53d4c1655b01a416f82e61b5f3e3ed9b319c66c22",
     "fixtures/gguf-llama-f16/expectations.safetensors": "1768b68b3330d80a5819c80c54c2e8377ca7f3ca3a9df10ec8c546946e3a986d",
@@ -121,6 +379,7 @@
     "fixtures/qwen3-quant4/model.safetensors": "b9b791fa736d7c30dcc2f6be2bd7561ee6fa7188561b1280b6d20d941826c4bc",
     "fixtures/qwen3-quant4/tokenizer.json": "d3f6e27c58186b601192ffef2c870af3877a3ec271c53468a3368977e07f75ba",
     "fixtures/qwen3-quant4/tokenizer_config.json": "320ed7a8112d4f659f3ca9306141e8359b517decd9469117aaaaa04c1f8fb85a",
+    "hub_cases.json": "e3d65237a2abb7753a5c4412d053f0009ed248d8174c9004df9d1a6d3b3f76e2",
     "numpy_reference/out/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "numpy_reference/out/gguf-llama-f16.safetensors": "df126758dae66b64eaf3f0dfc1768861eaca866d038942c4a8276d28fef80619",
     "numpy_reference/out/gguf-llama-f32.safetensors": "c76ffe7f57bef34e8ada19b9e64db95b2c0de318931a2b41559f9eeef9e2878a",

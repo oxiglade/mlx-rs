@@ -281,3 +281,142 @@ Llama naming is additionally qualified against its pinned upstream exporter.
 Real compatibility evidence is local-only: TinyLlama Q4_0 and
 ggml-org/Qwen3-0.6B-GGUF Q8_0, paired with pinned original tokenizer assets.
 Those release entries remain distinct from the tiny-fixture evidence.
+
+## Tranche 4b Hub and CLI additions
+
+`hub_contract_v1` and `cli_contract_v1` are separate, version-1 cohorts in
+`corpus.json`. They add no safetensors model cases or numerical tolerances.
+`generate_contracts.py` records SHA-256 identities of its source, companion tests,
+the existing pinned manifest/lock and fixture inputs in each cohort's provenance.
+The old manifest and old fixture bytes are preserved. The corpus also records
+named comparator mutations and their observed failure classes.
+
+### Hub logical snapshot plans
+
+`hub_cases.json` contains reviewed Rust product contracts. These are **not Python
+parity claims**. Commit strings identify synthetic transport responses, not remote
+repositories. Each case provides the request, returned full commit, sorted sibling
+set, selected files, recorded absences, fixture basis, cache setup and mutations,
+and the exact expected transport log, receipt, provenance or typed error.
+`setup.refs` is the logical ref map; an immutable SHA needs no entry. Online
+requests call `info` once, then download by the returned SHA. The reviewed order
+fetches the index first when present, then the remaining selected names in sorted
+order. An invalid index stops before downloading its referenced shards; its
+`selected_files` records only the index selected so far.
+
+Materializers copy only selected assets from `fixtures/<fixture>/`, create the
+same-repository blob links, and apply `setup.mutations` in listed order at their
+named boundary. `copy_fixture_file` copies the named asset from its fixture;
+`set_json` uses sorted, two-space-indented UTF-8 JSON with a terminal newline,
+as `generate_contracts.serialized` does. `flip_byte` XORs the byte at `offset`
+with 1, without changing size. `replace_bytes` uses exactly the supplied UTF-8.
+`before_receipt` mutations precede receipt creation; `before_validation` mutations
+follow it. Download mutations alter the result of the indicated call. A transport
+error is an injected `HubError::Api`; no dependency message bytes are frozen.
+
+`same_repository_blob_links` means each selected basename points to a blob in
+this repository's canonical `blobs` directory. The negative link operations
+instead target another repository's blob, another snapshot's regular file, or a
+missing blob. `link_snapshot_directory_outside_cache` replaces the snapshot
+directory with a symlink to a directory outside the cache. `remove_file` removes
+the snapshot link. Tests use fresh temporary roots; none of these operations
+address the user's actual cache. The `snapshot/` path symbol expands to the
+case's canonical snapshot. Error observations normalize only this temporary-root
+prefix. Other paths, including the relative shard names in `ConflictingIndex`,
+remain exact. String tuple payloads use `fields.value`; structured errors use
+their public field names. Duplicate and traversing index entries preserve the
+shared parser's `HubError::Load(LoadError::Weights(ConflictingIndex))` chain.
+
+Receipts contain sorted selected relative paths, byte sizes, SHA-256 hashes,
+weight mode and explicit absences. Single-file snapshots also record index
+absence because a new index changes local discovery. Receipt serialization is a
+logical contract; the private on-disk serializer need not use this JSON layout.
+`SnapshotIntegrity.reason` is a nonempty local diagnostic, excluded from the
+normalized typed observation; it is not a dependency-string golden. Unsafe paths
+normalize the offending snapshot entry, including when its target escapes.
+On failure, `expected.receipt` describes the existing receipt, or null when no
+online completion was committed; it never authorizes returning a model.
+`provenance` is null for every error. The local-load-error case rehashes its
+modified config before validation, so it tests error preservation after successful
+snapshot validation rather than failing early on a stale hash.
+
+`compare_hub(expected, actual)` consumes the normalized observation and returns
+one named failure class or null. Precedence is `hub_transport` (calls and client
+construction), `error_class`, `hub_provenance`, `hub_selection`, `hub_integrity`
+(absences and receipt). Every offline case requires zero client constructions
+and an empty transport log, including offline failures. Anonymous-client testing
+must separately inspect the configured Authorization header; the contract makes
+no claim that hf-hub never discovers a token file. These goldens and comparator
+mutations do not themselves execute the production resolver or its filesystem
+checks. That adapter belongs to the Hub implementation owner.
+
+### CLI wire records and capture status
+
+`cli_cases.json` separates the public text-generation capture, a typed info
+contract, scripted private writer records and argument failures. `{fixture}` in
+argv is replaced with the case's local fixture directory by the process adapter.
+`feature` selects any build, an hf-hub build, or a build without hf-hub.
+`before_load` requires rejection even if the supplied model directory is absent.
+No byte golden contains timings, absolute paths, dependency messages or hardware
+strings. `stdout_utf8` means exactly its UTF-8 bytes, including any explicit
+newline. JSONL records order fields as `version`, `event`, then `processed,total`
+or `token_id,text,finish_reason`; each ends in one newline. Empty Token deltas
+remain records. Info JSON is compact, recursively sorts map keys, and ends with
+one newline. Root keys are exactly `version,config,tokenizer,hub_provenance` as a
+set; dimensions and variant encodings mirror the public types in section 2.8.
+
+The canonical prompt is `hello the small fox runs over green hill`. Ruling A's
+original-string BOS rule yields `[4,12,14,15,16,17,18,19,20]`. Its default 2048-token
+prefill ceiling yields `(0,9),(8,9),(9,9)`. The generator first checks its integer
+schedule against **all four** committed `prefill.progress` goldens, then applies
+that schedule to the nine-ID text prompt. Token/text expectations must come from
+`mlx_lm.stream_generate` with the original Python string, max_tokens 8 and a
+greedy sampler. They must never be copied from the eight-ID stream goldens.
+
+Until that pinned host capture runs, `generation.capture_status` is `not_run`
+and both `capture` and `expected` are null. This is an incomplete cohort, not an
+empty-output expectation. `--require-capture` exits nonzero in this state, and
+`compare_cli(None, actual)` raises an error. `--capture` records public Python
+responses and source/environment identities; two identical generations are
+required by `--freeze-from ... --repeat ...`. Scripted writer records use explicit
+private `OutputEvent` values and make no model-output claim. They do not construct
+non-exhaustive library events across the consumer boundary.
+
+`compare_cli(expected, actual)` takes `exit_code`, `stdout_utf8`, `stderr_utf8`;
+it parses actual stdout, never trusts an adapter's decoded record list, and
+finally compares exact bytes. Its failure precedence is `exit_code`, JSONL
+`output_count`, `finish_reason`, `sampled_id`, `text_delta`, `progress`, info
+`config`, exact `stdout`, then `stderr`. Malformed JSON diagnostics in stdout fail
+as `stdout`. Stderr rules are empty, nonempty, or optional diagnostics; diagnostic
+wording is not frozen. Runtime error stderr must preserve the source chain in
+implementation tests. BrokenPipe exits 0 and drops generation; other output,
+load, generation and unknown-event errors exit 1; syntax exits 2.
+
+Qualification deletes an empty Token, changes a terminal reason and token ID,
+moves diagnostics to stdout, appends a text newline, changes hidden_size and
+accepts a zero positive flag. Their classes are respectively `output_count`,
+`finish_reason`, `sampled_id`, `stdout`, `stdout`, `config`, `exit_code`.
+The writer fault recipes name short write, Interrupted, ordinary error and
+BrokenPipe checks; executing them and real generate/info/offline process tests
+belongs to the CLI owner. Comparator qualification alone is not those tests.
+
+### Compiled feature inventory
+
+`xtask verify-lm-features` compiles an isolated external consumer against the
+checkout for default, no-default-features, hf-hub, oracle-hooks and both features.
+The reviewed inventory is the literal Rust in `xtask/src/verify_lm_features.rs`:
+all approved root exports, public option/config/event/cache/chat fields and
+variants, GGUF error additions, final Hub errors, gated provenance and hooks.
+It includes explicit field types and public call results. HubError itself and
+its semantic variants remain unconditional; only HubError::Api is Hub-gated.
+
+Each combination first compiles a dependency control. Separate negative consumers
+must reject HubOptions, HubProvenance, Model::from_hub, Model::hub_provenance and
+HubError::Api without hf-hub, and oracle_hooks without oracle-hooks. A failed
+build qualifies absence only for the expected rustc error code, named symbol,
+consumer target and primary source span. Dependency failures and unrelated
+compiler errors cannot pass an absence check. The report records every compiled
+probe; skipped probes after a failed dependency control have no compiled evidence.
+The gate checks this static reviewed inventory, not arbitrary future additions.
+The source `api-baseline` detects source inventory drift and explicitly does not
+evaluate cfg. Source enumeration is not compiled evidence; both gates are needed.
