@@ -245,8 +245,12 @@ impl WeightManifest {
         }
         let mut loaded: BTreeMap<_, _> = expected.keys().map(|key| (key.clone(), None)).collect();
         for (shard, assignments) in shards {
+            // MLX has no GPU implementation of the safetensors Load primitive, so a caller that
+            // scopes a GPU stream around loading would otherwise get "[Load::eval_gpu] Not
+            // implemented".
             let mut arrays =
-                Array::load_safetensors(shard).map_err(|error| shard_error(shard, error))?;
+                mlx_rs::with_stream(&mlx_rs::Stream::cpu(), || Array::load_safetensors(shard))
+                    .map_err(|error| shard_error(shard, error))?;
             for (key, external, entry) in assignments {
                 let array = arrays
                     .remove(&external)

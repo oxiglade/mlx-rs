@@ -14,8 +14,8 @@ The private `NotYetImplemented` formatter is used only by the remaining loading 
 | llama, tranche 4 | `src/arch/llama/mod.rs` | `Factory::map_gguf_key` | `WeightDisposition::Reject` |
 | qwen3, tranche 4 | `src/arch/qwen3/mod.rs` | `Factory::map_gguf_key` | `WeightDisposition::Reject` |
 | engine, tranche 4 | real-checkpoint benchmark | Compare throughput with Python; ruling C admits investigating async evaluation if the missing pipeline costs more than 5% | No lookahead in tranche 3 |
-| text/FFI, tranche 3 item 5 | `tests/generation_ffi.rs` | Long generation, reuse, rotating-cache, cancellation, snapshot, memory, leaks and Guard Malloc qualification | Requires Metal qualification |
-| worker, tranche 3 item 5 | `examples/worker.rs` | Bounded request/response channels and cancellation on a model-owning OS thread | Remains with item 5 |
+| text/FFI, tranche 3 item 5 | `tests/generation_ffi.rs` | Run the reduced workload with `xtask verify-ffi --guard-malloc` on the host under DECISIONS O | Ordinary runs retain the paper's "Memory, snapshots and the FFI gate" workload and proposed F envelope. `DYLD_INSERT_LIBRARIES` containing `libgmalloc` selects reduced coverage: Qwen3 full generation (40 samples), Llama reuse (40 calls, capacities 16/32/64), kept-prefix rotation (40 updates), sliding oversized prefill (25 tokens, chunks of 8) and one snapshot retained across a wrap (24 samples), tokenizer EOS, and one affine load/generate/drop cycle with length, exact-token/text stops and all three cancellation boundaries. Both modes retain behavioral assertions; reduced mode skips all allocator observations and byte guards and prints the completed scenario list. Default library fault-injection tests remain in `src/model/tests.rs`. |
+| worker, tranche 3 item 5 | `examples/worker.rs` | Run on the Metal host with one positional checkpoint directory | Implements the paper's "Device, RNG and threading": model, GPU stream scope and cache stay on one OS thread; bounded owned request/event channels, worker-local error conversion, receiver-drop cancellation and receiver-before-join shutdown. Positive Send checks cover options/events/errors/requests. |
 
 ## Generation and completed boundaries
 
@@ -133,7 +133,8 @@ Private scripted decoders inject partial-layer forward failure, empty support an
 singular-inverse evaluation failure; the ByteFallback fixture supplies a real final-prefix
 error after evaluation. Tests remain enabled for execution on a host with MLX initialization.
 
-The bounded-live-storage claim still requires item 5's Metal measurements. Rotation can
+Memory claims follow the proposed F guard. Rotation can
 retain capacity plus a prefill chunk until subsequent updates; snapshots retain old storage.
-No zero-allocation or constant-total-host-memory claim is made. This sandbox's actual build,
-pure-test results and named unexecuted runtime tests are recorded in the engine handoff report.
+No zero-allocation or constant-total-host-memory claim is made.
+
+Under Guard Malloc the sampling distribution test draws a reduced sample (`src/sampling/tests.rs`), so the library binary completes the Guard Malloc phase; no other library test changes mode.

@@ -1879,7 +1879,16 @@ ROOT LEAK: <malloc in mlx_map_string_to_string_iterator_new> [16]
         assert_eq!(phase.status, Verdict::Error);
         assert_eq!(phase.failure.as_deref(), Some("leaks_timeout"));
         assert!(phase.duration_ms >= 50);
-        assert!(phase.duration_ms < 500);
+        // Guard Malloc pages every allocation, so spawning and killing the child costs orders of
+        // magnitude more than the timeout itself; the bound only rules out waiting for the child.
+        let spawn_allowance = if std::env::var("DYLD_INSERT_LIBRARIES")
+            .is_ok_and(|value| value.contains("libgmalloc"))
+        {
+            300_000
+        } else {
+            500
+        };
+        assert!(phase.duration_ms < spawn_allowance);
         assert!(phase.error.unwrap().contains("timed out"));
     }
 
