@@ -403,20 +403,23 @@ fn run(path: &Path) -> Result<()> {
             == doc["tokenizer"]["eos_tokens"],
         "tokenizer EOS"
     );
-    let bos = model.tokenizer().bos_token().context("tokenizer BOS")?;
-    let bos_ids: Vec<u32> = model
-        .tokenizer()
-        .encode(bos)?
-        .into_iter()
-        .map(u32::from)
-        .collect();
-    ensure!(
-        bos_ids
-            == [doc["tokenizer"]["bos_token_id"]
-                .as_u64()
-                .context("BOS id")? as u32],
-        "tokenizer BOS id"
-    );
+    // Qwen3 has no BOS token, and the golden records that as null.
+    match doc["tokenizer"]["bos_token_id"].as_u64() {
+        Some(expected) => {
+            let bos = model.tokenizer().bos_token().context("tokenizer BOS")?;
+            let bos_ids: Vec<u32> = model
+                .tokenizer()
+                .encode(bos)?
+                .into_iter()
+                .map(u32::from)
+                .collect();
+            ensure!(bos_ids == [expected as u32], "tokenizer BOS id");
+        }
+        None => ensure!(
+            model.tokenizer().bos_token().is_none(),
+            "tokenizer BOS must be absent"
+        ),
+    }
     let ids: Vec<u32> = serde_json::from_value(doc["prefill"]["token_ids"].clone())?;
     let prompt: Vec<_> = ids.into_iter().map(TokenId::from).collect();
     let decode: Vec<u32> = serde_json::from_value(doc["decode"]["greedy_ids"].clone())?;
