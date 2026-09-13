@@ -124,6 +124,8 @@ fn update_mode(mode: UpdateModeRecipe) -> UpdateMode {
     }
 }
 
+// The NegativeStride recipe reverses its range on purpose; that is the behaviour under test.
+#[allow(clippy::reversed_empty_ranges)]
 fn dispatch_index_update(case: &Case, args: &mut Args<'_>) -> Result<Vec<Array>, String> {
     let source = args.tensor("input0")?;
     let update = args.tensor("input1")?;
