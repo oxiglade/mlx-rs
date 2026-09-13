@@ -67,7 +67,9 @@ impl Tokenizer {
             (
                 "tokenizer.ggml.bos_token_id",
                 metadata.bos_token_id,
-                metadata.bos_token_id == bos,
+                // Converters emit a BOS id even for tokenizers that never prepend one
+                // (Qwen3 writes 151643), so absence here is not evidence of a wrong pairing.
+                bos.is_none() || metadata.bos_token_id == bos,
             ),
             (
                 "tokenizer.ggml.eos_token_id",
@@ -94,11 +96,7 @@ impl Tokenizer {
             }
             if let Some(tokens) = &metadata.tokens {
                 let embedded = tokens.get(id.0 as usize);
-                let caller = if key.ends_with("bos_token_id") {
-                    self.bos_token().map(str::to_owned)
-                } else {
-                    self.inner.id_to_token(id.0)
-                };
+                let caller = self.inner.id_to_token(id.0);
                 if embedded != caller.as_ref() || embedded.is_none() {
                     return Err(LoadError::TokenizerMetadataMismatch {
                         key: "tokenizer.ggml.tokens".into(),
@@ -154,6 +152,35 @@ mod tests {
                 vocabulary_size: 64
             })
         ));
+    }
+    #[test]
+    fn gguf_pairing_accepts_a_declared_bos_the_tokenizer_never_prepends() {
+        // Real llama.cpp conversions of Qwen3 declare tokenizer.ggml.bos_token_id = 151643 while
+        // the paired tokenizer has no BOS at all; that pairing is correct and must load.
+        let mut t = fixture();
+        let metadata = embedded(&t);
+        let declared = metadata.bos_token_id.unwrap();
+        t.special_tokens.remove("bos_token");
+        assert!(t.bos_token().is_none());
+        t.validate_gguf_pairing(&metadata, 64).unwrap();
+        // The embedded table must still agree about what that id spells.
+        let named = GgufTokenizerMetadata {
+            tokens: Some(
+                (0..64)
+                    .map(|id| {
+                        if id == declared.0 {
+                            "<|not_this_token|>".to_owned()
+                        } else {
+                            t.inner.id_to_token(id).unwrap_or_default()
+                        }
+                    })
+                    .collect(),
+            ),
+            ..metadata.clone()
+        };
+        assert!(
+            matches!(t.validate_gguf_pairing(&named, 64), Err(LoadError::TokenizerMetadataMismatch { key, .. }) if key == "tokenizer.ggml.tokens")
+        );
     }
     #[test]
     fn gguf_pairing_same_size_special_id_mismatch() {
