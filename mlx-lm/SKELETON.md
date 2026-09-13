@@ -11,6 +11,9 @@ The private `NotYetImplemented` formatter is used only by the remaining loading 
 | loader, tranche 4 | `src/model.rs` | `Model::from_gguf` | `LoadError::Weights(UnsupportedFormat)` |
 | foundation, tranche 4 | `src/model.rs` | `Model::from_hub` | `HubError::Load(Config(UnsupportedArchitecture))` |
 | loader, tranche 4 | `src/weights/mod.rs` | `WeightManifest::from_gguf` | `WeightError::UnsupportedFormat` |
+| loader, tranche 4 | `src/weights/mod.rs` | `normalize_gguf`, `permute_gguf_rows` | Declaration bodies return `WeightError::UnsupportedFormat` with the existing GGUF manifest placeholder message |
+| loader, tranche 4 | `src/model/gguf.rs` | Normalization entry point and metadata profile parsing | Entry point returns the existing GGUF model loading placeholder error; metadata types are declarations only |
+| architectures, tranche 4 | `src/arch/mod.rs` | `ArchitectureFactory::parse_gguf_config` | Default body returns the existing GGUF model loading placeholder error until each architecture implements it |
 | llama, tranche 4 | `src/arch/llama/mod.rs` | `Factory::map_gguf_key` | `WeightDisposition::Reject` |
 | qwen3, tranche 4 | `src/arch/qwen3/mod.rs` | `Factory::map_gguf_key` | `WeightDisposition::Reject` |
 | engine, tranche 4 | real-checkpoint benchmark | Compare throughput with Python; ruling C admits investigating async evaluation if the missing pipeline costs more than 5% | No lookahead in tranche 3 |
@@ -108,6 +111,39 @@ feeding all eight oracle decode IDs intentionally differs from generation's fina
 views with separate prefix/tail ranges when needed.
 
 ## Loading and tokenizer contracts
+
+The tranche 4a serial foundation extracts `ShardIndex::from_bytes(&[u8])` and
+`shard_paths()` as crate-private seams. Byte parsing returns relative paths. Local
+loading uses the same parser with the index directory so duplicate-entry errors
+retain joined paths and invalid-path errors retain the original relative paths.
+Local path admission, JSON error precedence, shard ordering, duplicate detection
+and index reconciliation are unchanged; the stricter Hub path policy is separate.
+
+`WeightEntry::source` distinguishes `WeightSource::Safetensors(PathBuf)` from
+`WeightSource::Gguf(Array)`. Materialization retains one read per safetensors shard,
+pins those reads to the CPU stream, validates staged arrays and evaluates them
+before atomic restore. `read_tensor` dispatches through the same backing cases and
+CPU-scoped shard reader. No GGUF constructor populates the new backing yet.
+
+`GgufMetadataProfile`, `GgufArchitecture`, `GgufRopeScaling` and
+`GgufTokenizerMetadata` declare the bounded metadata profile in `src/model/gguf.rs`.
+`GgufQuantizationGroup` declares a canonical matrix path and its explicit floating
+or affine override in `src/weights/mod.rs`. All are crate-private. These declarations
+do not parse metadata, infer quantization, normalize names or permute arrays.
+
+Two integration edits are outside this serial patch's ownership:
+
+- In `src/model.rs`, add `pub(crate) mod gguf;` to compile the new module in its
+  intended namespace. Keep `Model::from_gguf` unchanged for this foundation patch.
+- In `src/arch/llama/tests.rs`, `mutated_weights` must replace
+  `.map(|entry| &entry.shard)` with
+  `.filter_map(crate::weights::WeightEntry::safetensors_shard)`.
+  The test-only accessor has signature
+  `fn safetensors_shard(&self) -> Option<&std::path::Path>` and is crate-private.
+
+The later tokenizer owner supplies the section 2.3 seam
+`Tokenizer::validate_gguf(&self, file: &mlx_rs::io::GgufFile, vocabulary_size: usize)
+-> Result<(), LoadError>` as crate-private; this patch does not edit tokenizer code.
 
 `Model::from_dir` discovers one `WeightManifest` and calls the architecture factory once.
 `WeightManifest::load_with(&mut StateProjection, disposition)` performs strict planning,

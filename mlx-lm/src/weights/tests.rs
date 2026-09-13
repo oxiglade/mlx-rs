@@ -28,7 +28,7 @@ fn expected(manifest: &WeightManifest) -> Result<ExpectedSlots, WeightError> {
     let shards: BTreeSet<_> = manifest
         .tensors
         .values()
-        .map(|entry| &entry.shard)
+        .filter_map(WeightEntry::safetensors_shard)
         .collect();
     let mut slots = BTreeMap::new();
     for shard in shards {
@@ -95,6 +95,101 @@ mod pure {
     use super::*;
 
     #[test]
+    fn shard_index_retains_local_path_grammar_and_sorted_selection() -> Result<(), WeightError> {
+        let index = ShardIndex::from_bytes(
+            br#"{"metadata":{"total_size":0},"weight_map":{
+                "z":"nested/two.safetensors","b":"one.bin","a":"one.bin"
+            }}"#,
+        )?;
+        assert_eq!(
+            index
+                .weight_map
+                .keys()
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
+            ["a", "b", "z"]
+        );
+        assert_eq!(
+            index.shard_paths(),
+            BTreeSet::from([
+                PathBuf::from("one.bin"),
+                PathBuf::from("nested/two.safetensors")
+            ])
+        );
+        assert!(ShardIndex::from_bytes(br#"{"weight_map":{}}"#)?
+            .weight_map
+            .is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn shard_index_conflict_paths_and_order_are_preserved() -> Result<(), WeightError> {
+        let directory = tempfile::tempdir()?;
+        let index_path = directory.path().join("model.safetensors.index.json");
+        for (bytes, key, shard, relative_error) in [
+            (
+                br#"{"weight_map":{"z":"one","z":"two","a":"../escape"}}"#.as_slice(),
+                "z",
+                "two",
+                false,
+            ),
+            (
+                br#"{"weight_map":{"z":"../escape","a":"one","a":"two"}}"#.as_slice(),
+                "z",
+                "../escape",
+                true,
+            ),
+            (br#"{"weight_map":{"a":""}}"#.as_slice(), "a", "", true),
+            (
+                br#"{"weight_map":{"a":"/absolute"}}"#.as_slice(),
+                "a",
+                "/absolute",
+                true,
+            ),
+            (
+                br#"{"weight_map":{"a":"./one"}}"#.as_slice(),
+                "a",
+                "./one",
+                true,
+            ),
+        ] {
+            assert!(matches!(
+                ShardIndex::from_bytes(bytes),
+                Err(WeightError::ConflictingIndex { key: actual_key, shard: actual_shard })
+                    if actual_key == key && actual_shard == Path::new(shard)
+            ));
+            fs::write(&index_path, bytes)?;
+            let expected = if relative_error {
+                PathBuf::from(shard)
+            } else {
+                directory.path().join(shard)
+            };
+            assert!(matches!(
+                WeightManifest::from_sharded_index(&index_path),
+                Err(WeightError::ConflictingIndex { key: actual_key, shard: actual_shard })
+                    if actual_key == key && actual_shard == expected
+            ));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn shard_index_json_errors_precede_path_reconciliation() {
+        for bytes in [
+            br#"{}"#.as_slice(),
+            br#"{"weight_map":{"a":1}}"#.as_slice(),
+            br#"{"weight_map":{},"weight_map":{}}"#.as_slice(),
+            br#"{"weight_map":{"a":"../escape","b":1}}"#.as_slice(),
+            br#"{"weight_map":{"a":"../escape"}} trailing"#.as_slice(),
+        ] {
+            assert!(matches!(
+                ShardIndex::from_bytes(bytes),
+                Err(WeightError::Json(_))
+            ));
+        }
+    }
+
+    #[test]
     fn fixture_manifests() -> Result<(), WeightError> {
         for (name, count, shard_count) in [
             ("llama-base", 21, 1),
@@ -106,13 +201,13 @@ mod pure {
             let shards: BTreeSet<_> = manifest
                 .tensors
                 .values()
-                .map(|entry| &entry.shard)
+                .filter_map(WeightEntry::safetensors_shard)
                 .collect();
             assert_eq!(shards.len(), shard_count);
             for shard in shards {
                 for (key, tensor) in read_tensors(shard)? {
                     let entry = manifest.entry(&key)?;
-                    assert_eq!(entry.shard, *shard);
+                    assert_eq!(entry.safetensors_shard(), Some(shard));
                     assert_eq!(entry.dtype, tensor_dtype(&key, tensor.dtype)?);
                     assert_eq!(entry.shape, tensor.shape);
                 }
@@ -205,7 +300,7 @@ mod pure {
             let copy = copy_fixture(name)?;
             let copied = WeightManifest::discover(copy.path())?;
             let key = "model.layers.0.self_attn.q_proj.weight";
-            let path = &copied.entry(key)?.shard;
+            let path = copied.entry(key)?.safetensors_shard().expect("local shard");
             let mut tensors = read_tensors(path)?;
             let tensor = tensors
                 .get_mut(key)

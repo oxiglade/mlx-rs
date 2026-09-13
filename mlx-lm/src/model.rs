@@ -1,3 +1,4 @@
+pub(crate) mod gguf;
 pub use crate::error::GenerationError;
 use crate::{
     arch::DecoderModel, AdditivePenaltyOptions, Cache, CacheError, CacheOptions, CacheSnapshot,
