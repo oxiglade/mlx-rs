@@ -10,6 +10,7 @@ mod fingerprint;
 mod verify_bump;
 mod verify_ffi;
 mod verify_ledger;
+mod verify_lm_features;
 mod verify_lm_parity;
 mod verify_oracle_boundary;
 
@@ -467,6 +468,9 @@ fn main() {
     }
     if args.get(1).is_some_and(|arg| arg == "fingerprint-delta") {
         std::process::exit(fingerprint::run_delta(&args[2..]));
+    }
+    if args.get(1).is_some_and(|arg| arg == "verify-lm-features") {
+        std::process::exit(verify_lm_features::run(&get_repo_root(), &args[2..]));
     }
     if args.get(1).is_some_and(|arg| arg == "verify-lm-parity") {
         std::process::exit(verify_lm_parity::run(&get_repo_root(), &args[2..]));

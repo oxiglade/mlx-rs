@@ -12,7 +12,8 @@
     "xtask/src/verify_lm_parity.rs",
     "conformance/qualify_gguf_save.py",
     "conformance/qualification/gguf-save.json",
-    "ledger/mlx-lm-parity.json"
+    "ledger/mlx-lm-parity.json",
+    "xtask/src/verify_lm_features.rs"
   ],
   "implementation_paths": [
     "mlx-rs/src/**",

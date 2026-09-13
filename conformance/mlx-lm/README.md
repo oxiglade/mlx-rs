@@ -209,3 +209,63 @@ Record the actual producer revision and artifact hash, then copy the passing
 report to `conformance/qualification/gguf-save.json`. This qualifies save
 semantics, not serialized byte identity or model ingestion. Do not run the core
 generator afterward: it resets that record to pending.
+
+## Hub and CLI contracts (tranche 4b additions)
+
+`hub_cases.json` adds 23 reviewed Rust snapshot plans. `cli_cases.json` adds two
+scripted writer cases, one info JSON case, argument failures and a separately
+tracked public Text capture. These cohorts are not folded into safetensors or
+GGUF model counts. Hub contracts are not Python parity claims. The canonical
+text capture is currently **NOT RUN**: its expected output stays null until
+Python MLX runs on the host. The committed eight-ID generation expectations are
+not a substitute for this nine-ID, BOS-prefixed prompt.
+
+Pure generation, comparator qualification and source/corpus checking:
+
+```sh
+conformance/.venv-mlx-lm/bin/python -B -m unittest discover -s conformance/mlx-lm -p 'test_*.py'
+python3 -B conformance/mlx-lm/generate_contracts.py --check --qualify
+cargo test --offline -p xtask verify_lm_features
+cargo run --offline -p xtask -- verify-lm-features
+```
+
+Capture and freeze only these additions on the pinned MLX host:
+
+```sh
+conformance/.venv-mlx-lm/bin/python -B conformance/mlx-lm/generate_contracts.py --capture --output-dir /private/tmp/t4b-contract-a --require-capture
+conformance/.venv-mlx-lm/bin/python -B conformance/mlx-lm/generate_contracts.py --capture --output-dir /private/tmp/t4b-contract-b --require-capture
+python3 -B conformance/mlx-lm/generate_contracts.py --freeze-from /private/tmp/t4b-contract-a --repeat /private/tmp/t4b-contract-b
+python3 -B conformance/mlx-lm/generate_contracts.py --check --qualify --require-capture
+```
+
+Freezing compares both outputs, verifies generator/source identities, qualifies
+comparators, preserves every old corpus digest and updates the two cohort counts.
+No Rust output is accepted as an expectation source. `--check` verifies the
+committed state, including an explicit pending capture; release verification must
+also pass `--require-capture`. The existing manifest is source-pinned in the new
+provenance rather than regenerated with unrelated fixture changes.
+
+The compiled gate creates a temporary external Cargo workspace with only the
+requested mlx-lm features. It checks all reviewed root exports and the field,
+variant and call inventory, plus forbidden Hub/hook imports. It prints a JSON
+report and returns nonzero for any missing required declaration, feature leak or
+build failure. It complements `api-baseline`, whose source inventory does not
+evaluate cfg. See SCHEMA.md for exact coverage and failure classes.
+
+At the 2ef76383 base, the final gate still requires the Hub owner's additions:
+`#[cfg(feature = "hf-hub")] pub struct HubProvenance` with public String fields
+`repo`, `requested_revision`, `resolved_revision`, Debug/Clone/PartialEq/Eq and
+`#[non_exhaustive]`; its gated root re-export; and
+`Model::hub_provenance(&self) -> Option<&HubProvenance>`. HubError also needs
+`InvalidRepository(String)`, `MissingFile { repo: String, revision: String,
+filename: String }`, `UnsafePath { path: PathBuf }`, `RevisionMismatch {
+expected: String, actual: String }`, `SnapshotIntegrity { path: PathBuf,
+reason: String }`, and `CacheDirectoryUnavailable`. This oracle item does not
+edit those runtime declarations.
+
+The Hub/CLI owners must still run their production adapters against these cases,
+including temporary-cache link/integrity tests, anonymous-client construction,
+public offline success/error preservation, real generate/info processes and all
+four writer fault recipes. No runtime or CLI adapter is added by this ownership
+slice. The parity ledger and global source manifest need the integration owner's
+corresponding cohort entries; this slice updates only the owned corpus/provenance.

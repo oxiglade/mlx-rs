@@ -1,0 +1,786 @@
+{
+  "argument_failures": [
+    {
+      "argv": [
+        "generate",
+        "--model",
+        "{fixture}",
+        "--prompt",
+        "hello the small fox runs over green hill",
+        "--max-tokens",
+        "0"
+      ],
+      "before_load": true,
+      "expected": {
+        "exit_code": 2,
+        "format": "text",
+        "stderr_rule": "nonempty",
+        "stdout_utf8": ""
+      },
+      "feature": "any",
+      "name": "zero_max-tokens"
+    },
+    {
+      "argv": [
+        "generate",
+        "--model",
+        "{fixture}",
+        "--prompt",
+        "hello the small fox runs over green hill",
+        "--top-k",
+        "0"
+      ],
+      "before_load": true,
+      "expected": {
+        "exit_code": 2,
+        "format": "text",
+        "stderr_rule": "nonempty",
+        "stdout_utf8": ""
+      },
+      "feature": "any",
+      "name": "zero_top-k"
+    },
+    {
+      "argv": [
+        "generate",
+        "--model",
+        "{fixture}",
+        "--prompt",
+        "hello the small fox runs over green hill",
+        "--min-tokens-to-keep",
+        "0",
+        "--min-p",
+        "0.1"
+      ],
+      "before_load": true,
+      "expected": {
+        "exit_code": 2,
+        "format": "text",
+        "stderr_rule": "nonempty",
+        "stdout_utf8": ""
+      },
+      "feature": "any",
+      "name": "zero_min-tokens-to-keep"
+    },
+    {
+      "argv": [
+        "generate",
+        "--model",
+        "{fixture}",
+        "--prompt",
+        "hello the small fox runs over green hill",
+        "--max-tokens",
+        "8",
+        "--temperature",
+        "-1"
+      ],
+      "before_load": true,
+      "expected": {
+        "exit_code": 2,
+        "format": "text",
+        "stderr_rule": "nonempty",
+        "stdout_utf8": ""
+      },
+      "feature": "any",
+      "name": "negative_temperature"
+    },
+    {
+      "argv": [
+        "generate",
+        "--model",
+        "{fixture}",
+        "--prompt",
+        "hello the small fox runs over green hill",
+        "--max-tokens",
+        "8",
+        "--temperature",
+        "NaN"
+      ],
+      "before_load": true,
+      "expected": {
+        "exit_code": 2,
+        "format": "text",
+        "stderr_rule": "nonempty",
+        "stdout_utf8": ""
+      },
+      "feature": "any",
+      "name": "nan_temperature"
+    },
+    {
+      "argv": [
+        "generate",
+        "--model",
+        "{fixture}",
+        "--prompt",
+        "hello the small fox runs over green hill",
+        "--max-tokens",
+        "8",
+        "--temperature",
+        "inf"
+      ],
+      "before_load": true,
+      "expected": {
+        "exit_code": 2,
+        "format": "text",
+        "stderr_rule": "nonempty",
+        "stdout_utf8": ""
+      },
+      "feature": "any",
+      "name": "infinite_temperature"
+    },
+    {
+      "argv": [
+        "generate",
+        "--model",
+        "{fixture}",
+        "--prompt",
+        "hello the small fox runs over green hill",
+        "--max-tokens",
+        "8",
+        "--top-p",
+        "1.1"
+      ],
+      "before_load": true,
+      "expected": {
+        "exit_code": 2,
+        "format": "text",
+        "stderr_rule": "nonempty",
+        "stdout_utf8": ""
+      },
+      "feature": "any",
+      "name": "top_p_out_of_range"
+    },
+    {
+      "argv": [
+        "generate",
+        "--model",
+        "{fixture}",
+        "--prompt",
+        "hello the small fox runs over green hill",
+        "--max-tokens",
+        "8",
+        "--min-p",
+        "-0.1"
+      ],
+      "before_load": true,
+      "expected": {
+        "exit_code": 2,
+        "format": "text",
+        "stderr_rule": "nonempty",
+        "stdout_utf8": ""
+      },
+      "feature": "any",
+      "name": "min_p_out_of_range"
+    },
+    {
+      "argv": [
+        "generate",
+        "--model",
+        "{fixture}",
+        "--prompt",
+        "hello the small fox runs over green hill",
+        "--max-tokens",
+        "8",
+        "--min-tokens-to-keep",
+        "1"
+      ],
+      "before_load": true,
+      "expected": {
+        "exit_code": 2,
+        "format": "text",
+        "stderr_rule": "nonempty",
+        "stdout_utf8": ""
+      },
+      "feature": "any",
+      "name": "minimum_without_min_p"
+    },
+    {
+      "argv": [
+        "generate",
+        "--model",
+        "{fixture}",
+        "--prompt",
+        "hello the small fox runs over green hill",
+        "--max-tokens",
+        "8",
+        "--stop",
+        ""
+      ],
+      "before_load": true,
+      "expected": {
+        "exit_code": 2,
+        "format": "text",
+        "stderr_rule": "nonempty",
+        "stdout_utf8": ""
+      },
+      "feature": "any",
+      "name": "empty_stop"
+    },
+    {
+      "argv": [
+        "generate",
+        "--model",
+        "{fixture}",
+        "--prompt",
+        "hello the small fox runs over green hill",
+        "--max-tokens",
+        "8",
+        "--format",
+        "yaml"
+      ],
+      "before_load": true,
+      "expected": {
+        "exit_code": 2,
+        "format": "text",
+        "stderr_rule": "nonempty",
+        "stdout_utf8": ""
+      },
+      "feature": "any",
+      "name": "invalid_format"
+    },
+    {
+      "argv": [
+        "info"
+      ],
+      "before_load": true,
+      "expected": {
+        "exit_code": 2,
+        "format": "text",
+        "stderr_rule": "nonempty",
+        "stdout_utf8": ""
+      },
+      "feature": "any",
+      "name": "missing_source"
+    },
+    {
+      "argv": [
+        "generate",
+        "--model",
+        "{fixture}"
+      ],
+      "before_load": true,
+      "expected": {
+        "exit_code": 2,
+        "format": "text",
+        "stderr_rule": "nonempty",
+        "stdout_utf8": ""
+      },
+      "feature": "any",
+      "name": "missing_prompt"
+    },
+    {
+      "argv": [
+        "generate",
+        "--model",
+        "{fixture}",
+        "--prompt",
+        "hello the small fox runs over green hill",
+        "--max-tokens",
+        "8",
+        "--repo",
+        "contract/tiny-llama"
+      ],
+      "before_load": true,
+      "expected": {
+        "exit_code": 2,
+        "format": "text",
+        "stderr_rule": "nonempty",
+        "stdout_utf8": ""
+      },
+      "feature": "hf-hub",
+      "name": "mutually_exclusive_sources"
+    },
+    {
+      "argv": [
+        "generate",
+        "--model",
+        "{fixture}",
+        "--prompt",
+        "hello the small fox runs over green hill",
+        "--max-tokens",
+        "8",
+        "--repo",
+        "contract/tiny-llama"
+      ],
+      "before_load": true,
+      "expected": {
+        "exit_code": 2,
+        "format": "text",
+        "stderr_rule": "nonempty",
+        "stdout_utf8": ""
+      },
+      "feature": "no-hf-hub",
+      "name": "disabled_repo"
+    },
+    {
+      "argv": [
+        "generate",
+        "--model",
+        "{fixture}",
+        "--prompt",
+        "hello the small fox runs over green hill",
+        "--max-tokens",
+        "8",
+        "--revision",
+        "main"
+      ],
+      "before_load": true,
+      "expected": {
+        "exit_code": 2,
+        "format": "text",
+        "stderr_rule": "nonempty",
+        "stdout_utf8": ""
+      },
+      "feature": "no-hf-hub",
+      "name": "disabled_revision"
+    },
+    {
+      "argv": [
+        "generate",
+        "--model",
+        "{fixture}",
+        "--prompt",
+        "hello the small fox runs over green hill",
+        "--max-tokens",
+        "8",
+        "--revision",
+        "main"
+      ],
+      "before_load": true,
+      "expected": {
+        "exit_code": 2,
+        "format": "text",
+        "stderr_rule": "nonempty",
+        "stdout_utf8": ""
+      },
+      "feature": "hf-hub",
+      "name": "local_revision"
+    },
+    {
+      "argv": [
+        "generate",
+        "--model",
+        "{fixture}",
+        "--prompt",
+        "hello the small fox runs over green hill",
+        "--max-tokens",
+        "8",
+        "--offline"
+      ],
+      "before_load": true,
+      "expected": {
+        "exit_code": 2,
+        "format": "text",
+        "stderr_rule": "nonempty",
+        "stdout_utf8": ""
+      },
+      "feature": "no-hf-hub",
+      "name": "disabled_offline"
+    },
+    {
+      "argv": [
+        "generate",
+        "--model",
+        "{fixture}",
+        "--prompt",
+        "hello the small fox runs over green hill",
+        "--max-tokens",
+        "8",
+        "--offline"
+      ],
+      "before_load": true,
+      "expected": {
+        "exit_code": 2,
+        "format": "text",
+        "stderr_rule": "nonempty",
+        "stdout_utf8": ""
+      },
+      "feature": "hf-hub",
+      "name": "local_offline"
+    },
+    {
+      "argv": [
+        "generate",
+        "--model",
+        "{fixture}",
+        "--prompt",
+        "hello the small fox runs over green hill",
+        "--max-tokens",
+        "8",
+        "--cache-dir",
+        "cache"
+      ],
+      "before_load": true,
+      "expected": {
+        "exit_code": 2,
+        "format": "text",
+        "stderr_rule": "nonempty",
+        "stdout_utf8": ""
+      },
+      "feature": "no-hf-hub",
+      "name": "disabled_cache-dir"
+    },
+    {
+      "argv": [
+        "generate",
+        "--model",
+        "{fixture}",
+        "--prompt",
+        "hello the small fox runs over green hill",
+        "--max-tokens",
+        "8",
+        "--cache-dir",
+        "cache"
+      ],
+      "before_load": true,
+      "expected": {
+        "exit_code": 2,
+        "format": "text",
+        "stderr_rule": "nonempty",
+        "stdout_utf8": ""
+      },
+      "feature": "hf-hub",
+      "name": "local_cache-dir"
+    }
+  ],
+  "cohort": "cli_contract_v1",
+  "exit_rules": {
+    "broken_pipe": 0,
+    "generation": 1,
+    "load": 1,
+    "output": 1,
+    "syntax": 2,
+    "unknown_event_or_finish": 1
+  },
+  "generation": {
+    "argv": [
+      "generate",
+      "--model",
+      "{fixture}",
+      "--prompt",
+      "hello the small fox runs over green hill",
+      "--max-tokens",
+      "8"
+    ],
+    "capture": null,
+    "capture_status": "not_run",
+    "expected": null,
+    "fixture": "llama-base",
+    "name": "llama_canonical_public_text",
+    "prefill_records": [
+      {
+        "event": "prefill",
+        "processed": 0,
+        "total": 9,
+        "version": 1
+      },
+      {
+        "event": "prefill",
+        "processed": 8,
+        "total": 9,
+        "version": 1
+      },
+      {
+        "event": "prefill",
+        "processed": 9,
+        "total": 9,
+        "version": 1
+      }
+    ],
+    "prompt_token_ids": [
+      4,
+      12,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20
+    ]
+  },
+  "info": {
+    "argv": [
+      "info",
+      "--model",
+      "{fixture}",
+      "--format",
+      "json"
+    ],
+    "expected": {
+      "exit_code": 0,
+      "format": "json",
+      "info": {
+        "config": {
+          "attention": [
+            {
+              "kind": "full"
+            },
+            {
+              "kind": "full"
+            }
+          ],
+          "attention_bias": false,
+          "dimensions": {
+            "attention_heads": 4,
+            "head_dim": 16,
+            "hidden_size": 64,
+            "intermediate_size": 64,
+            "kv_heads": 2,
+            "layer_count": 2,
+            "max_positions": 128,
+            "rms_norm_epsilon": 1e-05,
+            "vocabulary_size": 64
+          },
+          "mlp_bias": false,
+          "model_type": "llama",
+          "quantization": null,
+          "rope": {
+            "dimensions": 16,
+            "scaling": {
+              "kind": "none"
+            },
+            "theta": 10000.0,
+            "traditional": false
+          },
+          "tie_word_embeddings": false
+        },
+        "hub_provenance": null,
+        "tokenizer": {
+          "bos_token": "<|begin_of_text|>",
+          "eos_tokens": [
+            2,
+            3
+          ]
+        },
+        "version": 1
+      },
+      "stderr_rule": "empty",
+      "stdout_utf8": "{\"config\":{\"attention\":[{\"kind\":\"full\"},{\"kind\":\"full\"}],\"attention_bias\":false,\"dimensions\":{\"attention_heads\":4,\"head_dim\":16,\"hidden_size\":64,\"intermediate_size\":64,\"kv_heads\":2,\"layer_count\":2,\"max_positions\":128,\"rms_norm_epsilon\":1e-05,\"vocabulary_size\":64},\"mlp_bias\":false,\"model_type\":\"llama\",\"quantization\":null,\"rope\":{\"dimensions\":16,\"scaling\":{\"kind\":\"none\"},\"theta\":10000.0,\"traditional\":false},\"tie_word_embeddings\":false},\"hub_provenance\":null,\"tokenizer\":{\"bos_token\":\"<|begin_of_text|>\",\"eos_tokens\":[2,3]},\"version\":1}\n"
+    },
+    "fixture": "llama-base"
+  },
+  "provenance": {
+    "base_revision": "2ef763838fe0f1a4c5b52f3c9688249092a2d57b",
+    "design": "t4/position-astra.md sections 2, 7.4; DECISIONS A-M",
+    "kind": "reviewed_wire_contract_with_separate_python_text_capture",
+    "sources": {
+      "fixtures/llama-base/config.json": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+      "fixtures/llama-base/expectations.json": "faeedde392c11950fa3e93b3fea4774e0ff4689a346d9500ac0f35ee469e811c",
+      "fixtures/llama-base/expectations.safetensors": "8d5aabb69cd3be92e9577490b5de0a8b7db81e35c6976870b5bd90e927a2e02e",
+      "fixtures/llama-base/generation_config.json": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+      "fixtures/llama-base/inputs.json": "156a0687c33fe2d656a1aefa5031a7cc012f3262ba4b9f6dfa9a4b87d6dd3b1c",
+      "fixtures/llama-base/model.safetensors": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+      "fixtures/llama-base/tokenizer.json": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+      "fixtures/llama-base/tokenizer_config.json": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+      "fixtures/llama-sharded/config.json": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+      "fixtures/llama-sharded/expectations.safetensors": "951d7673dcdaf4de997339ad7df842ebf12030f2597d3848ca1b3af442e5376d",
+      "fixtures/llama-sharded/generation_config.json": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+      "fixtures/llama-sharded/model-00001-of-00002.safetensors": "cce38cfb33c5e94c4cb1db997a5f39e0e43c4ab26ada0895ad58a8456327ebb6",
+      "fixtures/llama-sharded/model-00002-of-00002.safetensors": "51abf485e7841ed34fe5b2372ee30d58acbdd542a662a7bda6070d4c283cfac7",
+      "fixtures/llama-sharded/model.safetensors.index.json": "cf5619c08e82fd693d65b7f51b8f867fb6ba44c055f5f9abdccd13fd4eb1ccd6",
+      "fixtures/llama-sharded/tokenizer.json": "d3f6e27c58186b601192ffef2c870af3877a3ec271c53468a3368977e07f75ba",
+      "fixtures/llama-sharded/tokenizer_config.json": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+      "generate_contracts.py": "bb919b99d83332767f86ed14325f754ea685206c8ed6d56f3a2cd38c209ad5a4",
+      "manifest.json": "344b1795ac8a61520cdcc28042d769570c354ff9ce62958461501df32b719f07",
+      "requirements.lock": "94537fca297d4e6dacb5ea901cd5dd7ef0e297a6e1ec426c1922c74fa0f5cf6d",
+      "test_contracts.py": "1e8756d42191069ea58c29eab1d30d8021321e85089b3018ff5da9fe3fd2d24c"
+    }
+  },
+  "schema_version": 1,
+  "stderr_rules": {
+    "diagnostics_only": "optional UTF-8 progress/completion diagnostics; never stdout; bytes not frozen",
+    "empty": "zero bytes",
+    "nonempty": "nonempty UTF-8; source chain for runtime failures"
+  },
+  "writer_cases": [
+    {
+      "events": [
+        {
+          "event": "prefill",
+          "processed": 0,
+          "total": 9,
+          "version": 1
+        },
+        {
+          "event": "prefill",
+          "processed": 8,
+          "total": 9,
+          "version": 1
+        },
+        {
+          "event": "prefill",
+          "processed": 9,
+          "total": 9,
+          "version": 1
+        },
+        {
+          "event": "token",
+          "finish_reason": null,
+          "text": "",
+          "token_id": 12,
+          "version": 1
+        },
+        {
+          "event": "token",
+          "finish_reason": null,
+          "text": "hello",
+          "token_id": 13,
+          "version": 1
+        },
+        {
+          "event": "token",
+          "finish_reason": "stop",
+          "text": "",
+          "token_id": 2,
+          "version": 1
+        }
+      ],
+      "expected": {
+        "exit_code": 0,
+        "format": "jsonl",
+        "records": [
+          {
+            "event": "prefill",
+            "processed": 0,
+            "total": 9,
+            "version": 1
+          },
+          {
+            "event": "prefill",
+            "processed": 8,
+            "total": 9,
+            "version": 1
+          },
+          {
+            "event": "prefill",
+            "processed": 9,
+            "total": 9,
+            "version": 1
+          },
+          {
+            "event": "token",
+            "finish_reason": null,
+            "text": "",
+            "token_id": 12,
+            "version": 1
+          },
+          {
+            "event": "token",
+            "finish_reason": null,
+            "text": "hello",
+            "token_id": 13,
+            "version": 1
+          },
+          {
+            "event": "token",
+            "finish_reason": "stop",
+            "text": "",
+            "token_id": 2,
+            "version": 1
+          }
+        ],
+        "stderr_rule": "empty",
+        "stdout_utf8": "{\"version\":1,\"event\":\"prefill\",\"processed\":0,\"total\":9}\n{\"version\":1,\"event\":\"prefill\",\"processed\":8,\"total\":9}\n{\"version\":1,\"event\":\"prefill\",\"processed\":9,\"total\":9}\n{\"version\":1,\"event\":\"token\",\"token_id\":12,\"text\":\"\",\"finish_reason\":null}\n{\"version\":1,\"event\":\"token\",\"token_id\":13,\"text\":\"hello\",\"finish_reason\":null}\n{\"version\":1,\"event\":\"token\",\"token_id\":2,\"text\":\"\",\"finish_reason\":\"stop\"}\n"
+      },
+      "name": "empty_token_and_stop",
+      "source": "scripted_private_OutputEvent"
+    },
+    {
+      "events": [
+        {
+          "event": "prefill",
+          "processed": 0,
+          "total": 9,
+          "version": 1
+        },
+        {
+          "event": "prefill",
+          "processed": 8,
+          "total": 9,
+          "version": 1
+        },
+        {
+          "event": "prefill",
+          "processed": 9,
+          "total": 9,
+          "version": 1
+        },
+        {
+          "event": "token",
+          "finish_reason": null,
+          "text": "",
+          "token_id": 12,
+          "version": 1
+        },
+        {
+          "event": "token",
+          "finish_reason": null,
+          "text": "hello",
+          "token_id": 13,
+          "version": 1
+        },
+        {
+          "event": "token",
+          "finish_reason": "stop",
+          "text": "",
+          "token_id": 2,
+          "version": 1
+        }
+      ],
+      "expected": {
+        "exit_code": 0,
+        "format": "text",
+        "stderr_rule": "empty",
+        "stdout_utf8": "hello"
+      },
+      "name": "text_has_no_added_newline",
+      "source": "scripted_private_OutputEvent"
+    }
+  ],
+  "writer_faults": [
+    {
+      "expected": "complete_exact_bytes",
+      "name": "short_write",
+      "write_script": [
+        {
+          "accept_bytes": 1
+        },
+        {
+          "accept_remaining": true
+        }
+      ]
+    },
+    {
+      "expected": "complete_exact_bytes",
+      "name": "interrupted",
+      "write_script": [
+        {
+          "error_kind": "Interrupted"
+        },
+        {
+          "accept_remaining": true
+        }
+      ]
+    },
+    {
+      "expected_exit": 1,
+      "name": "ordinary_io_failure",
+      "write_script": [
+        {
+          "error_kind": "Other"
+        }
+      ]
+    },
+    {
+      "drop_generation": true,
+      "expected_exit": 0,
+      "name": "broken_pipe",
+      "write_script": [
+        {
+          "error_kind": "BrokenPipe"
+        }
+      ]
+    }
+  ]
+}
