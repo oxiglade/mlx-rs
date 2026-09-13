@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "scope": "Copy-and-mutate GGUF recipes; metadata keys use A=fixture architecture. Expected fields preserve external names. No exception text matching.",
+  "cases": [
+    {"id": "missing_architecture", "base": "gguf-llama-f32", "operation": "remove_metadata", "key": "general.architecture", "expected": {"variant": "LoadError::Config(ConfigError::MissingField)", "field": "general.architecture"}},
+    {"id": "missing_heads", "base": "gguf-llama-f32", "operation": "remove_metadata", "key": "llama.attention.head_count_kv", "expected": {"variant": "LoadError::Config(ConfigError::MissingField)", "field": "llama.attention.head_count_kv"}},
+    {"id": "wrong_metadata_kind", "base": "gguf-llama-f32", "operation": "set_metadata", "key": "llama.block_count", "type": 8, "value": "2", "expected": {"variant": "LoadError::Config(ConfigError::InvalidGgufMetadata)", "key": "llama.block_count"}},
+    {"id": "wrong_metadata_rank", "base": "gguf-llama-f32", "operation": "set_metadata", "key": "llama.block_count", "type": 9, "value": [4, [2]], "expected": {"variant": "LoadError::Config(ConfigError::InvalidGgufMetadata)", "key": "llama.block_count"}},
+    {"id": "wrong_metadata_dtype", "base": "gguf-llama-f32", "operation": "set_metadata", "key": "llama.block_count", "type": 6, "value": 2.0, "expected": {"variant": "LoadError::Config(ConfigError::InvalidGgufMetadata)", "key": "llama.block_count"}},
+    {"id": "zero_layers", "base": "gguf-llama-f32", "operation": "set_metadata", "key": "llama.block_count", "type": 4, "value": 0, "expected": {"variant": "LoadError::Config(ConfigError::InvalidNumericField)", "field": "llama.block_count"}},
+    {"id": "unsupported_architecture", "base": "gguf-llama-f32", "operation": "set_metadata", "key": "general.architecture", "type": 8, "value": "unsupported_oracle_model", "expected": {"variant": "LoadError::Config(ConfigError::UnsupportedArchitecture)", "value": "unsupported_oracle_model"}},
+    {"id": "unsupported_scaling", "base": "gguf-llama-f32", "operation": "set_metadata", "key": "llama.rope.scaling.type", "type": 8, "value": "llama3", "expected": {"variant": "LoadError::Config(ConfigError::UnsupportedRope)"}},
+    {"id": "noncausal", "base": "gguf-llama-f32", "operation": "set_metadata", "key": "llama.attention.causal", "type": 7, "value": false, "expected": {"variant": "LoadError::Config(ConfigError::UnsupportedGgufMetadata)", "key": "llama.attention.causal"}},
+    {"id": "wrong_key_length", "base": "gguf-llama-f32", "operation": "set_metadata", "key": "llama.attention.key_length", "type": 4, "value": 8, "expected": {"variant": "LoadError::Config(ConfigError::InvalidNumericField)", "field": "llama.attention.key_length"}},
+    {"id": "wrong_value_length", "base": "gguf-qwen3-f32", "operation": "set_metadata", "key": "qwen3.attention.value_length", "type": 4, "value": 8, "expected": {"variant": "LoadError::Config(ConfigError::InvalidNumericField)", "field": "qwen3.attention.value_length"}},
+    {"id": "missing_qwen_norm", "base": "gguf-qwen3-f32", "operation": "remove_tensor", "key": "blk.0.attn_q_norm.weight", "expected": {"variant": "LoadError::Weights(WeightError::MissingKey)", "key": "blk.0.attn_q_norm.weight"}},
+    {"id": "missing_tensor", "base": "gguf-llama-f32", "operation": "remove_tensor", "key": "blk.0.ffn_gate.weight", "expected": {"variant": "LoadError::Weights(WeightError::MissingKey)", "key": "blk.0.ffn_gate.weight"}},
+    {"id": "extra_tensor", "base": "gguf-llama-f32", "operation": "copy_tensor", "key": "output_norm.weight", "target": "unknown.weight", "expected": {"variant": "LoadError::Weights(WeightError::UnexpectedKey)", "key": "unknown.weight"}},
+    {"id": "duplicate_canonical_alias", "base": "gguf-llama-f32", "operation": "copy_tensor", "key": "blk.0.attn_q.weight", "target": "model.layers.0.self_attn.q_proj.weight", "expected": {"variant": "LoadError::Weights(WeightError::UnexpectedKey)", "key": "model.layers.0.self_attn.q_proj.weight"}},
+    {"id": "malformed_layer_index", "base": "gguf-llama-f32", "operation": "rename_tensor", "key": "blk.0.attn_q.weight", "target": "blk.00.attn_q.weight", "expected": {"variant": "LoadError::Weights(WeightError::UnexpectedKey)", "key": "blk.00.attn_q.weight"}},
+    {"id": "bad_embedding_rows", "base": "gguf-llama-f32", "operation": "truncate_rows", "key": "token_embd.weight", "rows": 63, "expected": {"variant": "LoadError::Weights(WeightError::ShapeMismatch)", "key": "output.weight", "expected": [63, 64], "actual": [64, 64]}},
+    {"id": "incomplete_affine", "base": "gguf-llama-f32", "operation": "copy_tensor", "key": "output_norm.weight", "target": "blk.0.attn_q.scales", "expected": {"variant": "LoadError::Weights(WeightError::MissingKey)", "key": "blk.0.attn_q.biases"}},
+    {"id": "orphan_affine", "base": "gguf-llama-f32", "operation": "rename_tensor", "key": "blk.0.attn_q.weight", "target": "blk.0.attn_q.scales", "expected": {"variant": "LoadError::Weights(WeightError::MissingKey)", "key": "blk.0.attn_q.weight"}},
+    {"id": "wrong_packing_shape", "base": "gguf-llama-q4_0", "operation": "truncate_columns", "key": "blk.0.ffn_gate.weight", "columns": 32, "expected": {"variant": "LoadError::Weights(WeightError::ShapeMismatch)", "key": "blk.0.ffn_gate.weight", "expected": [64, 8], "actual": [64, 4]}},
+    {"id": "quantized_norm", "base": "gguf-llama-q4_0", "operation": "copy_tensor", "key": "blk.0.attn_q.weight", "target": "output_norm.weight", "expected": {"variant": "LoadError::Weights(WeightError::UnexpectedKey)", "key": "output_norm.biases"}},
+    {"id": "output_group_orphan", "base": "gguf-llama-q4_0", "operation": "copy_tensor", "key": "output_norm.weight", "target": "output.scales", "expected": {"variant": "LoadError::Weights(WeightError::MissingKey)", "key": "output.weight"}},
+    {"id": "frequency_factors", "base": "gguf-llama-f32", "operation": "copy_tensor", "key": "output_norm.weight", "target": "rope_freqs.weight", "expected": {"variant": "LoadError::Weights(WeightError::UnexpectedKey)", "key": "rope_freqs.weight"}},
+    {"id": "tokenizer_metadata_out_of_range", "base": "gguf-llama-f32", "operation": "set_metadata", "key": "tokenizer.ggml.bos_token_id", "type": 4, "value": 64, "expected": {"variant": "LoadError::TokenizerVocabularyOutOfRange", "token_id": 64, "vocabulary_size": 64}},
+    {"id": "conflicting_bos", "base": "gguf-llama-f32", "operation": "set_metadata", "key": "tokenizer.ggml.bos_token_id", "type": 4, "value": 5, "expected": {"variant": "LoadError::TokenizerMetadataMismatch", "key": "tokenizer.ggml.bos_token_id"}},
+    {"id": "conflicting_eos", "base": "gguf-qwen3-f32", "operation": "set_metadata", "key": "tokenizer.ggml.eos_token_id", "type": 4, "value": 2, "expected": {"variant": "LoadError::TokenizerMetadataMismatch", "key": "tokenizer.ggml.eos_token_id"}},
+    {"id": "q5_0_core_failure", "base": "../../fixtures/gguf/q5-0-unsupported.gguf", "operation": "load_core", "expected": {"variant": "GgufError::Exception"}}
+  ],
+  "tokenizer_mutations": [
+    {"id": "same_size_bos", "operation": "replace tokenizer_config.bos_token with <|start_header_id|>", "expected": "LoadError::TokenizerMetadataMismatch"},
+    {"id": "same_size_eos", "operation": "replace generation_config.eos_token_id with [4]", "expected": "LoadError::TokenizerMetadataMismatch"},
+    {"id": "added_token_out_of_range", "operation": "append tokenizer.json added_tokens entry id=64 content=outside_vocab", "expected": "LoadError::TokenizerVocabularyOutOfRange"},
+    {"id": "interior_remap", "operation": "swap hello and world IDs in tokenizer.json model.vocab", "expected": "canonical prompt IDs differ; pairing sizes and special tokens alone cannot detect this"}
+  ]
+}

@@ -158,3 +158,54 @@ under the pinned interpreter without extra packages:
 ```sh
 conformance/.venv-mlx-lm/bin/python -B -m unittest discover -s conformance/mlx-lm -p 'test_*.py'
 ```
+## GGUF ingestion oracle (tranche 4a)
+
+mlx-lm 0.31.3 supplies the architecture and generation oracle and a Llama-family GGUF exporter; it does NOT supply a GGUF model loader. GGUF ingestion is qualified by Python MLX container conversion plus a reviewed reference bridge and independent NumPy decoding.
+
+The ten tiny `gguf-{llama,qwen3}-{f32,f16,q4_0,q4_1,q8_0}` cases establish
+self-consistency with our writer, mapping, orientation and quantization arithmetic.
+Llama naming also matches the pinned upstream exporter. Third-party compatibility
+requires the local real-checkpoint entries: TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF
+(`tinyllama-1.1b-chat-v1.0.Q4_0.gguf`) and ggml-org/Qwen3-0.6B-GGUF
+(`Qwen3-0.6B-Q8_0.gguf`). Tiny Qwen3 fixtures do not establish compatibility with
+real-world Qwen3 GGUF files. Real entries are release gates in 4b, not 4a gates.
+
+The qualified source-format set is F32, F16, Q4_0, Q4_1 and Q8_0. The runtime sees
+converted arrays, so fallback successes from BF16 or K-quants are unqualified,
+not an enforceable original-format allowlist. The initial GGUF profile is dense,
+biasless full attention with full-head RoPE and none/linear scaling. Embedded
+tokenizer construction is excluded. Pair the file with `Tokenizer::from_dir` for
+the original model's pinned sidecars; size and BOS/EOS agreement cannot establish
+complete tokenizer identity. `from_file`/`from_bytes` omit directory-sidecar facts.
+
+Generation requires the pinned Python environment on a host where MLX can import.
+The sandbox can run pure tests and compile the Rust adapter. Host commands:
+
+```sh
+conformance/.venv-mlx-lm/bin/python -B conformance/mlx-lm/generate_gguf.py --base-fixtures conformance/mlx-lm/fixtures --output-dir /private/tmp/t4-gguf-a
+conformance/.venv-mlx-lm/bin/python -B conformance/mlx-lm/generate_gguf.py --base-fixtures conformance/mlx-lm/fixtures --output-dir /private/tmp/t4-gguf-b
+diff -qr /private/tmp/t4-gguf-a /private/tmp/t4-gguf-b
+conformance/.venv-mlx-lm/bin/python -B conformance/mlx-lm/freeze_gguf.py --generated /private/tmp/t4-gguf-a --repeat /private/tmp/t4-gguf-b
+cargo test --offline -p mlx-lm --features oracle-hooks --test parity gguf_ -- --test-threads=1
+```
+
+The generator checks exact Python-core/NumPy conversion before model values,
+then Python–NumPy tolerance agreement before Rust comparisons. Failure retains a
+diagnostic staging tree and stops; changing the tolerance is forbidden. Goldens
+retain native dtypes separately from F32 comparison values. The forward cache
+after eight decode inputs has `T+8` positions; public generation of eight tokens
+has `T+7`. See [GGUF_BRIDGE.md](GGUF_BRIDGE.md) for mapping review, witness
+transformations, mutation requirements and outstanding source qualification.
+
+The pending core save record closes only after the existing ignored Rust writer
+and independent Python checker run on the host:
+
+```sh
+GGUF_QUALIFY_OUT=/private/tmp/t4-gguf-save.gguf cargo test --offline -p mlx-tests --test gguf write_save_qualification_artifact -- --ignored --exact --test-threads=1
+conformance/.venv-mlx-lm/bin/python -B conformance/qualify_gguf_save.py --input /private/tmp/t4-gguf-save.gguf --output /private/tmp/t4-gguf-save.json --producer-revision <full-revision-that-built-the-writer>
+```
+
+Record the actual producer revision and artifact hash, then copy the passing
+report to `conformance/qualification/gguf-save.json`. This qualifies save
+semantics, not serialized byte identity or model ingestion. Do not run the core
+generator afterward: it resets that record to pending.

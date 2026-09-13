@@ -178,3 +178,99 @@ Mutations qualify presence-as-frequency, frequency deduplication, expired
 context retention, reversed processor order, partial-stop leakage, match
 emission, missing held-suffix flush, omitted/duplicated final progress, changed
 wrapped trim state, and first-ID/decoded-first-ID BOS shortcuts.
+## GGUF cohort, schema 1 with `source: "gguf"`
+
+GGUF fixtures use a separate document reader. The six safetensors fixtures and
+their policies retain the schema below unchanged. Each GGUF directory contains:
+
+| File | Contract |
+| --- | --- |
+| `model.gguf` | Standard-library writer output, never Rust save output. |
+| `inputs.json` | Existing base prompts, IDs, seed, eight steps, chunks 1/3/8. |
+| `expectations.json` | Source identity, complete resolved config, keyed matrix quantization, metadata values/types, tokenizer references, cache states, IDs, native dtypes, fixed tolerance, effective mutation records. |
+| `expectations.safetensors` | F32 comparison payloads: full and chunked prefill, eight decode logits, K/V after prefill and eight fed decode IDs. |
+| `converted.safetensors` | Exact external key set and native F32/F16/U32 arrays from Python core. |
+| `mutations.safetensors` | Actual wrong-bridge numerical outputs, keyed `<mutation>::<original_tensor_key>`. |
+| `reference-agreement.json` | Python–NumPy per-key and per-fixture measured errors, bound ratios, and separate exact greedy-ID agreement, measured before Rust. Also frozen under `provenance.reference_agreement` in `expectations.json`. |
+
+`gguf.tokenizer_files` references the existing base's four sidecars by relative
+path and SHA-256. No tokenizer assets are duplicated. `config.bridge` is the
+explicit upstream architecture config derived from GGUF. `config.resolved`
+uses the existing dimension/RoPE schema; `config.quantization` separately maps
+every matrix to `{group_size:32,bits:4|8,mode:"affine"}` or `false` when any
+matrix is quantized. The Rust default is the first quantized canonical group;
+all matrix overrides are explicit. Model type, max positions and both bias flags
+are also checked through public Config. `gguf.metadata_types` stores original
+GGUF metadata type IDs; Rust checks the corresponding converted kind, rank,
+dtype and value. `gguf.tensor_types` records original types as provenance, not
+a Rust-observable allowlist.
+
+Each architecture has five storage fixtures. F32 is untied/unscaled; F16 is
+tied/linear; Q4_0 is tied/unscaled; Q4_1 is untied/linear with layer-0 V in F16
+and output in Q8_0; Q8_0 is untied/unscaled. Norms are F32. The deterministic
+witness transformations and explicit row mapping are reviewed in GGUF_BRIDGE.md.
+
+The three fixed logits/cache policies are:
+
+| Policy | Fixture storage | atol | rtol |
+| --- | --- | --- | --- |
+| `f32-v1` | F32 | 2e-4 | 2e-4 |
+| `gguf-f16-v1` | F16 | 5e-3 | 5e-3 |
+| `gguf-affine-v1` | Q4_0, Q4_1, Q8_0 only | 2e-2 | 2e-3 |
+
+F32 and F16 qualified at their existing numbers. Ruling K calibrates the affine
+policy from the launcher's Python-versus-NumPy probe of `gguf-llama-q4_0`:
+
+| Key | max \|x\| | max absolute error | error relative to peak |
+| --- | --- | --- | --- |
+| `cache.after_prefill.layer0.keys` | 3.51 | 0.00254 | 7.2e-04 |
+| `cache.after_prefill.layer1.keys` | 3.42 | 0.00703 | 2.1e-03 |
+| `prefill.full.logits` | 3.03 | 0.00893 | 3.0e-03 |
+| `decode.step7.logits` | 3.40 | 0.00930 | 2.7e-03 |
+
+Both references chose exactly `[0, 36, 12, 12, 40, 28, 52, 52]`. The smoothly
+growing discrepancy reflects accumulated F16 noise from MLX's fused quantized
+matmul versus NumPy's dequantize-then-F32 matmul. The affine absolute bound is
+about twice the measured worst error, calibrated before Rust observations.
+
+`provenance.reference_agreement.keys` records `max_abs`, elementwise `max_rel`
+(`max(abs(Python - NumPy) / max(abs(Python), float32.tiny))`), `rel_to_peak`
+(`max_abs / max(max(abs(Python)), float32.tiny)`), and `margin`
+(`max(abs(Python - NumPy) / (atol + rtol * abs(Python)))`) for every key.
+The fixture-level `max_abs`, `max_rel`, and `margin` are maxima across keys.
+These measurements are provenance, never expected outputs or tolerance inputs.
+The report also records both greedy-ID lists and `greedy_ids_equal`; a mismatch
+stops generation independently of numerical agreement.
+
+`native_dtypes` maps every numerical output key to
+its Python native dtype; Rust compares this exactly before casting observations
+to F32. Only numerical comparisons use tolerance. Names, integers, shapes,
+metadata kinds, converted affine slots, tokenizer IDs and greedy IDs are exact.
+Before forward comparison, independently derived packed U32 words and F16 affine
+slots must equal core observations bit for bit. NumPy dequantizes these slots as
+`F16(F16(scale*q)+bias)`, then promotes the result to F32 for its model forward.
+Reference disagreement stops the oracle item and cannot widen a tolerance.
+
+Required effective mutations are Llama inverse omission, Qwen3 wrong
+permutation, gate/up swap, Qwen3 Q/K norm swap, tied affine-output bypass, and
+mixed output wrong bits. Each applicable mutation must fail numerical comparison
+under the fixture's policy. For every affine value mutation, qualification requires
+a margin of at least 10x: `max(abs(original - mutated) / (atol + rtol * abs(original)))`
+on the saved witness tensor. Q/K norm swaps retain a cache witness. The generator
+prints and freezes the actual `margin` and witness `max_abs` per mutation; the
+Rust qualification recomputes and reports the margin from the saved tensors.
+A margin below 10x stops qualification and requires redesigned witness values
+before freezing. Exact converted-slot and structural mutations retain their
+zero-tolerance requirements. Every fixture kills at least one value mutation.
+The Rust comparator consumes the actual mutated output and checks the recorded
+`value` or `cache_value` class. Offset/range, dtype, packed-word, tokenizer,
+metadata and error-expectation corruption qualify exact comparison separately.
+Malformed data recipes and typed fields live in `gguf_cases.json`; they do not
+multiply the model files. Q5_0 is a pre-Model opaque core exception.
+
+Tiny fixtures prove reader/writer self-consistency plus mapping, orientation and
+quantization arithmetic. They do not prove third-party GGUF compatibility.
+Llama naming is additionally qualified against its pinned upstream exporter.
+Real compatibility evidence is local-only: TinyLlama Q4_0 and
+ggml-org/Qwen3-0.6B-GGUF Q8_0, paired with pinned original tokenizer assets.
+Those release entries remain distinct from the tiny-fixture evidence.

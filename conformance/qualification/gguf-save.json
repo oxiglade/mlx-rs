@@ -12,5 +12,8 @@
     "shapes",
     "values"
   ],
-  "verdict": "pending"
+  "verdict": "pending",
+  "checker": "conformance/qualify_gguf_save.py",
+  "checker_mutations": ["value", "dtype", "metadata_kind"],
+  "pending_reason": "The launcher must execute the existing ignored Rust writer and pinned Python MLX checker on the host. No host artifact or result has been supplied."
 }
