@@ -1,4 +1,6 @@
 pub(crate) mod gguf;
+#[cfg(feature = "hf-hub")]
+mod hub;
 pub use crate::error::GenerationError;
 use crate::{
     arch::DecoderModel, AdditivePenaltyOptions, Cache, CacheError, CacheOptions, CacheSnapshot,

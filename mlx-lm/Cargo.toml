@@ -13,7 +13,7 @@ publish = false
 
 [features]
 default = []
-hf-hub = ["dep:hf-hub"]
+hf-hub = ["dep:hf-hub", "dep:sha2"]
 oracle-hooks = []
 
 [dependencies]
@@ -26,6 +26,7 @@ tokenizers = { version = "0.22", default-features = false, features = ["onig"] }
 minijinja = { version = "2", features = ["loader"] }
 minijinja-contrib = { version = "2", features = ["pycompat"] }
 hf-hub = { version = "0.4", optional = true, default-features = false, features = ["ureq"] }
+sha2 = { version = "0.10", optional = true }
 
 [dev-dependencies]
 anyhow = "1"
