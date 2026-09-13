@@ -12,8 +12,23 @@ use crate::{
 use mlx_rs::{ops::indexing::TryIndexOp, random::RandomState, Array};
 use std::{num::NonZeroUsize, path::Path, rc::Rc};
 
+/// Resolved Hub source identity.
+#[cfg(feature = "hf-hub")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct HubProvenance {
+    /// Repository identifier.
+    pub repo: String,
+    /// Requested revision, with an absent request spelled `main`.
+    pub requested_revision: String,
+    /// Resolved full commit SHA.
+    pub resolved_revision: String,
+}
+
 /// A loaded decoder and its resolved tokenizer and configuration.
 pub struct Model {
+    #[cfg(feature = "hf-hub")]
+    hub_provenance: Option<HubProvenance>,
     decoder: Box<dyn DecoderModel>,
     tokenizer: Tokenizer,
     config: Config,
@@ -51,6 +66,8 @@ impl Model {
         let decoder = factory.build(parsed, &weights)?;
         let config = decoder.config().clone();
         Ok(Self {
+            #[cfg(feature = "hf-hub")]
+            hub_provenance: None,
             decoder,
             tokenizer,
             config,

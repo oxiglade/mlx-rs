@@ -21,7 +21,7 @@ pub use error::{
     LoadError, SamplingError, TokenizerError, WeightError,
 };
 #[cfg(feature = "hf-hub")]
-pub use model::HubOptions;
+pub use model::{HubOptions, HubProvenance};
 pub use model::{
     FinishReason, Generation, GenerationEvent, GenerationOptions, Model, Prompt,
     RepetitionPenaltyOptions, StopPolicy, StopTokenPolicy,

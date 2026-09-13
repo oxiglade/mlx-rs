@@ -48,6 +48,8 @@ pub(crate) fn load(file: GgufFile, tokenizer: Tokenizer) -> Result<Model, LoadEr
             .map_err(external_load_error)?;
         let config = decoder.config().clone();
         Ok(Model {
+            #[cfg(feature = "hf-hub")]
+            hub_provenance: None,
             decoder,
             tokenizer,
             config,
