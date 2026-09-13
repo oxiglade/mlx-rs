@@ -611,8 +611,10 @@ pub fn qualify_mutations() -> Result<()> {
                         "packed_lane" => array.bytes[0] ^= 1,
                         "signed_rebasing" => array.bytes[0] ^= 128,
                         "bias_sign" => {
-                            for half in array.bytes.chunks_exact_mut(2) {
-                                half[1] ^= 128;
+                            for (index, byte) in array.bytes.iter_mut().enumerate() {
+                                if index % 2 == 1 {
+                                    *byte ^= 128;
+                                }
                             }
                         }
                         "scale_row" => {
