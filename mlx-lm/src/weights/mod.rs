@@ -1,6 +1,8 @@
 use crate::config::{AffineQuantization, ParameterPath};
 pub use crate::error::WeightError;
-use mlx_rs::{error::IoError, io::GgufFile, utils::StateProjection, Array, Dtype};
+use mlx_rs::{error::IoError, utils::StateProjection, Array, Dtype};
+mod gguf;
+pub(crate) use gguf::external_error;
 use safetensors::tensor::{Metadata, TensorInfo};
 use serde::{de::MapAccess, Deserialize, Deserializer};
 use std::{
@@ -25,7 +27,6 @@ pub(crate) enum WeightSource {
     /// A local shard whose tensor names remain the original checkpoint names.
     Safetensors(PathBuf),
     /// An owned handle retained after the GGUF container is dropped.
-    #[allow(dead_code)] // GGUF backing is populated by the tranche 4 loader.
     Gguf(Array),
 }
 
@@ -40,7 +41,6 @@ impl WeightEntry {
 }
 
 /// One matrix's converted layout, keyed in the canonical checkpoint namespace.
-#[allow(dead_code)] // GGUF group inference is tranche 4.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct GgufQuantizationGroup {
     /// Matrix group without a weight, scales, or biases suffix.
@@ -168,40 +168,7 @@ impl WeightManifest {
         Ok(Self { tensors })
     }
 
-    #[allow(dead_code)] // GGUF loading is tranche 4.
-    pub(crate) fn from_gguf(_file: &GgufFile) -> Result<Self, WeightError> {
-        Err(WeightError::UnsupportedFormat(
-            crate::NotYetImplemented("GGUF manifest").to_string(),
-        ))
-    }
-
-    /// Maps external GGUF names to canonical checkpoint keys, rejecting unknown
-    /// tensors and collisions while retaining external names for diagnostics.
-    #[allow(dead_code)] // GGUF normalization is tranche 4.
-    pub(crate) fn normalize_gguf(
-        self,
-        _disposition: impl Fn(&str) -> WeightDisposition,
-    ) -> Result<Self, WeightError> {
-        Err(WeightError::UnsupportedFormat(
-            crate::NotYetImplemented("GGUF manifest").to_string(),
-        ))
-    }
-
-    /// Inverts Llama's Q/K export permutation on every slot in a matrix group,
-    /// including packed weights and their affine companions, on the CPU stream.
-    #[allow(dead_code)] // GGUF row preparation is tranche 4.
-    pub(crate) fn permute_gguf_rows(
-        &mut self,
-        _group: &ParameterPath,
-        _heads: usize,
-        _head_dim: usize,
-    ) -> Result<(), WeightError> {
-        Err(WeightError::UnsupportedFormat(
-            crate::NotYetImplemented("GGUF manifest").to_string(),
-        ))
-    }
-
-    #[allow(dead_code)] // GGUF loading is tranche 4.
+    #[cfg(test)]
     pub(crate) fn affine_groups(&self) -> Result<BTreeSet<String>, WeightError> {
         let groups = self.affine_group_prefixes();
         for prefix in &groups {
@@ -227,7 +194,6 @@ impl WeightManifest {
         groups
     }
 
-    #[allow(dead_code)] // GGUF loading is tranche 4.
     pub(crate) fn validate_affine_group(
         &self,
         prefix: &str,
@@ -403,7 +369,6 @@ impl WeightManifest {
             .ok_or_else(|| WeightError::MissingKey(external.to_owned()))
     }
 
-    #[allow(dead_code)] // GGUF loading is tranche 4.
     pub(crate) fn read_tensor(&self, external: &str) -> Result<Array, WeightError> {
         let entry = self.entry(external)?;
         let array = match &entry.source {

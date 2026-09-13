@@ -393,7 +393,7 @@ fn pure_key_dispositions_are_exact() -> Result<(), Box<dyn std::error::Error>> {
     ));
     assert!(matches!(
         Factory.map_gguf_key("token_embd.weight"),
-        WeightDisposition::Reject
+        WeightDisposition::Parameter(path) if path.as_str() == "model.embed_tokens.weight"
     ));
     Ok(())
 }

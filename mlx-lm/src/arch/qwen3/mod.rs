@@ -37,8 +37,8 @@ impl ArchitectureFactory for Factory {
     fn map_safetensors_key(&self, external: &str) -> WeightDisposition {
         weights::map_key(external, false)
     }
-    fn map_gguf_key(&self, _external: &str) -> WeightDisposition {
-        WeightDisposition::Reject
+    fn map_gguf_key(&self, external: &str) -> WeightDisposition {
+        super::gguf::map(external, true)
     }
 }
 
@@ -147,12 +147,13 @@ impl Decoder {
         let layout = config
             .attention
             .iter()
-            .map(|attention| LayerCacheSpec {
+            .zip(&layers)
+            .map(|(attention, layer)| LayerCacheSpec {
                 attention: attention.clone(),
                 batch_size: 1,
                 kv_heads: d.kv_heads,
                 head_dim: d.head_dim,
-                dtype: embedding.dtype(),
+                dtype: Dtype::from_promoting_types(layer.input_norm.dtype(), layer.k_proj.dtype()),
             })
             .collect();
         let rope = rope::Rope::new(&config.rope)?;
