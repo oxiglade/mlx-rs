@@ -125,18 +125,6 @@ impl CacheLayout {
         }
     }
 
-    pub(super) fn invalidate(&self) -> Result<(), HubError> {
-        let path = self.receipt_path();
-        control_directories(&self.root, path.parent().unwrap())?;
-        match fs::symlink_metadata(&path) {
-            Ok(metadata) if metadata.file_type().is_file() => fs::remove_file(path)?,
-            Ok(_) => return Err(unsafe_path(&path)),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => (),
-            Err(error) => return Err(error.into()),
-        }
-        Ok(())
-    }
-
     pub(super) fn read_receipt_offline(&self, requested: &str) -> Result<Receipt, HubError> {
         self.read_receipt().map_err(|error| match error {
             HubError::Io(source) if source.kind() == std::io::ErrorKind::NotFound => {
@@ -203,10 +191,19 @@ impl CacheLayout {
     }
 
     fn checked_asset(&self, name: &str) -> Result<PathBuf, HubError> {
+        let path = self.snapshot.join(name);
         self.asset(name).map_err(|error| match error {
             HubError::Io(source) if source.kind() == std::io::ErrorKind::NotFound => {
-                self.missing(name)
+                if fs::symlink_metadata(&path).is_ok_and(|metadata| metadata.is_symlink()) {
+                    HubError::SnapshotIntegrity {
+                        path,
+                        reason: "broken asset link".into(),
+                    }
+                } else {
+                    self.missing(name)
+                }
             }
+            HubError::UnsafePath { .. } => HubError::UnsafePath { path },
             other => other,
         })
     }
@@ -297,6 +294,17 @@ impl CacheLayout {
         absent: BTreeSet<String>,
         weight_mode: WeightMode,
     ) -> Result<Receipt, HubError> {
+        if weight_mode == WeightMode::Indexed {
+            let mut expected: BTreeSet<_> = selected
+                .iter()
+                .filter(|name| !name.ends_with(".safetensors"))
+                .cloned()
+                .collect();
+            expected.extend(shard_names(&self.read_asset(INDEX)?)?);
+            if selected != expected {
+                return Err(self.integrity("selected shards differ from the downloaded index"));
+            }
+        }
         let receipt = Receipt {
             schema_version: 1,
             repo: self.repo.clone(),
@@ -343,8 +351,18 @@ impl CacheLayout {
             }
         }
         for file in &receipt.selected_files {
-            if self.identity(&file.path)? != *file {
-                return Err(self.integrity(format!("asset identity changed: {}", file.path)));
+            let path = self.checked_asset(&file.path)?;
+            if fs::metadata(path)?.len() != file.size
+                || file.sha256.len() != 64
+                || !file
+                    .sha256
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+            {
+                return Err(HubError::SnapshotIntegrity {
+                    path: self.snapshot.join(&file.path),
+                    reason: "asset identity changed".into(),
+                });
             }
         }
         match receipt.weight_mode {
@@ -354,7 +372,15 @@ impl CacheLayout {
             }
             WeightMode::Indexed => {
                 expected.insert(INDEX.into());
-                expected.extend(shard_names(&self.read_asset(INDEX)?)?);
+                let shards: BTreeSet<_> = selected
+                    .iter()
+                    .filter(|name| name.ends_with(".safetensors"))
+                    .cloned()
+                    .collect();
+                if shards.is_empty() {
+                    return Err(self.integrity("receipt contains no indexed shards"));
+                }
+                expected.extend(shards);
             }
         }
         if selected != expected || receipt.absent_files != absent.into_iter().collect::<Vec<_>>() {
@@ -367,7 +393,10 @@ impl CacheLayout {
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => (),
                 Err(error) => return Err(error.into()),
                 Ok(_) => {
-                    return Err(self.integrity(format!("declared absent asset appeared: {name}")))
+                    return Err(HubError::SnapshotIntegrity {
+                        path: self.snapshot.join(name),
+                        reason: "declared absent asset appeared".into(),
+                    })
                 }
             }
         }

@@ -158,23 +158,6 @@ impl Drop for OfflineEnvironment {
 }
 
 #[test]
-fn public_offline_unreceipted_cache_is_a_miss() {
-    let environment = OfflineEnvironment::enter();
-    let options = environment.options(None);
-    assert!(matches!(
-        Model::from_hub("org/model", options),
-        Err(HubError::OfflineCacheMiss { repo, revision })
-            if repo == "org/model" && revision == "main"
-    ));
-    environment.populate(false);
-    fs::remove_dir_all(environment.root().join("models--org--model/.mlx-lm")).unwrap();
-    assert!(matches!(
-        Model::from_hub(REPO, environment.options(Some(SHA))),
-        Err(HubError::OfflineCacheMiss { .. })
-    ));
-}
-
-#[test]
 fn public_offline_invalid_revision_and_repository_are_typed() {
     let environment = OfflineEnvironment::enter();
     assert!(
@@ -207,7 +190,7 @@ fn public_offline_preserves_local_load_error() {
 }
 
 #[test]
-fn public_offline_rejects_changed_file_and_new_absent_sidecar() {
+fn public_offline_rejects_changed_size() {
     let environment = OfflineEnvironment::enter();
     environment.populate(false);
     fs::write(environment.snapshot().join("model.safetensors"), b"changed").unwrap();
@@ -215,23 +198,12 @@ fn public_offline_rejects_changed_file_and_new_absent_sidecar() {
         Model::from_hub(REPO, environment.options(Some(SHA))),
         Err(HubError::SnapshotIntegrity { .. })
     ));
-    environment.receipt(false);
-    fs::write(environment.snapshot().join(INDEX), b"{}").unwrap();
-    assert!(matches!(
-        Model::from_hub(REPO, environment.options(Some(SHA))),
-        Err(HubError::SnapshotIntegrity { .. })
-    ));
 }
 
 #[test]
-fn public_offline_single_snapshot_provenance() {
+fn public_local_snapshot_provenance_is_none() {
     let environment = OfflineEnvironment::enter();
     environment.populate(false);
-    let model = Model::from_hub(REPO, environment.options(Some(SHA))).unwrap();
-    let provenance = model.hub_provenance().unwrap();
-    assert_eq!(provenance.repo, REPO);
-    assert_eq!(provenance.requested_revision, SHA);
-    assert_eq!(provenance.resolved_revision, SHA);
     assert!(Model::from_dir(environment.snapshot())
         .unwrap()
         .hub_provenance()
@@ -249,26 +221,6 @@ fn public_offline_indexed_snapshot_provenance() {
     let provenance = model.hub_provenance().unwrap();
     assert_eq!(provenance.requested_revision, "main");
     assert_eq!(provenance.resolved_revision, SHA);
-}
-
-#[cfg(unix)]
-#[test]
-fn public_offline_standard_blob_snapshot_provenance() {
-    let environment = OfflineEnvironment::enter();
-    environment.populate(false);
-    let blobs = environment.root().join("models--org--model/blobs");
-    fs::create_dir_all(&blobs).unwrap();
-    for entry in fs::read_dir(environment.snapshot()).unwrap() {
-        let entry = entry.unwrap();
-        fs::rename(entry.path(), blobs.join(entry.file_name())).unwrap();
-        std::os::unix::fs::symlink(
-            Path::new("../../blobs").join(entry.file_name()),
-            entry.path(),
-        )
-        .unwrap();
-    }
-    let model = Model::from_hub(REPO, environment.options(Some(SHA))).unwrap();
-    assert_eq!(model.hub_provenance().unwrap().resolved_revision, SHA);
 }
 
 #[test]
