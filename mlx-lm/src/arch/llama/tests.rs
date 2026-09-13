@@ -164,7 +164,7 @@ fn mutated_weights(
     let shards: BTreeSet<_> = manifest
         .tensors
         .values()
-        .map(|entry| &entry.shard)
+        .filter_map(crate::weights::WeightEntry::safetensors_shard)
         .collect();
     let bytes = shards
         .into_iter()
@@ -393,7 +393,7 @@ fn pure_key_dispositions_are_exact() -> Result<(), Box<dyn std::error::Error>> {
     ));
     assert!(matches!(
         Factory.map_gguf_key("token_embd.weight"),
-        WeightDisposition::Reject
+        WeightDisposition::Parameter(path) if path.as_str() == "model.embed_tokens.weight"
     ));
     Ok(())
 }

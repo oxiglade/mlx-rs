@@ -82,7 +82,8 @@ fn local_loading_matches_fixture_expectations() -> anyhow::Result<()> {
     let mut not_run = 0;
     for entry in std::fs::read_dir(fixtures)? {
         let path = entry?.path();
-        if !path.is_dir() {
+        // GGUF fixtures carry no config.json; they are covered by the gguf module tests.
+        if !path.is_dir() || !path.join("config.json").exists() {
             continue;
         }
         count += 1;

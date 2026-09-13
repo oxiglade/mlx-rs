@@ -68,6 +68,8 @@ fn every_oracle_tokenizer_and_chat_case() -> Result<(), TokenizerError> {
     let mut fixtures = std::fs::read_dir(fixture_root())?
         .map(|entry| entry.map(|entry| entry.path()))
         .collect::<Result<Vec<_>, _>>()?;
+    // GGUF fixtures reference a base fixture's tokenizer instead of carrying their own.
+    fixtures.retain(|path| path.join("tokenizer.json").exists());
     fixtures.sort();
     assert!(!fixtures.is_empty());
     for directory in fixtures {

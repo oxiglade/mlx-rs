@@ -5,6 +5,7 @@ use crate::{
     Config, ConfigError, InferenceError, LoadError, WeightError,
 };
 use mlx_rs::{utils::StateProjection, Array};
+pub(crate) mod gguf;
 pub(crate) mod llama;
 pub(crate) mod qwen3;
 
@@ -12,6 +13,15 @@ pub(crate) mod qwen3;
 pub(crate) trait ArchitectureFactory {
     /// Resolves architecture defaults and validates raw configuration.
     fn parse_config(&self, raw: &RawConfig) -> Result<ParsedArchitecture, ConfigError>;
+    /// Resolves the bounded GGUF metadata profile against normalized checkpoint shapes.
+    fn parse_gguf_config(
+        &self,
+        file: &mlx_rs::io::GgufFile,
+        weights: &WeightManifest,
+    ) -> Result<ParsedArchitecture, LoadError> {
+        let raw = crate::model::gguf::raw_config(file, weights)?;
+        Ok(self.parse_config(&raw)?)
+    }
     /// Constructs a decoder with the manifest-selected parameter layout.
     fn build(
         &self,
@@ -21,8 +31,7 @@ pub(crate) trait ArchitectureFactory {
     /// Maps a safetensors name to a parameter, approved ignore, or rejection.
     #[cfg(test)]
     fn map_safetensors_key(&self, external: &str) -> WeightDisposition;
-    /// Maps a GGUF name to a parameter, approved ignore, or rejection.
-    #[allow(dead_code)] // GGUF loading is tranche 4.
+    /// Maps a GGUF name to a canonical checkpoint key or rejection; GGUF has no ignore rule.
     fn map_gguf_key(&self, external: &str) -> WeightDisposition;
 }
 /// Shared execution's private boundary around architecture math.

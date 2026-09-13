@@ -8,14 +8,29 @@ The private `NotYetImplemented` formatter is used only by the remaining loading 
 
 | Owner | File | Remaining work | Current result |
 | --- | --- | --- | --- |
-| loader, tranche 4 | `src/model.rs` | `Model::from_gguf` | `LoadError::Weights(UnsupportedFormat)` |
 | foundation, tranche 4 | `src/model.rs` | `Model::from_hub` | `HubError::Load(Config(UnsupportedArchitecture))` |
-| loader, tranche 4 | `src/weights/mod.rs` | `WeightManifest::from_gguf` | `WeightError::UnsupportedFormat` |
-| llama, tranche 4 | `src/arch/llama/mod.rs` | `Factory::map_gguf_key` | `WeightDisposition::Reject` |
-| qwen3, tranche 4 | `src/arch/qwen3/mod.rs` | `Factory::map_gguf_key` | `WeightDisposition::Reject` |
 | engine, tranche 4 | real-checkpoint benchmark | Compare throughput with Python; ruling C admits investigating async evaluation if the missing pipeline costs more than 5% | No lookahead in tranche 3 |
 | text/FFI, tranche 3 item 5 | `tests/generation_ffi.rs` | Run the reduced workload with `xtask verify-ffi --guard-malloc` on the host under DECISIONS O | Ordinary runs retain the paper's "Memory, snapshots and the FFI gate" workload and proposed F envelope. `DYLD_INSERT_LIBRARIES` containing `libgmalloc` selects reduced coverage: Qwen3 full generation (40 samples), Llama reuse (40 calls, capacities 16/32/64), kept-prefix rotation (40 updates), sliding oversized prefill (25 tokens, chunks of 8) and one snapshot retained across a wrap (24 samples), tokenizer EOS, and one affine load/generate/drop cycle with length, exact-token/text stops and all three cancellation boundaries. Both modes retain behavioral assertions; reduced mode skips all allocator observations and byte guards and prints the completed scenario list. Default library fault-injection tests remain in `src/model/tests.rs`. |
 | worker, tranche 3 item 5 | `examples/worker.rs` | Run on the Metal host with one positional checkpoint directory | Implements the paper's "Device, RNG and threading": model, GPU stream scope and cache stay on one OS thread; bounded owned request/event channels, worker-local error conversion, receiver-drop cancellation and receiver-before-join shutdown. Positive Send checks cover options/events/errors/requests. |
+
+The GGUF implementation requires the owning integration patch to add these error
+variants in `src/error.rs`:
+
+```rust
+// ConfigError
+InvalidGgufMetadata { key: String, expected: &'static str, actual: String },
+UnsupportedGgufMetadata { key: String, value: String },
+// LoadError
+TokenizerVocabularyOutOfRange { token_id: TokenId, vocabulary_size: usize },
+TokenizerMetadataMismatch { key: String, expected: String, actual: String },
+```
+
+In `src/lib.rs`, both `NotYetImplemented` and its `Display` implementation need
+`#[cfg(feature = "hf-hub")]`; only the Hub placeholder still uses the formatter.
+These files are outside item 2's ownership. Until that patch lands, the worktree
+cannot compile; verification with those declarations supplied uses a temporary
+integration copy. The public `from_gguf` documentation also needs the tokenizer
+pairing limitation stated below when the model owner updates its docs.
 
 ## Generation and completed boundaries
 
@@ -108,6 +123,49 @@ feeding all eight oracle decode IDs intentionally differs from generation's fina
 views with separate prefix/tail ranges when needed.
 
 ## Loading and tokenizer contracts
+
+The tranche 4a serial foundation extracts `ShardIndex::from_bytes(&[u8])` and
+`shard_paths()` as crate-private seams. Byte parsing returns relative paths. Local
+loading uses the same parser with the index directory so duplicate-entry errors
+retain joined paths and invalid-path errors retain the original relative paths.
+Local path admission, JSON error precedence, shard ordering, duplicate detection
+and index reconciliation are unchanged; the stricter Hub path policy is separate.
+
+`Model::from_gguf(file, tokenizer)` normalizes the exhaustive Llama/Qwen3 tensor
+map into canonical checkpoint names, validates the explicit metadata profile and
+uses the existing architecture factory and strict weight planner. In-memory GGUF
+array handles survive the container. Llama Q/K row preparation applies to weights,
+scales and affine biases on CPU; Qwen3 retains its native rows and per-head norms.
+Safetensors reads remain pinned to CPU under ruling P. Staged parameters are
+evaluated before atomic restore for both sources.
+
+The GGUF profile admits full causal attention, no tensor biases, full-head RoPE,
+and absent/none or linear scaling. Frequency-factor tensors are rejected. Metadata
+is fetched by exact standard keys; unknown vendor metadata cannot be enumerated.
+Converted affine groups require group size 32, 4 or 8 bits and F16 companions.
+Every matrix receives an explicit quantized or floating override in mixed models.
+F32/F16/Q4_0/Q4_1/Q8_0 are qualified source forms; core fallback conversion may
+admit other original encodings that cannot be identified from converted arrays.
+
+The caller supplies the tokenizer. Load its sidecars with `Tokenizer::from_dir`
+from the exact original model revision. Pairing checks vocabulary and added-token
+ID bounds, configured BOS/EOS bounds, embedded BOS/EOS agreement and special-token
+spelling when embedded tokens are present. They cannot establish tokenizer identity:
+two tokenizers can share sizes and special IDs but differ on ordinary tokens.
+Retain hashes for tokenizer.json, tokenizer_config.json, config.json and
+generation_config.json when present, the GGUF producer/source revision and a
+canonical prompt's original IDs. `encode` adds no special tokens; text generation
+uses the existing original-string BOS rule.
+
+The module tests consume the ten frozen GGUF fixtures with each fixture's fixed
+policy: f32-v1 (2e-4/2e-4), gguf-f16-v1 (5e-3/5e-3), or gguf-affine-v1
+(2e-2/2e-3), expressed as atol/rtol. They compare every prefill position, chunks
+1/3/8, per-layer K/V caches, eight fed decode steps and the exact greedy prefix.
+Malformed-recipe tests materialize committed recipes in Rust and check their bytes
+against frozen Python SHA-256 hashes before asserting typed errors. The byte checks
+run without MLX initialization; forward and array-backed tests require it.
+Tiny fixtures establish mapping and arithmetic self-consistency, not real-world
+Qwen3 compatibility; the local real-checkpoint release qualification is separate.
 
 `Model::from_dir` discovers one `WeightManifest` and calls the architecture factory once.
 `WeightManifest::load_with(&mut StateProjection, disposition)` performs strict planning,

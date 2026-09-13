@@ -12,6 +12,24 @@ pub enum ConfigError {
         /// Configuration or option field name.
         field: String,
     },
+    /// A GGUF metadata key is absent or carries the wrong type.
+    #[error("gguf metadata {key} is {actual}, expected {expected}")]
+    InvalidGgufMetadata {
+        /// Fully qualified GGUF metadata key.
+        key: String,
+        /// Required value or layout.
+        expected: &'static str,
+        /// Observed value or layout.
+        actual: String,
+    },
+    /// A GGUF metadata value names a form outside the qualified profile.
+    #[error("unsupported gguf metadata {key}: {value}")]
+    UnsupportedGgufMetadata {
+        /// Fully qualified GGUF metadata key.
+        key: String,
+        /// Observed value.
+        value: String,
+    },
     /// A numeric field violates its domain.
     #[error("invalid {field}: {reason}")]
     InvalidNumericField {
@@ -130,6 +148,24 @@ pub enum LoadError {
     /// A required model asset is absent.
     #[error("missing model file: {0:?}")]
     MissingFile(PathBuf),
+    /// A supplied tokenizer names a token the checkpoint's vocabulary cannot hold.
+    #[error("tokenizer token {token_id:?} is outside the model vocabulary of {vocabulary_size}")]
+    TokenizerVocabularyOutOfRange {
+        /// Offending token.
+        token_id: crate::TokenId,
+        /// Model vocabulary size.
+        vocabulary_size: usize,
+    },
+    /// A supplied tokenizer disagrees with the checkpoint's embedded tokenizer facts.
+    #[error("tokenizer {key} is {actual}, checkpoint declares {expected}")]
+    TokenizerMetadataMismatch {
+        /// Metadata key compared.
+        key: String,
+        /// Value the checkpoint declares.
+        expected: String,
+        /// Value the supplied tokenizer reports.
+        actual: String,
+    },
     /// Preserves the source diagnostic.
     #[error(transparent)]
     Io(#[from] std::io::Error),

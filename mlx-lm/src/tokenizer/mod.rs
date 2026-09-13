@@ -1,3 +1,4 @@
+mod gguf;
 pub use crate::error::{ChatTemplateError, TokenizerError};
 use minijinja::{context, Environment};
 use serde::Serialize;

@@ -30,6 +30,13 @@ def fixture_directories(paths):
 
 def reference_tensors(fixture):
     fixture = Path(fixture)
+    if (fixture / "model.gguf").exists():
+        from numpy_reference.gguf import reference
+        expectations = read_json(fixture / "expectations.json")
+        tensors, greedy = reference(fixture / "model.gguf", expectations["prefill"]["token_ids"])
+        if greedy != expectations["decode"]["greedy_ids"]:
+            raise ValueError(f"GGUF independent greedy IDs differ: {fixture.name}")
+        return tensors
     config = read_json(fixture / "config.json")
     expectations = read_json(fixture / "expectations.json")
     architectures = {"llama": Llama, "qwen3": Qwen3}
@@ -53,11 +60,12 @@ def main():
         description="Generate independent f32 NumPy decoder expectations"
     )
     parser.add_argument("fixtures", nargs="*", type=Path)
+    parser.add_argument("--fixtures-root", type=Path, default=ROOT / "fixtures")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "numpy_reference" / "out")
     args = parser.parse_args()
     if np.__version__ != NUMPY_VERSION:
         parser.error(f"requires numpy {NUMPY_VERSION}, got {np.__version__}")
-    discovered = (path for path in (ROOT / "fixtures").glob("*") if path.is_dir())
+    discovered = (path for path in args.fixtures_root.glob("*") if path.is_dir())
     fixtures = fixture_directories(args.fixtures or discovered)
     for fixture in fixtures:
         path = args.output_dir / f"{fixture.name}.safetensors"

@@ -1,6 +1,8 @@
 use crate::config::{AffineQuantization, ParameterPath};
 pub use crate::error::WeightError;
-use mlx_rs::{error::IoError, io::GgufFile, utils::StateProjection, Array, Dtype};
+use mlx_rs::{error::IoError, utils::StateProjection, Array, Dtype};
+mod gguf;
+pub(crate) use gguf::external_error;
 use safetensors::tensor::{Metadata, TensorInfo};
 use serde::{de::MapAccess, Deserialize, Deserializer};
 use std::{
@@ -13,11 +15,86 @@ use std::{
 pub(crate) struct WeightManifest {
     pub(crate) tensors: BTreeMap<String, WeightEntry>,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub(crate) struct WeightEntry {
-    pub(crate) shard: PathBuf,
+    pub(crate) source: WeightSource,
     pub(crate) shape: Vec<usize>,
     pub(crate) dtype: Dtype,
+}
+/// Tensor storage is independent of the manifest's normalized checkpoint keys.
+#[derive(Debug, Clone)]
+pub(crate) enum WeightSource {
+    /// A local shard whose tensor names remain the original checkpoint names.
+    Safetensors(PathBuf),
+    /// An owned handle retained after the GGUF container is dropped.
+    Gguf(Array),
+}
+
+impl WeightEntry {
+    #[cfg(test)]
+    pub(crate) fn safetensors_shard(&self) -> Option<&Path> {
+        match &self.source {
+            WeightSource::Safetensors(path) => Some(path),
+            WeightSource::Gguf(_) => None,
+        }
+    }
+}
+
+/// One matrix's converted layout, keyed in the canonical checkpoint namespace.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct GgufQuantizationGroup {
+    /// Matrix group without a weight, scales, or biases suffix.
+    pub(crate) path: ParameterPath,
+    /// Floating groups receive explicit unquantized overrides; affine groups use
+    /// group size 32 and 4 or 8 bits, inferred from packed/scales columns.
+    pub(crate) quantization: crate::config::LayerQuantization,
+}
+
+/// Duplicate-aware shard selection shared by local loading and Hub resolution.
+pub(crate) struct ShardIndex {
+    /// Tensor names mapped to relative paths when parsed with `from_bytes`.
+    pub(crate) weight_map: BTreeMap<String, PathBuf>,
+}
+
+impl ShardIndex {
+    /// Parses the local index grammar without opening any shards.
+    #[allow(dead_code)] // The tranche 4 Hub resolver consumes index bytes.
+    pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self, WeightError> {
+        Self::from_reader(bytes, Path::new(""))
+    }
+
+    /// Returns distinct shard paths in deterministic loading order.
+    pub(crate) fn shard_paths(&self) -> BTreeSet<PathBuf> {
+        self.weight_map.values().cloned().collect()
+    }
+
+    fn from_reader(reader: impl Read, directory: &Path) -> Result<Self, WeightError> {
+        #[derive(Deserialize)]
+        struct Index {
+            weight_map: Entries<String>,
+        }
+        let index: Index = serde_json::from_reader(reader)?;
+        let mut weight_map = BTreeMap::new();
+        for (key, shard) in index.weight_map.0 {
+            let relative = Path::new(&shard);
+            if relative
+                .components()
+                .any(|part| !matches!(part, Component::Normal(_)))
+                || relative.as_os_str().is_empty()
+            {
+                return Err(WeightError::ConflictingIndex {
+                    key,
+                    shard: relative.to_owned(),
+                });
+            }
+            // Local duplicate errors historically contain the joined path; invalid paths do not.
+            let shard = directory.join(relative);
+            if weight_map.insert(key.clone(), shard.clone()).is_some() {
+                return Err(WeightError::ConflictingIndex { key, shard });
+            }
+        }
+        Ok(Self { weight_map })
+    }
 }
 pub(crate) enum WeightDisposition {
     Parameter(ParameterPath),
@@ -47,7 +124,7 @@ impl WeightManifest {
             tensors.insert(
                 key,
                 WeightEntry {
-                    shard: path.to_owned(),
+                    source: WeightSource::Safetensors(path.to_owned()),
                     shape: info.shape.clone(),
                     dtype,
                 },
@@ -57,34 +134,10 @@ impl WeightManifest {
     }
 
     pub(crate) fn from_sharded_index(path: &Path) -> Result<Self, WeightError> {
-        #[derive(Deserialize)]
-        struct Index {
-            weight_map: Entries<String>,
-        }
-        let index: Index = serde_json::from_reader(open_weights(path)?)?;
         let directory = path.parent().unwrap_or_else(|| Path::new("."));
-        let mut weight_map = BTreeMap::new();
-        let mut shards = BTreeSet::new();
-        for (key, shard) in index.weight_map.0 {
-            let relative = Path::new(&shard);
-            if relative
-                .components()
-                .any(|part| !matches!(part, Component::Normal(_)))
-                || relative.as_os_str().is_empty()
-            {
-                return Err(WeightError::ConflictingIndex {
-                    key,
-                    shard: relative.to_owned(),
-                });
-            }
-            let shard = directory.join(relative);
-            if weight_map.insert(key.clone(), shard.clone()).is_some() {
-                return Err(WeightError::ConflictingIndex { key, shard });
-            }
-            shards.insert(shard);
-        }
+        let index = ShardIndex::from_reader(open_weights(path)?, directory)?;
         let mut tensors = BTreeMap::new();
-        for shard in shards {
+        for shard in index.shard_paths() {
             let manifest = Self::from_safetensors(&shard).map_err(|error| match error {
                 WeightError::MissingFile(path) => WeightError::MissingShard(path),
                 other => other,
@@ -97,14 +150,17 @@ impl WeightManifest {
         }
         // Duplicate detection precedes index reconciliation so an extra copy has one stable error.
         for (key, entry) in &tensors {
-            if weight_map.get(key) != Some(&entry.shard) {
+            let WeightSource::Safetensors(shard) = &entry.source else {
+                unreachable!("safetensors discovery only produces shard-backed entries");
+            };
+            if index.weight_map.get(key) != Some(shard) {
                 return Err(WeightError::ConflictingIndex {
                     key: key.clone(),
-                    shard: entry.shard.clone(),
+                    shard: shard.clone(),
                 });
             }
         }
-        for (key, shard) in weight_map {
+        for (key, shard) in index.weight_map {
             if !tensors.contains_key(&key) {
                 return Err(WeightError::ConflictingIndex { key, shard });
             }
@@ -112,14 +168,7 @@ impl WeightManifest {
         Ok(Self { tensors })
     }
 
-    #[allow(dead_code)] // GGUF loading is tranche 4.
-    pub(crate) fn from_gguf(_file: &GgufFile) -> Result<Self, WeightError> {
-        Err(WeightError::UnsupportedFormat(
-            crate::NotYetImplemented("GGUF manifest").to_string(),
-        ))
-    }
-
-    #[allow(dead_code)] // GGUF loading is tranche 4.
+    #[cfg(test)]
     pub(crate) fn affine_groups(&self) -> Result<BTreeSet<String>, WeightError> {
         let groups = self.affine_group_prefixes();
         for prefix in &groups {
@@ -145,7 +194,6 @@ impl WeightManifest {
         groups
     }
 
-    #[allow(dead_code)] // GGUF loading is tranche 4.
     pub(crate) fn validate_affine_group(
         &self,
         prefix: &str,
@@ -236,21 +284,22 @@ impl WeightManifest {
             .collect::<Result<BTreeMap<_, _>, WeightError>>()?;
         let assignments = self.plan(&expected, disposition)?;
         let mut shards = BTreeMap::<_, Vec<_>>::new();
+        let mut loaded: BTreeMap<_, _> = expected.keys().map(|key| (key.clone(), None)).collect();
         for (key, external) in assignments {
             let entry = self.entry(&external)?;
-            shards
-                .entry(&entry.shard)
-                .or_default()
-                .push((key, external, entry));
+            match &entry.source {
+                WeightSource::Safetensors(shard) => shards
+                    .entry(shard)
+                    .or_default()
+                    .push((key, external, entry)),
+                WeightSource::Gguf(array) => {
+                    validate_array(&external, entry, array)?;
+                    loaded.insert(key, Some(array.clone()));
+                }
+            }
         }
-        let mut loaded: BTreeMap<_, _> = expected.keys().map(|key| (key.clone(), None)).collect();
         for (shard, assignments) in shards {
-            // MLX has no GPU implementation of the safetensors Load primitive, so a caller that
-            // scopes a GPU stream around loading would otherwise get "[Load::eval_gpu] Not
-            // implemented".
-            let mut arrays =
-                mlx_rs::with_stream(&mlx_rs::Stream::cpu(), || Array::load_safetensors(shard))
-                    .map_err(|error| shard_error(shard, error))?;
+            let mut arrays = load_shard(shard)?;
             for (key, external, entry) in assignments {
                 let array = arrays
                     .remove(&external)
@@ -320,17 +369,25 @@ impl WeightManifest {
             .ok_or_else(|| WeightError::MissingKey(external.to_owned()))
     }
 
-    #[allow(dead_code)] // GGUF loading is tranche 4.
     pub(crate) fn read_tensor(&self, external: &str) -> Result<Array, WeightError> {
         let entry = self.entry(external)?;
-        let mut arrays = Array::load_safetensors(&entry.shard)
-            .map_err(|error| shard_error(&entry.shard, error))?;
-        let array = arrays
-            .remove(external)
-            .ok_or_else(|| WeightError::MissingKey(external.to_owned()))?;
+        let array = match &entry.source {
+            WeightSource::Safetensors(shard) => load_shard(shard)?
+                .remove(external)
+                .ok_or_else(|| WeightError::MissingKey(external.to_owned()))?,
+            WeightSource::Gguf(array) => array.clone(),
+        };
         validate_array(external, entry, &array)?;
         Ok(array)
     }
+}
+
+fn load_shard(path: &Path) -> Result<std::collections::HashMap<String, Array>, WeightError> {
+    // MLX has no GPU implementation of the safetensors Load primitive, so a caller that
+    // scopes a GPU stream around loading would otherwise get "[Load::eval_gpu] Not
+    // implemented".
+    mlx_rs::with_stream(&mlx_rs::Stream::cpu(), || Array::load_safetensors(path))
+        .map_err(|error| shard_error(path, error))
 }
 
 fn validate_array(external: &str, entry: &WeightEntry, array: &Array) -> Result<(), WeightError> {
