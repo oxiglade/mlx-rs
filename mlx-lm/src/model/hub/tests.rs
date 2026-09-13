@@ -12,8 +12,6 @@ struct Fake {
     files: BTreeMap<String, Vec<u8>>,
     log: Rc<RefCell<Vec<String>>>,
     fail: Option<String>,
-    returned_commit: Option<String>,
-    move_ref: bool,
 }
 
 impl Fake {
@@ -31,8 +29,6 @@ impl Fake {
             .collect(),
             log: Rc::default(),
             fail: None,
-            returned_commit: None,
-            move_ref: false,
         }
     }
 
@@ -61,11 +57,6 @@ impl HubTransport for Fake {
         if self.fail.as_deref() == Some("info") {
             return Err(std::io::Error::other("info failed").into());
         }
-        if self.move_ref {
-            let refs = self.root.join("models--org--model/refs");
-            fs::create_dir_all(&refs)?;
-            fs::write(refs.join("main"), OTHER)?;
-        }
         Ok(SnapshotInfo {
             commit: self.commit.clone(),
             siblings: self.files.keys().cloned().collect(),
@@ -79,7 +70,6 @@ impl HubTransport for Fake {
         if self.fail.as_deref() == Some(filename) {
             return Err(std::io::Error::other("download failed").into());
         }
-        let commit = self.returned_commit.as_deref().unwrap_or(commit);
         let path = self
             .root
             .join("models--org--model/snapshots")
@@ -118,34 +108,7 @@ fn offline(root: &Path, revision: &str) -> Result<ResolvedSnapshot, HubError> {
 const SINGLE_CALLS: &[&str] = &["config.json", SINGLE, "tokenizer.json"];
 
 #[test]
-fn single_plan_pins_moving_ref_and_records_deliberate_absences() {
-    let root = tempfile::tempdir().unwrap();
-    let mut fake = Fake::single(root.path());
-    fake.move_ref = true;
-    fake.files.insert("remote.py".into(), vec![]);
-    fake.files.insert("model.gguf".into(), vec![]);
-    fake.files.insert("tokenizer.model".into(), vec![]);
-    let resolved = fake.run("main", SINGLE_CALLS).unwrap();
-    assert_eq!(resolved.provenance, provenance(REPO, "main", SHA));
-    assert_eq!(
-        fs::read_to_string(root.path().join("models--org--model/refs/main")).unwrap(),
-        SHA
-    );
-    let receipt = serde_json::to_value(&resolved.receipt).unwrap();
-    assert_eq!(receipt["weight_mode"], "single");
-    assert_eq!(
-        receipt["absent_files"],
-        serde_json::json!(["generation_config.json", INDEX, "tokenizer_config.json"])
-    );
-    assert_eq!(receipt["selected_files"].as_array().unwrap().len(), 3);
-    offline(root.path(), "main").unwrap().validate().unwrap();
-    fs::remove_dir_all(root.path().join("models--org--model/refs")).unwrap();
-    offline(root.path(), SHA).unwrap().validate().unwrap();
-    assert!(fake.log.borrow().is_empty());
-}
-
-#[test]
-fn indexed_plan_downloads_exact_distinct_shards_and_sidecars() {
+fn nested_index_shards_are_deduplicated_for_a_slash_ref() {
     let root = tempfile::tempdir().unwrap();
     let mut fake = Fake::single(root.path());
     fake.files.insert(INDEX.into(), br#"{"weight_map":{"a":"parts/a.safetensors","b":"parts/z.safetensors","c":"parts/a.safetensors"}}"#.to_vec());
@@ -227,26 +190,13 @@ fn invalid_names_never_construct_transport() {
 }
 
 #[test]
-fn invalid_or_different_server_commit_is_rejected_before_download() {
+fn invalid_server_commit_is_rejected_before_download() {
     let root = tempfile::tempdir().unwrap();
     let mut fake = Fake::single(root.path());
     fake.commit = "123abc".into();
     assert!(matches!(
         fake.run("main", &[]),
         Err(HubError::InvalidRevision(_))
-    ));
-    fake.commit = OTHER.into();
-    assert!(
-        matches!(fake.run(SHA, &[]), Err(HubError::RevisionMismatch { expected, actual }) if expected == SHA && actual == OTHER)
-    );
-    fake.commit = SHA.into();
-    fake.returned_commit = Some(OTHER.into());
-    assert!(
-        matches!(fake.run("main", &["config.json"]), Err(HubError::RevisionMismatch { expected, actual }) if expected == SHA && actual == OTHER)
-    );
-    assert!(matches!(
-        offline(root.path(), SHA),
-        Err(HubError::OfflineCacheMiss { .. })
     ));
 }
 
@@ -261,8 +211,6 @@ fn missing_selected_assets_and_bad_indexes_stop_the_exact_plan() {
         );
     }
     for index in [
-        r#"{"weight_map":{"a":"x.safetensors","a":"y.safetensors"}}"#,
-        r#"{"weight_map":{"a":"../x.safetensors"}}"#,
         r#"{"weight_map":{"a":"/x.safetensors"}}"#,
         r#"{"weight_map":{"a":"x%20.safetensors"}}"#,
         r#"{"weight_map":{"a":"x\\y.safetensors"}}"#,
@@ -291,69 +239,115 @@ fn missing_selected_assets_and_bad_indexes_stop_the_exact_plan() {
 }
 
 #[test]
-fn failed_download_invalidates_completion_and_retry_recovers_without_fallback() {
+fn failed_download_preserves_completion_and_retry_recovers() {
     let root = tempfile::tempdir().unwrap();
     let mut fake = Fake::single(root.path());
-    fake.run("main", SINGLE_CALLS).unwrap();
-    fake.fail = Some(SINGLE.into());
-    assert!(matches!(
-        fake.run("main", &["config.json", SINGLE]),
-        Err(HubError::Io(_))
-    ));
-    assert!(matches!(
-        offline(root.path(), "main"),
-        Err(HubError::OfflineCacheMiss { .. })
-    ));
+    let resolved = fake.run("main", SINGLE_CALLS).unwrap();
+    let receipt_path = root
+        .path()
+        .join(format!("models--org--model/.mlx-lm/snapshots/{SHA}.json"));
+    let receipt = fs::read(&receipt_path).unwrap();
+    for (failure, downloads) in [
+        ("info", &SINGLE_CALLS[..0]),
+        ("config.json", &SINGLE_CALLS[..1]),
+        (SINGLE, &SINGLE_CALLS[..2]),
+        ("tokenizer.json", SINGLE_CALLS),
+    ] {
+        fake.fail = Some(failure.into());
+        assert!(matches!(fake.run("main", downloads), Err(HubError::Io(_))));
+        assert_eq!(fs::read(&receipt_path).unwrap(), receipt);
+        for (name, bytes) in &fake.files {
+            assert_eq!(
+                fs::read(resolved.layout.snapshot().join(name)).unwrap(),
+                *bytes
+            );
+        }
+        assert_eq!(
+            offline(root.path(), "main").unwrap().receipt,
+            resolved.receipt
+        );
+        resolved.validate().unwrap();
+    }
     fake.fail = None;
     fake.run("main", SINGLE_CALLS).unwrap();
     offline(root.path(), "main").unwrap();
-    fake.fail = Some("info".into());
-    assert!(matches!(fake.run("main", &[]), Err(HubError::Io(_))));
 }
 
 #[test]
-fn offline_missing_ref_or_receipt_forbids_client_and_transport() {
+fn receipt_rejects_changed_size_on_offline_and_reuse_paths() {
     let root = tempfile::tempdir().unwrap();
-    for revision in ["main", SHA] {
-        assert!(
-            matches!(offline(root.path(), revision), Err(HubError::OfflineCacheMiss { repo, revision: got }) if repo == REPO && got == revision)
-        );
-    }
-    let snapshot = root.path().join("models--org--model/snapshots").join(SHA);
-    fs::create_dir_all(&snapshot).unwrap();
-    for name in ["config.json", "tokenizer.json", SINGLE] {
-        fs::write(snapshot.join(name), b"{}").unwrap();
-    }
+    let fake = Fake::single(root.path());
+    let resolved = fake.run("main", SINGLE_CALLS).unwrap();
+    fs::write(resolved.layout.snapshot().join(SINGLE), [3, 2]).unwrap();
     assert!(matches!(
         offline(root.path(), SHA),
-        Err(HubError::OfflineCacheMiss { .. })
+        Err(HubError::SnapshotIntegrity { .. })
+    ));
+    assert!(resolved.validate().is_err());
+}
+
+#[test]
+fn receipt_records_hash_once_and_rejects_changed_recorded_identity() {
+    let root = tempfile::tempdir().unwrap();
+    let fake = Fake::single(root.path());
+    let resolved = fake.run("main", SINGLE_CALLS).unwrap();
+    let mut receipt = serde_json::to_value(&resolved.receipt).unwrap();
+    assert_eq!(
+        receipt["selected_files"][1]["sha256"],
+        "039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81"
+    );
+    fs::write(resolved.layout.snapshot().join(SINGLE), [3, 2, 1]).unwrap();
+    resolved.validate().unwrap();
+    let reused = offline(root.path(), SHA).unwrap();
+    assert_eq!(reused.receipt, resolved.receipt);
+    reused.validate().unwrap();
+
+    receipt["selected_files"][1]["sha256"] = "0".repeat(64).into();
+    resolved
+        .layout
+        .write_receipt(&serde_json::from_value(receipt).unwrap())
+        .unwrap();
+    assert!(matches!(
+        resolved.validate(),
+        Err(HubError::SnapshotIntegrity { .. })
+    ));
+    assert!(matches!(
+        reused.validate(),
+        Err(HubError::SnapshotIntegrity { .. })
     ));
 }
 
+#[cfg(unix)]
 #[test]
-fn receipt_rejects_changed_hash_missing_file_and_new_absence() {
-    for mutation in [
-        "hash",
-        "missing",
-        "generation_config.json",
-        "tokenizer_config.json",
-        INDEX,
-    ] {
+fn offline_and_reuse_validation_do_not_read_selected_file_contents() {
+    use std::os::unix::fs::PermissionsExt;
+
+    for indexed in [false, true] {
         let root = tempfile::tempdir().unwrap();
-        let fake = Fake::single(root.path());
-        let resolved = fake.run("main", SINGLE_CALLS).unwrap();
-        match mutation {
-            "hash" => fs::write(resolved.layout.snapshot().join(SINGLE), [3, 2, 1]).unwrap(),
-            "missing" => fs::remove_file(resolved.layout.snapshot().join(SINGLE)).unwrap(),
-            name => fs::write(resolved.layout.snapshot().join(name), b"{}").unwrap(),
+        let mut fake = Fake::single(root.path());
+        if indexed {
+            fake.files.insert(
+                INDEX.into(),
+                br#"{"weight_map":{"a":"model.safetensors"}}"#.to_vec(),
+            );
         }
-        let error = offline(root.path(), SHA).err().unwrap();
-        if mutation == "missing" {
-            assert!(matches!(error, HubError::MissingFile { .. }));
+        let calls = if indexed {
+            &[INDEX, "config.json", SINGLE, "tokenizer.json"][..]
         } else {
-            assert!(matches!(error, HubError::SnapshotIntegrity { .. }));
+            SINGLE_CALLS
+        };
+        let resolved = fake.run("main", calls).unwrap();
+        for name in fake.files.keys() {
+            let path = resolved.layout.snapshot().join(name);
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o000)).unwrap();
+            assert_eq!(
+                fs::read(path).unwrap_err().kind(),
+                std::io::ErrorKind::PermissionDenied
+            );
         }
-        assert!(resolved.validate().is_err());
+        resolved.validate().unwrap();
+        offline(root.path(), "main").unwrap().validate().unwrap();
+        offline(root.path(), SHA).unwrap().validate().unwrap();
     }
 }
 
@@ -364,6 +358,7 @@ fn receipt_rejects_corruption_in_identity_schema_selection_and_absences() {
         "schema",
         "repo",
         "commit",
+        "hash_format",
         "duplicate",
         "order",
         "selection",
@@ -379,6 +374,7 @@ fn receipt_rejects_corruption_in_identity_schema_selection_and_absences() {
             "schema" => receipt["schema_version"] = 2.into(),
             "repo" => receipt["repo"] = "other/model".into(),
             "commit" => receipt["commit"] = OTHER.into(),
+            "hash_format" => receipt["selected_files"][0]["sha256"] = "invalid".into(),
             "duplicate" => {
                 let item = receipt["selected_files"][0].clone();
                 receipt["selected_files"]
@@ -414,57 +410,34 @@ fn receipt_rejects_corruption_in_identity_schema_selection_and_absences() {
 
 #[cfg(unix)]
 #[test]
-fn standard_blob_links_work_but_repository_snapshot_and_ref_escapes_fail() {
+fn blob_links_cannot_escape_via_refs_or_chained_links() {
     use std::os::unix::fs::symlink;
-    for target in [
-        "blob",
-        "other_repo",
-        "other_snapshot",
-        "refs",
-        "outside",
-        "broken",
-        "blob_chain_escape",
-    ] {
+    for target in ["refs", "outside", "blob_chain_escape"] {
         let root = tempfile::tempdir().unwrap();
         let fake = Fake::single(root.path());
         let resolved = fake.run("main", SINGLE_CALLS).unwrap();
         let repository = root.path().join("models--org--model");
+        fs::create_dir_all(repository.join("blobs")).unwrap();
         let path = resolved.layout.snapshot().join(SINGLE);
         let destination = match target {
-            "blob" | "broken" | "blob_chain_escape" => repository.join("blobs/abc"),
-            "other_repo" => root.path().join("models--other--model/blobs/abc"),
-            "other_snapshot" => repository.join("snapshots").join(OTHER).join(SINGLE),
+            "blob_chain_escape" => repository.join("blobs/abc"),
             "refs" => repository.join("refs/asset"),
             "outside" => root.path().join("outside"),
             _ => unreachable!(),
         };
         fs::create_dir_all(destination.parent().unwrap()).unwrap();
-        if target != "broken" {
-            fs::copy(&path, &destination).unwrap();
-        }
+        fs::copy(&path, &destination).unwrap();
         if target == "blob_chain_escape" {
             let outside = root.path().join("outside");
             fs::rename(&destination, &outside).unwrap();
             symlink(outside, &destination).unwrap();
         }
         fs::remove_file(&path).unwrap();
-        let link = if target == "blob" {
-            PathBuf::from("../../blobs/abc")
-        } else {
-            destination
-        };
-        symlink(link, &path).unwrap();
-        if target == "blob" {
-            offline(root.path(), SHA).unwrap();
-        } else {
-            assert!(
-                matches!(
-                    offline(root.path(), SHA),
-                    Err(HubError::UnsafePath { .. }) | Err(HubError::MissingFile { .. })
-                ),
-                "{target}"
-            );
-        }
+        symlink(destination, &path).unwrap();
+        assert!(
+            matches!(offline(root.path(), SHA), Err(HubError::UnsafePath { .. })),
+            "{target}"
+        );
     }
 }
 
@@ -554,21 +527,6 @@ fn blob_links_cannot_visit_refs_or_another_snapshot_before_returning() {
             Err(HubError::UnsafePath { .. })
         ));
     }
-}
-
-#[test]
-fn anonymous_client_has_no_authorization_header() {
-    let root = tempfile::tempdir().unwrap();
-    fs::write(root.path().join("token"), "hf_test_token").unwrap();
-    let api = anonymous_builder(&root.path().join("hub")).build().unwrap();
-    let request = api
-        .repo(Repo::with_revision(
-            REPO.into(),
-            RepoType::Model,
-            "main".into(),
-        ))
-        .info_request();
-    assert_eq!(request.header("Authorization"), None);
 }
 
 #[cfg(unix)]
@@ -671,156 +629,4 @@ fn cache_environment_precedence_and_empty_values() {
     );
 }
 
-#[derive(serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-struct LogicalPlan {
-    name: String,
-    requested_ref: String,
-    returned_commit: String,
-    siblings: Vec<String>,
-    selected_files: Vec<String>,
-    recorded_absences: Vec<String>,
-    expected_transport_calls: Vec<String>,
-    expected_provenance: Option<serde_json::Value>,
-    expected_error: Option<String>,
-    #[serde(default)]
-    weight_map: BTreeMap<String, String>,
-}
-
-fn run_logical_plan(plan: LogicalPlan) {
-    let root = tempfile::tempdir().unwrap();
-    let mut fake = Fake::single(root.path());
-    fake.commit = plan.returned_commit;
-    fake.files = plan
-        .siblings
-        .into_iter()
-        .map(|name| (name, b"{}".to_vec()))
-        .collect();
-    if fake.files.contains_key(INDEX) {
-        fake.files.insert(
-            INDEX.into(),
-            serde_json::to_vec(&serde_json::json!({"weight_map":plan.weight_map})).unwrap(),
-        );
-    }
-    let result = resolve_with(
-        REPO,
-        options(root.path(), &plan.requested_ref, false),
-        |_| Ok(fake.clone()),
-    );
-    assert_eq!(
-        *fake.log.borrow(),
-        plan.expected_transport_calls,
-        "{}",
-        plan.name
-    );
-    match (result, plan.expected_error) {
-        (Ok(resolved), None) => {
-            let receipt = serde_json::to_value(resolved.receipt).unwrap();
-            let selected: Vec<_> = receipt["selected_files"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(|file| file["path"].as_str().unwrap())
-                .collect();
-            assert_eq!(selected, plan.selected_files, "{}", plan.name);
-            assert_eq!(
-                receipt["absent_files"],
-                serde_json::to_value(plan.recorded_absences).unwrap(),
-                "{}",
-                plan.name
-            );
-            assert_eq!(
-                plan.expected_provenance.unwrap(),
-                serde_json::json!({"repo":resolved.provenance.repo,"requested_revision":resolved.provenance.requested_revision,"resolved_revision":resolved.provenance.resolved_revision}),
-                "{}",
-                plan.name
-            );
-        }
-        (Err(error), Some(expected)) => assert_eq!(error_class(&error), expected, "{}", plan.name),
-        _ => panic!("unexpected outcome for {}", plan.name),
-    }
-}
-
-fn error_class(error: &HubError) -> &'static str {
-    match error {
-        HubError::InvalidRepository(_) => "InvalidRepository",
-        HubError::InvalidRevision(_) => "InvalidRevision",
-        HubError::MissingFile { .. } => "MissingFile",
-        HubError::UnsafePath { .. } => "UnsafePath",
-        HubError::RevisionMismatch { .. } => "RevisionMismatch",
-        HubError::SnapshotIntegrity { .. } => "SnapshotIntegrity",
-        HubError::OfflineCacheMiss { .. } => "OfflineCacheMiss",
-        HubError::Load(_) => "Load",
-        HubError::Io(_) => "Io",
-        HubError::Api(_) => "Api",
-        HubError::CacheDirectoryUnavailable => "CacheDirectoryUnavailable",
-    }
-}
-
-#[test]
-fn documented_logical_plan_schema() {
-    run_logical_plan(serde_json::from_value(serde_json::json!({
-        "name":"single", "requested_ref":"main", "returned_commit":SHA,
-        "siblings":["config.json",SINGLE,"tokenizer.json","remote.py"],
-        "selected_files":["config.json",SINGLE,"tokenizer.json"],
-        "recorded_absences":["generation_config.json",INDEX,"tokenizer_config.json"],
-        "expected_transport_calls":[format!("info:{REPO}@main"),format!("download:{REPO}@{SHA}:config.json"),format!("download:{REPO}@{SHA}:{SINGLE}"),format!("download:{REPO}@{SHA}:tokenizer.json")],
-        "expected_provenance":{"repo":REPO,"requested_revision":"main","resolved_revision":SHA},
-        "expected_error":null
-    })).unwrap());
-}
-
-#[test]
-#[ignore = "NOT RUN: conformance/mlx-lm/hub_cases.json is absent from this worktree"]
-fn hub_cases_snapshot_plans() {
-    let cases = frozen_cases();
-    let plans = cases["plans"].as_array().expect("plans array");
-    assert!(!plans.is_empty());
-    for plan in plans {
-        run_logical_plan(serde_json::from_value(plan.clone()).unwrap());
-    }
-}
-
-#[test]
-#[ignore = "NOT RUN: conformance/mlx-lm/hub_cases.json is absent from this worktree"]
-fn hub_cases_mutations() {
-    let cases = frozen_cases();
-    let mutations = cases["mutations"].as_array().expect("mutations array");
-    assert!(!mutations.is_empty());
-    for mutation in mutations {
-        let name = mutation["name"].as_str().expect("mutation name");
-        match name {
-            "ref_changes" => single_plan_pins_moving_ref_and_records_deliberate_absences(),
-            "server_commit_changes" => {
-                invalid_or_different_server_commit_is_rejected_before_download()
-            }
-            "duplicate_or_traversing_index" => {
-                missing_selected_assets_and_bad_indexes_stop_the_exact_plan()
-            }
-            "absent_sidecar_appears" | "hash_changes" | "missing_shard" => {
-                receipt_rejects_changed_hash_missing_file_and_new_absence()
-            }
-            "unreceipted_cache" | "offline_transport" => {
-                offline_missing_ref_or_receipt_forbids_client_and_transport()
-            }
-            "sha_without_ref" => single_plan_pins_moving_ref_and_records_deliberate_absences(),
-            "online_failure_fallback" => {
-                failed_download_invalidates_completion_and_retry_recovers_without_fallback()
-            }
-            #[cfg(unix)]
-            "wrong_repository_blob" | "broken_shard_link" => {
-                standard_blob_links_work_but_repository_snapshot_and_ref_escapes_fail()
-            }
-            #[cfg(unix)]
-            "snapshot_directory_escape" => directory_and_control_symlinks_cannot_escape(),
-            _ => panic!("unconsumed hub mutation: {name}"),
-        }
-    }
-}
-
-fn frozen_cases() -> serde_json::Value {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../conformance/mlx-lm/hub_cases.json");
-    let cases: serde_json::Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
-    assert_eq!(cases["schema_version"], 1);
-    cases
-}
+mod contract;

@@ -20,12 +20,12 @@ pub use error::{
     CacheError, ChatTemplateError, ConfigError, GenerationError, HubError, InferenceError,
     LoadError, SamplingError, TokenizerError, WeightError,
 };
-#[cfg(feature = "hf-hub")]
-pub use model::{HubOptions, HubProvenance};
 pub use model::{
     FinishReason, Generation, GenerationEvent, GenerationOptions, Model, Prompt,
     RepetitionPenaltyOptions, StopPolicy, StopTokenPolicy,
 };
+#[cfg(feature = "hf-hub")]
+pub use model::{HubOptions, HubProvenance};
 pub use sampling::{AdditivePenaltyOptions, MinPOptions, SamplerOptions};
 pub use tokenizer::{ChatContinuation, ChatTemplateOptions, Message, Role, TokenId, Tokenizer};
 
@@ -33,16 +33,6 @@ pub use tokenizer::{ChatContinuation, ChatTemplateOptions, Message, Role, TokenI
 #[doc(hidden)]
 #[allow(missing_docs)]
 pub mod oracle_hooks;
-
-// Only the Hub placeholder still needs it; GGUF loading is implemented.
-#[cfg(feature = "hf-hub")]
-struct NotYetImplemented(&'static str);
-#[cfg(feature = "hf-hub")]
-impl std::fmt::Display for NotYetImplemented {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: not yet implemented in this tranche", self.0)
-    }
-}
 
 macro_rules! assert_not_impl_any {
     ($type:ty: $($trait:path),+ $(,)?) => {

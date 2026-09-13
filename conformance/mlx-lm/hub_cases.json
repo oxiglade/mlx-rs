@@ -1847,13 +1847,12 @@
     {
       "expected": {
         "client_constructions": 0,
-        "error": {
-          "fields": {
-            "path": "snapshot/model.safetensors"
-          },
-          "variant": "HubError::SnapshotIntegrity"
+        "error": null,
+        "provenance": {
+          "repo": "contract/tiny-llama",
+          "requested_revision": "main",
+          "resolved_revision": "0123456789abcdef0123456789abcdef01234567"
         },
-        "provenance": null,
         "receipt": {
           "commit": "0123456789abcdef0123456789abcdef01234567",
           "recorded_absences": [
@@ -1904,6 +1903,7 @@
       },
       "fixture": "llama-base",
       "name": "hash_changed",
+      "note": "Receipts record hashes at download time only, so a same-size content change is not detected offline; see size_changed for the detection the receipt does provide.",
       "recorded_absences": [
         "model.safetensors.index.json"
       ],
@@ -1987,10 +1987,9 @@
         "client_constructions": 0,
         "error": {
           "fields": {
-            "repo": "contract/tiny-llama",
-            "revision": "main"
+            "path": "snapshot/model.safetensors"
           },
-          "variant": "HubError::OfflineCacheMiss"
+          "variant": "HubError::SnapshotIntegrity"
         },
         "provenance": null,
         "receipt": {
@@ -2042,7 +2041,113 @@
         "transport_calls": []
       },
       "fixture": "llama-base",
+      "name": "size_changed",
+      "note": "Recorded size differs, which validation checks without reading contents.",
+      "recorded_absences": [
+        "model.safetensors.index.json"
+      ],
+      "request": {
+        "offline": true,
+        "repo": "contract/tiny-llama",
+        "revision": "main"
+      },
+      "returned_commit": "0123456789abcdef0123456789abcdef01234567",
+      "selected_files": [
+        "config.json",
+        "generation_config.json",
+        "model.safetensors",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ],
+      "setup": {
+        "file_layout": "same_repository_blob_links",
+        "mutations": [
+          {
+            "at": "before_validation",
+            "operation": "truncate",
+            "path": "model.safetensors",
+            "size": 1024
+          }
+        ],
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [
+            "model.safetensors.index.json"
+          ],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model.safetensors",
+              "sha256": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+              "size": 232752
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+              "size": 4561
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "single"
+        },
+        "refs": {
+          "main": "0123456789abcdef0123456789abcdef01234567"
+        }
+      },
+      "siblings": [
+        "README.md",
+        "chat_template.jinja",
+        "config.json",
+        "custom.py",
+        "generation_config.json",
+        "model.safetensors",
+        "pytorch_model.bin",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ]
+    },
+    {
+      "expected": {
+        "client_constructions": 0,
+        "error": {
+          "fields": {
+            "repo": "contract/tiny-llama",
+            "revision": "main"
+          },
+          "variant": "HubError::OfflineCacheMiss"
+        },
+        "provenance": null,
+        "receipt": null,
+        "recorded_absences": [
+          "model.safetensors.index.json"
+        ],
+        "selected_files": [
+          "config.json",
+          "generation_config.json",
+          "model.safetensors",
+          "tokenizer.json",
+          "tokenizer_config.json"
+        ],
+        "transport_calls": []
+      },
+      "fixture": "llama-base",
       "name": "unreceipted_cache",
+      "note": "An offline miss writes nothing; the cache stays unreceipted.",
       "recorded_absences": [
         "model.safetensors.index.json"
       ],

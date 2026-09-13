@@ -1,3 +1,9 @@
+//! Completion receipts prove snapshot completeness and recorded commit identity,
+//! not tamper resistance: a writer who can modify the cache can modify the receipt.
+//! Content hashes are recorded once at download completion as provenance. Reuse
+//! checks receipt identity, paths, presence, and sizes without rereading assets.
+//! Cache contents must remain unchanged while a model is loading.
+
 use super::{HubOptions, HubProvenance, Model};
 use crate::{weights::ShardIndex, HubError, LoadError};
 use hf_hub::{api::sync::Api, Cache, Repo, RepoType};
@@ -65,9 +71,17 @@ fn anonymous_builder(cache: &Path) -> hf_hub::api::sync::ApiBuilder {
 }
 
 pub(super) fn load(repo: &str, options: HubOptions) -> Result<Model, HubError> {
-    let resolved = resolve_with(repo, options, |cache| {
+    load_with(repo, options, |cache| {
         Ok(OnlineTransport(anonymous_builder(cache).build()?))
-    })?;
+    })
+}
+
+fn load_with<T: HubTransport>(
+    repo: &str,
+    options: HubOptions,
+    online: impl FnOnce(&Path) -> Result<T, HubError>,
+) -> Result<Model, HubError> {
+    let resolved = resolve_with(repo, options, online)?;
     let mut model = Model::from_dir(resolved.layout.snapshot())?;
     resolved.validate()?;
     model.hub_provenance = Some(resolved.provenance);
@@ -126,8 +140,6 @@ fn resolve_with<T: HubTransport>(
         });
     }
     let layout = CacheLayout::online(&root, repo, &info.commit)?;
-    // Invalidate earlier completion before a download can replace any selected bytes.
-    layout.invalidate()?;
     let (selected, absent, mode) = select(&transport, &layout, &info.siblings)?;
     let receipt = layout.complete(selected, absent, mode)?;
     layout.write_receipt(&receipt)?;
