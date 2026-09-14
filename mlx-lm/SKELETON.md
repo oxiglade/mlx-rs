@@ -1,36 +1,58 @@
 # Local loading and generation
 
-The crate loads local Llama and Qwen3 safetensors checkpoints and exposes one synchronous
-generation engine. `publish = false` remains until the remaining work and parity gates pass.
-The private `NotYetImplemented` formatter is used only by the remaining loading placeholders.
+The crate loads Llama and Qwen3 safetensors and GGUF checkpoints, resolves Hub
+snapshots behind `hf-hub`, and exposes one synchronous generation engine.
+`publish = false` remains until release qualification is complete.
 
 ## Remaining work
 
 | Owner | File | Remaining work | Current result |
 | --- | --- | --- | --- |
-| foundation, tranche 4b item 3 | `src/model/hub.rs`, `src/model/hub/snapshot.rs`, `src/model/hub/tests/contract.rs` | Run the full frozen-case table on the Metal host; resolve frozen expectations for `hash_changed`, `unreceipted_cache`, and `online_failure_no_fallback_download_config.json` | All 23 cases are consumed without exclusions. Receipts record hashes at completion; reuse checks metadata and receipt identity. The client-contract test verifies anonymous requests and zero offline client constructions. |
-| engine, tranche 4 | real-checkpoint benchmark | Compare throughput with Python; ruling C admits investigating async evaluation if the missing pipeline costs more than 5% | No lookahead in tranche 3 |
+| foundation, tranche 4b item 3 | `src/model/hub.rs`, `src/model/hub/snapshot.rs`, `src/model/hub/tests/contract.rs` | Integration revalidation against the table amended under ruling P | Receipts record hashes at completion; reuse checks metadata and receipt identity. The client-contract test verifies anonymous requests and zero offline client constructions. |
+| harnesses, tranche 4b item 5a | `tests/real_checkpoints.rs`, `examples/benchmark.rs`, `../conformance/mlx-lm/{real_checkpoints,benchmark}.py` | Launcher runs the six-case CPU/Metal matrix and paired ruling-C protocol on the idle host | Harnesses implemented; real inference and timing remain unexecuted. No pipeline change is admitted. |
 | text/FFI, tranche 3 item 5 | `tests/generation_ffi.rs` | Run the reduced workload with `xtask verify-ffi --guard-malloc` on the host under DECISIONS O | Ordinary runs retain the paper's "Memory, snapshots and the FFI gate" workload and proposed F envelope. `DYLD_INSERT_LIBRARIES` containing `libgmalloc` selects reduced coverage: Qwen3 full generation (40 samples), Llama reuse (40 calls, capacities 16/32/64), kept-prefix rotation (40 updates), sliding oversized prefill (25 tokens, chunks of 8) and one snapshot retained across a wrap (24 samples), tokenizer EOS, and one affine load/generate/drop cycle with length, exact-token/text stops and all three cancellation boundaries. Both modes retain behavioral assertions; reduced mode skips all allocator observations and byte guards and prints the completed scenario list. Default library fault-injection tests remain in `src/model/tests.rs`. |
 | worker, tranche 3 item 5 | `examples/worker.rs` | Run on the Metal host with one positional checkpoint directory | Implements the paper's "Device, RNG and threading": model, GPU stream scope and cache stay on one OS thread; bounded owned request/event channels, worker-local error conversion, receiver-drop cancellation and receiver-before-join shutdown. Positive Send checks cover options/events/errors/requests. |
 
-The GGUF implementation requires the owning integration patch to add these error
-variants in `src/error.rs`:
+## Local release harnesses
 
-```rust
-// ConfigError
-InvalidGgufMetadata { key: String, expected: &'static str, actual: String },
-UnsupportedGgufMetadata { key: String, value: String },
-// LoadError
-TokenizerVocabularyOutOfRange { token_id: TokenId, vocabulary_size: usize },
-TokenizerMetadataMismatch { key: String, expected: String, actual: String },
-```
+The [conformance README](../conformance/mlx-lm/README.md#local-real-checkpoints)
+defines manifest additions, contributor commands, independent GGUF provenance,
+and the [ruling-C protocol](../conformance/mlx-lm/README.md#ruling-c-benchmark).
+Both harnesses refuse CI execution. An absent real-checkpoint manifest emits one
+explicit NOT RUN result; supplied incomplete material fails. The pinned Python
+report is generated without reading Rust output, then hashed and bound before
+Rust checks all six cases on both devices.
 
-In `src/lib.rs`, both `NotYetImplemented` and its `Display` implementation need
-`#[cfg(feature = "hf-hub")]`; only the Hub placeholder still uses the formatter.
-These files are outside item 2's ownership. Until that patch lands, the worktree
-cannot compile; verification with those declarations supplied uses a temporary
-integration copy. The public `from_gguf` documentation also needs the tokenizer
-pairing limitation stated below when the model owner updates its docs.
+The coordinator owns sequential AB/BA processes and immutable sample reports.
+Prefix identity precedes throughput interpretation. The Python no-lookahead
+ablation is confined to an in-memory benchmark function and retains the extra
+terminal forward. C remains open pending local evidence; any pipeline still
+requires the paper's scheduling, counterfactual, performance, and behavior
+qualification. This item neither publishes the crate nor changes generation.
+
+Item 5a sandbox verification compiled both new targets in debug and release,
+compiled all crate tests with all features, and checked all targets/all features.
+The 66 pure tests passed: 9 Python harness tests, 3 Rust harness tests, and 54
+existing config/tokenizer/stop/pure library tests. The absent-manifest result,
+supplied missing-manifest failure, and CI refusals were checked separately.
+Compilation used cached MLX 0.32.2 native libraries through a temporary CMake
+configuration; it did not establish Metal runtime readiness.
+
+The following local qualifications remain unexecuted on both CPU and Metal,
+for both the independent Python report and the Rust `real_checkpoints` test:
+
+- `llama-1b-bf16`
+- `llama-1b-4bit`
+- `qwen3-06b-bf16`
+- `qwen3-06b-4bit`
+- `gguf-tinyllama-q4_0`
+- `gguf-qwen3-q8_0`
+
+Also unexecuted: ruling-C baseline on CPU/Metal, no-lookahead ablation on
+CPU/Metal, unmodified `stream_generate` on Metal, and the untimed attribution
+profile subset. Existing MLX runtime library tests and the `generation_ffi`,
+`hub_offline`, `parity`, and `sentinel` suites were compiled but not executed in
+this item. No real parity or throughput result is claimed.
 
 ## Generation and completed boundaries
 
