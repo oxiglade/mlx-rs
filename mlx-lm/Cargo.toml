@@ -2,12 +2,13 @@
 name = "mlx-lm"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 repository.workspace = true
 keywords.workspace = true
 categories.workspace = true
 license.workspace = true
-documentation.workspace = true
+documentation = "https://oxiglade.github.io/mlx-rs/mlx_lm/"
 description = "Synchronous language model inference with MLX"
 publish = false
 
