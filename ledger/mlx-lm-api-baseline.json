@@ -153,12 +153,17 @@
     {
       "kind": "enum",
       "path": "mlx_lm::HubError",
-      "signature": "# [doc = \" Optional Hub resolution, download, or local loading failed.\"] # [derive (Debug , thiserror :: Error)] # [non_exhaustive] pub enum HubError { # [doc = \" The requested revision is unavailable offline.\"] # [error (\"offline cache miss for {repo}@{revision}\")] OfflineCacheMiss { # [doc = \" Requested repository identifier.\"] repo : String , # [doc = \" Requested revision.\"] revision : String , } , # [doc = \" The requested revision is invalid.\"] # [error (\"invalid revision: {0}\")] InvalidRevision (String) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Io (# [from] std :: io :: Error) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Load (# [from] LoadError) , # [doc = \" Preserves the Hub client diagnostic.\"] # [cfg (feature = \"hf-hub\")] # [error (transparent)] Api (# [from] hf_hub :: api :: sync :: ApiError) , }"
+      "signature": "# [doc = \" Optional Hub resolution, download, or local loading failed.\"] # [derive (Debug , thiserror :: Error)] # [non_exhaustive] pub enum HubError { # [doc = \" The repository identifier is not a `namespace/name` pair.\"] # [error (\"invalid repository: {0}\")] InvalidRepository (String) , # [doc = \" The resolved snapshot lacks a file the local loader selected.\"] # [error (\"{repo}@{revision} has no file {filename}\")] MissingFile { # [doc = \" Repository identifier.\"] repo : String , # [doc = \" Resolved full commit SHA.\"] revision : String , # [doc = \" Selected file name.\"] filename : String , } , # [doc = \" A snapshot entry points outside its own snapshot directory.\"] # [error (\"snapshot path escapes its directory: {path:?}\")] UnsafePath { # [doc = \" Offending path.\"] path : std :: path :: PathBuf , } , # [doc = \" The server returned a different commit than the one resolved.\"] # [error (\"revision mismatch: resolved {expected}, served {actual}\")] RevisionMismatch { # [doc = \" Commit resolved before downloading.\"] expected : String , # [doc = \" Commit the server then served.\"] actual : String , } , # [doc = \" The local snapshot is incomplete or its receipt does not describe it.\"] # [error (\"snapshot integrity failure at {path:?}: {reason}\")] SnapshotIntegrity { # [doc = \" Snapshot directory.\"] path : std :: path :: PathBuf , # [doc = \" Stable local explanation.\"] reason : String , } , # [doc = \" No usable cache directory was available.\"] # [error (\"no usable hub cache directory\")] CacheDirectoryUnavailable , # [doc = \" The requested revision is unavailable offline.\"] # [error (\"offline cache miss for {repo}@{revision}\")] OfflineCacheMiss { # [doc = \" Requested repository identifier.\"] repo : String , # [doc = \" Requested revision.\"] revision : String , } , # [doc = \" The requested revision is invalid.\"] # [error (\"invalid revision: {0}\")] InvalidRevision (String) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Io (# [from] std :: io :: Error) , # [doc = \" Preserves the source diagnostic.\"] # [error (transparent)] Load (# [from] LoadError) , # [doc = \" Preserves the Hub client diagnostic.\"] # [cfg (feature = \"hf-hub\")] # [error (transparent)] Api (# [from] hf_hub :: api :: sync :: ApiError) , }"
     },
     {
       "kind": "struct",
       "path": "mlx_lm::HubOptions",
       "signature": "# [doc = \" Revision and local-cache controls for optional Hub loading.\"] # [cfg (feature = \"hf-hub\")] # [derive (Debug , Clone , Default)] # [non_exhaustive] pub struct HubOptions { # [doc = \" Optional requested revision; immutable commit SHAs are recommended.\"] pub revision : Option < String > , # [doc = \" Requires all assets to be available without downloading.\"] pub offline : bool , # [doc = \" Optional cache directory override.\"] pub cache_dir : Option < std :: path :: PathBuf > , }"
+    },
+    {
+      "kind": "struct",
+      "path": "mlx_lm::HubProvenance",
+      "signature": "# [doc = \" Resolved Hub source identity.\"] # [cfg (feature = \"hf-hub\")] # [derive (Debug , Clone , PartialEq , Eq)] # [non_exhaustive] pub struct HubProvenance { # [doc = \" Repository identifier.\"] pub repo : String , # [doc = \" Requested revision, with an absent request spelled `main`.\"] pub requested_revision : String , # [doc = \" Resolved full commit SHA.\"] pub resolved_revision : String , }"
     },
     {
       "kind": "enum",
@@ -193,7 +198,7 @@
     {
       "kind": "struct",
       "path": "mlx_lm::Model",
-      "signature": "# [doc = \" A loaded decoder and its resolved tokenizer and configuration.\"] pub struct Model { decoder : Box < dyn DecoderModel > , tokenizer : Tokenizer , config : Config , identity : Rc < () > , }"
+      "signature": "# [doc = \" A loaded decoder and its resolved tokenizer and configuration.\"] pub struct Model { # [cfg (feature = \"hf-hub\")] hub_provenance : Option < HubProvenance > , decoder : Box < dyn DecoderModel > , tokenizer : Tokenizer , config : Config , identity : Rc < () > , }"
     },
     {
       "kind": "method",
@@ -224,6 +229,11 @@
       "kind": "method",
       "path": "mlx_lm::Model::generate_with_cache",
       "signature": "pub fn generate_with_cache < 'model > (& 'model mut self , prompt : Prompt < '_ > , options : GenerationOptions , cache : & 'model mut Cache ,) -> Result < Generation < 'model > , GenerationError >"
+    },
+    {
+      "kind": "method",
+      "path": "mlx_lm::Model::hub_provenance",
+      "signature": "pub fn hub_provenance (& self) -> Option < & HubProvenance >"
     },
     {
       "kind": "method",
