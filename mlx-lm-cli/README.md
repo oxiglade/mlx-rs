@@ -64,49 +64,35 @@ with their source chain on stderr. BrokenPipe exits 0 and drops generation witho
 requesting another event. Help and version also use stderr; stdout carries only
 requested model output.
 
-## Workspace integration and verification
+## Build and verification
 
-Add exactly `"mlx-lm-cli",` to the root `[workspace].members` array. The package
-has no library target, keeps `publish = false`, and defaults to no features.
-Its `hf-hub` feature forwards only to `mlx-lm/hf-hub`. It has no direct core or
-oracle-hooks dependency. Root Cargo files are owned by the integration item.
-
-The Hub build requires these approved public declarations in `mlx-lm`:
-
-```rust
-#[cfg(feature = "hf-hub")]
-impl Model {
-    pub fn hub_provenance(&self) -> Option<&HubProvenance>;
-}
-
-#[cfg(feature = "hf-hub")]
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
-pub struct HubProvenance {
-    pub repo: String,
-    pub requested_revision: String,
-    pub resolved_revision: String,
-}
-```
-
-`HubProvenance` must be re-exported at the library root. `Model::from_hub(repo:
-&str, options: HubOptions) -> Result<Model, HubError>` also needs its approved
-resolver implementation; the current worktree still has the stub.
-
-After integration, run:
+The package is a workspace member, keeps `publish = false`, and defaults to no
+features. Publication requires David's explicit go. Its `hf-hub` feature forwards
+only to `mlx-lm/hf-hub`; it has no direct core or oracle-hooks dependency.
 
 ```sh
+cargo build -p mlx-lm-cli
+cargo build -p mlx-lm-cli --features hf-hub
 cargo test -p mlx-lm-cli --no-default-features -- --test-threads=1
 cargo test -p mlx-lm-cli --features hf-hub -- --test-threads=1
-cargo tree -p mlx-lm-cli --no-default-features -e normal
 ```
 
+Hub provenance reports the resolved commit. Completion receipts establish
+completeness and recorded commit identity, not tamper resistance. Hashes are
+recorded at download completion; reuse/offline validation checks presence,
+paths, sizes and receipt identity without rereading contents. Same-size edits
+are undetected, and an unreceipted third-party cache is an offline miss.
+
 Tests consume committed tiny fixtures offline and isolate subprocess caches.
-Writer tests inject short writes, Interrupted, WriteZero, ordinary errors, and
-BrokenPipe. Process tests check output against the version-1 schema and public
-Text-generation events. They deliberately do not reuse the token-ID generation
-goldens, whose prompt omits BOS. `conformance/mlx-lm/cli_cases.json` is absent in
-this worktree; independent CLI golden comparison remains an integration task.
-Enabled offline Hub success additionally needs item 3's completed-snapshot receipt
-recipe and item 1's reviewed `hub_cases.json`; no private receipt format is guessed
-here. See [VERIFICATION.md](VERIFICATION.md) for executed and unexecuted checks.
+Writer tests cover short writes, Interrupted, WriteZero, ordinary errors and
+BrokenPipe. Process tests check the version-1 wire schema against
+[`cli_cases.json`](../conformance/mlx-lm/cli_cases.json); Hub contracts use
+[`hub_cases.json`](../conformance/mlx-lm/hub_cases.json). Inference tests need
+native MLX initialization, even for CPU execution.
+
+The [library README](../mlx-lm/README.md) records source profiles, ownership,
+errors, demand-gated capabilities and measured throughput: 38.2 tokens/s against
+upstream's 125.5 on the same machine and weights (Metal, Qwen3-0.6B-4bit,
+256 greedy tokens), a 3.3× gap under investigation in its own tranche. Report
+paths and hashes are in the [release identity](../ledger/mlx-lm-release-identity.json),
+which also distinguishes this freeze's checks from earlier host runs.
