@@ -1,4 +1,6 @@
 pub(crate) mod gguf;
+#[cfg(feature = "hf-hub")]
+mod hub;
 pub use crate::error::GenerationError;
 use crate::{
     arch::DecoderModel, AdditivePenaltyOptions, Cache, CacheError, CacheOptions, CacheSnapshot,
@@ -12,8 +14,23 @@ use crate::{
 use mlx_rs::{ops::indexing::TryIndexOp, random::RandomState, Array};
 use std::{num::NonZeroUsize, path::Path, rc::Rc};
 
+/// Resolved Hub source identity.
+#[cfg(feature = "hf-hub")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct HubProvenance {
+    /// Repository identifier.
+    pub repo: String,
+    /// Requested revision, with an absent request spelled `main`.
+    pub requested_revision: String,
+    /// Resolved full commit SHA.
+    pub resolved_revision: String,
+}
+
 /// A loaded decoder and its resolved tokenizer and configuration.
 pub struct Model {
+    #[cfg(feature = "hf-hub")]
+    hub_provenance: Option<HubProvenance>,
     decoder: Box<dyn DecoderModel>,
     tokenizer: Tokenizer,
     config: Config,
@@ -51,6 +68,8 @@ impl Model {
         let decoder = factory.build(parsed, &weights)?;
         let config = decoder.config().clone();
         Ok(Self {
+            #[cfg(feature = "hf-hub")]
+            hub_provenance: None,
             decoder,
             tokenizer,
             config,
@@ -64,13 +83,15 @@ impl Model {
     /// Resolves an allowlisted Hub snapshot and loads it through the local loader.
     #[cfg(feature = "hf-hub")]
     pub fn from_hub(repo: &str, options: HubOptions) -> Result<Self, crate::HubError> {
-        let _ = (repo, options);
-        Err(
-            LoadError::Config(crate::ConfigError::UnsupportedArchitecture(
-                crate::NotYetImplemented("Hub loading").to_string(),
-            ))
-            .into(),
-        )
+        hub::load(repo, options)
+    }
+    /// Borrows the Hub source identity, or returns `None` for a local or GGUF load.
+    ///
+    /// Cache contents must remain immutable during loading. Receipt hashes detect
+    /// local changes; they do not authenticate the repository's author.
+    #[cfg(feature = "hf-hub")]
+    pub fn hub_provenance(&self) -> Option<&HubProvenance> {
+        self.hub_provenance.as_ref()
     }
     /// Borrows the resolved model configuration.
     pub fn config(&self) -> &Config {

@@ -570,6 +570,8 @@ fn scripted(
         })
         .collect();
     Ok(Model {
+        #[cfg(feature = "hf-hub")]
+        hub_provenance: None,
         decoder: Box::new(ScriptedDecoder {
             config: config.clone(),
             layout,

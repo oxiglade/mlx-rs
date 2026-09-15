@@ -2,18 +2,19 @@
 name = "mlx-lm"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 repository.workspace = true
 keywords.workspace = true
 categories.workspace = true
 license.workspace = true
-documentation.workspace = true
+documentation = "https://oxiglade.github.io/mlx-rs/mlx_lm/"
 description = "Synchronous language model inference with MLX"
 publish = false
 
 [features]
 default = []
-hf-hub = ["dep:hf-hub"]
+hf-hub = ["dep:hf-hub", "dep:sha2"]
 oracle-hooks = []
 
 [dependencies]
@@ -26,6 +27,7 @@ tokenizers = { version = "0.22", default-features = false, features = ["onig"] }
 minijinja = { version = "2", features = ["loader"] }
 minijinja-contrib = { version = "2", features = ["pycompat"] }
 hf-hub = { version = "0.4", optional = true, default-features = false, features = ["ureq"] }
+sha2 = { version = "0.10", optional = true }
 
 [dev-dependencies]
 anyhow = "1"
@@ -42,9 +44,22 @@ path = "tests/sentinel.rs"
 required-features = ["oracle-hooks"]
 
 [[test]]
+name = "hub_offline"
+path = "tests/hub_offline.rs"
+required-features = ["hf-hub"]
+
+[[test]]
 name = "generation_ffi"
 path = "tests/generation_ffi.rs"
 
 [[example]]
 name = "worker"
 path = "examples/worker.rs"
+
+[[test]]
+name = "real_checkpoints"
+path = "tests/real_checkpoints.rs"
+
+[[example]]
+name = "benchmark"
+path = "examples/benchmark.rs"

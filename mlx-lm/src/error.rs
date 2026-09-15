@@ -436,6 +436,44 @@ pub enum GenerationError {
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum HubError {
+    /// The repository identifier is not a `namespace/name` pair.
+    #[error("invalid repository: {0}")]
+    InvalidRepository(String),
+    /// The resolved snapshot lacks a file the local loader selected.
+    #[error("{repo}@{revision} has no file {filename}")]
+    MissingFile {
+        /// Repository identifier.
+        repo: String,
+        /// Resolved full commit SHA.
+        revision: String,
+        /// Selected file name.
+        filename: String,
+    },
+    /// A snapshot entry points outside its own snapshot directory.
+    #[error("snapshot path escapes its directory: {path:?}")]
+    UnsafePath {
+        /// Offending path.
+        path: std::path::PathBuf,
+    },
+    /// The server returned a different commit than the one resolved.
+    #[error("revision mismatch: resolved {expected}, served {actual}")]
+    RevisionMismatch {
+        /// Commit resolved before downloading.
+        expected: String,
+        /// Commit the server then served.
+        actual: String,
+    },
+    /// The local snapshot is incomplete or its receipt does not describe it.
+    #[error("snapshot integrity failure at {path:?}: {reason}")]
+    SnapshotIntegrity {
+        /// Snapshot directory.
+        path: std::path::PathBuf,
+        /// Stable local explanation.
+        reason: String,
+    },
+    /// No usable cache directory was available.
+    #[error("no usable hub cache directory")]
+    CacheDirectoryUnavailable,
     /// The requested revision is unavailable offline.
     #[error("offline cache miss for {repo}@{revision}")]
     OfflineCacheMiss {
