@@ -1,20 +1,115 @@
 name: bump-admission
 on:
+  workflow_call:
+    inputs:
+      ordinary:
+        type: boolean
+        default: false
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
       - mlx-sys/src/mlx-c
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-graph
+  cancel-in-progress: true
 permissions:
   contents: read
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
+  dependencies:
+    runs-on: blaze/macos-latest
+    outputs:
+      configurations: ${{ steps.configurations.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: 1.88.0
+          cache: false
+      - run: cargo generate-lockfile
+      - name: Select every required configuration
+        id: configurations
+        shell: python3 {0}
+        run: |
+          import json
+          import os
+          from pathlib import Path
+
+          builds = json.loads(Path("ledger/supported-feature-matrix.json").read_text())["builds"]
+          matrix = {"include": [{"configuration": build["id"], "rust": build["toolchain"]}
+                                for build in builds if build["required"]]}
+          if not matrix["include"]:
+              raise SystemExit("No required configurations")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"matrix={json.dumps(matrix)}\n")
+      - uses: actions/upload-artifact@v4
+        with:
+          name: product-lockfile
+          path: Cargo.lock
+          if-no-files-found: error
+
+  checks:
+    needs: dependencies
+    runs-on: blaze/macos-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: product-lockfile
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: rustfmt, clippy
+      - run: cargo --version
+      - name: Install the ABI extraction toolchain
+        run: |
+          rustup toolchain install "$(python3 -c 'import json; print(json.load(open("ledger/abi-toolchain.json"))["rustc"].split()[1])')" --profile minimal --component rustfmt
+      - name: Check xtask workspace
+        run: |
+          cargo fmt --manifest-path xtask/Cargo.toml -- --check
+          cargo clippy --locked --manifest-path xtask/Cargo.toml -- -D warnings
+          cargo test --locked --manifest-path xtask/Cargo.toml
+      - run: cargo fmt -- --check
+      - run: cargo clippy --locked --message-format=json-render-diagnostics -- -D warnings > "$RUNNER_TEMP/clippy-artifacts.json"
+      - run: cargo xtask verify-oracle-boundary
+        if: github.event_name == 'push'
+      - run: cargo xtask verify-oracle-boundary --base origin/main
+        if: github.event_name == 'workflow_dispatch'
+      - run: cargo xtask verify-oracle-boundary --base ${{ github.event.pull_request.base.sha }}
+        if: github.event_name == 'pull_request'
+      - run: cargo xtask verify-bump
+      - name: Check compiled public API and ledger
+        env:
+          MLX_RS_ABI_OUTPUT_DIR: ${{ runner.temp }}/abi-inventory
+          MLX_RS_API_TARGET_DIR: ${{ runner.temp }}/api-inventory
+          MLX_RS_METAL_PATH: ${{ runner.temp }}/api-inventory/metallib
+        run: |
+          rustup toolchain install "$(cat xtask/api-nightly.txt)" --profile minimal
+          cargo xtask verify-ledger
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: current-abi-inventory
+          path: ${{ runner.temp }}/abi-inventory/
+
+      - name: Check current linked exports
+        if: ${{ !cancelled() }}
+        run: cargo xtask linked-exports --cargo-output "$RUNNER_TEMP/clippy-artifacts.json" --report "$RUNNER_TEMP/current-exports.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: current-linked-exports
+          path: |
+            ${{ runner.temp }}/current-exports.json
+            ${{ runner.temp }}/clippy-artifacts.json
+
   ffi-gate:
+    needs: dependencies
     runs-on: blaze/macos-latest
     timeout-minutes: 90
     env:
@@ -23,6 +118,10 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: product-lockfile
+      # The runner context is not available in job-level env.
       - name: Use the runner temp dir for build output
         run: |
           {
@@ -42,20 +141,23 @@ jobs:
           key: ffi-gate-${{ hashFiles('Cargo.toml', '*/Cargo.toml') }}
           workspaces: . -> ${{ steps.ffi-cache.outputs.target }}
           cache-directories: ${{ runner.temp }}/guard-malloc/metallib
-      - name: Qualify leaks and Guard Malloc
+      - name: Run qualified FFI gate
+        env:
+          BUMP_RUN: ${{ !inputs.ordinary }}
         timeout-minutes: 75
         shell: bash
         run: |
           set -o pipefail
-          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
-            echo "FFI mode: qualified leaks + Guard Malloc (manual bump admission)."
+          args=()
+          if [[ "$GITHUB_EVENT_NAME" == push || "$BUMP_RUN" == true ]]; then
+            echo "FFI mode: qualified leaks + Guard Malloc (main or bump admission)."
+            args+=(--guard-malloc --guard-malloc-timeout-seconds 1200)
           else
-            echo "FFI mode: qualified leaks + Guard Malloc (PR changes mlx-sys/src/mlx-c)."
+            echo "FFI mode: qualified leaks (PR validation; bump-admission runs Guard Malloc for mlx-c bumps)."
           fi
           mkdir -p "$RUNNER_TEMP/ffi-gate"
-          cargo xtask verify-ffi --calibrate --guard-malloc \
+          cargo xtask verify-ffi --calibrate "${args[@]}" \
             --budget-seconds 3600 --leaks-timeout-seconds 600 \
-            --guard-malloc-timeout-seconds 1200 \
             --report "$RUNNER_TEMP/ffi-gate/verify-ffi.json" \
             2> >(tee "$RUNNER_TEMP/ffi-gate/stderr.log" >&2) \
             | tee "$RUNNER_TEMP/ffi-gate/calibration.json"
@@ -65,41 +167,55 @@ jobs:
           name: verify-ffi-calibration
           path: ${{ runner.temp }}/ffi-gate/
 
-  bump-evidence:
-    needs: ffi-gate
-    if: ${{ !cancelled() }}
+  configurations:
+    needs: dependencies
     runs-on: blaze/macos-latest
-    timeout-minutes: 360
     env:
-      MLX_RS_BUMP_RUN: '1'
       GITHUB_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.dependencies.outputs.configurations) }}
     steps:
       - uses: actions/checkout@v7
         with:
           submodules: true
-          fetch-depth: 0
-      - name: Set isolated output paths
+      - uses: actions/download-artifact@v4
+        with:
+          name: product-lockfile
+      - name: Set configuration output paths
+        id: config-cache
         run: |
-          mkdir -p "$RUNNER_TEMP/bump-canaries/reports"
           {
-            echo "BUMP_ROOT=$RUNNER_TEMP/bump-canaries"
-            echo "CARGO_TARGET_DIR=$RUNNER_TEMP/bump-canaries/xtask"
-            echo "MLX_RS_METAL_PATH=$RUNNER_TEMP/bump-canaries/metallib/xtask"
-            echo "MLX_RS_API_TARGET_DIR=$RUNNER_TEMP/bump-canaries/api-inventory"
+            echo "CARGO_TARGET_DIR=$RUNNER_TEMP/config-targets/${{ matrix.configuration }}"
+            echo "MLX_RS_METAL_PATH=$RUNNER_TEMP/config-metallib/${{ matrix.configuration }}"
           } >> "$GITHUB_ENV"
+          echo "target=$(python3 -c 'import os; print(os.path.relpath(os.environ["RUNNER_TEMP"] + "/config-targets/${{ matrix.configuration }}"))')" >> "$GITHUB_OUTPUT"
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           cache: false
-          rustflags: ''
-          components: rustfmt
-      - name: Generate the evidence lockfile
-        id: lockfile
-        run: cargo generate-lockfile
+          toolchain: ${{ matrix.rust }}
+          rustflags: ""
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.configuration }}-${{ matrix.rust }}-${{ hashFiles('Cargo.toml', '*/Cargo.toml') }}
+          workspaces: . -> ${{ steps.config-cache.outputs.target }}
+          cache-directories: ${{ env.MLX_RS_METAL_PATH }}
+      - name: Set checkpoint paths
+        if: ${{ !inputs.ordinary && matrix.configuration == 'macos-arm64-default' }}
+        run: |
+          {
+            echo "BUMP_ROOT=$RUNNER_TEMP/bump-checkpoints"
+            echo "MLX_RS_BUMP_RUN=1"
+            echo "MLX_LM_REAL_CHECKPOINTS=$RUNNER_TEMP/bump-checkpoints/reports/checkpoints/real-checkpoints.json"
+          } >> "$GITHUB_ENV"
       - uses: astral-sh/setup-uv@v10.3.2
+        if: ${{ !inputs.ordinary && matrix.configuration == 'macos-arm64-default' }}
         with:
           version: '0.13.5'
           enable-cache: false
       - name: Provision the pinned Python interpreter
+        if: ${{ !inputs.ordinary && matrix.configuration == 'macos-arm64-default' }}
         id: python
         run: |
           uv python install 3.12.14
@@ -109,127 +225,52 @@ jobs:
           echo "BUMP_PYTHON=$BUMP_ROOT/python/bin/python3" >> "$GITHUB_ENV"
           echo "$BUMP_ROOT/python/bin" >> "$GITHUB_PATH"
       - uses: actions/cache/restore@v4
+        if: ${{ !inputs.ordinary && matrix.configuration == 'macos-arm64-default' }}
         id: checkpoints-cache
         with:
-          path: ${{ runner.temp }}/bump-canaries/checkpoints
+          path: ${{ runner.temp }}/bump-checkpoints/checkpoints
           key: bump-checkpoints-${{ hashFiles('conformance/mlx-lm/bump-oracle.json') }}
-      - name: Qualify native result parsing
+      - name: Check checkpoint provisioning
+        if: ${{ !inputs.ordinary && matrix.configuration == 'macos-arm64-default' }}
         run: |
           "$BUMP_PYTHON" -B -m unittest discover -s xtask -p 'test_*.py'
       - name: Download checkpoints and generate the live Python oracle
+        if: ${{ !inputs.ordinary && matrix.configuration == 'macos-arm64-default' }}
         run: |
           df -h "$BUMP_ROOT"
           "$BUMP_PYTHON" -B xtask/provision_checkpoints.py --python "$BUMP_PYTHON" --cache "$BUMP_ROOT/checkpoints" --output "$BUMP_ROOT/reports/checkpoints"
           df -h "$BUMP_ROOT"
       - uses: actions/cache/save@v4
-        if: steps.checkpoints-cache.outputs.cache-hit != 'true'
+        if: ${{ !inputs.ordinary && matrix.configuration == 'macos-arm64-default' && steps.checkpoints-cache.outputs.cache-hit != 'true' }}
         with:
-          path: ${{ runner.temp }}/bump-canaries/checkpoints
+          path: ${{ runner.temp }}/bump-checkpoints/checkpoints
           key: bump-checkpoints-${{ hashFiles('conformance/mlx-lm/bump-oracle.json') }}
-      - name: Execute stable configurations
-        shell: bash
-        run: |
-          status=0
-          for config in macos-arm64-default macos-arm64-metal-jit macos-arm64-cpu-only macos-arm64-cpu-only-release; do
-            export CARGO_TARGET_DIR="$BUMP_ROOT/targets/$config"
-            export MLX_RS_METAL_PATH="$BUMP_ROOT/metallib/$config"
-            df -h "$BUMP_ROOT"
-            if [[ "$config" == macos-arm64-default ]]; then
-              export MLX_LM_REAL_CHECKPOINTS="$BUMP_ROOT/reports/checkpoints/real-checkpoints.json"
-            else
-              unset MLX_LM_REAL_CHECKPOINTS
-            fi
-            cargo xtask config-report "$config" --report "$BUMP_ROOT/reports/$config.json" || status=1
-            du -sh "$CARGO_TARGET_DIR" "$MLX_RS_METAL_PATH" || true
-            rm -rf "$CARGO_TARGET_DIR" "$MLX_RS_METAL_PATH"
-            df -h "$BUMP_ROOT"
-          done
-          exit "$status"
-      - name: Execute native canaries and fingerprint linked exports
-        if: ${{ !cancelled() && steps.lockfile.outcome == 'success' && steps.python.outcome == 'success' }}
-        run: |
-          "$BUMP_PYTHON" -B xtask/native_canaries.py --build-root "$BUMP_ROOT/native" --reports "$BUMP_ROOT/reports/native"
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        if: ${{ !cancelled() }}
-        with:
-          toolchain: 1.88.0
-          components: rustfmt
-          cache: false
-          rustflags: ''
-      - name: Execute MSRV without checkpoints
-        if: ${{ !cancelled() }}
-        run: |
-          export CARGO_TARGET_DIR="$BUMP_ROOT/targets/macos-arm64-default-msrv"
-          export MLX_RS_METAL_PATH="$BUMP_ROOT/metallib/macos-arm64-default-msrv"
-          df -h "$BUMP_ROOT"
-          status=0
-          cargo xtask config-report macos-arm64-default-msrv --report "$BUMP_ROOT/reports/macos-arm64-default-msrv.json" || status=$?
-          du -sh "$CARGO_TARGET_DIR" "$MLX_RS_METAL_PATH" || true
-          rm -rf "$CARGO_TARGET_DIR" "$MLX_RS_METAL_PATH"
-          df -h "$BUMP_ROOT"
-          exit "$status"
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        if: ${{ !cancelled() }}
-        with:
-          toolchain: stable
-          components: rustfmt
-          cache: false
-          rustflags: ''
-      - name: Install the API extraction toolchain
-        if: ${{ !cancelled() }}
-        run: rustup toolchain install "$(cat xtask/api-nightly.txt)" --profile minimal
-      - name: Install the recorded ABI fingerprint compiler
-        id: fingerprint-toolchain
-        if: ${{ !cancelled() && steps.python.outcome == 'success' }}
-        shell: python3 -B {0}
-        run: |
-          import json
-          import pathlib
-          import subprocess
-
-          expected = json.loads(pathlib.Path("ledger/abi-toolchain.json").read_text())["rustc"]
-          toolchain = expected.split()[1]
-          subprocess.run(["rustup", "toolchain", "install", toolchain, "--profile", "minimal", "--component", "rustfmt"], check=True)
-          actual = subprocess.check_output(["rustup", "run", toolchain, "rustc", "--version"], text=True).strip()
-          if actual != expected:
-              raise SystemExit(f"ABI fingerprint compiler mismatch: {actual} != {expected}")
-      - uses: actions/download-artifact@v4
-        if: ${{ !cancelled() }}
-        with:
-          name: verify-ffi-calibration
-          path: ${{ runner.temp }}/bump-canaries/reports/ffi
-      - name: Admit the exact checkout SHA
-        if: ${{ !cancelled() && steps.fingerprint-toolchain.outcome == 'success' }}
-        shell: bash
-        env:
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          MLX_RS_ABI_OUTPUT_DIR: ${{ runner.temp }}/bump-canaries/reports/abi
-        run: |
-          set -o pipefail
-          df -h "$BUMP_ROOT"
-          boundary_base="$PR_BASE_SHA"
-          if [[ -z "$boundary_base" ]]; then
-            bump_commit=$(git log -1 --format=%H -- mlx-sys/src/mlx-c)
-            boundary_base=$(git rev-parse "$bump_commit^")
-          fi
-          args=()
-          for report in "$BUMP_ROOT/reports/"macos-arm64-*.json; do
-            args+=(--config-report "$report")
-          done
-          for report in "$BUMP_ROOT/reports/native/"*.json; do
-            args+=(--native-report "$report")
-          done
-          cargo xtask verify-bump --admit --boundary-base "$boundary_base" \
-            --ffi-report "$BUMP_ROOT/reports/ffi/verify-ffi.json" \
-            "${args[@]}" \
-            2> >(tee "$BUMP_ROOT/reports/admission.stderr.log" >&2) \
-            | tee "$BUMP_ROOT/reports/admission.json"
-          df -h "$BUMP_ROOT"
+      - run: cargo xtask config-report ${{ matrix.configuration }} --report "$RUNNER_TEMP/config-reports/${{ matrix.configuration }}.json"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: bump-evidence
-          path: ${{ runner.temp }}/bump-canaries/reports/
-      - name: Remove build directories
-        if: always()
-        run: rm -rf "$BUMP_ROOT/native" "$BUMP_ROOT/targets" "$BUMP_ROOT/metallib" "$BUMP_ROOT/xtask" "$BUMP_ROOT/api-inventory" "$BUMP_ROOT/python"
+          name: config-report-${{ matrix.configuration }}
+          path: ${{ runner.temp }}/config-reports/
+      - uses: actions/upload-artifact@v4
+        if: always() && !inputs.ordinary && matrix.configuration == 'macos-arm64-default'
+        with:
+          name: checkpoint-oracle
+          path: ${{ runner.temp }}/bump-checkpoints/reports/
+
+  admission:
+    if: always()
+    needs: [dependencies, checks, ffi-gate, configurations]
+    runs-on: blaze/macos-latest
+    steps:
+      - name: Require every job
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        shell: python3 {0}
+        run: |
+          import json
+          import os
+
+          results = json.loads(os.environ["RESULTS"])
+          required = {"dependencies", "checks", "ffi-gate", "configurations"}
+          if set(results) != required or any(job["result"] != "success" for job in results.values()):
+              raise SystemExit(f"Required validation jobs did not all succeed: {results}")

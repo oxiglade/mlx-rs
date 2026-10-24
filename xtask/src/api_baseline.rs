@@ -245,7 +245,14 @@ fn extract_crate(repo: &Path, target: &Path, set: &FeatureSet) -> Result<Vec<Api
         );
         command
             .current_dir(repo)
-            .args(["rustdoc", "-p", "mlx-rs", "--lib", "--target-dir"])
+            .args([
+                "rustdoc",
+                "--locked",
+                "-p",
+                "mlx-rs",
+                "--lib",
+                "--target-dir",
+            ])
             .arg(&build_dir);
         if !set.default_features {
             command.arg("--no-default-features");
@@ -273,7 +280,14 @@ fn macro_dependency(repo: &Path, target: &Path) -> Result<(), String> {
         let mut command = nightly("cargo")?;
         command
             .current_dir(repo)
-            .args(["rustdoc", "-p", "mlx-macros", "--lib", "--target-dir"])
+            .args([
+                "rustdoc",
+                "--locked",
+                "-p",
+                "mlx-macros",
+                "--lib",
+                "--target-dir",
+            ])
             .arg(&output)
             .args(["--", "-Z", "unstable-options", "--output-format", "json"]);
         if hidden {
