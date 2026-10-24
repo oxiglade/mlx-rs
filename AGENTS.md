@@ -1,7 +1,8 @@
 ## Building and testing
 
 Use the repo's devenv environment, activated through direnv with `direnv allow`.
-Run tools directly once inside it. Build with `cargo build --workspace`.
+Run tools directly once inside it. Generate the product lockfile once with
+`cargo generate-lockfile` before running locked build commands. Build with `cargo build --workspace`.
 Run tests with `cargo test --workspace -- --test-threads=1`: MLX's global state
 is not safe for parallel tests.
 
@@ -30,6 +31,7 @@ cargo clippy -- -D warnings
 cargo xtask verify-oracle-boundary --base main
 rustup toolchain install "$(cat xtask/api-nightly.txt)" --profile minimal
 cargo xtask verify-ledger
+cargo xtask verify-bump
 cargo xtask api-baseline --check ledger/rust-api-baseline.json
 ```
 
