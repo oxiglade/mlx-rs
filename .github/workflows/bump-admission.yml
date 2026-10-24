@@ -108,7 +108,7 @@ jobs:
           "$BUMP_ROOT/python/bin/python3" -c 'import platform; assert platform.python_version() == "3.12.14", platform.python_version(); print(platform.python_version())'
           echo "BUMP_PYTHON=$BUMP_ROOT/python/bin/python3" >> "$GITHUB_ENV"
           echo "$BUMP_ROOT/python/bin" >> "$GITHUB_PATH"
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v6
         id: checkpoints-cache
         with:
           path: ${{ runner.temp }}/bump-canaries/checkpoints
@@ -121,7 +121,7 @@ jobs:
           df -h "$BUMP_ROOT"
           "$BUMP_PYTHON" -B xtask/provision_checkpoints.py --python "$BUMP_PYTHON" --cache "$BUMP_ROOT/checkpoints" --output "$BUMP_ROOT/reports/checkpoints"
           df -h "$BUMP_ROOT"
-      - uses: actions/cache/save@v4
+      - uses: actions/cache/save@v6
         if: steps.checkpoints-cache.outputs.cache-hit != 'true'
         with:
           path: ${{ runner.temp }}/bump-canaries/checkpoints
