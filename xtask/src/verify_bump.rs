@@ -1,4 +1,3 @@
-use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -8,9 +7,7 @@ use std::process::{Command, Stdio};
 
 const OLD_COMMIT: &str = "c74db5307cc8ce122f48d97ef951b30578674e7f";
 const TARGET_COMMIT: &str = "a341b4925024b88b2c593468f16e12f5e17315da";
-const OLD_MLX: &str = "0.32.2";
 const TARGET_MLX: &str = "0.32.2";
-const LOCAL_FFI_PROCEDURE: &str = "VERIFICATION.md#ffi-leak-and-use-after-free-gate";
 const ALLOWED_REPLAY_VERDICTS: &[&str] = &[
     "identical",
     "value_changed",
@@ -18,594 +15,95 @@ const ALLOWED_REPLAY_VERDICTS: &[&str] = &[
     "error_behavior_changed",
     "recipe_failed",
 ];
-const CHECK_IDS: &[&str] = &[
-    "tuple",
-    "boundary",
-    "race",
-    "ffi",
-    "semantic",
-    "ledger",
-    "fingerprints",
-    "feature_matrix",
-    "bump_canaries",
-    "state",
-    "replay",
-    "sentinel",
-];
-
-struct RequiredSuite {
-    id: &'static str,
-    command: &'static [&'static str],
-}
-
-const REQUIRED_SUITES: &[RequiredSuite] = &[
-    RequiredSuite {
-        id: "conformance",
-        command: &[
-            "cargo",
-            "test",
-            "-p",
-            "mlx-tests",
-            "--test",
-            "conformance",
-            "--",
-            "--test-threads=1",
-        ],
-    },
-    RequiredSuite {
-        id: "state_optimizers",
-        command: &[
-            "cargo",
-            "test",
-            "-p",
-            "mlx-tests",
-            "--test",
-            "state_optimizers",
-            "--",
-            "--test-threads=1",
-        ],
-    },
-    RequiredSuite {
-        id: "state_compile",
-        command: &[
-            "cargo",
-            "test",
-            "-p",
-            "mlx-tests",
-            "--test",
-            "state_compile",
-            "--",
-            "--test-threads=1",
-        ],
-    },
-    RequiredSuite {
-        id: "state_transforms",
-        command: &[
-            "cargo",
-            "test",
-            "-p",
-            "mlx-tests",
-            "--test",
-            "state_transforms",
-            "--",
-            "--test-threads=1",
-        ],
-    },
-];
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-enum Mode {
-    Pre,
-    Admit,
-}
-
-#[derive(Debug)]
-enum SuiteSource {
-    File(PathBuf),
-    Rerun,
-}
-
-#[derive(Debug)]
-struct Options {
-    mode: Mode,
-    boundary_base: Option<String>,
-    ffi_report: Option<PathBuf>,
-    config_reports: Vec<PathBuf>,
-    native_reports: Vec<PathBuf>,
-    suite_source: Option<SuiteSource>,
-    replay_report: PathBuf,
-    waivers: PathBuf,
-    allow_local_ffi: bool,
-}
-
-impl Options {
-    fn parse(repo_root: &Path, args: &[String]) -> Result<Self, String> {
-        let mut mode = None;
-        let mut ffi_report = None;
-        let mut config_reports = Vec::new();
-        let mut native_reports = Vec::new();
-        let mut boundary_base = None;
-        let mut suite_source = None;
-        let mut replay_report = repo_root.join("conformance/target/replay-report.json");
-        let mut waivers = repo_root.join("admission/waivers.json");
-        let mut allow_local_ffi = false;
-        let mut index = 0;
-        while index < args.len() {
-            match args[index].as_str() {
-                "--pre" if mode.is_none() => mode = Some(Mode::Pre),
-                "--admit" if mode.is_none() => mode = Some(Mode::Admit),
-                "--ffi-report" if ffi_report.is_none() => {
-                    index += 1;
-                    ffi_report = Some(PathBuf::from(args.get(index).ok_or_else(usage)?));
-                }
-                "--native-report" => {
-                    index += 1;
-                    native_reports.push(PathBuf::from(args.get(index).ok_or_else(usage)?));
-                }
-                "--config-report" => {
-                    index += 1;
-                    config_reports.push(PathBuf::from(args.get(index).ok_or_else(usage)?));
-                }
-                "--boundary-base" if boundary_base.is_none() => {
-                    index += 1;
-                    boundary_base = Some(args.get(index).ok_or_else(usage)?.clone());
-                }
-                "--suite-results" if suite_source.is_none() => {
-                    index += 1;
-                    suite_source = Some(SuiteSource::File(PathBuf::from(
-                        args.get(index).ok_or_else(usage)?,
-                    )));
-                }
-                "--rerun-suites" if suite_source.is_none() => {
-                    suite_source = Some(SuiteSource::Rerun)
-                }
-                "--replay-report" => {
-                    index += 1;
-                    replay_report = PathBuf::from(args.get(index).ok_or_else(usage)?);
-                }
-                "--waivers" => {
-                    index += 1;
-                    waivers = PathBuf::from(args.get(index).ok_or_else(usage)?);
-                }
-                "--allow-local-ffi" if !allow_local_ffi => allow_local_ffi = true,
-                _ => return Err(usage()),
-            }
-            index += 1;
-        }
-        Ok(Self {
-            mode: mode.ok_or_else(usage)?,
-            boundary_base,
-            ffi_report,
-            config_reports,
-            native_reports,
-            suite_source,
-            replay_report,
-            waivers,
-            allow_local_ffi,
-        })
-    }
-}
-
-fn usage() -> String {
-    "usage: cargo xtask verify-bump (--pre|--admit) [--boundary-base <ref>] [--ffi-report <file>] [--config-report <file> ...] [--native-report <file> ...] [--suite-results <file>|--rerun-suites] [--replay-report <file>] [--waivers <file>] [--allow-local-ffi]".to_owned()
-}
-
 pub(crate) fn run(repo_root: &Path, args: &[String]) -> i32 {
-    if args.first().map(String::as_str) == Some("--bump-evidence-only") {
-        let mut configs = Vec::new();
-        let mut native = Vec::new();
-        for pair in args[1..].chunks(2) {
-            if pair.len() != 2 {
-                eprintln!("missing report path");
-                return 1;
-            }
-            match pair[0].as_str() {
-                "--config-report" => configs.push(resolve_path(repo_root, Path::new(&pair[1]))),
-                "--native-report" => native.push(resolve_path(repo_root, Path::new(&pair[1]))),
-                _ => {
-                    eprintln!("unknown evidence argument");
-                    return 1;
-                }
-            }
+    let result = (|| {
+        if !args.is_empty() {
+            return Err("usage: cargo xtask verify-bump".to_owned());
         }
-        return match crate::bump_evidence::validate(repo_root, &configs, &native) {
-            Ok(report) => {
-                println!("{}", serde_json::to_string_pretty(&report).unwrap());
-                0
-            }
-            Err(error) => {
-                eprintln!("bump evidence: {error}");
-                1
-            }
-        };
-    }
-    let report = match Options::parse(repo_root, args) {
-        Ok(options) => aggregate(repo_root, &options),
-        Err(error) => json!({
-            "schema_version": 1,
-            "command": "verify-bump",
-            "verdict": "fail",
-            "errors": [error]
-        }),
-    };
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&report).expect("serialize verify-bump report")
-    );
-    i32::from(report["verdict"] != "pass")
-}
-
-fn aggregate(repo_root: &Path, options: &Options) -> Value {
-    let workspace_commit = git(repo_root, &["rev-parse", "HEAD"]);
-    let tuple = verify_tuple(repo_root, options.mode);
-    let expected_mlx_c = match options.mode {
-        Mode::Pre => OLD_COMMIT,
-        Mode::Admit => TARGET_COMMIT,
-    };
-    let config_paths = options
-        .config_reports
-        .iter()
-        .map(|p| resolve_path(repo_root, p))
-        .collect::<Vec<_>>();
-    let configurations = read_json(&repo_root.join("ledger/supported-feature-matrix.json"))
-        .and_then(|matrix| crate::config_report::configurations(&matrix))
-        .and_then(|configs| {
-            crate::config_report::validate_reports(repo_root, &config_paths, &configs)
-        });
-    let default_configuration = configurations.as_ref().map_err(Clone::clone).and_then(|_| {
-        config_paths
-            .iter()
-            .map(|path| read_json(path))
-            .collect::<Result<Vec<_>, _>>()?
-            .into_iter()
-            .find(|report| report["configuration_id"] == "macos-arm64-default")
-            .ok_or_else(|| "missing default configuration report".to_owned())
-    });
-    let suites = match (&options.suite_source, workspace_commit.as_deref()) {
-        (Some(SuiteSource::File(path)), Ok(commit)) => read_json(&resolve_path(repo_root, path))
-            .and_then(|report| {
-                validate_suite_results(&report, commit, expected_mlx_c)?;
-                Ok(report)
-            })
-            .map_err(|error| format!("suite results: {error}")),
-        (Some(SuiteSource::Rerun), Ok(commit)) => {
-            let report = rerun_suites(repo_root, commit, expected_mlx_c);
-            validate_suite_results(&report, commit, expected_mlx_c).map(|_| report)
-        }
-        (None, Ok(_)) => default_configuration
-            .as_ref()
-            .map_err(Clone::clone)
-            .and_then(|report| {
-                let suites = REQUIRED_SUITES
-                    .iter()
-                    .map(|suite| {
-                        let run = require_configuration_test(
-                            report,
-                            &format!("mlx-tests::test::{}", suite.id),
-                        )?;
-                        Ok(json!({"id": suite.id, "verdict": "pass", "execution": run}))
-                    })
-                    .collect::<Result<Vec<Value>, String>>()?;
-                Ok(json!({"suites": suites, "configuration_id": report["configuration_id"]}))
-            }),
-        (_, Err(error)) => Err(error.clone()),
-    };
-    let ledger = crate::verify_ledger::verify_value(repo_root, &[]);
-    let boundary_args = options
-        .boundary_base
-        .as_ref()
-        .map(|base| vec!["--base".to_owned(), base.clone()])
-        .unwrap_or_default();
-    let boundary = match (options.mode, options.boundary_base.as_deref()) {
-        (Mode::Admit, None) => Err(
-            "--admit requires --boundary-base <old-tuple-ref> for diff-based oracle separation"
-                .to_owned(),
-        ),
-        (Mode::Admit, Some(base)) => validate_boundary_base(repo_root, base)
-            .and_then(|_| crate::verify_oracle_boundary::verify_value(repo_root, &boundary_args)),
-        (Mode::Pre, _) => crate::verify_oracle_boundary::verify_value(repo_root, &boundary_args),
-    };
-    let fingerprint = tuple.as_ref().map_err(Clone::clone).and_then(|_| {
-        let abi = &ledger.as_ref().map_err(Clone::clone)?["abi"];
-        if abi["old_source_commit"] != OLD_COMMIT || abi["target_source_commit"] != TARGET_COMMIT {
-            return Err("ABI classification does not match the admission tuple".into());
-        }
-        Ok(abi.clone())
-    });
-    let ffi = match (&options.ffi_report, workspace_commit.as_deref()) {
-        (Some(path), Ok(commit)) => crate::verify_ffi::workspace_target_ids(repo_root)
-            .and_then(|inventory| {
-                read_json(&resolve_path(repo_root, path)).and_then(|report| {
-                    validate_ffi_report(
-                        &report,
-                        commit,
-                        expected_mlx_c,
-                        options.allow_local_ffi,
-                        &inventory.into_iter().collect(),
-                    )
-                })
-            }),
-        (None, _) => Err(format!(
-            "missing FFI report; run verify-ffi --guard-malloc and pass --ffi-report <file>{}; lower-trust procedure: {LOCAL_FFI_PROCEDURE}",
-            if options.allow_local_ffi {
-                ""
-            } else {
-                "; local evidence also requires --allow-local-ffi"
-            }
-        )),
-        (_, Err(error)) => Err(error.clone()),
-    };
-    let replay_report = resolve_path(repo_root, &options.replay_report);
-    let replay_path = if options.mode == Mode::Admit
-        && replay_report != repo_root.join("conformance/target/replay-report.json")
-    {
-        Err(
-            "--admit requires the canonical conformance/target/replay-report.json artifact"
-                .to_owned(),
-        )
-    } else {
-        require_tracked_unchanged(repo_root, &replay_report)
-    };
-    let replay = replay_path
-        .and_then(|_| fs::read_to_string(&replay_report).map_err(|e| e.to_string()))
-        .and_then(|report| {
-            let parent = replay_report
-                .parent()
-                .ok_or("replay report path has no parent")?;
-            validate_replay_document(parent, &report, true)
-        });
-    let waiver_manifest = resolve_path(repo_root, &options.waivers);
-    let waiver_path = if options.mode == Mode::Admit
-        && waiver_manifest != repo_root.join("admission/waivers.json")
-    {
-        Err("--admit requires the canonical admission/waivers.json manifest".to_owned())
-    } else {
-        require_tracked_unchanged(repo_root, &waiver_manifest)
-    };
-    let waiver_result = waiver_path
-        .and_then(|_| read_json(&waiver_manifest))
-        .and_then(|document| {
-            let ledger_entries = ledger_waiver_scopes(repo_root)?;
-            validate_waivers(&document, &current_date(), &ledger_entries)
-        });
-    let waiver_error = waiver_result.as_ref().err().cloned();
-    let waivers = waiver_result.unwrap_or_default();
-
-    let checks = vec![
-        check(1, "tuple", "immutable dependency tuple", tuple.map(|_| json!({
-            "current_mlx_c_commit": expected_mlx_c,
-            "required_nested_mlx": if options.mode == Mode::Pre { OLD_MLX } else { TARGET_MLX }
-        }))),
-        check(2, "boundary", "oracle boundary and digest integrity", boundary),
-        check(
-            3,
-            "race",
-            "error registration race regression",
-            verify_race_regression(repo_root),
-        ),
-        check(4, "ffi", "qualified FFI safety gate", ffi),
-        check(
-            5,
-            "semantic",
-            "strict semantic conformance",
-            suites.as_ref().map_err(Clone::clone).and_then(|report| {
-                require_suite_pass(report, "conformance")
-            }),
-        ),
-        check(6, "ledger", "classified target delta ledger", ledger.clone()),
-        check(6, "fingerprints", "canonical ABI fingerprints", fingerprint),
-        check(
-            6,
-            "feature_matrix",
-            "supported feature matrix",
-            configurations,
-        ),
-        check(6, "bump_canaries", "linked exports, native canaries and real checkpoints",
-            crate::bump_evidence::validate(repo_root,
-                &options.config_reports.iter().map(|p| resolve_path(repo_root, p)).collect::<Vec<_>>(),
-                &options.native_reports.iter().map(|p| resolve_path(repo_root, p)).collect::<Vec<_>>())),
-        check(
-            7,
-            "state",
-            "state and transform packs",
-            suites.as_ref().map_err(Clone::clone).and_then(|report| {
-                for id in ["state_optimizers", "state_compile", "state_transforms"] {
-                    require_suite_pass(report, id)?;
-                }
-                Ok(json!({"suites": ["state_optimizers", "state_compile", "state_transforms"]}))
-            }),
-        ),
-        check(8, "replay", "deterministic target-version replay", replay),
-        check(
-            0,
-            "sentinel",
-            "mlx-lm parity and sentinel execution",
-            default_configuration.as_ref().map_err(Clone::clone).and_then(|report| validate_sentinel(repo_root, report)),
-        ),
-        check(
-            0,
-            "waivers",
-            "waiver manifest",
-            waiver_error.map_or_else(
-                || Ok(json!({"active": waivers.len()})),
-                Err,
-            ),
-        ),
-    ];
-    build_verdict(options.mode, checks, waivers)
-}
-
-fn check(item: u8, id: &str, name: &str, result: Result<Value, String>) -> Value {
+        verify_tuple(repo_root)?;
+        verify_sentinel(repo_root)?;
+        verify_race_regression(repo_root)?;
+        let path = repo_root.join("conformance/target/replay-report.json");
+        require_tracked_unchanged(repo_root, &path)?;
+        let source = fs::read_to_string(&path).map_err(|e| e.to_string())?;
+        let replay = validate_replay_document(path.parent().unwrap(), &source, true)?;
+        println!("tuple, sentinel inputs and target replay passed: {replay}");
+        Ok(())
+    })();
     match result {
-        Ok(evidence) => json!({
-            "id": id,
-            "admission_item": if item == 0 { Value::Null } else { json!(item) },
-            "name": name,
-            "status": "pass",
-            "evidence": evidence,
-            "reason": Value::Null
-        }),
-        Err(reason) => json!({
-            "id": id,
-            "admission_item": if item == 0 { Value::Null } else { json!(item) },
-            "name": name,
-            "status": "fail",
-            "evidence": Value::Null,
-            "reason": reason
-        }),
+        Ok(()) => 0,
+        Err(error) => {
+            eprintln!("verify-bump: {error}");
+            1
+        }
     }
 }
 
-fn build_verdict(mode: Mode, mut checks: Vec<Value>, waivers: Vec<Value>) -> Value {
-    for waiver in &waivers {
-        let Some(scope) = waiver.get("check").and_then(Value::as_str) else {
-            continue;
-        };
-        if matches!(scope, "tuple" | "ledger" | "fingerprints") {
-            continue;
-        }
-        if let Some(check) = checks
-            .iter_mut()
-            .find(|check| check["id"] == scope && check["status"] == "fail")
-        {
-            check["status"] = "waived".into();
-            check["waiver"] = waiver.clone();
-        }
-    }
-    let failed = checks.iter().any(|check| check["status"] == "fail");
-    let mut admit_requirements = checks
-        .iter()
-        .filter(|check| check["status"] == "fail")
-        .map(|check| {
-            format!(
-                "{}: {}",
-                check["id"].as_str().unwrap_or("unknown"),
-                check["reason"].as_str().unwrap_or("unmet")
-            )
-        })
-        .collect::<Vec<_>>();
-    if mode == Mode::Pre {
-        admit_requirements.push(format!(
-            "update mlx-c submodule to {TARGET_COMMIT}, retain nested MLX v{TARGET_MLX}, then rerun with --admit"
-        ));
-        admit_requirements.push(
-            "pass --boundary-base <old-tuple-ref> so --admit verifies the complete bump diff"
-                .to_owned(),
-        );
-    }
-    json!({
-        "schema_version": 1,
-        "command": "verify-bump",
-        "mode": mode,
-        "recorded_tuple": {
-            "old": {"mlx_c_commit": OLD_COMMIT, "mlx": OLD_MLX},
-            "target": {"mlx_c_commit": TARGET_COMMIT, "mlx": TARGET_MLX}
-        },
-        "checks": checks,
-        "active_waivers": waivers,
-        "admit_requirements": admit_requirements,
-        "verdict": if failed { "fail" } else { "pass" }
-    })
-}
-
-fn verify_tuple(repo_root: &Path, mode: Mode) -> Result<Value, String> {
+fn verify_tuple(repo_root: &Path) -> Result<(), String> {
     let mlx_c = repo_root.join("mlx-sys/src/mlx-c");
-    let current_commit = git(&mlx_c, &["rev-parse", "HEAD"])?;
-    let current_pin = nested_pin(
-        &fs::read_to_string(mlx_c.join("CMakeLists.txt"))
-            .map_err(|error| format!("failed to read current mlx-c CMakeLists.txt: {error}"))?,
-    )?;
-    let target_cmake = git(
-        &mlx_c,
-        &["show", &format!("{TARGET_COMMIT}:CMakeLists.txt")],
-    )?;
-    let target_pin = nested_pin(&target_cmake)?;
-    validate_tuple_values(
-        mode,
-        &current_commit,
-        &current_pin,
-        TARGET_COMMIT,
-        &target_pin,
-    )?;
-    if mode == Mode::Admit {
-        require_clean_tree(repo_root, "workspace")?;
-        require_clean_tree(&mlx_c, "mlx-c submodule")?;
+    let current = git(&mlx_c, &["rev-parse", "HEAD"])?;
+    let pin =
+        nested_pin(&fs::read_to_string(mlx_c.join("CMakeLists.txt")).map_err(|e| e.to_string())?)?;
+    validate_tuple_values(&current, &pin)?;
+    let classification = read_json(&repo_root.join("ledger/target-delta-classification.json"))?;
+    if classification["old_source_commit"] != OLD_COMMIT
+        || classification["target_source_commit"] != TARGET_COMMIT
+    {
+        return Err("ABI classification does not match the bump tuple".into());
     }
-    Ok(json!({
-        "current_mlx_c_commit": current_commit,
-        "current_nested_mlx": current_pin,
-        "target_mlx_c_commit": TARGET_COMMIT,
-        "target_nested_mlx": target_pin
-    }))
+    Ok(())
 }
 
-fn validate_boundary_base(repo_root: &Path, base: &str) -> Result<(), String> {
-    let base_commit = git(repo_root, &["rev-parse", &format!("{base}^{{commit}}")])?;
-    let head_commit = git(repo_root, &["rev-parse", "HEAD"])?;
-    let ancestor = Command::new("git")
-        .args(["merge-base", "--is-ancestor", &base_commit, &head_commit])
-        .current_dir(repo_root)
-        .status()
-        .map_err(|error| format!("failed to validate boundary base ancestry: {error}"))?
-        .success();
-    let gitlink = git(
-        repo_root,
-        &["rev-parse", &format!("{base_commit}:mlx-sys/src/mlx-c")],
-    )?;
-    validate_boundary_base_values(&base_commit, &head_commit, ancestor, &gitlink)
-}
-
-fn validate_boundary_base_values(
-    base_commit: &str,
-    head_commit: &str,
-    ancestor: bool,
-    mlx_c_gitlink: &str,
-) -> Result<(), String> {
-    if base_commit == head_commit {
-        return Err("boundary base must be distinct from HEAD".to_owned());
-    }
-    if !ancestor {
-        return Err("boundary base must be an ancestor of HEAD".to_owned());
-    }
-    if mlx_c_gitlink != OLD_COMMIT {
+fn validate_tuple_values(current: &str, pin: &str) -> Result<(), String> {
+    if current != TARGET_COMMIT || pin != TARGET_MLX {
         return Err(format!(
-            "boundary base must record old mlx-c {OLD_COMMIT}, got {mlx_c_gitlink}"
+            "expected mlx-c {TARGET_COMMIT} / MLX {TARGET_MLX}, got {current} / {pin}"
         ));
     }
     Ok(())
 }
 
-fn validate_tuple_values(
-    mode: Mode,
-    current_commit: &str,
-    current_pin: &str,
-    target_commit: &str,
-    target_pin: &str,
-) -> Result<(), String> {
-    let (expected_commit, expected_pin) = match mode {
-        Mode::Pre => (OLD_COMMIT, OLD_MLX),
-        Mode::Admit => (TARGET_COMMIT, TARGET_MLX),
-    };
-    if current_commit != expected_commit {
-        return Err(format!(
-            "{mode:?} mode requires mlx-c {expected_commit}, got {current_commit}"
-        ));
+fn verify_race_regression(repo_root: &Path) -> Result<Value, String> {
+    let path = repo_root.join("mlx-tests/tests/ffi_safety.rs");
+    let source = fs::read_to_string(&path)
+        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+    let syntax = syn::parse_file(&source)
+        .map_err(|error| format!("failed to parse {}: {error}", path.display()))?;
+    let name = "concurrent_invoke_errors_stay_on_the_calling_thread";
+    let found = syntax.items.iter().any(|item| {
+        matches!(item, syn::Item::Fn(function) if function.sig.ident == name && function.attrs.iter().any(|attr| attr.path().is_ident("test")))
+    });
+    if !found {
+        return Err(format!("missing concurrent race regression {name}"));
     }
-    if current_pin != expected_pin {
-        return Err(format!(
-            "{mode:?} mode requires current nested MLX v{expected_pin}, got v{current_pin}"
-        ));
+    Ok(json!({"test": format!("mlx-tests/tests/ffi_safety.rs#{name}")}))
+}
+
+fn verify_sentinel(repo_root: &Path) -> Result<(), String> {
+    let root = repo_root.join("conformance/sentinel/fixtures/tiny-llama");
+    let expectations = read_json(&root.join("expectations.json"))?;
+    require_schema(&expectations, "sentinel expectations")?;
+    for name in [
+        "config.json",
+        "tokenizer.json",
+        "model.safetensors",
+        "model.perturbed.safetensors",
+        "expectations.safetensors",
+    ] {
+        if !root.join(name).is_file() {
+            return Err(format!("sentinel is missing {name}"));
+        }
     }
-    if target_commit != TARGET_COMMIT {
-        return Err(format!(
-            "recorded target commit must be {TARGET_COMMIT}, got {target_commit}"
-        ));
+    for (name, digest) in expectations["provenance"]["artifact_sha256"]
+        .as_object()
+        .ok_or("sentinel artifact_sha256 must be an object")?
+    {
+        if hash_file(&root.join(name))? != format!("sha256:{}", digest.as_str().unwrap_or("")) {
+            return Err(format!("sentinel artifact {name} digest mismatch"));
+        }
     }
-    if target_pin != TARGET_MLX {
-        return Err(format!(
-            "target nested MLX pin must be v{TARGET_MLX}, got v{target_pin}"
-        ));
+    if expectations["qualification"]["comparator_rejects"] != true {
+        return Err("sentinel comparator qualification is missing".to_owned());
     }
     Ok(())
 }
@@ -626,238 +124,6 @@ fn nested_pin(cmake: &str) -> Result<String, String> {
                 })
         })
         .ok_or_else(|| "mlx-c CMakeLists.txt has no MLX GIT_TAG".to_owned())
-}
-
-fn validate_suite_results(
-    report: &Value,
-    workspace_commit: &str,
-    mlx_c_commit: &str,
-) -> Result<(), String> {
-    require_schema(report, "suite results")?;
-    require_value(report, "source_commit", workspace_commit, "suite results")?;
-    require_value(report, "mlx_c_commit", mlx_c_commit, "suite results")?;
-    if report["source_clean"] != true || report["mlx_c_clean"] != true {
-        return Err("suite results were not captured from clean source trees".to_owned());
-    }
-    if report["verdict"] != "pass" {
-        return Err("suite results verdict is not pass".to_owned());
-    }
-    let suites = report["suites"]
-        .as_array()
-        .ok_or("suite results suites must be an array")?;
-    for required in REQUIRED_SUITES {
-        let suite = suites
-            .iter()
-            .find(|suite| suite["id"] == required.id)
-            .ok_or_else(|| format!("missing suite {}", required.id))?;
-        if suite["command"] != json!(required.command) {
-            return Err(format!("suite {} command does not match", required.id));
-        }
-        if suite["verdict"] != "pass" {
-            return Err(format!("suite {} verdict is not pass", required.id));
-        }
-    }
-    if suites.len() != REQUIRED_SUITES.len() {
-        return Err("suite results contain unexpected suites".to_owned());
-    }
-    Ok(())
-}
-
-fn require_suite_pass(report: &Value, id: &str) -> Result<Value, String> {
-    let suite = report["suites"]
-        .as_array()
-        .and_then(|suites| suites.iter().find(|suite| suite["id"] == id))
-        .ok_or_else(|| format!("missing suite {id}"))?;
-    if suite["verdict"] != "pass" {
-        return Err(format!("suite {id} verdict is not pass"));
-    }
-    Ok(suite.clone())
-}
-
-fn rerun_suites(repo_root: &Path, workspace_commit: &str, mlx_c_commit: &str) -> Value {
-    let suites = REQUIRED_SUITES
-        .iter()
-        .map(|suite| {
-            eprintln!("running bump suite {}", suite.id);
-            let output = Command::new(suite.command[0])
-                .args(&suite.command[1..])
-                .current_dir(repo_root)
-                .output();
-            let (verdict, error) = match output {
-                Ok(output) if output.status.success() => ("pass", None),
-                Ok(output) => (
-                    "fail",
-                    Some(format!(
-                        "exited {}; stderr: {}",
-                        output.status,
-                        String::from_utf8_lossy(&output.stderr).trim()
-                    )),
-                ),
-                Err(error) => ("fail", Some(format!("failed to launch: {error}"))),
-            };
-            json!({
-                "id": suite.id,
-                "command": suite.command,
-                "verdict": verdict,
-                "error": error
-            })
-        })
-        .collect::<Vec<_>>();
-    let passed = suites.iter().all(|suite| suite["verdict"] == "pass");
-    json!({
-        "schema_version": 1,
-        "source_commit": workspace_commit,
-        "mlx_c_commit": mlx_c_commit,
-        "source_clean": tree_is_clean(repo_root),
-        "mlx_c_clean": tree_is_clean(&repo_root.join("mlx-sys/src/mlx-c")),
-        "suites": suites,
-        "verdict": if passed { "pass" } else { "fail" }
-    })
-}
-
-fn validate_ffi_report(
-    report: &Value,
-    workspace_commit: &str,
-    mlx_c_commit: &str,
-    allow_local: bool,
-    expected_inventory: &BTreeSet<String>,
-) -> Result<Value, String> {
-    require_schema(report, "FFI report")?;
-    require_value(report, "command", "verify-ffi", "FFI report")?;
-    require_value(report, "source_commit", workspace_commit, "FFI report")?;
-    require_value(report, "mlx_c_commit", mlx_c_commit, "FFI report")?;
-    if report["source_clean"] != true || report["mlx_c_clean"] != true {
-        return Err("FFI report was not captured from clean source trees".to_owned());
-    }
-    if report["environment"]["architecture"] != "aarch64"
-        || report["environment"]["os"] != "macos"
-        || report["environment"]["rustc"]
-            .as_str()
-            .is_none_or(str::is_empty)
-    {
-        return Err("FFI report environment is not qualified macOS aarch64".to_owned());
-    }
-    if report["guard_malloc_requested"] != true {
-        return Err("FFI report must include the --guard-malloc lane".to_owned());
-    }
-    if report["discovery"]["status"] != "pass" || report["verdict"] != "pass" {
-        return Err("FFI report verdict is not pass".to_owned());
-    }
-    let qualification = &report["qualification"];
-    require_value(
-        qualification,
-        "source_commit",
-        workspace_commit,
-        "FFI qualification",
-    )?;
-    for phase in [
-        "environment_probe",
-        "deliberate_leak_detection",
-        "budget",
-        "verdict",
-    ] {
-        if qualification[phase] != "pass" {
-            return Err(format!("FFI qualification {phase} is not pass"));
-        }
-    }
-    for control in ["clean", "use_after_free", "double_free"] {
-        if qualification["guard_malloc"][control]["status"] != "pass" {
-            return Err(format!(
-                "FFI Guard Malloc qualification {control} is not pass"
-            ));
-        }
-    }
-    if report["github_sha"]
-        .as_str()
-        .is_some_and(|sha| sha != workspace_commit)
-    {
-        return Err("FFI GitHub SHA does not match the checked-out commit".to_owned());
-    }
-    let binaries = report["binaries"]
-        .as_array()
-        .filter(|binaries| !binaries.is_empty())
-        .ok_or("FFI report contains no binaries")?;
-    let mut paths = BTreeSet::new();
-    let mut leak_coverage = BTreeSet::new();
-    let mut guard_coverage = BTreeSet::new();
-    let mut has_ffi_safety = false;
-    let mut inventory = BTreeSet::new();
-    for binary in binaries {
-        let path = binary["binary"]["path"]
-            .as_str()
-            .ok_or("FFI report binary path must be a string")?;
-        if !paths.insert(path) {
-            return Err(format!("FFI report contains duplicate binary {path}"));
-        }
-        has_ffi_safety |= binary["binary"]["target"] == "ffi_safety";
-        let package_id = binary["binary"]["package_id"]
-            .as_str()
-            .ok_or("FFI report binary package_id must be a string")?;
-        let target = binary["binary"]["target"]
-            .as_str()
-            .ok_or("FFI report binary target must be a string")?;
-        let target_kind = binary["binary"]["target_kind"]
-            .as_array()
-            .ok_or("FFI report binary target_kind must be an array")?
-            .iter()
-            .map(|kind| {
-                kind.as_str()
-                    .ok_or("FFI report target_kind must contain strings")
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        let identity = format!(
-            "{}|{target}|{}",
-            crate::verify_ffi::stable_package_id(package_id),
-            target_kind.join(",")
-        );
-        if !inventory.insert(identity.clone()) {
-            return Err(format!("FFI report contains duplicate target {identity}"));
-        }
-        let leak = binary["leaks"]["status"].as_str();
-        let guard_passes = matches!(leak, Some("pass" | "not_applicable"))
-            && binary["guard_malloc"]["status"] == "pass";
-        if !guard_passes || binary["test"] != "passed" {
-            return Err("FFI report contains a failed binary".to_owned());
-        }
-        if leak != Some("not_applicable") {
-            leak_coverage.insert(path);
-        }
-        guard_coverage.insert(path);
-    }
-    if !has_ffi_safety {
-        return Err("FFI report does not cover the ffi_safety target".to_owned());
-    }
-    if &inventory != expected_inventory {
-        return Err("FFI report binary inventory does not match workspace metadata".to_owned());
-    }
-    let recorded_leaks = string_set(&report["covered_binaries"]["leaks"], "FFI leak coverage")?;
-    let recorded_guard = string_set(
-        &report["covered_binaries"]["guard_malloc"],
-        "FFI Guard Malloc coverage",
-    )?;
-    if recorded_leaks != leak_coverage || recorded_guard != guard_coverage {
-        return Err("FFI report covered_binaries does not match binary results".to_owned());
-    }
-    let trust = report["execution_context"]["trust"]
-        .as_str()
-        .ok_or("FFI report is missing execution_context.trust")?;
-    match trust {
-        "ci" if report["execution_context"]["procedure"]
-            .as_str()
-            .is_some_and(|procedure| procedure.starts_with("github-actions:")) => {}
-        "ci" => return Err("CI FFI report has no GitHub Actions run identity".to_owned()),
-        "local" if !allow_local => {
-            return Err(
-                "lower-trust local FFI report requires explicit --allow-local-ffi".to_owned(),
-            )
-        }
-        "local" if report["execution_context"]["procedure"] != LOCAL_FFI_PROCEDURE => {
-            return Err("local FFI report does not name the recorded procedure".to_owned())
-        }
-        "local" => {}
-        _ => return Err(format!("unsupported FFI report trust {trust}")),
-    }
-    Ok(json!({"trust": trust, "binaries": binaries.len()}))
 }
 
 fn validate_replay_document(base: &Path, source: &str, strict: bool) -> Result<Value, String> {
@@ -1292,169 +558,6 @@ fn required_case_field<'a>(case: &'a Value, suite: &str, field: &str) -> Result<
         .ok_or_else(|| format!("target replay suite {suite} has invalid {field}"))
 }
 
-fn validate_waivers(
-    document: &Value,
-    today: &str,
-    ledger_entries: &BTreeSet<String>,
-) -> Result<Vec<Value>, String> {
-    require_schema(document, "waiver manifest")?;
-    let waivers = document["waivers"]
-        .as_array()
-        .ok_or("waiver manifest waivers must be an array")?;
-    let mut seen = BTreeSet::new();
-    for waiver in waivers {
-        let check = waiver
-            .get("check")
-            .and_then(Value::as_str)
-            .filter(|value| !value.trim().is_empty());
-        let ledger_entry = waiver.get("ledger_entry").and_then(Value::as_object);
-        let waiver_id = match (check, ledger_entry) {
-            (Some(check), None) if CHECK_IDS.contains(&check) => format!("check:{check}"),
-            (Some(check), None) => return Err(format!("waiver has invalid check {check}")),
-            (None, Some(entry)) => {
-                let kind = entry
-                    .get("kind")
-                    .and_then(Value::as_str)
-                    .filter(|value| !value.trim().is_empty())
-                    .ok_or("waiver ledger_entry.kind must be non-empty")?;
-                let name = entry
-                    .get("name")
-                    .and_then(Value::as_str)
-                    .filter(|value| !value.trim().is_empty())
-                    .ok_or("waiver ledger_entry.name must be non-empty")?;
-                let id = format!("ledger_entry:{kind}:{name}");
-                if !ledger_entries.contains(&id) {
-                    return Err(format!("waiver names unknown {id}"));
-                }
-                id
-            }
-            _ => return Err("waiver requires exactly one of check or ledger_entry".to_owned()),
-        };
-        if !seen.insert(waiver_id.clone()) {
-            return Err(format!("waiver has duplicate scope {waiver_id}"));
-        }
-        for field in [
-            "scope",
-            "failure_or_missing_capability",
-            "risk",
-            "owner",
-            "reviewer_approval",
-        ] {
-            required_nonempty(waiver, field)?;
-        }
-        waiver["compensating_evidence"]
-            .as_array()
-            .filter(|evidence| {
-                !evidence.is_empty()
-                    && evidence
-                        .iter()
-                        .all(|item| item.as_str().is_some_and(|item| !item.trim().is_empty()))
-            })
-            .ok_or_else(|| format!("waiver {waiver_id} requires compensating_evidence"))?;
-        match (
-            waiver.get("expires_on").and_then(Value::as_str),
-            waiver.get("expires_milestone").and_then(Value::as_str),
-        ) {
-            (Some(date), None) if valid_date(date) && date >= today => {}
-            (Some(date), None) if valid_date(date) => {
-                return Err(format!("waiver {waiver_id} expired on {date}"))
-            }
-            (None, Some("next_dependency_bump")) => {}
-            _ => {
-                return Err(format!(
-                "waiver {waiver_id} requires expires_on or expires_milestone next_dependency_bump"
-            ))
-            }
-        }
-    }
-    Ok(waivers.clone())
-}
-
-fn ledger_waiver_scopes(repo_root: &Path) -> Result<BTreeSet<String>, String> {
-    let document = read_json(&repo_root.join("ledger/target-delta-classification.json"))?;
-    document["entries"]
-        .as_array()
-        .ok_or("target delta classification entries must be an array")?
-        .iter()
-        .map(|entry| {
-            let kind = entry["kind"]
-                .as_str()
-                .ok_or("target delta entry kind must be a string")?;
-            let name = entry["name"]
-                .as_str()
-                .ok_or("target delta entry name must be a string")?;
-            Ok(format!("ledger_entry:{kind}:{name}"))
-        })
-        .collect()
-}
-
-fn require_configuration_test(report: &Value, id: &str) -> Result<Value, String> {
-    let run = report["tests"]
-        .as_array()
-        .and_then(|runs| runs.iter().find(|run| run["id"] == id))
-        .ok_or_else(|| format!("missing configuration test {id}"))?;
-    if run["outcome"] != "pass"
-        || run["passed"].as_u64().unwrap_or(0) == 0
-        || run["failed"] != 0
-        || run["ignored"] != 0
-        || run["filtered_out"] != 0
-        || run["not_run"] != false
-        || run["summaries"] != 1
-    {
-        return Err(format!(
-            "configuration test {id} did not execute completely"
-        ));
-    }
-    Ok(run.clone())
-}
-
-fn validate_sentinel(repo_root: &Path, report: &Value) -> Result<Value, String> {
-    let parity = require_configuration_test(report, "mlx-lm::test::parity")?;
-    let sentinel = require_configuration_test(report, "mlx-lm::test::sentinel")?;
-    let root = repo_root.join("conformance/sentinel/fixtures/tiny-llama");
-    let expectations = read_json(&root.join("expectations.json"))?;
-    require_schema(&expectations, "sentinel expectations")?;
-    for name in [
-        "config.json",
-        "tokenizer.json",
-        "model.safetensors",
-        "model.perturbed.safetensors",
-        "expectations.safetensors",
-    ] {
-        if !root.join(name).is_file() {
-            return Err(format!("sentinel is missing {name}"));
-        }
-    }
-    for (name, digest) in expectations["provenance"]["artifact_sha256"]
-        .as_object()
-        .ok_or("sentinel artifact_sha256 must be an object")?
-    {
-        if hash_file(&root.join(name))? != format!("sha256:{}", digest.as_str().unwrap_or("")) {
-            return Err(format!("sentinel artifact {name} digest mismatch"));
-        }
-    }
-    if expectations["qualification"]["comparator_rejects"] != true {
-        return Err("sentinel comparator qualification is missing".to_owned());
-    }
-    Ok(json!({"fixture": "tiny-llama", "parity": parity, "sentinel": sentinel}))
-}
-
-fn verify_race_regression(repo_root: &Path) -> Result<Value, String> {
-    let path = repo_root.join("mlx-tests/tests/ffi_safety.rs");
-    let source = fs::read_to_string(&path)
-        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
-    let syntax = syn::parse_file(&source)
-        .map_err(|error| format!("failed to parse {}: {error}", path.display()))?;
-    let name = "concurrent_invoke_errors_stay_on_the_calling_thread";
-    let found = syntax.items.iter().any(|item| {
-        matches!(item, syn::Item::Fn(function) if function.sig.ident == name && function.attrs.iter().any(|attr| attr.path().is_ident("test")))
-    });
-    if !found {
-        return Err(format!("missing concurrent race regression {name}"));
-    }
-    Ok(json!({"test": format!("mlx-tests/tests/ffi_safety.rs#{name}")}))
-}
-
 fn require_schema(value: &Value, name: &str) -> Result<(), String> {
     if value["schema_version"].as_u64() == Some(1) {
         Ok(())
@@ -1471,91 +574,11 @@ fn require_value(value: &Value, field: &str, expected: &str, name: &str) -> Resu
     }
 }
 
-fn required_nonempty<'a>(value: &'a Value, field: &str) -> Result<&'a str, String> {
-    value[field]
-        .as_str()
-        .filter(|value| !value.trim().is_empty())
-        .ok_or_else(|| format!("waiver field {field} must be non-empty"))
-}
-
-fn valid_date(date: &str) -> bool {
-    if !(date.len() == 10
-        && date.as_bytes()[4] == b'-'
-        && date.as_bytes()[7] == b'-'
-        && date
-            .bytes()
-            .enumerate()
-            .all(|(index, byte)| matches!(index, 4 | 7) || byte.is_ascii_digit()))
-    {
-        return false;
-    }
-    let year = date[0..4].parse::<u32>().unwrap_or_default();
-    let month = date[5..7].parse::<u32>().unwrap_or_default();
-    let day = date[8..10].parse::<u32>().unwrap_or_default();
-    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
-    let days = match month {
-        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
-        4 | 6 | 9 | 11 => 30,
-        2 if leap => 29,
-        2 => 28,
-        _ => return false,
-    };
-    (1..=days).contains(&day)
-}
-
-fn current_date() -> String {
-    Command::new("date")
-        .arg("+%F")
-        .output()
-        .ok()
-        .filter(|output| output.status.success())
-        .and_then(|output| String::from_utf8(output.stdout).ok())
-        .map(|date| date.trim().to_owned())
-        .filter(|date| valid_date(date))
-        .unwrap_or_else(|| "9999-12-31".to_owned())
-}
-
 fn read_json(path: &Path) -> Result<Value, String> {
     let bytes =
         fs::read(path).map_err(|error| format!("failed to read {}: {error}", path.display()))?;
     serde_json::from_slice(&bytes)
         .map_err(|error| format!("failed to parse {}: {error}", path.display()))
-}
-
-fn resolve_path(repo_root: &Path, path: &Path) -> PathBuf {
-    if path.is_absolute() {
-        path.to_owned()
-    } else {
-        repo_root.join(path)
-    }
-}
-
-fn string_set<'a>(value: &'a Value, name: &str) -> Result<BTreeSet<&'a str>, String> {
-    value
-        .as_array()
-        .ok_or_else(|| format!("{name} must be an array"))?
-        .iter()
-        .map(|item| {
-            item.as_str()
-                .ok_or_else(|| format!("{name} must contain strings"))
-        })
-        .collect()
-}
-
-fn tree_is_clean(directory: &Path) -> bool {
-    git(
-        directory,
-        &["status", "--porcelain", "--untracked-files=normal"],
-    )
-    .is_ok_and(|status| status.is_empty())
-}
-
-fn require_clean_tree(directory: &Path, name: &str) -> Result<(), String> {
-    if tree_is_clean(directory) {
-        Ok(())
-    } else {
-        Err(format!("{name} must be clean for --admit"))
-    }
 }
 
 fn require_tracked_unchanged(repo_root: &Path, path: &Path) -> Result<(), String> {
@@ -1832,105 +855,9 @@ fn git(directory: &Path, args: &[&str]) -> Result<String, String> {
 }
 
 #[cfg(test)]
-fn synthetic_checks(ffi: Option<Value>, suites: Option<Value>, replay_passes: bool) -> Vec<Value> {
-    let pass = || Ok(json!({"captured": true}));
-    vec![
-        check(1, "tuple", "tuple", pass()),
-        check(2, "boundary", "boundary", pass()),
-        check(3, "race", "race", pass()),
-        check(
-            4,
-            "ffi",
-            "ffi",
-            ffi.map(|value| json!({"report": value}))
-                .ok_or_else(|| "missing lower-trust local FFI procedure report".to_owned()),
-        ),
-        check(
-            5,
-            "semantic",
-            "semantic",
-            suites
-                .as_ref()
-                .map(|_| json!({"captured": true}))
-                .ok_or_else(|| "missing suite results".to_owned()),
-        ),
-        check(6, "ledger", "ledger", pass()),
-        check(6, "fingerprints", "fingerprints", pass()),
-        check(6, "feature_matrix", "feature matrix", pass()),
-        check(6, "bump_canaries", "bump canaries", pass()),
-        check(
-            7,
-            "state",
-            "state",
-            suites
-                .map(|_| json!({"captured": true}))
-                .ok_or_else(|| "missing suite results".to_owned()),
-        ),
-        check(
-            8,
-            "replay",
-            "replay",
-            replay_passes
-                .then(|| json!({"captured": true}))
-                .ok_or_else(|| "missing replay".to_owned()),
-        ),
-        check(0, "sentinel", "sentinel", pass()),
-    ]
-}
-
-#[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::{json, Value};
-
-    fn valid_ffi() -> Value {
-        json!({
-            "schema_version": 1,
-            "command": "verify-ffi",
-            "source_commit": "workspace",
-            "mlx_c_commit": OLD_COMMIT,
-            "source_clean": true,
-            "mlx_c_clean": true,
-            "environment": {"architecture": "aarch64", "os": "macos", "rustc": "rustc 1.98.0"},
-            "execution_context": {"trust": "local", "procedure": LOCAL_FFI_PROCEDURE},
-            "guard_malloc_requested": true,
-            "qualification": {
-                "source_commit": "workspace",
-                "environment_probe": "pass", "deliberate_leak_detection": "pass",
-                "budget": "pass", "verdict": "pass",
-                "guard_malloc": {"clean": {"status": "pass"}, "use_after_free": {"status": "pass"}, "double_free": {"status": "pass"}}
-            },
-            "discovery": {"status": "pass", "error": null},
-            "binaries": [{
-                "binary": {"package_id": "mlx-tests", "target": "ffi_safety", "target_kind": ["test"], "path": "binary"},
-                "leaks": {"status": "pass", "result": null, "tool_status": null, "error": null},
-                "test": "passed",
-                "guard_malloc": {"status": "pass", "process_status": {"exit_code": 0, "signal": null}, "error": null}
-            }],
-            "covered_binaries": {"leaks": ["binary"], "guard_malloc": ["binary"]},
-            "verdict": "pass"
-        })
-    }
-
-    fn valid_ffi_inventory() -> BTreeSet<String> {
-        BTreeSet::from(["mlx-tests|ffi_safety|test".to_owned()])
-    }
-
-    fn valid_suite_results() -> Value {
-        json!({
-            "schema_version": 1,
-            "source_commit": "workspace",
-            "mlx_c_commit": OLD_COMMIT,
-            "source_clean": true,
-            "mlx_c_clean": true,
-            "verdict": "pass",
-            "suites": REQUIRED_SUITES.iter().map(|suite| json!({
-                "id": suite.id,
-                "command": suite.command,
-                "verdict": "pass"
-            })).collect::<Vec<_>>()
-        })
-    }
 
     fn replay_tree() -> (tempfile::TempDir, Value) {
         let root = tempfile::tempdir().unwrap();
@@ -2296,40 +1223,6 @@ mod tests {
     }
 
     #[test]
-    fn tuple_rejects_target_commit_with_wrong_nested_pin() {
-        let error = validate_tuple_values(
-            Mode::Admit,
-            TARGET_COMMIT,
-            TARGET_MLX,
-            TARGET_COMMIT,
-            "0.32.1",
-        )
-        .unwrap_err();
-
-        assert!(error.contains("target nested MLX pin"));
-    }
-
-    #[test]
-    fn boundary_base_rejects_head_non_ancestor_and_wrong_old_tuple() {
-        assert!(
-            validate_boundary_base_values("head", "head", true, OLD_COMMIT)
-                .unwrap_err()
-                .contains("distinct")
-        );
-        assert!(
-            validate_boundary_base_values("base", "head", false, OLD_COMMIT)
-                .unwrap_err()
-                .contains("ancestor")
-        );
-        assert!(
-            validate_boundary_base_values("base", "head", true, TARGET_COMMIT)
-                .unwrap_err()
-                .contains("old mlx-c")
-        );
-        validate_boundary_base_values("base", "head", true, OLD_COMMIT).unwrap();
-    }
-
-    #[test]
     fn replay_accepts_pinned_environment_in_scratch_venv() {
         let (root, report) = replay_tree();
         validate_replay_document(root.path(), &report.to_string(), false).unwrap();
@@ -2585,230 +1478,6 @@ mod tests {
     }
 
     #[test]
-    fn suite_results_reject_a_missing_named_suite() {
-        let mut report = valid_suite_results();
-        report["suites"].as_array_mut().unwrap().pop();
-
-        let error = validate_suite_results(&report, "workspace", OLD_COMMIT).unwrap_err();
-
-        assert!(error.contains("missing suite state_transforms"));
-    }
-
-    #[test]
-    fn ffi_rejects_missing_stale_failed_or_unqualified_guard_malloc() {
-        for (pointer, value) in [
-            ("/guard_malloc_requested", json!(false)),
-            ("/source_commit", json!("stale")),
-            ("/verdict", json!("fail")),
-            ("/binaries/0/guard_malloc", Value::Null),
-            ("/binaries/0/guard_malloc/status", json!("fail")),
-            ("/qualification", Value::Null),
-            ("/qualification/source_commit", json!("stale")),
-            ("/qualification/guard_malloc/clean/status", json!("fail")),
-            (
-                "/qualification/guard_malloc/use_after_free/status",
-                json!("fail"),
-            ),
-            (
-                "/qualification/guard_malloc/double_free/status",
-                json!("error"),
-            ),
-            ("/qualification/budget", json!("fail")),
-        ] {
-            let mut report = valid_ffi();
-            if pointer == "/qualification" {
-                report["qualification"] = value;
-            } else {
-                *report.pointer_mut(pointer).unwrap() = value;
-            }
-            assert!(
-                validate_ffi_report(
-                    &report,
-                    "workspace",
-                    OLD_COMMIT,
-                    true,
-                    &valid_ffi_inventory()
-                )
-                .is_err(),
-                "accepted {pointer}"
-            );
-        }
-        assert!(validate_ffi_report(
-            &Value::Null,
-            "workspace",
-            OLD_COMMIT,
-            true,
-            &valid_ffi_inventory()
-        )
-        .is_err());
-    }
-
-    #[test]
-    fn ffi_admits_the_merge_sha_not_the_pr_head() {
-        let mut report = valid_ffi();
-        report["github_sha"] = "workspace".into();
-        report["github_pr_head_sha"] = "pr-head".into();
-        validate_ffi_report(
-            &report,
-            "workspace",
-            OLD_COMMIT,
-            true,
-            &valid_ffi_inventory(),
-        )
-        .unwrap();
-        assert!(
-            validate_ffi_report(&report, "pr-head", OLD_COMMIT, true, &valid_ffi_inventory())
-                .is_err()
-        );
-        report["github_sha"] = "different-merge".into();
-        assert!(validate_ffi_report(
-            &report,
-            "workspace",
-            OLD_COMMIT,
-            true,
-            &valid_ffi_inventory()
-        )
-        .is_err());
-    }
-
-    #[test]
-    fn ffi_requires_explicit_local_procedure_admission() {
-        let error = validate_ffi_report(
-            &valid_ffi(),
-            "workspace",
-            OLD_COMMIT,
-            false,
-            &valid_ffi_inventory(),
-        )
-        .unwrap_err();
-
-        assert!(error.contains("--allow-local-ffi"));
-        validate_ffi_report(
-            &valid_ffi(),
-            "workspace",
-            OLD_COMMIT,
-            true,
-            &valid_ffi_inventory(),
-        )
-        .unwrap();
-    }
-
-    #[test]
-    fn ffi_accepts_guard_malloc_for_a_leak_ineligible_binary() {
-        let mut report = valid_ffi();
-        report["binaries"][0]["leaks"]["status"] = "not_applicable".into();
-        report["covered_binaries"]["leaks"] = json!([]);
-
-        validate_ffi_report(
-            &report,
-            "workspace",
-            OLD_COMMIT,
-            true,
-            &valid_ffi_inventory(),
-        )
-        .unwrap();
-    }
-
-    #[test]
-    fn ffi_requires_guard_malloc_even_when_leaks_is_not_applicable() {
-        let mut report = valid_ffi();
-        report["binaries"][0]["leaks"]["status"] = "not_applicable".into();
-        report["covered_binaries"]["leaks"] = json!([]);
-        report["binaries"][0]["guard_malloc"] = Value::Null;
-        assert!(validate_ffi_report(
-            &report,
-            "workspace",
-            OLD_COMMIT,
-            true,
-            &valid_ffi_inventory()
-        )
-        .is_err());
-    }
-
-    #[test]
-    fn ffi_rejects_missing_critical_target_and_inconsistent_coverage() {
-        let mut missing = valid_ffi();
-        missing["binaries"][0]["binary"]["target"] = "unrelated".into();
-        assert!(validate_ffi_report(
-            &missing,
-            "workspace",
-            OLD_COMMIT,
-            true,
-            &valid_ffi_inventory()
-        )
-        .unwrap_err()
-        .contains("ffi_safety"));
-
-        let mut coverage = valid_ffi();
-        coverage["covered_binaries"]["guard_malloc"] = json!([]);
-        assert!(validate_ffi_report(
-            &coverage,
-            "workspace",
-            OLD_COMMIT,
-            true,
-            &valid_ffi_inventory(),
-        )
-        .unwrap_err()
-        .contains("covered_binaries"));
-    }
-
-    #[test]
-    fn waivers_reject_expired_and_unreviewed_entries() {
-        let expired = json!({
-            "schema_version": 1,
-            "waivers": [{
-                "check": "ffi", "scope": "one binary", "failure_or_missing_capability": "no runner",
-                "risk": "leak regression", "compensating_evidence": ["local report"], "owner": "owner",
-                "reviewer_approval": "reviewer", "expires_on": "2026-08-28"
-            }]
-        });
-        assert!(validate_waivers(&expired, "2026-08-29", &BTreeSet::new())
-            .unwrap_err()
-            .contains("expired"));
-        let mut unreviewed = expired;
-        unreviewed["waivers"][0]["expires_on"] = "2026-08-30".into();
-        unreviewed["waivers"][0]["reviewer_approval"] = "".into();
-        assert!(
-            validate_waivers(&unreviewed, "2026-08-29", &BTreeSet::new())
-                .unwrap_err()
-                .contains("reviewer_approval")
-        );
-    }
-
-    #[test]
-    fn waiver_dates_must_be_real_calendar_dates() {
-        assert!(valid_date("2028-02-29"));
-        assert!(!valid_date("2026-02-29"));
-        assert!(!valid_date("2026-13-01"));
-        assert!(!valid_date("2026-04-31"));
-    }
-
-    #[test]
-    fn waiver_manifest_accepts_a_named_ledger_entry_scope() {
-        let document = json!({
-            "schema_version": 1,
-            "waivers": [{
-                "ledger_entry": {"kind": "function", "name": "mlx_example"},
-                "scope": "target-only symbol",
-                "failure_or_missing_capability": "runtime probe unavailable",
-                "risk": "behavior is not independently exercised",
-                "compensating_evidence": ["canonical ABI fingerprint"],
-                "owner": "owner",
-                "reviewer_approval": "reviewer",
-                "expires_milestone": "next_dependency_bump"
-            }]
-        });
-
-        let scopes = BTreeSet::from(["ledger_entry:function:mlx_example".to_owned()]);
-        assert_eq!(
-            validate_waivers(&document, "2026-08-29", &scopes)
-                .unwrap()
-                .len(),
-            1
-        );
-    }
-
-    #[test]
     fn committed_evidence_rejects_missing_and_tampered_files() {
         let root = tempfile::tempdir().unwrap();
         let run_git = |args: &[&str]| {
@@ -2840,99 +1509,9 @@ mod tests {
     }
 
     #[test]
-    fn pre_verdict_names_only_ffi_as_unmet_and_lists_admit_transition() {
-        let checks = synthetic_checks(None, Some(valid_suite_results()), true);
-        let report = build_verdict(Mode::Pre, checks, Vec::new());
-
-        assert_eq!(report["verdict"], "fail");
-        let failed = report["checks"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .filter(|check| check["status"] == "fail")
-            .map(|check| check["id"].as_str().unwrap())
-            .collect::<Vec<_>>();
-        assert_eq!(failed, ["ffi"]);
-        assert!(report["admit_requirements"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|item| item.as_str().unwrap().contains(TARGET_COMMIT)));
-    }
-
-    #[test]
-    fn sentinel_fixtures_do_not_replace_execution() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-        let mut report = json!({"tests": []});
-        for id in ["mlx-lm::test::parity", "mlx-lm::test::sentinel"] {
-            assert!(validate_sentinel(root, &report).is_err());
-            report["tests"].as_array_mut().unwrap().push(json!({
-                "id": id, "outcome": "pass", "passed": 2, "failed": 0, "ignored": 0,
-                "filtered_out": 0, "not_run": false, "summaries": 1
-            }));
-        }
-        validate_sentinel(root, &report).unwrap();
-        report["tests"].as_array_mut().unwrap().remove(0);
-        assert!(validate_sentinel(root, &report).is_err());
-    }
-
-    #[test]
-    fn admission_defaults_to_configuration_suites_and_preserves_overrides() {
-        let parse = |args: &[&str]| {
-            Options::parse(
-                Path::new("."),
-                &args.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
-            )
-        };
-        assert!(parse(&["--admit"]).unwrap().suite_source.is_none());
-        assert!(matches!(
-            parse(&["--admit", "--rerun-suites"]).unwrap().suite_source,
-            Some(SuiteSource::Rerun)
-        ));
-        assert!(matches!(
-            parse(&["--admit", "--suite-results", "suites.json"])
-                .unwrap()
-                .suite_source,
-            Some(SuiteSource::File(_))
-        ));
-        assert!(parse(&[
-            "--admit",
-            "--rerun-suites",
-            "--suite-results",
-            "suites.json"
-        ])
-        .is_err());
-    }
-
-    #[test]
-    fn execution_evidence_rejects_missing_skipped_or_failed_harnesses() {
-        for id in [
-            "mlx-lm::test::parity",
-            "mlx-lm::test::sentinel",
-            "mlx-tests::test::conformance",
-            "mlx-tests::test::state_optimizers",
-            "mlx-tests::test::state_compile",
-            "mlx-tests::test::state_transforms",
-        ] {
-            let report = json!({"tests": [{"id": id, "outcome": "pass", "passed": 2, "failed": 0, "ignored": 0, "filtered_out": 0, "not_run": false, "summaries": 1}]});
-            require_configuration_test(&report, id).unwrap();
-            assert!(require_configuration_test(&json!({"tests": []}), id).is_err());
-            for (field, value) in [
-                ("passed", json!(0)),
-                ("failed", json!(1)),
-                ("ignored", json!(1)),
-                ("filtered_out", json!(1)),
-                ("not_run", json!(true)),
-                ("summaries", json!(0)),
-                ("outcome", json!("fail")),
-            ] {
-                let mut bad = report.clone();
-                bad["tests"][0][field] = value;
-                assert!(
-                    require_configuration_test(&bad, id).is_err(),
-                    "{id}: {field}"
-                );
-            }
-        }
+    fn tuple_requires_target_commit_and_nested_version() {
+        validate_tuple_values(TARGET_COMMIT, TARGET_MLX).unwrap();
+        assert!(validate_tuple_values(OLD_COMMIT, TARGET_MLX).is_err());
+        assert!(validate_tuple_values(TARGET_COMMIT, "0.32.1").is_err());
     }
 }

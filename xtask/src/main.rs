@@ -4,7 +4,7 @@ use std::path::PathBuf;
 mod api_baseline;
 #[path = "../../mlx-sys/src/bindgen_config.rs"]
 mod bindgen_config;
-mod bump_evidence;
+mod checkpoints;
 mod config_report;
 mod fingerprint;
 mod linked_exports;

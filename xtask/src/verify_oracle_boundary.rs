@@ -106,17 +106,6 @@ pub fn run(repo_root: &Path, args: &[String]) -> i32 {
     i32::from(!passed)
 }
 
-pub(crate) fn verify_value(repo_root: &Path, args: &[String]) -> Result<serde_json::Value, String> {
-    let report = build_report(repo_root, args);
-    let value = serde_json::to_value(&report)
-        .map_err(|error| format!("failed to serialize oracle boundary report: {error}"))?;
-    if report.verdict == "pass" {
-        Ok(value)
-    } else {
-        Err(format!("verify-oracle-boundary failed: {}", value))
-    }
-}
-
 fn build_report(repo_root: &Path, args: &[String]) -> BoundaryReport {
     let (base, mut errors) = parse_args(args);
     let config_path = repo_root.join("conformance/protected-paths.json");

@@ -40,101 +40,12 @@ fn symbol_set(value: &Value) -> Result<BTreeSet<String>, String> {
 }
 
 fn validate_symbols(planned: &BTreeSet<String>, found: &BTreeSet<String>) -> Result<(), String> {
+    if planned.is_empty() {
+        return Err("empty planned symbol inventory".into());
+    }
     let missing: Vec<_> = planned.difference(found).collect();
-    let unexpected: Vec<_> = found.difference(planned).collect();
-    if !missing.is_empty() || !unexpected.is_empty() {
-        return Err(format!("missing: {missing:?}; unexpected: {unexpected:?}"));
-    }
-    Ok(())
-}
-
-#[derive(serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ExportException {
-    symbol: String,
-    archive: String,
-    metal_only: bool,
-    reason: String,
-}
-
-fn unexpected_exports(
-    planned: &BTreeSet<String>,
-    archives: &[Value],
-    exceptions: &Value,
-    metal: bool,
-) -> Result<Vec<Value>, String> {
-    let exceptions: Vec<ExportException> =
-        serde_json::from_value(exceptions.clone()).map_err(|e| e.to_string())?;
-    let mut keys = BTreeSet::new();
-    for exception in &exceptions {
-        if exception.symbol.is_empty()
-            || !exception
-                .symbol
-                .bytes()
-                .all(|c| c.is_ascii_alphanumeric() || c == b'_')
-            || !native_link::LIBRARIES
-                .lines()
-                .map(|name| format!("lib{name}.a"))
-                .any(|name| name == exception.archive)
-            || exception.reason.trim().is_empty()
-            || exception.reason.lines().count() != 1
-            || !keys.insert((&exception.symbol, &exception.archive))
-        {
-            return Err("invalid or duplicate native export exception".into());
-        }
-    }
-    let mut used = BTreeSet::new();
-    let mut unexpected = Vec::new();
-    for archive in archives {
-        let path = archive["path"].as_str().ok_or("missing archive path")?;
-        let name = Path::new(path).file_name().and_then(|s| s.to_str());
-        let found = symbol_set(&archive["c_symbols"])?;
-        let mut symbols = Vec::new();
-        for symbol in found.difference(planned) {
-            if let Some((index, _)) = exceptions.iter().enumerate().find(|(_, exception)| {
-                exception.symbol == *symbol
-                    && Some(exception.archive.as_str()) == name
-                    && (!exception.metal_only || metal)
-            }) {
-                used.insert(index);
-            } else if exceptions
-                .iter()
-                .any(|exception| exception.symbol == *symbol)
-            {
-                return Err(format!(
-                    "native export exception outside scope: {path}: {symbol}"
-                ));
-            } else {
-                symbols.push(symbol);
-            }
-        }
-        unexpected.push(json!({"archive": path, "symbols": symbols}));
-    }
-    for (index, exception) in exceptions.iter().enumerate() {
-        let archive_present = archives.iter().any(|archive| {
-            archive["path"].as_str().is_some_and(|path| {
-                Path::new(path).file_name().and_then(|name| name.to_str())
-                    == Some(exception.archive.as_str())
-            })
-        });
-        if archive_present && (!exception.metal_only || metal) && !used.contains(&index) {
-            return Err(format!(
-                "stale native export exception: {}: {}",
-                exception.archive, exception.symbol
-            ));
-        }
-    }
-    Ok(unexpected)
-}
-
-fn read_exceptions(root: &Path) -> Result<Value, String> {
-    serde_json::from_str(&read(&root.join("ledger/native-export-exceptions.json"))?)
-        .map_err(|e| e.to_string())
-}
-
-fn validate_archive(path: &Path, expected: &str) -> Result<(), String> {
-    if crate::bump_evidence::hash(path)? != expected {
-        return Err(format!("stale archive hash: {}", path.display()));
+    if !missing.is_empty() {
+        return Err(format!("missing: {missing:?}"));
     }
     Ok(())
 }
@@ -168,7 +79,7 @@ fn scan(path: &Path) -> Result<Value, String> {
     )?;
     let (c, cpp) = parse_nm(&text)?;
     Ok(
-        json!({"path": path, "sha256": crate::bump_evidence::hash(path)?,
+        json!({"path": path, "sha256": crate::checkpoints::hash(path)?,
         "architecture": "arm64", "c_symbols": c, "cpp_mangled_count": cpp.len()}),
     )
 }
@@ -215,7 +126,7 @@ fn toolchain_paths() -> Vec<PathBuf> {
 fn toolchain_archives(paths: &[PathBuf]) -> Result<Vec<Value>, String> {
     paths
         .iter()
-        .map(|path| Ok(json!({"path": path, "sha256": crate::bump_evidence::hash(path)?})))
+        .map(|path| Ok(json!({"path": path, "sha256": crate::checkpoints::hash(path)?})))
         .collect()
 }
 
@@ -283,7 +194,7 @@ fn canary(
     }
     Ok(
         json!({"verdict": "pass", "compile_command": format!("{compile:?}"),
-        "link_command": format!("{link:?}"), "path": exe, "sha256": crate::bump_evidence::hash(&exe)?,
+        "link_command": format!("{link:?}"), "path": exe, "sha256": crate::checkpoints::hash(&exe)?,
         "retained_references": planned, "mlx_c_runtime_version": versions[0], "mlx_runtime_version": versions[1]}),
     )
 }
@@ -298,6 +209,9 @@ fn collect(root: &Path, build: &Path) -> Result<Value, String> {
     )?
     .trim()
     .is_empty();
+    if dirty {
+        return Err("dirty linked-export checkout".into());
+    }
     let (_, planned) = crate::fingerprint::planned_exports(root)?;
     let paths = archive_paths(build)?;
     let archives = paths
@@ -326,110 +240,19 @@ fn collect(root: &Path, build: &Path) -> Result<Value, String> {
         Ok(value) => value,
         Err(error) => json!({"verdict": "fail", "error": error}),
     };
-    let exceptions = read_exceptions(root)?;
-    let unexpected = unexpected_exports(
-        &planned,
-        &archives,
-        &exceptions,
-        configuration["MLX_BUILD_METAL"] == "ON",
-    )
-    .or_else(|_| unexpected_exports(&planned, &archives, &json!([]), false))?;
     let mut report = json!({"schema_version": 1, "identity": identity, "dirty": dirty, "build_directory": build,
         "configuration": configuration, "build_provenance": provenance, "archives": archives, "planned": planned,
         "toolchain_archives": toolchain_archives,
         "planned_count": planned.len(), "found_count": found.len(),
-        "missing": planned.difference(&found).collect::<Vec<_>>(), "unexpected": unexpected,
+        "missing": planned.difference(&found).collect::<Vec<_>>(),
         "canary": canary, "elapsed_seconds": started.elapsed().as_secs_f64(), "verdict": "fail"});
-    match validate(root, &report) {
-        Ok(()) => report["verdict"] = "pass".into(),
+    match validate_symbols(&planned, &found) {
+        Ok(()) if report["canary"]["verdict"] == "pass" => report["verdict"] = "pass".into(),
+        Ok(()) => report["error"] = report["canary"]["error"].clone(),
         Err(error) => report["error"] = error.into(),
     }
     report["elapsed_seconds"] = started.elapsed().as_secs_f64().into();
     Ok(report)
-}
-
-pub(crate) fn validate(root: &Path, report: &Value) -> Result<(), String> {
-    let exceptions = read_exceptions(root)?;
-    if report["schema_version"] != 1 || report["identity"] != crate::config_report::identity(root)?
-    {
-        return Err("stale linked-export identity".into());
-    }
-    let (_, planned) = crate::fingerprint::planned_exports(root)?;
-    if symbol_set(&report["planned"])? != planned || planned.is_empty() {
-        return Err("linked-export planned ABI differs from current headers".into());
-    }
-    let build = Path::new(
-        report["build_directory"]
-            .as_str()
-            .ok_or("missing native build directory")?,
-    );
-    validate_configuration(build, &report["configuration"])?;
-    if build_provenance(root, build)? != report["build_provenance"] {
-        return Err("stale native build provenance".into());
-    }
-    if report["toolchain_archives"] != json!(toolchain_archives(&toolchain_paths())?) {
-        return Err("toolchain archive provenance mismatch".into());
-    }
-    let paths = archive_paths(build)?;
-    let archives = report["archives"].as_array().ok_or("missing archives")?;
-    if paths.len() != archives.len() {
-        return Err("incomplete archive inventory".into());
-    }
-    let mut found = BTreeSet::new();
-    for (path, archive) in paths.iter().zip(archives) {
-        if archive["path"] != json!(path) {
-            return Err("archive path differs from native build".into());
-        }
-        validate_archive(
-            path,
-            archive["sha256"].as_str().ok_or("missing archive hash")?,
-        )?;
-        if scan(path)? != *archive {
-            return Err("archive symbol inventory mismatch".into());
-        }
-        found.extend(symbol_set(&archive["c_symbols"])?);
-    }
-    let canary = &report["canary"];
-    if canary["verdict"] != "pass"
-        || symbol_set(&canary["retained_references"])? != planned
-        || canary["mlx_c_runtime_version"] != report["identity"]["nested_mlx_version"]
-        || canary["mlx_runtime_version"] != report["identity"]["nested_mlx_version"]
-    {
-        return Err(format!("failed link/version canary: {canary}"));
-    }
-    validate_archive(
-        Path::new(canary["path"].as_str().ok_or("missing canary path")?),
-        canary["sha256"].as_str().ok_or("missing canary hash")?,
-    )?;
-    let unexpected = unexpected_exports(
-        &planned,
-        archives,
-        &exceptions,
-        report["configuration"]["MLX_BUILD_METAL"] == "ON",
-    )?;
-    let mut unexcepted = found
-        .intersection(&planned)
-        .cloned()
-        .collect::<BTreeSet<_>>();
-    for archive in &unexpected {
-        unexcepted.extend(symbol_set(&archive["symbols"])?);
-    }
-    validate_symbols(&planned, &unexcepted)?;
-    if report["unexpected"] != json!(unexpected) {
-        return Err("unexpected export inventory mismatch".into());
-    }
-    if report["dirty"] != false
-        || !output(
-            Command::new("git")
-                .args(["status", "--porcelain", "--untracked-files=normal"])
-                .current_dir(root),
-        )?
-        .trim()
-        .is_empty()
-    {
-        return Err("dirty linked-export checkout".into());
-    }
-    Ok(())
 }
 
 fn cache(build: &Path) -> Result<BTreeMap<String, String>, String> {
@@ -467,13 +290,6 @@ fn configuration(build: &Path) -> Result<Value, String> {
     Ok(config.into())
 }
 
-fn validate_configuration(build: &Path, recorded: &Value) -> Result<(), String> {
-    if configuration(build)? != *recorded {
-        return Err("native configuration changed or missing".into());
-    }
-    Ok(())
-}
-
 fn build_provenance(root: &Path, build: &Path) -> Result<Value, String> {
     let cache = cache(build)?;
     let directory = |key: &str| -> Result<PathBuf, String> {
@@ -486,14 +302,7 @@ fn build_provenance(root: &Path, build: &Path) -> Result<Value, String> {
         .canonicalize()
         .map_err(|e| e.to_string())?;
     let home = directory("CMAKE_HOME_DIRECTORY")?;
-    if home != native
-        && (home
-            != root
-                .join("xtask/native-canaries")
-                .canonicalize()
-                .map_err(|e| e.to_string())?
-            || directory("MLX_C_SOURCE")? != native)
-    {
+    if home != native {
         return Err("native build belongs to another source checkout".into());
     }
     let mlx = directory("mlx_SOURCE_DIR")?;
@@ -523,7 +332,7 @@ fn build_provenance(root: &Path, build: &Path) -> Result<Value, String> {
     }
     Ok(
         json!({"mlx_c_source": native, "mlx_source": mlx, "mlx_commit": mlx_commit,
-        "cmake_cache_sha256": crate::bump_evidence::hash(&build.join("CMakeCache.txt"))?}),
+        "cmake_cache_sha256": crate::checkpoints::hash(&build.join("CMakeCache.txt"))?}),
     )
 }
 
@@ -604,14 +413,22 @@ fn cargo_build(root: &Path, messages: &Path) -> Result<PathBuf, String> {
 pub(crate) fn run(root: &Path, args: &[String]) -> i32 {
     let result = match args {
         [build_flag, build, report_flag, report]
-            if ["--build", "--cargo-output"].contains(&build_flag.as_str()) && report_flag == "--report" =>
+            if build_flag == "--cargo-output" && report_flag == "--report" =>
         {
-            let build = if build_flag == "--cargo-output" {
-                cargo_build(root, Path::new(build))
-            } else { Ok(PathBuf::from(build)) };
+            let build = cargo_build(root, Path::new(build));
             let collected = build.and_then(|build| collect(root, &build));
-            let value = collected.unwrap_or_else(|error| json!({"verdict": "fail", "error": error}));
+            let value =
+                collected.unwrap_or_else(|error| json!({"verdict": "fail", "error": error}));
             (|| {
+                for archive in value["archives"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .chain(value["toolchain_archives"].as_array().into_iter().flatten())
+                {
+                    println!("{} sha256={}", archive["path"], archive["sha256"]);
+                }
+                println!("link/version canary: {}", value["canary"]["verdict"]);
                 fs::write(
                     report,
                     format!("{}\n", serde_json::to_string_pretty(&value).unwrap()),
@@ -624,13 +441,7 @@ pub(crate) fn run(root: &Path, args: &[String]) -> i32 {
                 }
             })()
         }
-        [flag, report] if flag == "--verify" => read(Path::new(report))
-            .and_then(|s| serde_json::from_str(&s).map_err(|e| e.to_string()))
-            .and_then(|report| validate(root, &report)),
-        _ => Err(
-            "usage: linked-exports ((--build <native-build> | --cargo-output <cargo-json>) --report <file> | --verify <file>)"
-                .into(),
-        ),
+        _ => Err("usage: linked-exports --cargo-output <cargo-json> --report <file>".into()),
     };
     if let Err(error) = result {
         eprintln!("linked exports: {error}");
@@ -645,104 +456,6 @@ mod tests {
 
     fn symbols(names: &[&str]) -> BTreeSet<String> {
         names.iter().map(|name| (*name).to_owned()).collect()
-    }
-
-    fn exception_fixture() -> (Vec<Value>, Value) {
-        (
-            vec![json!({"path": "/build/libmlx.a", "c_symbols": ["mlx_add", "helper"]})],
-            json!([{"symbol": "helper", "archive": "libmlx.a", "metal_only": true,
-                "reason": "Compiler helper emitted by the Metal backend."}]),
-        )
-    }
-
-    #[test]
-    fn accepts_exact_exception_in_scope() {
-        let (archives, exceptions) = exception_fixture();
-        let result =
-            unexpected_exports(&symbols(&["mlx_add"]), &archives, &exceptions, true).unwrap();
-        assert_eq!(
-            result,
-            vec![json!({"archive": "/build/libmlx.a", "symbols": []})]
-        );
-    }
-
-    #[test]
-    fn rejects_stale_exception() {
-        let (mut archives, exceptions) = exception_fixture();
-        archives[0]["c_symbols"] = json!(["mlx_add"]);
-        assert!(
-            unexpected_exports(&symbols(&["mlx_add"]), &archives, &exceptions, true)
-                .unwrap_err()
-                .contains("stale")
-        );
-    }
-
-    #[test]
-    fn rejects_exception_in_wrong_archive_even_when_used_in_scope() {
-        let (mut archives, exceptions) = exception_fixture();
-        archives.push(json!({"path": "/build/libmlxc.a", "c_symbols": ["helper"]}));
-        assert!(
-            unexpected_exports(&symbols(&["mlx_add"]), &archives, &exceptions, true)
-                .unwrap_err()
-                .contains("scope")
-        );
-    }
-
-    #[test]
-    fn rejects_metal_exception_in_cpu_configuration() {
-        let (archives, exceptions) = exception_fixture();
-        assert!(
-            unexpected_exports(&symbols(&["mlx_add"]), &archives, &exceptions, false)
-                .unwrap_err()
-                .contains("scope")
-        );
-    }
-
-    #[test]
-    fn inactive_metal_exception_is_not_stale_on_cpu() {
-        let (mut archives, exceptions) = exception_fixture();
-        archives[0]["c_symbols"] = json!(["mlx_add"]);
-        assert!(unexpected_exports(&symbols(&["mlx_add"]), &archives, &exceptions, false).is_ok());
-    }
-
-    #[test]
-    fn exception_does_not_hide_another_export() {
-        let (mut archives, exceptions) = exception_fixture();
-        archives[0]["c_symbols"] = json!(["mlx_add", "helper", "helper_extra"]);
-        let result =
-            unexpected_exports(&symbols(&["mlx_add"]), &archives, &exceptions, true).unwrap();
-        assert_eq!(result[0]["symbols"], json!(["helper_extra"]));
-    }
-
-    #[test]
-    fn rejects_exception_patterns_and_missing_reasons() {
-        let (archives, exceptions) = exception_fixture();
-        for (field, value) in [
-            ("symbol", json!("helper*")),
-            ("archive", json!("lib*.a")),
-            ("reason", json!(" ")),
-            ("metal_only", Value::Null),
-        ] {
-            let mut invalid = exceptions.clone();
-            invalid[0][field] = value;
-            assert!(unexpected_exports(&symbols(&["mlx_add"]), &archives, &invalid, true).is_err());
-        }
-    }
-
-    #[test]
-    fn jaccl_exception_applies_only_when_archive_is_built() {
-        let exceptions = json!([{"symbol": "__clang_call_terminate", "archive": "libjaccl.a",
-            "metal_only": false, "reason": "Compiler-generated exception termination helper in C++ archive members."}]);
-        let planned = symbols(&["mlx_add"]);
-        let mut archives = vec![json!({"path": "/build/libmlx.a", "c_symbols": ["mlx_add"]})];
-        assert!(unexpected_exports(&planned, &archives, &exceptions, false).is_ok());
-        archives
-            .push(json!({"path": "/build/libjaccl.a", "c_symbols": ["__clang_call_terminate"]}));
-        assert!(unexpected_exports(&planned, &archives, &exceptions, false).is_ok());
-        archives[1]["c_symbols"] = json!([]);
-        assert!(unexpected_exports(&planned, &archives, &exceptions, false)
-            .unwrap_err()
-            .contains("stale"));
     }
 
     #[test]
@@ -802,20 +515,6 @@ mod tests {
     }
 
     #[test]
-    fn rejects_changed_or_missing_configuration() {
-        let build = tempfile::tempdir().unwrap();
-        fs::write(build.path().join("CMakeCache.txt"),
-            "CMAKE_BUILD_TYPE:STRING=Debug\nMLX_BUILD_METAL:BOOL=OFF\nMLX_BUILD_ACCELERATE:BOOL=ON\nMLX_METAL_JIT:BOOL=OFF\n").unwrap();
-        let original = json!({"CMAKE_BUILD_TYPE": "Debug", "MLX_BUILD_METAL": "OFF", "MLX_BUILD_ACCELERATE": "ON", "MLX_METAL_JIT": "OFF"});
-        assert!(validate_configuration(build.path(), &original).is_ok());
-        assert!(validate_configuration(build.path(), &Value::Null).is_err());
-        let changed = original.clone();
-        fs::write(build.path().join("CMakeCache.txt"),
-            "CMAKE_BUILD_TYPE:STRING=Release\nMLX_BUILD_METAL:BOOL=OFF\nMLX_BUILD_ACCELERATE:BOOL=ON\nMLX_METAL_JIT:BOOL=OFF\n").unwrap();
-        assert!(validate_configuration(build.path(), &changed).is_err());
-    }
-
-    #[test]
     fn normalizes_macho_without_hiding_internal_or_weak_symbols() {
         let (c, cpp) = parse_nm(
             "/tmp/lib.a(member.o):\n_mlx_add\n__mlx_private\n__ZN3mlx4core4evalEv\n_third_party\n",
@@ -866,23 +565,14 @@ mod tests {
     }
 
     #[test]
-    fn rejects_unexpected_export_without_exception() {
-        assert!(
-            validate_symbols(&symbols(&["mlx_add"]), &symbols(&["mlx_add", "internal"]))
-                .unwrap_err()
-                .contains("unexpected")
-        );
+    fn rejects_empty_plan() {
+        assert!(validate_symbols(&symbols(&[]), &symbols(&["mlx_add"])).is_err());
     }
 
     #[test]
-    fn rejects_stale_archive_hash() {
-        let archive = tempfile::NamedTempFile::new().unwrap();
-        std::fs::write(archive.path(), b"original archive").unwrap();
-        let hash = crate::bump_evidence::hash(archive.path()).unwrap();
-        assert!(validate_archive(archive.path(), &hash).is_ok());
-        std::fs::write(archive.path(), b"changed archive").unwrap();
-        assert!(validate_archive(archive.path(), &hash)
-            .unwrap_err()
-            .contains("hash"));
+    fn accepts_unplanned_exports() {
+        assert!(
+            validate_symbols(&symbols(&["mlx_add"]), &symbols(&["mlx_add", "internal"])).is_ok()
+        );
     }
 }

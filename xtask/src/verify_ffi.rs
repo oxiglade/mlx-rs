@@ -131,12 +131,6 @@ struct ReportEnvironment {
 }
 
 #[derive(Serialize)]
-struct ExecutionContext {
-    trust: &'static str,
-    procedure: String,
-}
-
-#[derive(Serialize)]
 struct VerifyFfiReport {
     schema_version: u32,
     command: &'static str,
@@ -148,7 +142,6 @@ struct VerifyFfiReport {
     source_clean: bool,
     mlx_c_clean: bool,
     environment: ReportEnvironment,
-    execution_context: ExecutionContext,
     guard_malloc_requested: bool,
     guard_malloc_timeout_seconds: u64,
     qualification: Option<Qualification>,
@@ -521,7 +514,10 @@ fn calibrate(
 }
 
 fn bind_qualification(phases: &mut CalibrationPhases, source_commit: &str) -> Verdict {
-    if phases.clean_gate.report.source_commit != source_commit {
+    if phases.clean_gate.report.source_commit != source_commit
+        || !phases.clean_gate.report.source_clean
+        || !phases.clean_gate.report.mlx_c_clean
+    {
         phases.clean_gate.status = Verdict::Fail;
     }
     let verdict = calibration_verdict(phases);
@@ -581,6 +577,7 @@ fn discover_calibration_binary(root_dir: &Path) -> Result<TestBinary, String> {
     let discovery = Command::new("cargo")
         .args([
             "test",
+            "--locked",
             "-p",
             "mlx-tests",
             "--test",
@@ -1073,10 +1070,6 @@ fn report_header(
     covered_binaries: CoveredBinaries,
     verdict: Verdict,
 ) -> VerifyFfiReport {
-    let github_run = env::var("GITHUB_RUN_ID")
-        .ok()
-        .filter(|value| !value.is_empty());
-    let ci = env::var("GITHUB_ACTIONS").as_deref() == Ok("true") && github_run.is_some();
     VerifyFfiReport {
         schema_version: 1,
         command: "verify-ffi",
@@ -1093,18 +1086,6 @@ fn report_header(
             architecture: env::consts::ARCH,
             os: env::consts::OS,
             rustc: command_text(Command::new("rustc").arg("--version")),
-        },
-        execution_context: ExecutionContext {
-            trust: if ci { "ci" } else { "local" },
-            procedure: if ci {
-                format!(
-                    "github-actions:{}:{}",
-                    env::var("GITHUB_WORKFLOW").unwrap_or_else(|_| "unnamed".to_owned()),
-                    github_run.expect("GitHub Actions context checked above")
-                )
-            } else {
-                "VERIFICATION.md#ffi-leak-and-use-after-free-gate".to_owned()
-            },
         },
         guard_malloc_requested,
         discovery,
@@ -1147,7 +1128,13 @@ fn command_text(command: &mut Command) -> String {
 fn discover_test_binaries(root_dir: &Path) -> Result<Vec<TestBinary>, String> {
     eprintln!("discovering workspace test executables");
     let discovery = Command::new("cargo")
-        .args(["test", "--workspace", "--no-run", "--message-format=json"])
+        .args([
+            "test",
+            "--locked",
+            "--workspace",
+            "--no-run",
+            "--message-format=json",
+        ])
         .current_dir(root_dir)
         .output()
         .map_err(|error| format!("failed to run cargo test discovery: {error}"))?;
@@ -1166,10 +1153,25 @@ fn discover_test_binaries(root_dir: &Path) -> Result<Vec<TestBinary>, String> {
     if binaries.is_empty() {
         return Err("cargo test discovery found no test executables".to_owned());
     }
+    let mut actual = binaries
+        .iter()
+        .map(|binary| {
+            format!(
+                "{}|{}|{}",
+                stable_package_id(&binary.package_id),
+                binary.target,
+                binary.target_kind.join(",")
+            )
+        })
+        .collect::<Vec<_>>();
+    actual.sort();
+    if actual != workspace_target_ids(root_dir)? {
+        return Err("discovered test binaries differ from workspace inventory".into());
+    }
     Ok(binaries)
 }
 
-pub(crate) fn workspace_target_ids(root_dir: &Path) -> Result<Vec<String>, String> {
+fn workspace_target_ids(root_dir: &Path) -> Result<Vec<String>, String> {
     let output = Command::new("cargo")
         .args(["metadata", "--locked", "--format-version=1"])
         .current_dir(root_dir)
@@ -2181,7 +2183,17 @@ ROOT LEAK: <NSArray: 0x600000008000> [32]
             budget: assess_budget(Duration::from_secs(1), Duration::from_secs(2)),
         };
         phases.clean_gate.report.source_commit = "workspace".into();
+        phases.clean_gate.report.source_clean = true;
+        phases.clean_gate.report.mlx_c_clean = true;
         assert_eq!(bind_qualification(&mut phases, "workspace"), Verdict::Pass);
+        for (source_clean, mlx_c_clean) in [(false, true), (true, false)] {
+            phases.clean_gate.report.source_clean = source_clean;
+            phases.clean_gate.report.mlx_c_clean = mlx_c_clean;
+            assert_eq!(bind_qualification(&mut phases, "workspace"), Verdict::Fail);
+            phases.clean_gate.status = Verdict::Pass;
+        }
+        phases.clean_gate.report.source_clean = true;
+        phases.clean_gate.report.mlx_c_clean = true;
         phases.guard_malloc.as_mut().unwrap().use_after_free.status = Verdict::Fail;
         assert_eq!(bind_qualification(&mut phases, "workspace"), Verdict::Fail);
         let path = directory.path().join("admission.json");

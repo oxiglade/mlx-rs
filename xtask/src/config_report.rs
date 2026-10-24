@@ -25,8 +25,16 @@ pub(crate) fn configurations(matrix: &Value) -> Result<Vec<Configuration>, Strin
     let configs: Vec<Configuration> = serde_json::from_value(matrix["builds"].clone())
         .map_err(|e| format!("invalid configuration matrix: {e}"))?;
     let mut ids = BTreeSet::new();
-    if !configs.iter().any(|c| c.required) {
-        return Err("configuration matrix needs a required configuration".into());
+    if !configs.iter().any(|c| {
+        c.id == "macos-arm64-default"
+            && c.required
+            && c.checkpoints_required
+            && c.toolchain == "stable"
+    }) {
+        return Err(
+            "configuration matrix needs the required stable default checkpoint configuration"
+                .into(),
+        );
     }
     for c in &configs {
         if c.id.is_empty()
@@ -570,56 +578,31 @@ fn validate_report(
             return Err(fail(&format!("zero tests in {id}")));
         }
     }
+    if c.id == "macos-arm64-default" {
+        for id in [
+            "mlx-lm::test::parity",
+            "mlx-lm::test::sentinel",
+            "mlx-tests::test::conformance",
+            "mlx-tests::test::state_optimizers",
+            "mlx-tests::test::state_compile",
+            "mlx-tests::test::state_transforms",
+        ] {
+            let run = runs
+                .iter()
+                .find(|run| run["id"] == id)
+                .ok_or_else(|| fail(&format!("missing required test {id}")))?;
+            if run["passed"].as_u64().unwrap_or(0) == 0
+                || run["ignored"] != 0
+                || run["summaries"] != 1
+            {
+                return Err(fail(&format!("incomplete required test {id}")));
+            }
+        }
+    }
     if &found != expected || expected.is_empty() {
         return Err(fail("test inventory differs from workspace targets"));
     }
     Ok(())
-}
-
-pub(crate) fn validate_reports(
-    root: &Path,
-    paths: &[PathBuf],
-    configs: &[Configuration],
-) -> Result<Value, String> {
-    let identity = identity(root)?;
-    let metadata = metadata(root)?;
-    let reports = paths
-        .iter()
-        .map(|p| read_json(p))
-        .collect::<Result<Vec<_>, _>>()?;
-    validate_set(configs, &reports, &identity, |c, r| {
-        inventory(&metadata, c, &r["resolved_features"])
-    })
-}
-
-fn validate_set(
-    configs: &[Configuration],
-    reports: &[Value],
-    identity: &Value,
-    expected: impl Fn(&Configuration, &Value) -> Result<BTreeSet<String>, String>,
-) -> Result<Value, String> {
-    let mut seen = BTreeSet::new();
-    for report in reports {
-        let id = report["configuration_id"]
-            .as_str()
-            .ok_or("missing configuration id")?;
-        let c = configs
-            .iter()
-            .find(|c| c.id == id)
-            .ok_or_else(|| format!("unknown configuration {id}"))?;
-        if !seen.insert(id) {
-            return Err(format!("duplicate configuration report {id}"));
-        }
-        validate_report(c, report, identity, &expected(c, report)?)?;
-    }
-    for c in configs.iter().filter(|c| c.required) {
-        if !seen.contains(c.id.as_str()) {
-            return Err(format!("missing required configuration report {}", c.id));
-        }
-    }
-    Ok(
-        json!({"verdict": "pass", "source_commit": identity["source_commit"], "configurations": seen}),
-    )
 }
 
 pub(crate) fn run(root: &Path, args: &[String]) -> i32 {
@@ -636,16 +619,8 @@ fn execute(root: &Path, args: &[String]) -> Result<i32, String> {
     let configs = configurations(&read_json(
         &root.join("ledger/supported-feature-matrix.json"),
     )?)?;
-    if args.first().map(String::as_str) == Some("--verify") {
-        let paths: Vec<_> = args[1..].iter().map(PathBuf::from).collect();
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&validate_reports(root, &paths, &configs)?).unwrap()
-        );
-        return Ok(0);
-    }
     if args.len() != 3 || args[1] != "--report" {
-        return Err("usage: config-report <configuration-id> --report <path> | config-report --verify <reports...>".into());
+        return Err("usage: config-report <configuration-id> --report <path>".into());
     }
     let c = configs
         .iter()
@@ -714,7 +689,7 @@ fn execute(root: &Path, args: &[String]) -> Result<i32, String> {
     let collected = (|| {
         let log = fs::read_to_string(&log_path).map_err(|e| e.to_string())?;
         if c.checkpoints_required {
-            report["checkpoints"] = crate::bump_evidence::checkpoint_evidence(root, &log)?;
+            report["checkpoints"] = crate::checkpoints::checkpoint_evidence(root, &log)?;
         }
         let evidence = build_evidence(&log, &meta)?;
         report["resolved_features"] = evidence.features;

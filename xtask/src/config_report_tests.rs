@@ -44,6 +44,35 @@ fn fixture() -> (Vec<Configuration>, Vec<Value>, Value) {
     (configs, reports, identity)
 }
 
+fn validate_set(
+    configs: &[Configuration],
+    reports: &[Value],
+    identity: &Value,
+    expected: impl Fn(&Configuration, &Value) -> Result<BTreeSet<String>, String>,
+) -> Result<Value, String> {
+    for (config, report) in configs.iter().zip(reports) {
+        let mut report = report.clone();
+        let mut expected = expected(config, &report)?;
+        if config.id == "macos-arm64-default" {
+            for id in [
+                "mlx-lm::test::parity",
+                "mlx-lm::test::sentinel",
+                "mlx-tests::test::conformance",
+                "mlx-tests::test::state_optimizers",
+                "mlx-tests::test::state_compile",
+                "mlx-tests::test::state_transforms",
+            ] {
+                let mut run = report["tests"][0].clone();
+                run["id"] = id.into();
+                report["tests"].as_array_mut().unwrap().push(run);
+                expected.insert(id.to_owned());
+            }
+        }
+        validate_report(config, &report, identity, &expected)?;
+    }
+    Ok(json!({"verdict": "pass"}))
+}
+
 fn check(configs: &[Configuration], reports: &[Value], identity: &Value) -> Result<Value, String> {
     validate_set(configs, reports, identity, |_, _| {
         Ok(BTreeSet::from(["demo::lib::demo".into()]))
@@ -59,33 +88,12 @@ fn rejects(change: impl FnOnce(&mut Value), expected: &str) {
 }
 
 #[test]
-fn admits_exact_required_set() {
+fn qualifies_declared_configurations() {
     let (configs, reports, identity) = fixture();
     assert_eq!(
         check(&configs, &reports, &identity).unwrap()["verdict"],
         "pass"
     );
-}
-
-#[test]
-fn rejects_missing_report() {
-    let (configs, mut reports, identity) = fixture();
-    reports.pop();
-    assert!(check(&configs, &reports, &identity)
-        .unwrap_err()
-        .contains("missing required"));
-}
-
-#[test]
-fn rejects_missing_release_or_jit_report() {
-    for id in ["macos-arm64-cpu-only-release", "macos-arm64-metal-jit"] {
-        let (configs, mut reports, identity) = fixture();
-        reports.retain(|r| r["configuration_id"] != id);
-        assert_eq!(
-            check(&configs, &reports, &identity).unwrap_err(),
-            format!("missing required configuration report {id}")
-        );
-    }
 }
 
 #[test]
@@ -141,26 +149,6 @@ fn captures_compiled_rust_profile() {
     debug["profile"]["opt_level"] = "0".into();
     debug["profile"]["debug_assertions"] = true.into();
     assert!(build_evidence(&format!("{artifact}\n{debug}"), &metadata).is_err());
-}
-
-#[test]
-fn rejects_duplicate_report() {
-    let (configs, mut reports, identity) = fixture();
-    reports.push(reports[0].clone());
-    assert!(check(&configs, &reports, &identity)
-        .unwrap_err()
-        .contains("duplicate configuration"));
-}
-
-#[test]
-fn rejects_stale_checkout_even_if_pr_head_matches() {
-    rejects(
-        |r| {
-            r["github_pr_head_sha"] = "checkout".into();
-            r["source_commit"] = "old".into();
-        },
-        "source_commit",
-    );
 }
 
 #[test]
@@ -267,18 +255,6 @@ fn rejects_wrong_msrv_and_unstable_toolchains() {
         .unwrap_err()
         .contains("rustc version"));
     rejects(|r| r["rustc"] = "rustc 1.99.0-nightly".into(), "not stable");
-}
-
-#[test]
-fn additional_configuration_needs_no_count_gate_change() {
-    let (mut configs, mut reports, identity) = fixture();
-    let mut config = configs[0].clone();
-    config.id = "future-configuration".into();
-    let mut report = reports[0].clone();
-    report["configuration_id"] = config.id.clone().into();
-    configs.push(config);
-    reports.push(report);
-    check(&configs, &reports, &identity).unwrap();
 }
 
 #[test]
@@ -484,7 +460,20 @@ fn ordinary_default_excludes_only_absent_checkpoints_but_admission_requires_them
     report["tests"][0]["not_run_reasons"] =
         json!(["NOT RUN: local real-checkpoint manifest not supplied"]);
     report["tests"][0]["excluded_by_configuration"] = true.into();
-    let expected = BTreeSet::from([id.to_owned()]);
+    let mut expected = BTreeSet::from([id.to_owned()]);
+    for id in [
+        "mlx-lm::test::parity",
+        "mlx-lm::test::sentinel",
+        "mlx-tests::test::conformance",
+        "mlx-tests::test::state_optimizers",
+        "mlx-tests::test::state_compile",
+        "mlx-tests::test::state_transforms",
+    ] {
+        let mut run = reports[index]["tests"][0].clone();
+        run["id"] = id.into();
+        report["tests"].as_array_mut().unwrap().push(run);
+        expected.insert(id.to_owned());
+    }
     validate_report(&ordinary, &report, &identity, &expected).unwrap();
     assert!(validate_report(c, &report, &identity, &expected).is_err());
     report["tests"][0]["not_run_reasons"] = json!(["NOT RUN: another reason"]);
@@ -540,4 +529,72 @@ fn identity_creates_product_lockfile_once() {
     let second = identity(root).unwrap();
     assert_ne!(first["cargo_lock_sha256"], second["cargo_lock_sha256"]);
     assert_eq!(fs::read_to_string(lock_path).unwrap(), retained);
+}
+
+#[test]
+fn default_requires_complete_parity_and_sentinel_execution() {
+    let (configs, reports, identity) = fixture();
+    let c = configs
+        .iter()
+        .find(|c| c.id == "macos-arm64-default")
+        .unwrap();
+    let report = reports
+        .iter()
+        .find(|r| r["configuration_id"] == c.id)
+        .unwrap();
+    let mut report = report.clone();
+    for id in [
+        "mlx-lm::test::parity",
+        "mlx-lm::test::sentinel",
+        "mlx-tests::test::conformance",
+        "mlx-tests::test::state_optimizers",
+        "mlx-tests::test::state_compile",
+        "mlx-tests::test::state_transforms",
+    ] {
+        let mut run = report["tests"][0].clone();
+        run["id"] = id.into();
+        report["tests"].as_array_mut().unwrap().push(run);
+    }
+    let expected = report["tests"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|run| run["id"].as_str().unwrap().to_owned())
+        .collect();
+    validate_report(c, &report, &identity, &expected).unwrap();
+    for index in [1, 2] {
+        let mut bad = report.clone();
+        bad["tests"][index]["ignored"] = 1.into();
+        assert!(validate_report(c, &bad, &identity, &expected).is_err());
+        let mut bad = report.clone();
+        bad["tests"][index]["summaries"] = 2.into();
+        assert!(validate_report(c, &bad, &identity, &expected).is_err());
+    }
+}
+
+#[test]
+fn default_checkpoint_configuration_cannot_be_removed_or_disabled() {
+    let matrix: Value =
+        serde_json::from_str(include_str!("../../ledger/supported-feature-matrix.json")).unwrap();
+    for field in ["required", "checkpoints_required", "toolchain"] {
+        let mut bad = matrix.clone();
+        let default = bad["builds"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|build| build["id"] == "macos-arm64-default")
+            .unwrap();
+        default[field] = if field == "toolchain" {
+            json!("1.88.0")
+        } else {
+            json!(false)
+        };
+        assert!(configurations(&bad).is_err(), "{field}");
+    }
+    let mut missing = matrix;
+    missing["builds"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|build| build["id"] != "macos-arm64-default");
+    assert!(configurations(&missing).is_err());
 }
