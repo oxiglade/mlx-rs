@@ -1034,7 +1034,7 @@ mod tests {
 
     #[test]
     fn test_linspace_int() {
-        let array = Array::linspace::<_, f32>(0, 50, None).unwrap();
+        let array = linspace::<_, f32>(0, 50, LinspaceOptions::default()).unwrap();
         assert_eq!(array.shape(), &[50]);
         assert_eq!(array.dtype(), Dtype::Float32);
 
@@ -1046,7 +1046,7 @@ mod tests {
 
     #[test]
     fn test_linspace_float() {
-        let array = Array::linspace::<_, f32>(0., 50., None).unwrap();
+        let array = linspace::<_, f32>(0., 50., LinspaceOptions::default()).unwrap();
         assert_eq!(array.shape(), &[50]);
         assert_eq!(array.dtype(), Dtype::Float32);
 
@@ -1058,10 +1058,17 @@ mod tests {
 
     #[test]
     fn test_linspace_try() {
-        let array = Array::linspace::<_, f32>(0, 50, None);
+        let array = linspace::<_, f32>(0, 50, LinspaceOptions::default());
         assert!(array.is_ok());
 
-        let array = Array::linspace::<_, f32>(0, 50, Some(-1));
+        let array = linspace::<_, f32>(
+            0,
+            50,
+            LinspaceOptions {
+                count: -1,
+                ..Default::default()
+            },
+        );
         assert!(array.is_err());
     }
 

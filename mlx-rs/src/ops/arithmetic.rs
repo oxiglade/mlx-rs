@@ -4333,7 +4333,7 @@ mod tests {
 
         let a = random::normal::<f32>(&[100, 1, 100], None, None, None).unwrap();
         let b = random::normal::<f32>(&[8, 100, 100], None, None, None).unwrap();
-        let rhs = sort(&random::randint::<_, i32>(0, 8, &[100], None).unwrap()).unwrap();
+        let rhs = sort(random::randint::<_, i32>(0, 8, &[100], None).unwrap()).unwrap();
 
         let c1 = gather_mm_ref(&a, &b, &rhs);
         let c2 = gather_mm(&a, &b, None::<&Array>, &rhs, true).unwrap();

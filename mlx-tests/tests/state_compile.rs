@@ -186,6 +186,10 @@ fn frozen_parameter_compiled_updates_match_unfrozen_oracle_on_trainable_keys() {
     }
 }
 
+#[expect(
+    clippy::ptr_arg,
+    reason = "compile_with_state requires sized Updatable state"
+)]
 fn many_suffix_step(state: &mut Vec<Array>, args: &[Array]) -> Vec<Array> {
     for leaf in state.iter_mut().take(64) {
         *leaf = leaf.add(&args[0]).unwrap();
@@ -193,6 +197,10 @@ fn many_suffix_step(state: &mut Vec<Array>, args: &[Array]) -> Vec<Array> {
     vec![args[0].square().unwrap()]
 }
 
+#[expect(
+    clippy::ptr_arg,
+    reason = "compile_with_state requires sized Updatable state"
+)]
 fn many_interleaved_step(state: &mut Vec<Array>, args: &[Array]) -> Vec<Array> {
     for (index, leaf) in state.iter_mut().enumerate() {
         if index % 3 == 1 {
@@ -273,6 +281,10 @@ fn nested_module_optimizer_tuple_state() {
     }
 }
 
+#[expect(
+    clippy::ptr_arg,
+    reason = "compile_with_state requires sized Updatable state"
+)]
 fn repeated_step(state: &mut Vec<Array>, args: &[Array]) -> Vec<Array> {
     state[0] = state[0].add(&args[0]).unwrap();
     state[1] = state[1].multiply(&array!(0.75_f32)).unwrap();
@@ -403,6 +415,10 @@ fn nested_cold_cache_compilation_completes_without_deadlock() {
     }
 }
 
+#[expect(
+    clippy::ptr_arg,
+    reason = "compile_with_state requires sized Updatable state"
+)]
 fn fallible_step(state: &mut Vec<Array>, args: &[Array]) -> Result<Vec<Array>, Exception> {
     args[0].reshape(&[1])?;
     state[0] = state[0].add(&args[1])?;
@@ -449,6 +465,10 @@ thread_local! {
     static TRACE_CALLS: Cell<usize> = const { Cell::new(0) };
 }
 
+#[expect(
+    clippy::ptr_arg,
+    reason = "compile_with_state requires sized Updatable state"
+)]
 fn trace_once_step(state: &mut Vec<Array>, _args: &[Array]) -> Result<Vec<Array>, Exception> {
     TRACE_CALLS.with(|counter| counter.set(counter.get() + 1));
     state[0] = state[0].add(&array!(1.0_f32))?;
@@ -494,6 +514,10 @@ fn fail_once_after_projection_growth(
     Ok(vec![accumulator.clone()])
 }
 
+#[expect(
+    clippy::ptr_arg,
+    reason = "compile_with_state requires sized Updatable state"
+)]
 fn always_fail_step(state: &mut Vec<Array>, _args: &[Array]) -> Result<Vec<Array>, Exception> {
     FALLIBLE_CALLS.with(|counter| counter.set(counter.get() + 1));
     state[0] = state[0].add(&array!(1.0_f32))?;

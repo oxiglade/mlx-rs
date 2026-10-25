@@ -73,12 +73,12 @@ fn multi_output(args: &[Array]) -> Vec<Array> {
         args[0]
             .multiply(&args[1])
             .unwrap()
-            .add(&args[0].square().unwrap())
+            .add(args[0].square().unwrap())
             .unwrap(),
     )
     .unwrap();
     let second = args[0]
-        .multiply(&args[1].square().unwrap())
+        .multiply(args[1].square().unwrap())
         .unwrap()
         .sum(None)
         .unwrap();
@@ -270,7 +270,7 @@ fn expect_named_failure(class: &str, comparison: impl FnOnce()) {
 fn fault_perturbed_input_gradient_fails() {
     let fixture = Fixture::load();
     let mut inputs = fixture.nonlinear_inputs();
-    inputs[0] = inputs[0].add(&Array::from_f32(0.03125)).unwrap();
+    inputs[0] = inputs[0].add(Array::from_f32(0.03125)).unwrap();
     let argnums = [0];
     let gradients = grad_with_argnums(nonlinear, &argnums)(&inputs).unwrap();
     expect_named_failure("transform.gradient.x", || {
