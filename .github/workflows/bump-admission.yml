@@ -71,10 +71,10 @@ jobs:
       - name: Check xtask workspace
         run: |
           cargo fmt --manifest-path xtask/Cargo.toml -- --check
-          cargo clippy --locked --manifest-path xtask/Cargo.toml -- -D warnings
+          cargo clippy --all-targets --locked --manifest-path xtask/Cargo.toml -- -D warnings
           cargo test --locked --manifest-path xtask/Cargo.toml
       - run: cargo fmt -- --check
-      - run: cargo clippy --locked --message-format=json-render-diagnostics -- -D warnings > "$RUNNER_TEMP/clippy-artifacts.json"
+      - run: cargo clippy --all-targets --locked --message-format=json-render-diagnostics -- -D warnings > "$RUNNER_TEMP/clippy-artifacts.json"
       - run: cargo xtask verify-oracle-boundary
         if: github.event_name == 'push'
       - run: cargo xtask verify-oracle-boundary --base origin/main

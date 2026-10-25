@@ -13,7 +13,7 @@ Root workspace commands exclude tooling, so check it explicitly:
 
 ```sh
 cargo fmt --manifest-path xtask/Cargo.toml -- --check
-cargo clippy --manifest-path xtask/Cargo.toml -- -D warnings
+cargo clippy --all-targets --manifest-path xtask/Cargo.toml -- -D warnings
 cargo test --manifest-path xtask/Cargo.toml
 ```
 
@@ -27,7 +27,7 @@ Run these checks as well as the tests for your change:
 
 ```sh
 cargo fmt -- --check
-cargo clippy -- -D warnings
+cargo clippy --all-targets -- -D warnings
 cargo xtask verify-oracle-boundary --base main
 rustup toolchain install "$(cat xtask/api-nightly.txt)" --profile minimal
 cargo xtask verify-ledger

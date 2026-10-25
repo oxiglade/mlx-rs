@@ -32,11 +32,11 @@
     set -e
     echo "=== fmt ==="
     cargo fmt --manifest-path xtask/Cargo.toml -- --check
-    cargo clippy --manifest-path xtask/Cargo.toml -- -D warnings
+    cargo clippy --all-targets --manifest-path xtask/Cargo.toml -- -D warnings
     cargo test --manifest-path xtask/Cargo.toml
     cargo fmt -- --check
     echo "=== clippy ==="
-    cargo clippy -- -D warnings
+    cargo clippy --all-targets -- -D warnings
     echo "=== tests ==="
     cargo test --workspace -- --test-threads=1
     echo ""
@@ -46,10 +46,10 @@
   scripts.validate-fast.exec = ''
     set -e
     cargo fmt --manifest-path xtask/Cargo.toml -- --check
-    cargo clippy --manifest-path xtask/Cargo.toml -- -D warnings
+    cargo clippy --all-targets --manifest-path xtask/Cargo.toml -- -D warnings
     cargo test --manifest-path xtask/Cargo.toml
     cargo fmt -- --check
-    cargo clippy -- -D warnings
+    cargo clippy --all-targets -- -D warnings
     # Skip doctests: they dominate wall clock (196s of a ~220s run).
     cargo test --workspace --lib --tests -- --test-threads=1
   '';
