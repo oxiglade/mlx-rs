@@ -92,7 +92,7 @@
 //! Compiled functions are intended to be pure; that is they should not have
 //! side effects. For example:
 //!
-//! ```rust,ignore
+//! ```text
 //! use mlx_rs::{Array, array, transforms::compile::compile};
 //!
 //! let mut c = array!(0.5);

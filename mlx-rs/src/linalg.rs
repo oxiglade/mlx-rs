@@ -780,22 +780,23 @@ pub fn tri_inv_device(
 /// indices. To reconstruct the input use L[P, :] @ U for 2 dimensions or
 /// mx.take_along_axis(L, P[..., None], axis=-2) @ U for more than 2 dimensions.
 ///
-/// To construct the full permuation matrix do:
+/// To construct the full permutation matrix do:
 ///
-/// ```rust,ignore
-/// use mlx_rs::{array, linalg::lu, with_stream, Stream};
+/// ```rust
+/// use mlx_rs::{array, linalg::lu, ops, with_stream, Stream};
+/// use mlx_rs::ops::indexing::{IndexOp, Ellipsis, NewAxis};
 ///
-/// // python
-/// // P = mx.put_along_axis(mx.zeros_like(L), p[..., None], mx.array(1.0), axis=-1)
 /// with_stream(&Stream::cpu(), || {
 ///     let a = array!([[3.0f32, 1.0, 2.0], [1.0, 8.0, 6.0], [9.0, 2.0, 5.0]]);
 ///     let (p, l, u) = lu(&a).unwrap();
-///     let p = mlx_rs::ops::put_along_axis(
-///         mlx_rs::ops::zeros_like(&l),
+///     let p = ops::indexing::put_along_axis(
+///         mlx_rs::ops::zeros_like(&l).unwrap(),
 ///         p.index((Ellipsis, NewAxis)),
 ///         array!(1.0),
 ///         -1,
 ///     ).unwrap();
+///     let reconstructed = p.matmul(&l).unwrap().matmul(&u).unwrap();
+///     assert!(ops::all_close(&reconstructed, &a, None, None, None).unwrap());
 /// });
 /// ```
 ///

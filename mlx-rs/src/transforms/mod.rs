@@ -28,9 +28,7 @@
 //! A panic in a Rust transform closure is caught before it reaches MLX. After MLX returns through
 //! the C ABI, the panic resumes in Rust with its original payload.
 //!
-//! TODO: update the example once https://github.com/oxiglade/mlx-rs/pull/218 is merged
-//!
-//! ```rust,ignore
+//! ```rust
 //! use mlx_rs::{Array, error::Result, transforms::grad};
 //!
 //! fn f(x: &Array) -> Result<Array> {
@@ -38,7 +36,7 @@
 //! }
 //!
 //! fn calculate_grad(func: impl Fn(&Array) -> Result<Array>, arg: &Array) -> Result<Array> {
-//!     grad(&func, &[0])(arg)
+//!     grad(func)(arg)
 //! }
 //!
 //! let x = Array::from(1.5);

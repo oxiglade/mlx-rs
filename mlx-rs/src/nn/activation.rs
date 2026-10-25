@@ -16,12 +16,6 @@ use mlx_macros::ModuleParameters;
 ///
 /// For details, please see
 /// [this documentation](https://ml-explore.github.io/mlx/build/html/python/_autosummary/mlx.core.sigmoid.html)
-///
-/// This is:
-///
-/// ```rust, ignore
-/// sigmoid(x)
-/// ```
 pub fn sigmoid(x: impl AsRef<Array>) -> Result<Array> {
     crate::ops::sigmoid(x.as_ref())
 }
@@ -30,7 +24,7 @@ pub fn sigmoid(x: impl AsRef<Array>) -> Result<Array> {
 ///
 /// This is:
 ///
-/// ```rust, ignore
+/// ```text
 /// maximum(x, 0)
 /// ```
 pub fn relu(x: impl AsRef<Array>) -> Result<Array> {
@@ -43,7 +37,7 @@ pub fn relu(x: impl AsRef<Array>) -> Result<Array> {
 ///
 /// This is:
 ///
-/// ```rust, ignore
+/// ```text
 /// maximum(neg_slope * x, x)
 /// ```
 pub fn leaky_relu(x: impl AsRef<Array>, neg_slope: impl Into<Option<f32>>) -> Result<Array> {
@@ -57,7 +51,7 @@ pub fn leaky_relu(x: impl AsRef<Array>, neg_slope: impl Into<Option<f32>>) -> Re
 ///
 /// This is:
 ///
-/// ```rust, ignore
+/// ```text
 /// x - logsumexp_axis(x, axis, true)
 /// ```
 pub fn log_softmax(x: impl AsRef<Array>, axis: impl Into<Option<i32>>) -> Result<Array> {
@@ -70,7 +64,7 @@ pub fn log_softmax(x: impl AsRef<Array>, axis: impl Into<Option<i32>>) -> Result
 ///
 /// This is:
 ///
-/// ```rust, ignore
+/// ```text
 /// select(x.gt(0), x, alpha * (exp(x) - 1))
 /// ```
 ///
@@ -89,7 +83,7 @@ pub fn elu(x: impl AsRef<Array>, alpha: impl Into<Option<f32>>) -> Result<Array>
 ///
 /// This is:
 ///
-/// ```rust, ignore
+/// ```text
 /// minimum(maximum(x, 0), 6)
 /// ```
 pub fn relu6(x: impl AsRef<Array>) -> Result<Array> {
@@ -100,7 +94,7 @@ pub fn relu6(x: impl AsRef<Array>) -> Result<Array> {
 ///
 /// This is:
 ///
-/// ```rust, ignore
+/// ```text
 /// logaddexp(x, 0)
 /// ```
 pub fn softplus(x: impl AsRef<Array>) -> Result<Array> {
@@ -111,7 +105,7 @@ pub fn softplus(x: impl AsRef<Array>) -> Result<Array> {
 ///
 /// This is:
 ///
-/// ```rust, ignore
+/// ```text
 /// x / (1 + abs(x))
 /// ```
 pub fn softsign(x: impl AsRef<Array>) -> Result<Array> {
@@ -122,7 +116,7 @@ pub fn softsign(x: impl AsRef<Array>) -> Result<Array> {
 ///
 /// This is:
 ///
-/// ```rust, ignore
+/// ```text
 /// maximum(x, 0) + alpha * (exp(minimum(x, 0) / alpha) - 1)
 /// ```
 pub fn celu(x: impl AsRef<Array>, alpha: impl Into<Option<f32>>) -> Result<Array> {
@@ -136,7 +130,7 @@ pub fn celu(x: impl AsRef<Array>, alpha: impl Into<Option<f32>>) -> Result<Array
 ///
 /// This is:
 ///
-/// ```rust, ignore
+/// ```text
 /// x * sigmoid(x)
 /// ```
 pub fn silu(x: impl AsRef<Array>) -> Result<Array> {
@@ -147,7 +141,7 @@ pub fn silu(x: impl AsRef<Array>) -> Result<Array> {
 ///
 /// This is:
 ///
-/// ```rust, ignore
+/// ```text
 /// -softplus(-x)
 /// ```
 pub fn log_sigmoid(x: impl AsRef<Array>) -> Result<Array> {
@@ -158,7 +152,7 @@ pub fn log_sigmoid(x: impl AsRef<Array>) -> Result<Array> {
 ///
 /// This is:
 ///
-/// ```rust, ignore
+/// ```text
 /// x * (1 + erf(x / 2.sqrt())) / 2
 /// ```
 pub fn gelu(x: impl AsRef<Array>) -> Result<Array> {
@@ -169,7 +163,7 @@ pub fn gelu(x: impl AsRef<Array>) -> Result<Array> {
 ///
 /// This is:
 ///
-/// ```rust, ignore
+/// ```text
 /// 0.5 * x * (1 + tanh(sqrt(2 / PI) * (x + 0.044715 * x ** 3)))
 /// ```
 pub fn gelu_approximate(x: impl AsRef<Array>) -> Result<Array> {
@@ -180,7 +174,7 @@ pub fn gelu_approximate(x: impl AsRef<Array>) -> Result<Array> {
 ///
 /// This is:
 ///
-/// ```rust, ignore
+/// ```text
 /// x * sigmoid(1.773 * x)
 /// ```
 pub fn gelu_fast_approximate(x: impl AsRef<Array>) -> Result<Array> {
@@ -204,7 +198,7 @@ pub fn glu(x: impl AsRef<Array>, axis: impl Into<Option<i32>>) -> Result<Array> 
 ///
 /// This is:
 ///
-/// ```rust, ignore
+/// ```text
 /// select(x.gt(threshold), 1, 0)
 /// ```
 pub fn step(x: impl AsRef<Array>, threshold: impl Into<Option<f32>>) -> Result<Array> {
@@ -216,7 +210,7 @@ pub fn step(x: impl AsRef<Array>, threshold: impl Into<Option<f32>>) -> Result<A
 ///
 /// This is:
 ///
-/// ```rust, ignore
+/// ```text
 /// elu(x, 1.67326) * 1.0507
 /// ```
 pub fn selu(x: impl AsRef<Array>) -> Result<Array> {
@@ -227,7 +221,7 @@ pub fn selu(x: impl AsRef<Array>) -> Result<Array> {
 ///
 /// This is:
 ///
-/// ```rust, ignore
+/// ```text
 /// maximum(0, x) + alpha * minimum(0, x)
 /// ```
 pub fn prelu(x: impl AsRef<Array>, alpha: impl AsRef<Array>) -> Result<Array> {
@@ -242,7 +236,7 @@ pub fn prelu(x: impl AsRef<Array>, alpha: impl AsRef<Array>) -> Result<Array> {
 ///
 /// This is:
 ///
-/// ```rust, ignore
+/// ```text
 /// x * tanh(softplus(x))
 /// ```
 pub fn mish(x: impl AsRef<Array>) -> Result<Array> {
@@ -253,7 +247,7 @@ pub fn mish(x: impl AsRef<Array>) -> Result<Array> {
 ///
 /// This is:
 ///
-/// ```rust, ignore
+/// ```text
 /// x * minimum(maximum(x + 3, 0), 6) / 6
 /// ```
 pub fn hard_swish(x: impl AsRef<Array>) -> Result<Array> {
@@ -296,12 +290,6 @@ impl Module<&Array> for Glu {
 ///
 /// For details, please see
 /// [this documentation](https://ml-explore.github.io/mlx/build/html/python/_autosummary/mlx.core.sigmoid.html)
-///
-/// This is:
-///
-/// ```rust, ignore
-/// sigmoid(x)
-/// ```
 #[derive(Debug, Clone, ModuleParameters)]
 #[module(root = crate)]
 pub struct Sigmoid;
@@ -325,7 +313,7 @@ impl Module<&Array> for Sigmoid {
 ///
 /// This is:
 ///
-/// ```rust, ignore
+/// ```text
 /// x * tanh(softplus(x))
 /// ```
 #[derive(Debug, Clone, ModuleParameters)]
@@ -347,7 +335,7 @@ impl Module<&Array> for Mish {
 ///
 /// This is:
 ///
-/// ```rust, ignore
+/// ```text
 /// maximum(x, 0)
 /// ```
 #[derive(Debug, Clone, ModuleParameters)]
@@ -370,7 +358,7 @@ generate_builder! {
     ///
     /// This is:
     ///
-    /// ```rust, ignore
+    /// ```text
     /// maximum(neg_slope * x, x)
     /// ```
     #[derive(Debug, Clone, ModuleParameters, Buildable)]
@@ -404,8 +392,8 @@ impl Module<&Array> for LeakyRelu {
 ///
 /// This is:
 ///
-/// ```rust, ignore
-/// minimum(&maximum(x, 0).unwrap(), 6).unwrap()
+/// ```text
+/// minimum(maximum(x, 0), 6)
 /// ```
 #[derive(Debug, Clone, ModuleParameters)]
 #[module(root = crate)]
@@ -427,8 +415,8 @@ generate_builder! {
     ///
     /// This is:
     ///
-    /// ```rust, ignore
-    /// softmax(&x, None, None)
+    /// ```text
+    /// exp(x - logsumexp(x, axis, true))
     /// ```
     #[derive(Debug, Clone, ModuleParameters, Buildable)]
     #[module(root = crate)]
@@ -461,7 +449,7 @@ impl Module<&Array> for Softmax {
 ///
 /// This is:
 ///
-/// ```rust, ignore
+/// ```text
 /// logaddexp(x, 0)
 /// ```
 #[derive(Debug, Clone, ModuleParameters)]
@@ -483,8 +471,8 @@ impl Module<&Array> for Softplus {
 ///
 /// This is:
 ///
-/// ```rust, ignore
-/// x / (array!(1) + abs(x)
+/// ```text
+/// x / (1 + abs(x))
 /// ```
 #[derive(Debug, Clone, ModuleParameters)]
 #[module(root = crate)]
@@ -506,9 +494,8 @@ generate_builder! {
     ///
     /// This is:
     ///
-    /// ```rust, ignore
-    /// maximum(x, 0.0).unwrap()
-    ///     + alpha * (exp(&(minimum(x, 0.0).unwrap() / alpha)) - 1)
+    /// ```text
+    /// maximum(x, 0) + alpha * (exp(minimum(x, 0) / alpha) - 1)
     /// ```
     #[derive(Debug, Clone, ModuleParameters, Buildable)]
     #[module(root = crate)]
@@ -541,7 +528,7 @@ impl Module<&Array> for Celu {
 ///
 /// This is:
 ///
-/// ```rust, ignore
+/// ```text
 /// x * sigmoid(x)
 /// ```
 #[derive(Debug, Clone, ModuleParameters)]
@@ -564,7 +551,7 @@ generate_builder! {
     ///
     /// This is:
     ///
-    /// ```rust, ignore
+    /// ```text
     /// x - logsumexp(x, axis, true)
     /// ```
     #[derive(Debug, Clone, ModuleParameters, Buildable)]
@@ -598,7 +585,7 @@ impl Module<&Array> for LogSoftmax {
 ///
 /// This is:
 ///
-/// ```rust, ignore
+/// ```text
 /// -softplus(-x)
 /// ```
 #[derive(Debug, Clone, ModuleParameters)]
@@ -620,7 +607,7 @@ impl Module<&Array> for LogSigmoid {
 ///
 /// This is:
 ///
-/// ```rust, ignore
+/// ```text
 /// maximum(0, x) + alpha * minimum(0, x)
 /// ```
 #[derive(Debug, Clone, ModuleParameters, Buildable)]
@@ -746,7 +733,7 @@ impl Module<&Array> for Tanh {
 ///
 /// This is:
 ///
-/// ```rust, ignore
+/// ```text
 /// x * minimum(maximum(x + 3, 0), 6) / 6
 /// ```
 #[derive(Debug, Clone, ModuleParameters)]
@@ -772,7 +759,7 @@ generate_builder! {
     ///
     /// This is:
     ///
-    /// ```rust, ignore
+    /// ```text
     /// select(x.gt(threshold), 1, 0)
     /// ```
     #[derive(Debug, Clone, ModuleParameters, Buildable)]
@@ -806,7 +793,7 @@ impl Module<&Array> for Step {
 ///
 /// This is:
 ///
-/// ```rust, ignore
+/// ```text
 /// elu(x, 1.67326) * 1.0507
 /// ```
 #[derive(Debug, Clone, ModuleParameters)]

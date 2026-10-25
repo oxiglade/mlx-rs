@@ -94,7 +94,7 @@
 //! In MLX you do not need to worry as much about computing outputs that are
 //! never used. For example:
 //!
-//! ```rust,ignore
+//! ```text
 //! fn fun(x: &Array) -> (Array, Array) {
 //!     let a = cheap_fun(x);
 //!     let b = expensive_fun(x);
@@ -119,7 +119,7 @@
 //!
 //! This pattern is simple to do in MLX thanks to lazy computation:
 //!
-//! ```rust,ignore
+//! ```text
 //! let mut model = Model::new();
 //! model.load_safetensors("model.safetensors").unwrap();
 //! ```
@@ -131,16 +131,20 @@
 //!
 //! For example
 //!
-//! ```rust,ignore
+//! ```rust
+//! # use mlx_rs::array;
 //! let mut a = array!([1, 2, 3, 4]);
 //! let mut b = array!([1.0, 2.0, 3.0, 4.0]);
 //!
-//! for _ in 0..100 {
-//!     a = a + b;
+//! for _ in 0..3 {
+//!     a = a + &b;
 //!     a.eval()?;
 //!     b = b * 2.0;
 //!     b.eval()?;
 //! }
+//! assert_eq!(a.as_slice::<f32>(), &[8.0, 16.0, 24.0, 32.0]);
+//! assert_eq!(b.as_slice::<f32>(), &[8.0, 16.0, 24.0, 32.0]);
+//! # Ok::<(), mlx_rs::error::Exception>(())
 //! ```
 //!
 //! This is a bad idea because there is some fixed overhead with each graph
@@ -158,7 +162,7 @@
 //!
 //! Here is a concrete example:
 //!
-//! ```rust,ignore
+//! ```text
 //! for batch in dataset {
 //!     // Nothing has been evaluated yet
 //!     let (loss, grad) = value_and_grad_fn(&mut model, batch)?;
@@ -190,7 +194,7 @@
 //!
 //! **Warning**: Using scalar arrays for control-flow will cause an evaluation.
 //!
-//! ```rust,ignore
+//! ```text
 //! fn fun(x: &Array) -> Array {
 //!     let (h, y) = first_layer(x);
 //!
@@ -229,9 +233,15 @@
 //! without needing to move them from one memory location to another. For
 //! example:
 //!
-//! ```rust,ignore
-//! mlx_rs::with_device(mlx_rs::Device::cpu(), || mlx_rs::ops::add(&a, &b)).unwrap();
-//! mlx_rs::with_device(mlx_rs::Device::gpu(), || mlx_rs::ops::add(&a, &b)).unwrap();
+//! ```rust
+//! use mlx_rs::{array, ops, with_device, Device};
+//!
+//! let a = array!([1.0, 2.0]);
+//! let b = array!([3.0, 4.0]);
+//! for device in [Device::cpu(), Device::gpu()] {
+//!     let sum = with_device(device, || ops::add(&a, &b)).unwrap();
+//!     assert_eq!(sum.as_slice::<f32>(), &[4.0, 6.0]);
+//! }
 //! ```
 //!
 //! In the above, both the CPU and the GPU will perform the same add operation.

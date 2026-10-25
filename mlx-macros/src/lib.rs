@@ -12,7 +12,7 @@ mod util;
 ///
 /// # Example
 ///
-/// ```rust, ignore
+/// ```text
 /// use mlx_macros::ModuleParameters;
 /// use mlx_rs::module::{ModuleParameters, Param};
 ///

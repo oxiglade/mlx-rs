@@ -431,7 +431,7 @@ generate_builder! {
     ///
     /// Computes the following when the `reduction` is `LossReduction::None`:
     ///
-    /// ```rust, ignore
+    /// ```text
     /// sum(exp(targets) * (targets - inputs), axis, None)
     /// ```
     #[derive(Debug, Clone, Buildable)]

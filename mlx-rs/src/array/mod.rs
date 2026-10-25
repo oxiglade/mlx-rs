@@ -194,7 +194,7 @@ impl Array {
     ///
     /// This is a convenience method that is equivalent to
     ///
-    /// ```rust, ignore
+    /// ```text
     /// let data: Vec<T> = iter.collect();
     /// Array::from_slice(&data, shape)
     /// ```
