@@ -238,10 +238,12 @@
 //!
 //! let a = array!([1.0, 2.0]);
 //! let b = array!([3.0, 4.0]);
-//! for device in [Device::cpu(), Device::gpu()] {
-//!     let sum = with_device(device, || ops::add(&a, &b)).unwrap();
-//!     assert_eq!(sum.as_slice::<f32>(), &[4.0, 6.0]);
-//! }
+//! let on_cpu = with_device(Device::cpu(), || ops::add(&a, &b)).unwrap();
+//! # assert_eq!(on_cpu.as_slice::<f32>(), &[4.0, 6.0]);
+//! # #[cfg(feature = "metal")]
+//! let on_gpu = with_device(Device::gpu(), || ops::add(&a, &b)).unwrap();
+//! # #[cfg(feature = "metal")]
+//! assert_eq!(on_cpu.as_slice::<f32>(), on_gpu.as_slice::<f32>());
 //! ```
 //!
 //! In the above, both the CPU and the GPU will perform the same add operation.
