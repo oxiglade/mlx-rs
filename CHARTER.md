@@ -12,11 +12,12 @@ APIs and 75 were initially deferred. The table covers those 75 plus six changed 
    public, deferred, intentionally unexposed, or blocked, with evidence and a revisit trigger;
    deliberate omission is a completed decision, not parity debt.
 
-2. **Each capability has one canonical public home.**
+2. **Each new capability has one canonical public home.**
    *Migration: idiom-wave.* An operation with an obvious array receiver is a method; constructors,
    symmetric multi-input operations, multi-output operations, and namespaced algorithms are module
-   functions. New APIs must not generate the present method/free-function/macro/device matrix, and
-   legacy duplicates become forwarding compatibility shims before deprecation.
+   functions. New APIs must not generate the present method/free-function/macro/device matrix.
+   Existing method/function pairs stay supported, as in Python MLX, and share one implementation;
+   macros and `_device` twins retire under rules 9 and 3, and shipped deprecations stay.
 
 3. **Stream selection is execution-local context, named according to its actual scope.**
    *Migration: bump-time for context correctness; idiom-wave for legacy twins.* Canonical
@@ -75,19 +76,19 @@ APIs and 75 were initially deferred. The table covers those 75 plus six changed 
 9. **Public macros are reserved for syntax, not simulated keyword arguments.**
    *Migration: bump-time freeze; idiom-wave retirement.* Add no new `generate_macro` operation
    macros or generated optional-argument permutations; the 245 existing op macros are frozen and
-   deprecated with their duplicate functions. `array!` remains valid syntax with contractual
+   deprecated with their `_device` functions. `array!` remains valid syntax with contractual
    defaults of `i32`, `f32`, and empty `f32`, but gains an explicit-dtype form, and verification,
    serialization, and API-boundary code must use it.
 
 10. **`Array` is a lazy shared handle; observer APIs disclose every effect.**
     *Migration: idiom-wave.* `Clone` remains an O(1) handle duplication. Borrowed access is
-    exact-dtype, row-major contiguous, lifetime-bound, and never casts, copies, evaluates, or
-    repairs layout implicitly. Owned observers distinguish `to_vec_exact` from `to_vec_cast`;
-    scalar observers similarly distinguish exact extraction from conversion. Any evaluation
-    performed by an observer must be explicit in its name or required beforehand. Equality remains
-    explicit and fallible as exact, cross-dtype value, elementwise, or approximate comparison;
-    `PartialEq` stays removed. These contracts prevent a buffer-like API from hiding evaluation,
-    allocation, layout repair, or dtype conversion.
+    exact-dtype, row-major contiguous, lifetime-bound, and never casts, copies, or repairs layout
+    to produce the view. Value observers may evaluate, as reading does in Python MLX, and their
+    documentation says so, including where evaluation errors surface. Owned observers distinguish
+    `to_vec_exact` from `to_vec_cast`; scalar observers similarly distinguish exact extraction from
+    conversion. Equality remains explicit and fallible as exact, cross-dtype value, elementwise, or
+    approximate comparison; `PartialEq` stays removed. These contracts prevent a buffer-like API
+    from hiding allocation, layout repair, or dtype conversion.
 
 11. **Thread traits are structural claims proven for the exact runtime tuple.**
     *Migration: bump-time.* Retain `Array: Send` only if target CPU and Metal tests cover both
@@ -128,9 +129,10 @@ landed in #362. The shared pattern is frozen for later rounds:
 - `Axes::{All, Axis(i32), Axes(Vec<i32>)}` is the shared axis-selection sum type. Independent
   defaults use a concrete `FooOptions: Default`; `FftnOptions` is the first implementation and
   validates transform lengths and selected axes together.
-- Canonical unsuffixed functions own the only high-level C binding. A compatibility function or
-  macro carries `#[deprecated(since = "0.26.0", note = "...")]` and only forwards to that canonical
-  path; an explicit-stream shim opens a scope around it.
+- Each operation has one high-level C binding, owned by its canonical unsuffixed method or
+  function; the other half of a retained method/function pair forwards to it. A deprecated
+  compatibility function or macro carries `#[deprecated(since = "0.26.0", note = "...")]` and
+  only forwards to that canonical path; an explicit-stream shim opens a scope around it.
 - The FFT family is the pilot: its 14 `_device` twins and 14 generated operation macros are now
   deprecated forwarding shims, while its 14 unsuffixed operations are canonical. Subsequent family
   rounds copy this structure mechanically and do not create independent FFI paths.
@@ -178,7 +180,7 @@ These historical counts total 75 added-deferred and six changed-deferred; delive
 
 - Full Python MLX, NumPy, or C-symbol parity.
 - Python keyword-argument emulation through public macros.
-- Implicit evaluation, synchronization, materialization, copying, dtype conversion, or contiguity
+- Undocumented evaluation in observers, or implicit copying, dtype conversion, or contiguity
   repair.
 - Safe wrappers around upstream facilities whose synchronization or global-lifecycle invariant
   cannot be encoded.

@@ -87,9 +87,7 @@ pub enum AsSliceError {
     )]
     NotContiguous,
 
-    /// The underlying data pointer is null.
-    ///
-    /// This is likely because the array has not been evaluated yet.
+    /// The underlying data pointer is null or the array is empty.
     #[error("The data pointer is null.")]
     Null,
 

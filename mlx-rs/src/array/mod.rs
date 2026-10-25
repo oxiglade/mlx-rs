@@ -404,6 +404,8 @@ impl Array {
 
     /// Returns a slice of the array data without validating the dtype.
     ///
+    /// This evaluates the array first and panics if evaluation fails.
+    ///
     /// # Safety
     ///
     /// This is unsafe because the underlying data ptr is not checked for null or if the desired
@@ -434,8 +436,9 @@ impl Array {
 
     /// Returns a slice of contiguous row-major array data.
     ///
-    /// Returns an error if the dtype does not match or the array is a non-contiguous view. Call
-    /// [`Array::contiguous`] first to materialize a row-major array.
+    /// This evaluates the array first and returns any evaluation error. It also returns an error if
+    /// the dtype does not match or the array is a non-contiguous view; it never copies or casts to
+    /// produce the slice. Call [`Array::contiguous`] first to materialize a row-major array.
     ///
     /// # Example
     ///
@@ -476,7 +479,7 @@ impl Array {
         }
     }
 
-    /// Returns a slice of contiguous row-major array data.
+    /// Returns a slice of contiguous row-major array data, evaluating the array first.
     ///
     /// # Panics
     ///
