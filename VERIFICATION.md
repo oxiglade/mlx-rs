@@ -297,7 +297,7 @@ The linked-symbol check remains separate: header inventory cannot prove linked e
 `python3 -B xtask/provision_checkpoints.py --cache "$BUMP_ROOT/checkpoints" --output
 "$BUMP_ROOT/reports/checkpoints"` downloads 6,199,630,244 bytes across six checkpoints and two
 tokenizer directories. `conformance/mlx-lm/bump-oracle.json` pins every repository revision and
-file SHA-256. The cache key hashes that file, and every restored file is rehashed before use.
+file SHA-256. Files already in the cache directory are rehashed before they are reused.
 Downloads use immutable revision URLs and temporary files; mismatches fail before installation.
 The provisioner reuses `real_checkpoints.py`'s manifest validation and relocates only local paths in
 the committed contract. Pass `--python "$BUMP_PYTHON"`, pointing at a uv-managed Python 3.12.14
@@ -349,8 +349,8 @@ Push the reviewed branch and run `bump-admission.yml` with `workflow_dispatch`, 
 PR gitlink change trigger it. Inspect the final job and failed jobs' logs. Reports and logs upload
 on failure too. A real run confirms runner instrumentation, artifact transfer, matrix scheduling
 and end-to-end checkpoint execution. Configuration jobs allow 180 minutes each; the FFI job allows
-90 minutes. The total depends on cache state and available runners, with FFI and default checkpoint
-execution expected to dominate rather than three extra native builds and report reconciliation.
+90 minutes. On free runners a full run takes about 100 minutes, nearly all of it the default
+configuration's checkpoint download and execution; the FFI job with Guard Malloc takes about 40.
 
 New public APIs land vertically, as their own change under the [charter](CHARTER.md#charter-rules):
 parity mapping, independently sourced cases with a golden or differential result, ownership
