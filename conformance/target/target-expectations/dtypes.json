@@ -503,6 +503,6 @@
     "mlx_runtime": "0.32.2",
     "numpy": "2.2.6",
     "python": "3.12.14",
-    "venv": "/Users/ci/hub/scratch/bump-a341b49/canonical-replay/venv"
+    "venv": "/Users/ci/hub/scratch/quant-modes/venv"
   }
 }

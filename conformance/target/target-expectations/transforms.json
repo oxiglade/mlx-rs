@@ -25,7 +25,7 @@
             "shape": []
           },
           {
-            "data_hex": "67a544bf05731cbf36f9233f",
+            "data_hex": "68a544bf05731cbf36f9233f",
             "dtype": "F32",
             "ref": "transform.nonlinear.gradient.x",
             "shape": [
@@ -79,7 +79,7 @@
             "shape": []
           },
           {
-            "data_hex": "67a544bf05731cbf36f9233f",
+            "data_hex": "68a544bf05731cbf36f9233f",
             "dtype": "F32",
             "ref": "transform.argnums.gradient.x",
             "shape": [
@@ -268,6 +268,6 @@
     "mlx_runtime": "0.32.2",
     "numpy": "2.2.6",
     "python": "3.12.14",
-    "venv": "/Users/ci/hub/scratch/bump-a341b49/canonical-replay/venv"
+    "venv": "/Users/ci/hub/scratch/quant-modes/venv"
   }
 }

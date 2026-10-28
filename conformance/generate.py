@@ -15,7 +15,7 @@ EXPECTED_ARCH = "arm64"
 EXPECTED_MLX = "0.32.2"
 EXPECTED_NUMPY = "2.2.6"
 CORPUS_SEED = "mlx-rs-committed-cpu-ops-v1"
-OP_SUITES = ("arithmetic", "dtypes", "errors", "execution", "fast", "indexing", "math", "reductions", "shapes", "signal", "quantization")
+OP_SUITES = ("arithmetic", "dtypes", "errors", "execution", "fast", "indexing", "math", "quantization", "reductions", "shapes", "signal")
 SUITES = OP_SUITES + ("gguf",)
 ROOT = Path(__file__).resolve().parent
 
@@ -594,7 +594,7 @@ def build_specs():
                     recipe = f"quantization_{mode}_{operation}"
                     specs.append(case(
                         f"quantization.{quant_index:03d}", "quantization", recipe,
-                        f"ops.quantization.{mode}.{operation}", inputs, policy="low_precision_float",
+                        f"ops.quantization.{mode}.{operation}.{target}", inputs, policy="low_precision_float",
                         execution_target=target,
                     ))
                     quant_index += 1

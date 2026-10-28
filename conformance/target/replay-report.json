@@ -1,9 +1,9 @@
 {
   "command": "target-replay",
   "double_run": {
-    "first_run_sha256": "sha256:4ef2187757cb4ed212325f670b6a0350ac4df772f0f779fa334a68672c02da63",
+    "first_run_sha256": "sha256:b47e7e2f84fa0dcad594924ce4782b90269a566afdb707a39fba38dcccdebdbe",
     "identical": true,
-    "second_run_sha256": "sha256:4ef2187757cb4ed212325f670b6a0350ac4df772f0f779fa334a68672c02da63"
+    "second_run_sha256": "sha256:b47e7e2f84fa0dcad594924ce4782b90269a566afdb707a39fba38dcccdebdbe"
   },
   "payload": {
     "handshake": {
@@ -14,14 +14,14 @@
       "mlx_runtime": "0.32.2",
       "numpy": "2.2.6",
       "python": "3.12.14",
-      "venv": "/Users/ci/hub/scratch/bump-a341b49/canonical-replay/venv"
+      "venv": "/Users/ci/hub/scratch/quant-modes/venv"
     },
     "isolation": {
       "process_scope": "fresh_subprocess_per_suite",
       "state_reset": "new_model_and_optimizer_per_trajectory"
     },
     "source_artifacts": {
-      "conformance/corpus.json": "sha256:f64ed0206c2f2ca92ca55f27a6b613f9241a02a706020e5f64e7c09f9d445f07",
+      "conformance/corpus.json": "sha256:bdb86d9438dcaddc1cb1e54aa1763b1665734771247612688032db8245aa7341",
       "conformance/fixtures/arithmetic.safetensors": "sha256:5fa6774f678d1dba5d344fde47c179024a4a4ecd9dd01b88f141b497325dd8b9",
       "conformance/fixtures/dtypes.safetensors": "sha256:b213e2abd47acc21af65eefdb71b9acf5f904dea5a0fec56144da3d1fc06462f",
       "conformance/fixtures/errors.safetensors": "sha256:592f87e65373a01ccc5ae5acfa70550539c185b0f3fd38c54ec893389614c4ee",
@@ -40,10 +40,11 @@
       "conformance/fixtures/gguf/unicode.gguf": "sha256:08896fc74f28840bc1a4144cc850dbdf6ff93e1ccd389937090b2890dd9c81d8",
       "conformance/fixtures/indexing.safetensors": "sha256:d9f5b2d594d46b45f504f500ac27e964c185b2a41d8af829d0cb3b57392a0791",
       "conformance/fixtures/math.safetensors": "sha256:4e72d7c17132e638c5612971a3d49d3c92891b1b109b63dc635e4cb467d98277",
+      "conformance/fixtures/quantization.safetensors": "sha256:0569caf416e5e120709855c7508fe4fbf5c388a7a9314f84e7551913c348c321",
       "conformance/fixtures/reductions.safetensors": "sha256:1b2f1c711388bbc454c6d3697c4116606f0ed435ecdb220ce0bb62e6802ff622",
       "conformance/fixtures/shapes.safetensors": "sha256:617803b1203af4b3f4fd64f7518935f776952739a322201733fa36898e65bdad",
       "conformance/fixtures/signal.safetensors": "sha256:46ebd2b4cda1bd685a309d3f814c82da8e3cd9b68f6c94da05ab0d0133140c7d",
-      "conformance/generate.py": "sha256:3cf067594cd6b1cbc987a0b9265f5bd2bbe3cd0bfa1c5b8d9486d97eae0ea1a6",
+      "conformance/generate.py": "sha256:9ec9884ae41487eb1e1d9487cf3233ec0777e7314840a0ceff30f6eb70f5ceac",
       "conformance/state/generate_state.py": "sha256:076a28e71b0e7c17208880886662055c1ceee61f7180865d0a69794a1c260d46",
       "conformance/state/manifest.json": "sha256:2473e6cc0cb49f25acf0e8a447633d85498ae0183e76c04904bf1b6994a2983b",
       "conformance/state/state.safetensors": "sha256:23b41787aabe22008808c36d14f44db231f2c531d58ce8644e76b11644f30c83",
@@ -55,6 +56,7 @@
       "conformance/suites/gguf.json": "sha256:9ac6c856be7ba8ea12888aff467ec88b5132c55b69dc1b66c68b057e079798ca",
       "conformance/suites/indexing.json": "sha256:9f53164c9dc93082158218a3eb0d1fa57cd178b1fda4ef885142c4d2cbe72336",
       "conformance/suites/math.json": "sha256:ce13e04cdd963ac4ad8db39bad329557ae161d4968da5ebb03980586cfbf13dc",
+      "conformance/suites/quantization.json": "sha256:3dc36d120a274f7aec118f8cae1dd34268ecdd885e7ecd920b6c35fed1bda789",
       "conformance/suites/reductions.json": "sha256:5f1ed457e4c2d64c56ff5b6361c3a4c5955659364ca5a1f4629eff31b46d10b5",
       "conformance/suites/shapes.json": "sha256:7f0af7b2d79d366e3dd3d737615fa17683e33665146b0e0439ff7126f70cc43e",
       "conformance/suites/signal.json": "sha256:367024b0a67ade72071b672c7e57784494888782cf90dcd8236722ed28fbf52e",
@@ -66,7 +68,7 @@
         "case_count": 24,
         "expectation_shard": "target-expectations/arithmetic.json",
         "id": "arithmetic",
-        "sha256": "sha256:0443ff916f9bbc59a083686a8a34d9c9d4744d101b035967eba75161e8e0b8b0",
+        "sha256": "sha256:3a9af0f2e2203fcf3e3d7ec2e846bc9d7bd048d3ff0f11fbec6b80478a962e45",
         "verdict": "pass",
         "verdict_counts": {
           "identical": 24
@@ -76,7 +78,7 @@
         "case_count": 21,
         "expectation_shard": "target-expectations/dtypes.json",
         "id": "dtypes",
-        "sha256": "sha256:6105f3254b57c2a7642b61742046fe5b0efca5c14d7cc1d466544e82e3ec67f5",
+        "sha256": "sha256:78cfbb157edbaf34ab427c049f543dc884592dd384b16d485a8a3e593085ef6c",
         "verdict": "pass",
         "verdict_counts": {
           "identical": 21
@@ -86,7 +88,7 @@
         "case_count": 21,
         "expectation_shard": "target-expectations/errors.json",
         "id": "errors",
-        "sha256": "sha256:1adac2fc73ef273ad582dd2dab5f50d191b9dd72598504f64856bad0bd022be8",
+        "sha256": "sha256:ee23831579e63f89e9640a90462ff011f5f97c8af34e0d726085072ff98fbc4e",
         "verdict": "pass",
         "verdict_counts": {
           "identical": 21
@@ -96,7 +98,7 @@
         "case_count": 8,
         "expectation_shard": "target-expectations/execution.json",
         "id": "execution",
-        "sha256": "sha256:9339ed8e6726326b7f5de86780a3f4ba1f8d60fa307f3976b75a8476650d822b",
+        "sha256": "sha256:3565945ff3d15187efa3aeeeae3642e58b9a46f978a1795d485ca9f5fb8d916b",
         "verdict": "pass",
         "verdict_counts": {
           "identical": 8
@@ -106,7 +108,7 @@
         "case_count": 5,
         "expectation_shard": "target-expectations/fast.json",
         "id": "fast",
-        "sha256": "sha256:1304c8911428b8178adec3dcb65d00d5270a6f17b4f3098cc05ae8809245371c",
+        "sha256": "sha256:e52e5dac198f7ce91deeb5fa552886ddb74bb0f07d4a76e594f66a3811a6d310",
         "verdict": "pass",
         "verdict_counts": {
           "identical": 5
@@ -116,7 +118,7 @@
         "case_count": 35,
         "expectation_shard": "target-expectations/indexing.json",
         "id": "indexing",
-        "sha256": "sha256:a1f1b845903b297f0a5a87cb5caeb6e28bbc5dd0e327e1b9ac57f008941aa44c",
+        "sha256": "sha256:48e244f6b3488f50aa644762d77fab1a9fbed7ad9c79d98d88ef59936e53adea",
         "verdict": "pass",
         "verdict_counts": {
           "identical": 35
@@ -126,17 +128,27 @@
         "case_count": 78,
         "expectation_shard": "target-expectations/math.json",
         "id": "math",
-        "sha256": "sha256:cde81faa21ce91d42b01c818efe2171e2588d4091bfbb6eb5072ca34f5bef751",
+        "sha256": "sha256:fafeeb3f9b42b0d1dd5d9e6f4c847d82c7b371e455eb0b1bf641fa3383eda7bf",
         "verdict": "pass",
         "verdict_counts": {
           "identical": 78
         }
       },
       {
+        "case_count": 48,
+        "expectation_shard": "target-expectations/quantization.json",
+        "id": "quantization",
+        "sha256": "sha256:4da80a453463323436bc1a41603ee95bae93ac5fe972ea2d3600cb8dea352ec8",
+        "verdict": "pass",
+        "verdict_counts": {
+          "identical": 48
+        }
+      },
+      {
         "case_count": 10,
         "expectation_shard": "target-expectations/reductions.json",
         "id": "reductions",
-        "sha256": "sha256:672b5aca6c19d29688c628c7c311248f32bbeb0987452f72041f1f8b2cf3f381",
+        "sha256": "sha256:4b284749c5e7e86abc22a85fd7117151ebff2a679059e6a373e904f32180e6b5",
         "verdict": "pass",
         "verdict_counts": {
           "identical": 10
@@ -146,7 +158,7 @@
         "case_count": 18,
         "expectation_shard": "target-expectations/shapes.json",
         "id": "shapes",
-        "sha256": "sha256:3a6ad387075e4190c79921d39f0d7279b808301baf2d7e3b67eeec763cd70e9e",
+        "sha256": "sha256:b00fad3772cfa5a75bb74f72b600bcc4fd82b57e748ec8c788a6c256975158a5",
         "verdict": "pass",
         "verdict_counts": {
           "identical": 18
@@ -156,7 +168,7 @@
         "case_count": 20,
         "expectation_shard": "target-expectations/signal.json",
         "id": "signal",
-        "sha256": "sha256:abbda1584b0589afe74eb7c60b200fcf8c860cc55d14548f42e20c9e64c04687",
+        "sha256": "sha256:7403d2ce958b7f0823b58eb387f14b02f5c1f0bffbd1d6d5311e2865cb327a9f",
         "verdict": "pass",
         "verdict_counts": {
           "identical": 20
@@ -166,7 +178,7 @@
         "case_count": 20,
         "expectation_shard": "target-expectations/gguf.json",
         "id": "gguf",
-        "sha256": "sha256:c819497cd535958ce1211d432afeb3d3de945355a29bb187b7f6a2c3908786e9",
+        "sha256": "sha256:a36b3168b9c1dde552caa79835b497c3fa461775896971bdf794acc3138a4752",
         "verdict": "pass",
         "verdict_counts": {
           "identical": 20
@@ -176,7 +188,7 @@
         "case_count": 10,
         "expectation_shard": "target-expectations/state.json",
         "id": "state",
-        "sha256": "sha256:b31bb3620a247add754416433756675c87b2f1726968b26c5568ec25e5e069cb",
+        "sha256": "sha256:4f9dd64edf49c4aeb475c4ca338c3f646b4b1ca9c13ab7b1eb3b3c92b0f81bb3",
         "verdict": "pass",
         "verdict_counts": {
           "identical": 10
@@ -186,7 +198,7 @@
         "case_count": 5,
         "expectation_shard": "target-expectations/transforms.json",
         "id": "transforms",
-        "sha256": "sha256:e7912a709b880b7d80096ae38de4dd1acf312a12fd293d9087df2f4fe3a16c45",
+        "sha256": "sha256:bc820a88648970c8a5a23d133183699828fa014ed419952cc1702958a0e674b6",
         "verdict": "pass",
         "verdict_counts": {
           "identical": 5
@@ -196,7 +208,7 @@
         "case_count": 1,
         "expectation_shard": "target-expectations/probe_oob_take.json",
         "id": "probe_oob_take",
-        "sha256": "sha256:c037cf95455a82288f14bce6bb81198819914fb619d0cb001b2df0cc8d7a9974",
+        "sha256": "sha256:8a672e01a653d4943487e1c1522a6fc7c9b15e8fa92d24a300ada0be138e6a80",
         "verdict": "pass",
         "verdict_counts": {
           "identical": 1
@@ -206,7 +218,7 @@
         "case_count": 1,
         "expectation_shard": "target-expectations/probe_singular_inv.json",
         "id": "probe_singular_inv",
-        "sha256": "sha256:7d498f776c0b076e1a6e1b3844a135e21964a9993bfe251f78948f2a2a901dab",
+        "sha256": "sha256:bc4505e815f6279e7b2af9de808d1299f594a6ad203aa18436ccb8782fb76d79",
         "verdict": "pass",
         "verdict_counts": {
           "error_behavior_changed": 1
@@ -214,7 +226,7 @@
       }
     ]
   },
-  "payload_sha256": "sha256:33e6837d966c6585edced0fcda220a56eed7c487efed63002ced343e22066b09",
+  "payload_sha256": "sha256:022728722bb45600dc7c0bd11dddc4c3a308add1c1ef8e3dbe62f5d4b5b35174",
   "schema_version": 1,
   "verdict": "pass"
 }

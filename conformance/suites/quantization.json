@@ -7,7 +7,7 @@
       "id": "quantization.001",
       "semantic_op": "quantization_affine_roundtrip",
       "recipe": "quantization_affine_roundtrip",
-      "rust_call": "ops.quantization.affine.roundtrip",
+      "rust_call": "ops.quantization.affine.roundtrip.explicit_cpu",
       "args": [
         {
           "name": "input0",
@@ -71,7 +71,7 @@
       "id": "quantization.002",
       "semantic_op": "quantization_affine_matmul",
       "recipe": "quantization_affine_matmul",
-      "rust_call": "ops.quantization.affine.matmul",
+      "rust_call": "ops.quantization.affine.matmul.explicit_cpu",
       "args": [
         {
           "name": "input0",
@@ -110,7 +110,7 @@
       "id": "quantization.003",
       "semantic_op": "quantization_affine_gather",
       "recipe": "quantization_affine_gather",
-      "rust_call": "ops.quantization.affine.gather",
+      "rust_call": "ops.quantization.affine.gather.explicit_cpu",
       "args": [
         {
           "name": "input0",
@@ -155,7 +155,7 @@
       "id": "quantization.004",
       "semantic_op": "quantization_affine_roundtrip",
       "recipe": "quantization_affine_roundtrip",
-      "rust_call": "ops.quantization.affine.roundtrip",
+      "rust_call": "ops.quantization.affine.roundtrip.explicit_cpu",
       "args": [
         {
           "name": "input0",
@@ -219,7 +219,7 @@
       "id": "quantization.005",
       "semantic_op": "quantization_affine_matmul",
       "recipe": "quantization_affine_matmul",
-      "rust_call": "ops.quantization.affine.matmul",
+      "rust_call": "ops.quantization.affine.matmul.explicit_cpu",
       "args": [
         {
           "name": "input0",
@@ -258,7 +258,7 @@
       "id": "quantization.006",
       "semantic_op": "quantization_affine_gather",
       "recipe": "quantization_affine_gather",
-      "rust_call": "ops.quantization.affine.gather",
+      "rust_call": "ops.quantization.affine.gather.explicit_cpu",
       "args": [
         {
           "name": "input0",
@@ -303,7 +303,7 @@
       "id": "quantization.007",
       "semantic_op": "quantization_affine_roundtrip",
       "recipe": "quantization_affine_roundtrip",
-      "rust_call": "ops.quantization.affine.roundtrip",
+      "rust_call": "ops.quantization.affine.roundtrip.explicit_gpu",
       "args": [
         {
           "name": "input0",
@@ -367,7 +367,7 @@
       "id": "quantization.008",
       "semantic_op": "quantization_affine_matmul",
       "recipe": "quantization_affine_matmul",
-      "rust_call": "ops.quantization.affine.matmul",
+      "rust_call": "ops.quantization.affine.matmul.explicit_gpu",
       "args": [
         {
           "name": "input0",
@@ -406,7 +406,7 @@
       "id": "quantization.009",
       "semantic_op": "quantization_affine_gather",
       "recipe": "quantization_affine_gather",
-      "rust_call": "ops.quantization.affine.gather",
+      "rust_call": "ops.quantization.affine.gather.explicit_gpu",
       "args": [
         {
           "name": "input0",
@@ -451,7 +451,7 @@
       "id": "quantization.010",
       "semantic_op": "quantization_affine_roundtrip",
       "recipe": "quantization_affine_roundtrip",
-      "rust_call": "ops.quantization.affine.roundtrip",
+      "rust_call": "ops.quantization.affine.roundtrip.explicit_gpu",
       "args": [
         {
           "name": "input0",
@@ -515,7 +515,7 @@
       "id": "quantization.011",
       "semantic_op": "quantization_affine_matmul",
       "recipe": "quantization_affine_matmul",
-      "rust_call": "ops.quantization.affine.matmul",
+      "rust_call": "ops.quantization.affine.matmul.explicit_gpu",
       "args": [
         {
           "name": "input0",
@@ -554,7 +554,7 @@
       "id": "quantization.012",
       "semantic_op": "quantization_affine_gather",
       "recipe": "quantization_affine_gather",
-      "rust_call": "ops.quantization.affine.gather",
+      "rust_call": "ops.quantization.affine.gather.explicit_gpu",
       "args": [
         {
           "name": "input0",
@@ -599,7 +599,7 @@
       "id": "quantization.013",
       "semantic_op": "quantization_mxfp4_roundtrip",
       "recipe": "quantization_mxfp4_roundtrip",
-      "rust_call": "ops.quantization.mxfp4.roundtrip",
+      "rust_call": "ops.quantization.mxfp4.roundtrip.explicit_cpu",
       "args": [
         {
           "name": "input0",
@@ -653,7 +653,7 @@
       "id": "quantization.014",
       "semantic_op": "quantization_mxfp4_matmul",
       "recipe": "quantization_mxfp4_matmul",
-      "rust_call": "ops.quantization.mxfp4.matmul",
+      "rust_call": "ops.quantization.mxfp4.matmul.explicit_cpu",
       "args": [
         {
           "name": "input0",
@@ -692,7 +692,7 @@
       "id": "quantization.015",
       "semantic_op": "quantization_mxfp4_gather",
       "recipe": "quantization_mxfp4_gather",
-      "rust_call": "ops.quantization.mxfp4.gather",
+      "rust_call": "ops.quantization.mxfp4.gather.explicit_cpu",
       "args": [
         {
           "name": "input0",
@@ -737,7 +737,7 @@
       "id": "quantization.016",
       "semantic_op": "quantization_mxfp4_roundtrip",
       "recipe": "quantization_mxfp4_roundtrip",
-      "rust_call": "ops.quantization.mxfp4.roundtrip",
+      "rust_call": "ops.quantization.mxfp4.roundtrip.explicit_cpu",
       "args": [
         {
           "name": "input0",
@@ -791,7 +791,7 @@
       "id": "quantization.017",
       "semantic_op": "quantization_mxfp4_matmul",
       "recipe": "quantization_mxfp4_matmul",
-      "rust_call": "ops.quantization.mxfp4.matmul",
+      "rust_call": "ops.quantization.mxfp4.matmul.explicit_cpu",
       "args": [
         {
           "name": "input0",
@@ -830,7 +830,7 @@
       "id": "quantization.018",
       "semantic_op": "quantization_mxfp4_gather",
       "recipe": "quantization_mxfp4_gather",
-      "rust_call": "ops.quantization.mxfp4.gather",
+      "rust_call": "ops.quantization.mxfp4.gather.explicit_cpu",
       "args": [
         {
           "name": "input0",
@@ -875,7 +875,7 @@
       "id": "quantization.019",
       "semantic_op": "quantization_mxfp4_roundtrip",
       "recipe": "quantization_mxfp4_roundtrip",
-      "rust_call": "ops.quantization.mxfp4.roundtrip",
+      "rust_call": "ops.quantization.mxfp4.roundtrip.explicit_gpu",
       "args": [
         {
           "name": "input0",
@@ -929,7 +929,7 @@
       "id": "quantization.020",
       "semantic_op": "quantization_mxfp4_matmul",
       "recipe": "quantization_mxfp4_matmul",
-      "rust_call": "ops.quantization.mxfp4.matmul",
+      "rust_call": "ops.quantization.mxfp4.matmul.explicit_gpu",
       "args": [
         {
           "name": "input0",
@@ -968,7 +968,7 @@
       "id": "quantization.021",
       "semantic_op": "quantization_mxfp4_gather",
       "recipe": "quantization_mxfp4_gather",
-      "rust_call": "ops.quantization.mxfp4.gather",
+      "rust_call": "ops.quantization.mxfp4.gather.explicit_gpu",
       "args": [
         {
           "name": "input0",
@@ -1013,7 +1013,7 @@
       "id": "quantization.022",
       "semantic_op": "quantization_mxfp4_roundtrip",
       "recipe": "quantization_mxfp4_roundtrip",
-      "rust_call": "ops.quantization.mxfp4.roundtrip",
+      "rust_call": "ops.quantization.mxfp4.roundtrip.explicit_gpu",
       "args": [
         {
           "name": "input0",
@@ -1067,7 +1067,7 @@
       "id": "quantization.023",
       "semantic_op": "quantization_mxfp4_matmul",
       "recipe": "quantization_mxfp4_matmul",
-      "rust_call": "ops.quantization.mxfp4.matmul",
+      "rust_call": "ops.quantization.mxfp4.matmul.explicit_gpu",
       "args": [
         {
           "name": "input0",
@@ -1106,7 +1106,7 @@
       "id": "quantization.024",
       "semantic_op": "quantization_mxfp4_gather",
       "recipe": "quantization_mxfp4_gather",
-      "rust_call": "ops.quantization.mxfp4.gather",
+      "rust_call": "ops.quantization.mxfp4.gather.explicit_gpu",
       "args": [
         {
           "name": "input0",
@@ -1151,7 +1151,7 @@
       "id": "quantization.025",
       "semantic_op": "quantization_mxfp8_roundtrip",
       "recipe": "quantization_mxfp8_roundtrip",
-      "rust_call": "ops.quantization.mxfp8.roundtrip",
+      "rust_call": "ops.quantization.mxfp8.roundtrip.explicit_cpu",
       "args": [
         {
           "name": "input0",
@@ -1205,7 +1205,7 @@
       "id": "quantization.026",
       "semantic_op": "quantization_mxfp8_matmul",
       "recipe": "quantization_mxfp8_matmul",
-      "rust_call": "ops.quantization.mxfp8.matmul",
+      "rust_call": "ops.quantization.mxfp8.matmul.explicit_cpu",
       "args": [
         {
           "name": "input0",
@@ -1244,7 +1244,7 @@
       "id": "quantization.027",
       "semantic_op": "quantization_mxfp8_gather",
       "recipe": "quantization_mxfp8_gather",
-      "rust_call": "ops.quantization.mxfp8.gather",
+      "rust_call": "ops.quantization.mxfp8.gather.explicit_cpu",
       "args": [
         {
           "name": "input0",
@@ -1289,7 +1289,7 @@
       "id": "quantization.028",
       "semantic_op": "quantization_mxfp8_roundtrip",
       "recipe": "quantization_mxfp8_roundtrip",
-      "rust_call": "ops.quantization.mxfp8.roundtrip",
+      "rust_call": "ops.quantization.mxfp8.roundtrip.explicit_cpu",
       "args": [
         {
           "name": "input0",
@@ -1343,7 +1343,7 @@
       "id": "quantization.029",
       "semantic_op": "quantization_mxfp8_matmul",
       "recipe": "quantization_mxfp8_matmul",
-      "rust_call": "ops.quantization.mxfp8.matmul",
+      "rust_call": "ops.quantization.mxfp8.matmul.explicit_cpu",
       "args": [
         {
           "name": "input0",
@@ -1382,7 +1382,7 @@
       "id": "quantization.030",
       "semantic_op": "quantization_mxfp8_gather",
       "recipe": "quantization_mxfp8_gather",
-      "rust_call": "ops.quantization.mxfp8.gather",
+      "rust_call": "ops.quantization.mxfp8.gather.explicit_cpu",
       "args": [
         {
           "name": "input0",
@@ -1427,7 +1427,7 @@
       "id": "quantization.031",
       "semantic_op": "quantization_mxfp8_roundtrip",
       "recipe": "quantization_mxfp8_roundtrip",
-      "rust_call": "ops.quantization.mxfp8.roundtrip",
+      "rust_call": "ops.quantization.mxfp8.roundtrip.explicit_gpu",
       "args": [
         {
           "name": "input0",
@@ -1481,7 +1481,7 @@
       "id": "quantization.032",
       "semantic_op": "quantization_mxfp8_matmul",
       "recipe": "quantization_mxfp8_matmul",
-      "rust_call": "ops.quantization.mxfp8.matmul",
+      "rust_call": "ops.quantization.mxfp8.matmul.explicit_gpu",
       "args": [
         {
           "name": "input0",
@@ -1520,7 +1520,7 @@
       "id": "quantization.033",
       "semantic_op": "quantization_mxfp8_gather",
       "recipe": "quantization_mxfp8_gather",
-      "rust_call": "ops.quantization.mxfp8.gather",
+      "rust_call": "ops.quantization.mxfp8.gather.explicit_gpu",
       "args": [
         {
           "name": "input0",
@@ -1565,7 +1565,7 @@
       "id": "quantization.034",
       "semantic_op": "quantization_mxfp8_roundtrip",
       "recipe": "quantization_mxfp8_roundtrip",
-      "rust_call": "ops.quantization.mxfp8.roundtrip",
+      "rust_call": "ops.quantization.mxfp8.roundtrip.explicit_gpu",
       "args": [
         {
           "name": "input0",
@@ -1619,7 +1619,7 @@
       "id": "quantization.035",
       "semantic_op": "quantization_mxfp8_matmul",
       "recipe": "quantization_mxfp8_matmul",
-      "rust_call": "ops.quantization.mxfp8.matmul",
+      "rust_call": "ops.quantization.mxfp8.matmul.explicit_gpu",
       "args": [
         {
           "name": "input0",
@@ -1658,7 +1658,7 @@
       "id": "quantization.036",
       "semantic_op": "quantization_mxfp8_gather",
       "recipe": "quantization_mxfp8_gather",
-      "rust_call": "ops.quantization.mxfp8.gather",
+      "rust_call": "ops.quantization.mxfp8.gather.explicit_gpu",
       "args": [
         {
           "name": "input0",
@@ -1703,7 +1703,7 @@
       "id": "quantization.037",
       "semantic_op": "quantization_nvfp4_roundtrip",
       "recipe": "quantization_nvfp4_roundtrip",
-      "rust_call": "ops.quantization.nvfp4.roundtrip",
+      "rust_call": "ops.quantization.nvfp4.roundtrip.explicit_cpu",
       "args": [
         {
           "name": "input0",
@@ -1757,7 +1757,7 @@
       "id": "quantization.038",
       "semantic_op": "quantization_nvfp4_matmul",
       "recipe": "quantization_nvfp4_matmul",
-      "rust_call": "ops.quantization.nvfp4.matmul",
+      "rust_call": "ops.quantization.nvfp4.matmul.explicit_cpu",
       "args": [
         {
           "name": "input0",
@@ -1796,7 +1796,7 @@
       "id": "quantization.039",
       "semantic_op": "quantization_nvfp4_gather",
       "recipe": "quantization_nvfp4_gather",
-      "rust_call": "ops.quantization.nvfp4.gather",
+      "rust_call": "ops.quantization.nvfp4.gather.explicit_cpu",
       "args": [
         {
           "name": "input0",
@@ -1841,7 +1841,7 @@
       "id": "quantization.040",
       "semantic_op": "quantization_nvfp4_roundtrip",
       "recipe": "quantization_nvfp4_roundtrip",
-      "rust_call": "ops.quantization.nvfp4.roundtrip",
+      "rust_call": "ops.quantization.nvfp4.roundtrip.explicit_cpu",
       "args": [
         {
           "name": "input0",
@@ -1895,7 +1895,7 @@
       "id": "quantization.041",
       "semantic_op": "quantization_nvfp4_matmul",
       "recipe": "quantization_nvfp4_matmul",
-      "rust_call": "ops.quantization.nvfp4.matmul",
+      "rust_call": "ops.quantization.nvfp4.matmul.explicit_cpu",
       "args": [
         {
           "name": "input0",
@@ -1934,7 +1934,7 @@
       "id": "quantization.042",
       "semantic_op": "quantization_nvfp4_gather",
       "recipe": "quantization_nvfp4_gather",
-      "rust_call": "ops.quantization.nvfp4.gather",
+      "rust_call": "ops.quantization.nvfp4.gather.explicit_cpu",
       "args": [
         {
           "name": "input0",
@@ -1979,7 +1979,7 @@
       "id": "quantization.043",
       "semantic_op": "quantization_nvfp4_roundtrip",
       "recipe": "quantization_nvfp4_roundtrip",
-      "rust_call": "ops.quantization.nvfp4.roundtrip",
+      "rust_call": "ops.quantization.nvfp4.roundtrip.explicit_gpu",
       "args": [
         {
           "name": "input0",
@@ -2033,7 +2033,7 @@
       "id": "quantization.044",
       "semantic_op": "quantization_nvfp4_matmul",
       "recipe": "quantization_nvfp4_matmul",
-      "rust_call": "ops.quantization.nvfp4.matmul",
+      "rust_call": "ops.quantization.nvfp4.matmul.explicit_gpu",
       "args": [
         {
           "name": "input0",
@@ -2072,7 +2072,7 @@
       "id": "quantization.045",
       "semantic_op": "quantization_nvfp4_gather",
       "recipe": "quantization_nvfp4_gather",
-      "rust_call": "ops.quantization.nvfp4.gather",
+      "rust_call": "ops.quantization.nvfp4.gather.explicit_gpu",
       "args": [
         {
           "name": "input0",
@@ -2117,7 +2117,7 @@
       "id": "quantization.046",
       "semantic_op": "quantization_nvfp4_roundtrip",
       "recipe": "quantization_nvfp4_roundtrip",
-      "rust_call": "ops.quantization.nvfp4.roundtrip",
+      "rust_call": "ops.quantization.nvfp4.roundtrip.explicit_gpu",
       "args": [
         {
           "name": "input0",
@@ -2171,7 +2171,7 @@
       "id": "quantization.047",
       "semantic_op": "quantization_nvfp4_matmul",
       "recipe": "quantization_nvfp4_matmul",
-      "rust_call": "ops.quantization.nvfp4.matmul",
+      "rust_call": "ops.quantization.nvfp4.matmul.explicit_gpu",
       "args": [
         {
           "name": "input0",
@@ -2210,7 +2210,7 @@
       "id": "quantization.048",
       "semantic_op": "quantization_nvfp4_gather",
       "recipe": "quantization_nvfp4_gather",
-      "rust_call": "ops.quantization.nvfp4.gather",
+      "rust_call": "ops.quantization.nvfp4.gather.explicit_gpu",
       "args": [
         {
           "name": "input0",
