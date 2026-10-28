@@ -1,0 +1,2255 @@
+{
+  "schema_version": 1,
+  "name": "quantization",
+  "fixture": "fixtures/quantization.safetensors",
+  "cases": [
+    {
+      "id": "quantization.001",
+      "semantic_op": "quantization_affine_roundtrip",
+      "recipe": "quantization_affine_roundtrip",
+      "rust_call": "ops.quantization.affine.roundtrip",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.001.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.001.output.0",
+            "dtype": "U32",
+            "shape": [
+              32,
+              8
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output1",
+            "ref": "quantization.001.output.1",
+            "dtype": "F32",
+            "shape": [
+              32,
+              1
+            ],
+            "policy": "low_precision_float"
+          },
+          {
+            "name": "output2",
+            "ref": "quantization.001.output.2",
+            "dtype": "F32",
+            "shape": [
+              32,
+              1
+            ],
+            "policy": "low_precision_float"
+          },
+          {
+            "name": "output3",
+            "ref": "quantization.001.output.3",
+            "dtype": "F32",
+            "shape": [
+              32,
+              64
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.002",
+      "semantic_op": "quantization_affine_matmul",
+      "recipe": "quantization_affine_matmul",
+      "rust_call": "ops.quantization.affine.matmul",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.002.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.002.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.002.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.003",
+      "semantic_op": "quantization_affine_gather",
+      "recipe": "quantization_affine_gather",
+      "rust_call": "ops.quantization.affine.gather",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.003.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.003.input.1"
+        },
+        {
+          "name": "input2",
+          "kind": "tensor",
+          "ref": "quantization.003.input.2"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.003.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.004",
+      "semantic_op": "quantization_affine_roundtrip",
+      "recipe": "quantization_affine_roundtrip",
+      "rust_call": "ops.quantization.affine.roundtrip",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.004.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.004.output.0",
+            "dtype": "U32",
+            "shape": [
+              32,
+              8
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output1",
+            "ref": "quantization.004.output.1",
+            "dtype": "F16",
+            "shape": [
+              32,
+              1
+            ],
+            "policy": "low_precision_float"
+          },
+          {
+            "name": "output2",
+            "ref": "quantization.004.output.2",
+            "dtype": "F16",
+            "shape": [
+              32,
+              1
+            ],
+            "policy": "low_precision_float"
+          },
+          {
+            "name": "output3",
+            "ref": "quantization.004.output.3",
+            "dtype": "F16",
+            "shape": [
+              32,
+              64
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.005",
+      "semantic_op": "quantization_affine_matmul",
+      "recipe": "quantization_affine_matmul",
+      "rust_call": "ops.quantization.affine.matmul",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.005.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.005.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.005.output.0",
+            "dtype": "F16",
+            "shape": [
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.006",
+      "semantic_op": "quantization_affine_gather",
+      "recipe": "quantization_affine_gather",
+      "rust_call": "ops.quantization.affine.gather",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.006.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.006.input.1"
+        },
+        {
+          "name": "input2",
+          "kind": "tensor",
+          "ref": "quantization.006.input.2"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.006.output.0",
+            "dtype": "F16",
+            "shape": [
+              2,
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.007",
+      "semantic_op": "quantization_affine_roundtrip",
+      "recipe": "quantization_affine_roundtrip",
+      "rust_call": "ops.quantization.affine.roundtrip",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.007.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_gpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.007.output.0",
+            "dtype": "U32",
+            "shape": [
+              32,
+              8
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output1",
+            "ref": "quantization.007.output.1",
+            "dtype": "F32",
+            "shape": [
+              32,
+              1
+            ],
+            "policy": "low_precision_float"
+          },
+          {
+            "name": "output2",
+            "ref": "quantization.007.output.2",
+            "dtype": "F32",
+            "shape": [
+              32,
+              1
+            ],
+            "policy": "low_precision_float"
+          },
+          {
+            "name": "output3",
+            "ref": "quantization.007.output.3",
+            "dtype": "F32",
+            "shape": [
+              32,
+              64
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.008",
+      "semantic_op": "quantization_affine_matmul",
+      "recipe": "quantization_affine_matmul",
+      "rust_call": "ops.quantization.affine.matmul",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.008.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.008.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_gpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.008.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.009",
+      "semantic_op": "quantization_affine_gather",
+      "recipe": "quantization_affine_gather",
+      "rust_call": "ops.quantization.affine.gather",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.009.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.009.input.1"
+        },
+        {
+          "name": "input2",
+          "kind": "tensor",
+          "ref": "quantization.009.input.2"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_gpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.009.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.010",
+      "semantic_op": "quantization_affine_roundtrip",
+      "recipe": "quantization_affine_roundtrip",
+      "rust_call": "ops.quantization.affine.roundtrip",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.010.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_gpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.010.output.0",
+            "dtype": "U32",
+            "shape": [
+              32,
+              8
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output1",
+            "ref": "quantization.010.output.1",
+            "dtype": "F16",
+            "shape": [
+              32,
+              1
+            ],
+            "policy": "low_precision_float"
+          },
+          {
+            "name": "output2",
+            "ref": "quantization.010.output.2",
+            "dtype": "F16",
+            "shape": [
+              32,
+              1
+            ],
+            "policy": "low_precision_float"
+          },
+          {
+            "name": "output3",
+            "ref": "quantization.010.output.3",
+            "dtype": "F16",
+            "shape": [
+              32,
+              64
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.011",
+      "semantic_op": "quantization_affine_matmul",
+      "recipe": "quantization_affine_matmul",
+      "rust_call": "ops.quantization.affine.matmul",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.011.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.011.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_gpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.011.output.0",
+            "dtype": "F16",
+            "shape": [
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.012",
+      "semantic_op": "quantization_affine_gather",
+      "recipe": "quantization_affine_gather",
+      "rust_call": "ops.quantization.affine.gather",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.012.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.012.input.1"
+        },
+        {
+          "name": "input2",
+          "kind": "tensor",
+          "ref": "quantization.012.input.2"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_gpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.012.output.0",
+            "dtype": "F16",
+            "shape": [
+              2,
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.013",
+      "semantic_op": "quantization_mxfp4_roundtrip",
+      "recipe": "quantization_mxfp4_roundtrip",
+      "rust_call": "ops.quantization.mxfp4.roundtrip",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.013.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.013.output.0",
+            "dtype": "U32",
+            "shape": [
+              32,
+              8
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output1",
+            "ref": "quantization.013.output.1",
+            "dtype": "U8",
+            "shape": [
+              32,
+              2
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output2",
+            "ref": "quantization.013.output.2",
+            "dtype": "BF16",
+            "shape": [
+              32,
+              64
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.014",
+      "semantic_op": "quantization_mxfp4_matmul",
+      "recipe": "quantization_mxfp4_matmul",
+      "rust_call": "ops.quantization.mxfp4.matmul",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.014.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.014.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.014.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.015",
+      "semantic_op": "quantization_mxfp4_gather",
+      "recipe": "quantization_mxfp4_gather",
+      "rust_call": "ops.quantization.mxfp4.gather",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.015.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.015.input.1"
+        },
+        {
+          "name": "input2",
+          "kind": "tensor",
+          "ref": "quantization.015.input.2"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.015.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.016",
+      "semantic_op": "quantization_mxfp4_roundtrip",
+      "recipe": "quantization_mxfp4_roundtrip",
+      "rust_call": "ops.quantization.mxfp4.roundtrip",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.016.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.016.output.0",
+            "dtype": "U32",
+            "shape": [
+              32,
+              8
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output1",
+            "ref": "quantization.016.output.1",
+            "dtype": "U8",
+            "shape": [
+              32,
+              2
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output2",
+            "ref": "quantization.016.output.2",
+            "dtype": "BF16",
+            "shape": [
+              32,
+              64
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.017",
+      "semantic_op": "quantization_mxfp4_matmul",
+      "recipe": "quantization_mxfp4_matmul",
+      "rust_call": "ops.quantization.mxfp4.matmul",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.017.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.017.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.017.output.0",
+            "dtype": "F16",
+            "shape": [
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.018",
+      "semantic_op": "quantization_mxfp4_gather",
+      "recipe": "quantization_mxfp4_gather",
+      "rust_call": "ops.quantization.mxfp4.gather",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.018.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.018.input.1"
+        },
+        {
+          "name": "input2",
+          "kind": "tensor",
+          "ref": "quantization.018.input.2"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.018.output.0",
+            "dtype": "F16",
+            "shape": [
+              2,
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.019",
+      "semantic_op": "quantization_mxfp4_roundtrip",
+      "recipe": "quantization_mxfp4_roundtrip",
+      "rust_call": "ops.quantization.mxfp4.roundtrip",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.019.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_gpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.019.output.0",
+            "dtype": "U32",
+            "shape": [
+              32,
+              8
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output1",
+            "ref": "quantization.019.output.1",
+            "dtype": "U8",
+            "shape": [
+              32,
+              2
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output2",
+            "ref": "quantization.019.output.2",
+            "dtype": "BF16",
+            "shape": [
+              32,
+              64
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.020",
+      "semantic_op": "quantization_mxfp4_matmul",
+      "recipe": "quantization_mxfp4_matmul",
+      "rust_call": "ops.quantization.mxfp4.matmul",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.020.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.020.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_gpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.020.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.021",
+      "semantic_op": "quantization_mxfp4_gather",
+      "recipe": "quantization_mxfp4_gather",
+      "rust_call": "ops.quantization.mxfp4.gather",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.021.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.021.input.1"
+        },
+        {
+          "name": "input2",
+          "kind": "tensor",
+          "ref": "quantization.021.input.2"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_gpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.021.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.022",
+      "semantic_op": "quantization_mxfp4_roundtrip",
+      "recipe": "quantization_mxfp4_roundtrip",
+      "rust_call": "ops.quantization.mxfp4.roundtrip",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.022.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_gpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.022.output.0",
+            "dtype": "U32",
+            "shape": [
+              32,
+              8
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output1",
+            "ref": "quantization.022.output.1",
+            "dtype": "U8",
+            "shape": [
+              32,
+              2
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output2",
+            "ref": "quantization.022.output.2",
+            "dtype": "BF16",
+            "shape": [
+              32,
+              64
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.023",
+      "semantic_op": "quantization_mxfp4_matmul",
+      "recipe": "quantization_mxfp4_matmul",
+      "rust_call": "ops.quantization.mxfp4.matmul",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.023.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.023.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_gpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.023.output.0",
+            "dtype": "F16",
+            "shape": [
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.024",
+      "semantic_op": "quantization_mxfp4_gather",
+      "recipe": "quantization_mxfp4_gather",
+      "rust_call": "ops.quantization.mxfp4.gather",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.024.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.024.input.1"
+        },
+        {
+          "name": "input2",
+          "kind": "tensor",
+          "ref": "quantization.024.input.2"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_gpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.024.output.0",
+            "dtype": "F16",
+            "shape": [
+              2,
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.025",
+      "semantic_op": "quantization_mxfp8_roundtrip",
+      "recipe": "quantization_mxfp8_roundtrip",
+      "rust_call": "ops.quantization.mxfp8.roundtrip",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.025.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.025.output.0",
+            "dtype": "U32",
+            "shape": [
+              32,
+              16
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output1",
+            "ref": "quantization.025.output.1",
+            "dtype": "U8",
+            "shape": [
+              32,
+              2
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output2",
+            "ref": "quantization.025.output.2",
+            "dtype": "BF16",
+            "shape": [
+              32,
+              64
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.026",
+      "semantic_op": "quantization_mxfp8_matmul",
+      "recipe": "quantization_mxfp8_matmul",
+      "rust_call": "ops.quantization.mxfp8.matmul",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.026.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.026.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.026.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.027",
+      "semantic_op": "quantization_mxfp8_gather",
+      "recipe": "quantization_mxfp8_gather",
+      "rust_call": "ops.quantization.mxfp8.gather",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.027.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.027.input.1"
+        },
+        {
+          "name": "input2",
+          "kind": "tensor",
+          "ref": "quantization.027.input.2"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.027.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.028",
+      "semantic_op": "quantization_mxfp8_roundtrip",
+      "recipe": "quantization_mxfp8_roundtrip",
+      "rust_call": "ops.quantization.mxfp8.roundtrip",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.028.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.028.output.0",
+            "dtype": "U32",
+            "shape": [
+              32,
+              16
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output1",
+            "ref": "quantization.028.output.1",
+            "dtype": "U8",
+            "shape": [
+              32,
+              2
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output2",
+            "ref": "quantization.028.output.2",
+            "dtype": "BF16",
+            "shape": [
+              32,
+              64
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.029",
+      "semantic_op": "quantization_mxfp8_matmul",
+      "recipe": "quantization_mxfp8_matmul",
+      "rust_call": "ops.quantization.mxfp8.matmul",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.029.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.029.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.029.output.0",
+            "dtype": "F16",
+            "shape": [
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.030",
+      "semantic_op": "quantization_mxfp8_gather",
+      "recipe": "quantization_mxfp8_gather",
+      "rust_call": "ops.quantization.mxfp8.gather",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.030.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.030.input.1"
+        },
+        {
+          "name": "input2",
+          "kind": "tensor",
+          "ref": "quantization.030.input.2"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.030.output.0",
+            "dtype": "F16",
+            "shape": [
+              2,
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.031",
+      "semantic_op": "quantization_mxfp8_roundtrip",
+      "recipe": "quantization_mxfp8_roundtrip",
+      "rust_call": "ops.quantization.mxfp8.roundtrip",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.031.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_gpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.031.output.0",
+            "dtype": "U32",
+            "shape": [
+              32,
+              16
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output1",
+            "ref": "quantization.031.output.1",
+            "dtype": "U8",
+            "shape": [
+              32,
+              2
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output2",
+            "ref": "quantization.031.output.2",
+            "dtype": "BF16",
+            "shape": [
+              32,
+              64
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.032",
+      "semantic_op": "quantization_mxfp8_matmul",
+      "recipe": "quantization_mxfp8_matmul",
+      "rust_call": "ops.quantization.mxfp8.matmul",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.032.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.032.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_gpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.032.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.033",
+      "semantic_op": "quantization_mxfp8_gather",
+      "recipe": "quantization_mxfp8_gather",
+      "rust_call": "ops.quantization.mxfp8.gather",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.033.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.033.input.1"
+        },
+        {
+          "name": "input2",
+          "kind": "tensor",
+          "ref": "quantization.033.input.2"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_gpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.033.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.034",
+      "semantic_op": "quantization_mxfp8_roundtrip",
+      "recipe": "quantization_mxfp8_roundtrip",
+      "rust_call": "ops.quantization.mxfp8.roundtrip",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.034.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_gpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.034.output.0",
+            "dtype": "U32",
+            "shape": [
+              32,
+              16
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output1",
+            "ref": "quantization.034.output.1",
+            "dtype": "U8",
+            "shape": [
+              32,
+              2
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output2",
+            "ref": "quantization.034.output.2",
+            "dtype": "BF16",
+            "shape": [
+              32,
+              64
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.035",
+      "semantic_op": "quantization_mxfp8_matmul",
+      "recipe": "quantization_mxfp8_matmul",
+      "rust_call": "ops.quantization.mxfp8.matmul",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.035.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.035.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_gpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.035.output.0",
+            "dtype": "F16",
+            "shape": [
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.036",
+      "semantic_op": "quantization_mxfp8_gather",
+      "recipe": "quantization_mxfp8_gather",
+      "rust_call": "ops.quantization.mxfp8.gather",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.036.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.036.input.1"
+        },
+        {
+          "name": "input2",
+          "kind": "tensor",
+          "ref": "quantization.036.input.2"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_gpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.036.output.0",
+            "dtype": "F16",
+            "shape": [
+              2,
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.037",
+      "semantic_op": "quantization_nvfp4_roundtrip",
+      "recipe": "quantization_nvfp4_roundtrip",
+      "rust_call": "ops.quantization.nvfp4.roundtrip",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.037.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.037.output.0",
+            "dtype": "U32",
+            "shape": [
+              32,
+              8
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output1",
+            "ref": "quantization.037.output.1",
+            "dtype": "U8",
+            "shape": [
+              32,
+              4
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output2",
+            "ref": "quantization.037.output.2",
+            "dtype": "BF16",
+            "shape": [
+              32,
+              64
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.038",
+      "semantic_op": "quantization_nvfp4_matmul",
+      "recipe": "quantization_nvfp4_matmul",
+      "rust_call": "ops.quantization.nvfp4.matmul",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.038.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.038.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.038.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.039",
+      "semantic_op": "quantization_nvfp4_gather",
+      "recipe": "quantization_nvfp4_gather",
+      "rust_call": "ops.quantization.nvfp4.gather",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.039.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.039.input.1"
+        },
+        {
+          "name": "input2",
+          "kind": "tensor",
+          "ref": "quantization.039.input.2"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.039.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.040",
+      "semantic_op": "quantization_nvfp4_roundtrip",
+      "recipe": "quantization_nvfp4_roundtrip",
+      "rust_call": "ops.quantization.nvfp4.roundtrip",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.040.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.040.output.0",
+            "dtype": "U32",
+            "shape": [
+              32,
+              8
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output1",
+            "ref": "quantization.040.output.1",
+            "dtype": "U8",
+            "shape": [
+              32,
+              4
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output2",
+            "ref": "quantization.040.output.2",
+            "dtype": "BF16",
+            "shape": [
+              32,
+              64
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.041",
+      "semantic_op": "quantization_nvfp4_matmul",
+      "recipe": "quantization_nvfp4_matmul",
+      "rust_call": "ops.quantization.nvfp4.matmul",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.041.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.041.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.041.output.0",
+            "dtype": "F16",
+            "shape": [
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.042",
+      "semantic_op": "quantization_nvfp4_gather",
+      "recipe": "quantization_nvfp4_gather",
+      "rust_call": "ops.quantization.nvfp4.gather",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.042.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.042.input.1"
+        },
+        {
+          "name": "input2",
+          "kind": "tensor",
+          "ref": "quantization.042.input.2"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.042.output.0",
+            "dtype": "F16",
+            "shape": [
+              2,
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.043",
+      "semantic_op": "quantization_nvfp4_roundtrip",
+      "recipe": "quantization_nvfp4_roundtrip",
+      "rust_call": "ops.quantization.nvfp4.roundtrip",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.043.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_gpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.043.output.0",
+            "dtype": "U32",
+            "shape": [
+              32,
+              8
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output1",
+            "ref": "quantization.043.output.1",
+            "dtype": "U8",
+            "shape": [
+              32,
+              4
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output2",
+            "ref": "quantization.043.output.2",
+            "dtype": "BF16",
+            "shape": [
+              32,
+              64
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.044",
+      "semantic_op": "quantization_nvfp4_matmul",
+      "recipe": "quantization_nvfp4_matmul",
+      "rust_call": "ops.quantization.nvfp4.matmul",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.044.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.044.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_gpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.044.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.045",
+      "semantic_op": "quantization_nvfp4_gather",
+      "recipe": "quantization_nvfp4_gather",
+      "rust_call": "ops.quantization.nvfp4.gather",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.045.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.045.input.1"
+        },
+        {
+          "name": "input2",
+          "kind": "tensor",
+          "ref": "quantization.045.input.2"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_gpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.045.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.046",
+      "semantic_op": "quantization_nvfp4_roundtrip",
+      "recipe": "quantization_nvfp4_roundtrip",
+      "rust_call": "ops.quantization.nvfp4.roundtrip",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.046.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_gpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.046.output.0",
+            "dtype": "U32",
+            "shape": [
+              32,
+              8
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output1",
+            "ref": "quantization.046.output.1",
+            "dtype": "U8",
+            "shape": [
+              32,
+              4
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output2",
+            "ref": "quantization.046.output.2",
+            "dtype": "BF16",
+            "shape": [
+              32,
+              64
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.047",
+      "semantic_op": "quantization_nvfp4_matmul",
+      "recipe": "quantization_nvfp4_matmul",
+      "rust_call": "ops.quantization.nvfp4.matmul",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.047.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.047.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_gpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.047.output.0",
+            "dtype": "F16",
+            "shape": [
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quantization.048",
+      "semantic_op": "quantization_nvfp4_gather",
+      "recipe": "quantization_nvfp4_gather",
+      "rust_call": "ops.quantization.nvfp4.gather",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "quantization.048.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "quantization.048.input.1"
+        },
+        {
+          "name": "input2",
+          "kind": "tensor",
+          "ref": "quantization.048.input.2"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_gpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "quantization.048.output.0",
+            "dtype": "F16",
+            "shape": [
+              2,
+              2,
+              32
+            ],
+            "policy": "low_precision_float"
+          }
+        ]
+      }
+    }
+  ]
+}

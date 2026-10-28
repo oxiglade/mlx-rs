@@ -15,7 +15,7 @@ EXPECTED_ARCH = "arm64"
 EXPECTED_MLX = "0.32.2"
 EXPECTED_NUMPY = "2.2.6"
 CORPUS_SEED = "mlx-rs-committed-cpu-ops-v1"
-OP_SUITES = ("arithmetic", "dtypes", "errors", "execution", "fast", "indexing", "math", "reductions", "shapes", "signal")
+OP_SUITES = ("arithmetic", "dtypes", "errors", "execution", "fast", "indexing", "math", "reductions", "shapes", "signal", "quantization")
 SUITES = OP_SUITES + ("gguf",)
 ROOT = Path(__file__).resolve().parent
 
@@ -578,6 +578,26 @@ def build_specs():
     for error_case, (reason, exception_type, control) in zip(errors[4:], error_reasons):
         error_case["error"] = ("invoke_or_eval", reason, exception_type, control)
     specs.extend(errors)
+    quant_index = 1
+    for mode in ("affine", "mxfp4", "mxfp8", "nvfp4"):
+        for target in ("explicit_cpu", "explicit_gpu"):
+            for dtype in ("F32", "F16"):
+                for operation in ("roundtrip", "matmul", "gather"):
+                    batched = operation == "gather"
+                    weight_shape = [3, 32, 64] if batched else [32, 64]
+                    count = 3 * 32 * 64 if batched else 32 * 64
+                    inputs = [source(dtype, weight_shape, [((i % 37) - 18) / 16 for i in range(count)])]
+                    if operation != "roundtrip":
+                        inputs.append(source(dtype, [2, 64], [((i % 11) - 5) / 8 for i in range(128)]))
+                    if batched:
+                        inputs.append(source("U32", [2], [2, 0]))
+                    recipe = f"quantization_{mode}_{operation}"
+                    specs.append(case(
+                        f"quantization.{quant_index:03d}", "quantization", recipe,
+                        f"ops.quantization.{mode}.{operation}", inputs, policy="low_precision_float",
+                        execution_target=target,
+                    ))
+                    quant_index += 1
     return sorted(specs, key=lambda item: item["id"])
 
 
@@ -639,6 +659,14 @@ def call_recipe(mx, op, arrays, extra, execution_target):
     stream = {"explicit_cpu": mx.cpu, "explicit_gpu": mx.gpu}.get(execution_target)
     kwargs = {} if stream is None else {"stream": stream}
     by_name = {item["name"]: item for item in extra}
+    if op.startswith("quantization_"):
+        _, mode, operation = op.split("_")
+        packed = mx.quantize(arrays[0], mode=mode, **kwargs)
+        if operation == "roundtrip":
+            return [*packed, mx.dequantize(*packed, mode=mode, **kwargs)]
+        if operation == "matmul":
+            return [mx.quantized_matmul(arrays[1], *packed, transpose=True, mode=mode, **kwargs)]
+        return [mx.gather_qmm(arrays[1], *packed, rhs_indices=arrays[2], transpose=True, mode=mode, **kwargs)]
     if op in ("add", "add_zero"):
         return [mx.add(arrays[0], arrays[1], **kwargs)]
     if op == "add_scalar":
@@ -1251,7 +1279,7 @@ def generate_tree(target, mx, np):
                         for index, output in enumerate(outputs):
                             key = f"{spec['id']}.output.{index}"
                             ref, encoding, imag_ref = tensor_ref(fixtures, key, output)
-                            item = {"name": f"output{index}", "ref": ref, "dtype": dtype_name(output), "shape": list(output.shape), "policy": spec["policy"]}
+                            item = {"name": f"output{index}", "ref": ref, "dtype": dtype_name(output), "shape": list(output.shape), "policy": ("exact_numeric" if spec["suite"] == "quantization" and dtype_name(output) in ("U32", "U8") else spec["policy"])}
                             if encoding:
                                 item["encoding"] = encoding
                                 item["imag_ref"] = imag_ref
