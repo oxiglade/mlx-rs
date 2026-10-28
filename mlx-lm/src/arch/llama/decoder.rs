@@ -170,10 +170,14 @@ impl Matrix {
                 &self.weight,
                 scales,
                 biases,
-                true,
-                options.group_size.get() as i32,
-                i32::from(options.bits),
-            )?,
+                ops::QuantizedMatmulOptions {
+                    transpose: true,
+                    group_size: Some(options.group_size.get() as i32),
+                    bits: Some(i32::from(options.bits)),
+                    ..Default::default()
+                },
+            )
+            .map_err(mlx_rs::error::Exception::from)?,
         };
         Ok(match &self.bias {
             Some(bias) => result.add(bias)?,
@@ -199,9 +203,13 @@ impl Matrix {
                     weight,
                     scales,
                     &biases,
-                    options.group_size.get() as i32,
-                    i32::from(options.bits),
-                )?
+                    ops::DequantizeOptions {
+                        group_size: Some(options.group_size.get() as i32),
+                        bits: Some(i32::from(options.bits)),
+                        ..Default::default()
+                    },
+                )
+                .map_err(mlx_rs::error::Exception::from)?
                 .reshape(&[*batch, *length, -1])?
             }
         })

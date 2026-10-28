@@ -21,6 +21,30 @@ use safetensors::SafeTensors;
 use std::{collections::BTreeMap, path::Path};
 
 pub(super) const ADAPTERS: &[&str] = &[
+    "ops.quantization.affine.roundtrip.explicit_cpu",
+    "ops.quantization.affine.roundtrip.explicit_gpu",
+    "ops.quantization.affine.matmul.explicit_cpu",
+    "ops.quantization.affine.matmul.explicit_gpu",
+    "ops.quantization.affine.gather.explicit_cpu",
+    "ops.quantization.affine.gather.explicit_gpu",
+    "ops.quantization.mxfp4.roundtrip.explicit_cpu",
+    "ops.quantization.mxfp4.roundtrip.explicit_gpu",
+    "ops.quantization.mxfp4.matmul.explicit_cpu",
+    "ops.quantization.mxfp4.matmul.explicit_gpu",
+    "ops.quantization.mxfp4.gather.explicit_cpu",
+    "ops.quantization.mxfp4.gather.explicit_gpu",
+    "ops.quantization.mxfp8.roundtrip.explicit_cpu",
+    "ops.quantization.mxfp8.roundtrip.explicit_gpu",
+    "ops.quantization.mxfp8.matmul.explicit_cpu",
+    "ops.quantization.mxfp8.matmul.explicit_gpu",
+    "ops.quantization.mxfp8.gather.explicit_cpu",
+    "ops.quantization.mxfp8.gather.explicit_gpu",
+    "ops.quantization.nvfp4.roundtrip.explicit_cpu",
+    "ops.quantization.nvfp4.roundtrip.explicit_gpu",
+    "ops.quantization.nvfp4.matmul.explicit_cpu",
+    "ops.quantization.nvfp4.matmul.explicit_gpu",
+    "ops.quantization.nvfp4.gather.explicit_cpu",
+    "ops.quantization.nvfp4.gather.explicit_gpu",
     "ops.add.array_array",
     "array.add.array",
     "operator.add.array",
@@ -307,9 +331,13 @@ pub(super) fn dispatch_gguf(root: &Path, case: &GgufCase) -> Result<GgufObservat
                         weight,
                         scales,
                         biases,
-                        dequantize.group_size,
-                        dequantize.bits,
+                        mlx_rs::ops::DequantizeOptions {
+                            group_size: Some(dequantize.group_size),
+                            bits: Some(dequantize.bits),
+                            ..Default::default()
+                        },
                     )
+                    .map_err(mlx_rs::error::Exception::from)
                     .map_err(|error| error.to_string())?,
                 );
             }
@@ -503,6 +531,110 @@ pub(super) fn dispatch_gguf(root: &Path, case: &GgufCase) -> Result<GgufObservat
 pub(super) fn dispatch(case: &Case, safe: &SafeTensors<'_>) -> Result<Vec<Array>, String> {
     let mut args = Args::new(case, safe);
     let outputs = match case.rust_call.as_str() {
+        "ops.quantization.affine.roundtrip.explicit_cpu"
+        | "ops.quantization.affine.roundtrip.explicit_gpu"
+        | "ops.quantization.affine.matmul.explicit_cpu"
+        | "ops.quantization.affine.matmul.explicit_gpu"
+        | "ops.quantization.affine.gather.explicit_cpu"
+        | "ops.quantization.affine.gather.explicit_gpu"
+        | "ops.quantization.mxfp4.roundtrip.explicit_cpu"
+        | "ops.quantization.mxfp4.roundtrip.explicit_gpu"
+        | "ops.quantization.mxfp4.matmul.explicit_cpu"
+        | "ops.quantization.mxfp4.matmul.explicit_gpu"
+        | "ops.quantization.mxfp4.gather.explicit_cpu"
+        | "ops.quantization.mxfp4.gather.explicit_gpu"
+        | "ops.quantization.mxfp8.roundtrip.explicit_cpu"
+        | "ops.quantization.mxfp8.roundtrip.explicit_gpu"
+        | "ops.quantization.mxfp8.matmul.explicit_cpu"
+        | "ops.quantization.mxfp8.matmul.explicit_gpu"
+        | "ops.quantization.mxfp8.gather.explicit_cpu"
+        | "ops.quantization.mxfp8.gather.explicit_gpu"
+        | "ops.quantization.nvfp4.roundtrip.explicit_cpu"
+        | "ops.quantization.nvfp4.roundtrip.explicit_gpu"
+        | "ops.quantization.nvfp4.matmul.explicit_cpu"
+        | "ops.quantization.nvfp4.matmul.explicit_gpu"
+        | "ops.quantization.nvfp4.gather.explicit_cpu"
+        | "ops.quantization.nvfp4.gather.explicit_gpu" => {
+            let parts: Vec<_> = case.rust_call.split('.').collect();
+            let mode = match parts[2] {
+                "affine" => ops::QuantizationMode::Affine,
+                "mxfp4" => ops::QuantizationMode::Mxfp4,
+                "mxfp8" => ops::QuantizationMode::Mxfp8,
+                "nvfp4" => ops::QuantizationMode::Nvfp4,
+                mode => return Err(format!("unknown quantization mode {mode}")),
+            };
+            let weights = args.tensor("input0")?;
+            let input = if parts[3] != "roundtrip" {
+                Some(args.tensor("input1")?)
+            } else {
+                None
+            };
+            let indices = if parts[3] == "gather" {
+                Some(args.tensor("input2")?)
+            } else {
+                None
+            };
+            args.execution()?;
+            let (packed, scales, biases) = mlx_error(
+                ops::quantize(
+                    &weights,
+                    ops::QuantizeOptions {
+                        mode,
+                        ..Default::default()
+                    },
+                )
+                .map_err(mlx_rs::error::Exception::from),
+            )?;
+            match parts[3] {
+                "roundtrip" => {
+                    let restored = mlx_error(
+                        ops::dequantize(
+                            &packed,
+                            &scales,
+                            biases.as_ref(),
+                            ops::DequantizeOptions {
+                                mode,
+                                ..Default::default()
+                            },
+                        )
+                        .map_err(mlx_rs::error::Exception::from),
+                    )?;
+                    let mut outputs = vec![packed, scales];
+                    outputs.extend(biases);
+                    outputs.push(restored);
+                    outputs
+                }
+                "matmul" => vec![mlx_error(
+                    ops::quantized_matmul(
+                        input.as_ref().unwrap(),
+                        &packed,
+                        &scales,
+                        biases.as_ref(),
+                        ops::QuantizedMatmulOptions {
+                            mode,
+                            transpose: true,
+                            ..Default::default()
+                        },
+                    )
+                    .map_err(mlx_rs::error::Exception::from),
+                )?],
+                "gather" => vec![mlx_error(
+                    ops::gather_qmm(
+                        input.as_ref().unwrap(),
+                        &packed,
+                        &scales,
+                        biases.as_ref(),
+                        ops::GatherQmmOptions {
+                            mode,
+                            rhs_indices: indices.as_ref(),
+                            ..Default::default()
+                        },
+                    )
+                    .map_err(mlx_rs::error::Exception::from),
+                )?],
+                operation => return Err(format!("unknown quantization operation {operation}")),
+            }
+        }
         "ops.add.array_array" => {
             let a = args.tensor("input0")?;
             let b = args.tensor("input1")?;

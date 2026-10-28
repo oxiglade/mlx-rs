@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+Breaking
+
+- `quantize`, `dequantize`, `quantized_matmul`, and `gather_qmm` take options
+  structs. `quantize` returns optional biases, present only for affine weights
+  (#358, thanks @sergey-scherbina). Invalid mode/group/bit combinations return
+  `QuantizationError`. Deprecated affine shims keep their signatures.
+
+Added
+
+- `QuantizationMode::{Affine, Mxfp4, Mxfp8, Nvfp4}` with mode-dependent defaults
+  and CPU/Metal conformance for packing, round trips, matmul, and indexed gather
+  (#358, thanks @sergey-scherbina). Global scales remain private; nn quantized
+  modules remain affine-only.
+
 ## 0.33.0
 
 This release stays on MLX 0.32.2. It adds custom Metal kernels and a JIT Metal

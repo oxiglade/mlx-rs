@@ -329,8 +329,17 @@ impl Embedding {
                 let weight = layer.inner.weight.take_axis(&flat, 0)?;
                 let scales = layer.scales.take_axis(&flat, 0)?;
                 let biases = layer.biases.take_axis(&flat, 0)?;
-                let output =
-                    ops::dequantize(weight, scales, &biases, layer.group_size, layer.bits)?;
+                let output = ops::dequantize(
+                    weight,
+                    scales,
+                    &biases,
+                    ops::DequantizeOptions {
+                        group_size: Some(layer.group_size),
+                        bits: Some(layer.bits),
+                        ..Default::default()
+                    },
+                )
+                .map_err(mlx_rs::error::Exception::from)?;
                 let shape = tokens
                     .shape()
                     .iter()
