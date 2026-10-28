@@ -1,0 +1,329 @@
+{
+  "schema_version": 1,
+  "name": "execution",
+  "fixture": "fixtures/execution.safetensors",
+  "cases": [
+    {
+      "id": "execution.001",
+      "semantic_op": "add",
+      "recipe": "add",
+      "rust_call": "ops.add.array_array",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "execution.001.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "execution.001.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "execution.001.output.0",
+            "dtype": "I32",
+            "shape": [
+              6
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "execution.002",
+      "semantic_op": "add",
+      "recipe": "add",
+      "rust_call": "ops.add.explicit_cpu",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "execution.002.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "execution.002.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "execution.002.output.0",
+            "dtype": "I32",
+            "shape": [
+              6
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "execution.003",
+      "semantic_op": "exp",
+      "recipe": "exp",
+      "rust_call": "ops.exp.array",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "execution.003.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "execution.003.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "elementwise_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "execution.004",
+      "semantic_op": "exp",
+      "recipe": "exp",
+      "rust_call": "ops.exp.explicit_cpu",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "execution.004.input.0"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "execution.004.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "elementwise_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "execution.005",
+      "semantic_op": "reshape",
+      "recipe": "reshape",
+      "rust_call": "array.reshape",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "execution.005.input.0"
+        },
+        {
+          "name": "shape",
+          "kind": "shape",
+          "values": [
+            3,
+            2
+          ]
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "execution.005.output.0",
+            "dtype": "F32",
+            "shape": [
+              3,
+              2
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "execution.006",
+      "semantic_op": "reshape",
+      "recipe": "reshape",
+      "rust_call": "array.reshape.explicit_cpu",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "execution.006.input.0"
+        },
+        {
+          "name": "shape",
+          "kind": "shape",
+          "values": [
+            3,
+            2
+          ]
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "execution.006.output.0",
+            "dtype": "F32",
+            "shape": [
+              3,
+              2
+            ],
+            "policy": "exact_bits"
+          }
+        ]
+      }
+    },
+    {
+      "id": "execution.007",
+      "semantic_op": "divmod",
+      "recipe": "divmod",
+      "rust_call": "ops.divmod.array_array",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "execution.007.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "execution.007.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "execution.007.output.0",
+            "dtype": "I32",
+            "shape": [
+              6
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output1",
+            "ref": "execution.007.output.1",
+            "dtype": "I32",
+            "shape": [
+              6
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "execution.008",
+      "semantic_op": "divmod",
+      "recipe": "divmod",
+      "rust_call": "ops.divmod.explicit_cpu",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "execution.008.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "execution.008.input.1"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "execution.008.output.0",
+            "dtype": "I32",
+            "shape": [
+              6
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "name": "output1",
+            "ref": "execution.008.output.1",
+            "dtype": "I32",
+            "shape": [
+              6
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    }
+  ]
+}

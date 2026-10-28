@@ -1,6 +1,6 @@
 // TODO
 
-use mlx_rs::{error::Exception, ops::stack_axis, Array};
+use mlx_rs::{error::Exception, ops::stack, Array};
 use mnist::{Mnist, MnistBuilder};
 
 const IMAGE_SIZE: usize = 28 * 28;
@@ -36,7 +36,7 @@ pub fn read_data() -> (Vec<Array>, Vec<u8>, Array, Array) {
         .chunks_exact(IMAGE_SIZE)
         .map(|chunk| Array::from_slice(chunk, &[IMAGE_SIZE as i32]))
         .collect::<Vec<_>>();
-    let test_images = stack_axis(&test_images, 0).unwrap();
+    let test_images = stack(&test_images, 0).unwrap();
 
     let test_labels = Array::from_slice(&tst_lbl, &[tst_lbl.len() as i32]);
 
@@ -53,7 +53,7 @@ pub fn iterate_data<'a>(
         .chunks_exact(batch_size)
         .zip(labels.chunks_exact(batch_size))
         .map(move |(images, labels)| {
-            let images = stack_axis(images, 0)?;
+            let images = stack(images, 0)?;
             let labels = Array::from_slice(labels, &[batch_size as i32]);
             Ok((images, labels))
         })

@@ -6,22 +6,27 @@ use crate::error::Result;
 use crate::utils::guard::Guarded;
 use crate::utils::IntoOption;
 use crate::{Array, Stream};
-use mlx_internal_macros::{default_device, generate_macro};
+use mlx_internal_macros::generate_macro;
+
+#[cfg(feature = "metal")]
+mod metal_kernel;
+#[cfg(feature = "metal")]
+pub use metal_kernel::{
+    MetalKernel, MetalKernelApplyOptions, MetalKernelOptions, MetalKernelOutput, TemplateArg,
+};
 
 /// Optimized implementation of `NN.RoPE`.
 #[allow(clippy::too_many_arguments)]
-#[generate_macro(customize(root = "$crate::fast"))]
-#[default_device]
-pub fn rope_device<'a>(
-    #[named] array: impl AsRef<Array>,
-    #[named] dimensions: i32,
-    #[named] traditional: bool,
-    #[optional] base: impl Into<Option<f32>>,
-    #[named] scale: f32,
-    #[named] offset: i32,
-    #[optional] freqs: impl Into<Option<&'a Array>>,
-    #[optional] stream: impl AsRef<Stream>,
+pub fn rope<'a>(
+    array: impl AsRef<Array>,
+    dimensions: i32,
+    traditional: bool,
+    base: impl Into<Option<f32>>,
+    scale: f32,
+    offset: i32,
+    freqs: impl Into<Option<&'a Array>>,
 ) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let base = base.into();
     let base = mlx_sys::mlx_optional_float {
         value: base.unwrap_or(0.0),
@@ -45,6 +50,28 @@ pub fn rope_device<'a>(
     })
 }
 
+/// Compatibility shim for [`rope`].
+#[allow(clippy::too_many_arguments)]
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::fast"))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `rope`"
+)]
+pub fn rope_device<'a>(
+    #[named] array: impl AsRef<Array>,
+    #[named] dimensions: i32,
+    #[named] traditional: bool,
+    #[optional] base: impl Into<Option<f32>>,
+    #[named] scale: f32,
+    #[named] offset: i32,
+    #[optional] freqs: impl Into<Option<&'a Array>>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || {
+        rope(array, dimensions, traditional, base, scale, offset, freqs)
+    })
+}
+
 /// Optimized implementation of `NN.RoPE` with dynamic (array) offset.
 ///
 /// This variant allows specifying the offset as an array, enabling different
@@ -61,18 +88,16 @@ pub fn rope_device<'a>(
 /// - `freqs`: Optional precomputed frequencies
 /// - `stream`: Stream to evaluate on
 #[allow(clippy::too_many_arguments)]
-#[generate_macro(customize(root = "$crate::fast"))]
-#[default_device]
-pub fn rope_dynamic_device<'a>(
-    #[named] array: impl AsRef<Array>,
-    #[named] dimensions: i32,
-    #[named] traditional: bool,
-    #[optional] base: impl Into<Option<f32>>,
-    #[named] scale: f32,
-    #[named] offset: impl AsRef<Array>,
-    #[optional] freqs: impl Into<Option<&'a Array>>,
-    #[optional] stream: impl AsRef<Stream>,
+pub fn rope_dynamic<'a>(
+    array: impl AsRef<Array>,
+    dimensions: i32,
+    traditional: bool,
+    base: impl Into<Option<f32>>,
+    scale: f32,
+    offset: impl AsRef<Array>,
+    freqs: impl Into<Option<&'a Array>>,
 ) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let base = base.into();
     let base = mlx_sys::mlx_optional_float {
         value: base.unwrap_or(0.0),
@@ -93,6 +118,28 @@ pub fn rope_dynamic_device<'a>(
                 .unwrap_or(mlx_sys::mlx_array_new()),
             stream.as_ref().as_ptr(),
         )
+    })
+}
+
+/// Compatibility shim for [`rope_dynamic`].
+#[allow(clippy::too_many_arguments)]
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::fast"))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `rope_dynamic`"
+)]
+pub fn rope_dynamic_device<'a>(
+    #[named] array: impl AsRef<Array>,
+    #[named] dimensions: i32,
+    #[named] traditional: bool,
+    #[optional] base: impl Into<Option<f32>>,
+    #[named] scale: f32,
+    #[named] offset: impl AsRef<Array>,
+    #[optional] freqs: impl Into<Option<&'a Array>>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || {
+        rope_dynamic(array, dimensions, traditional, base, scale, offset, freqs)
     })
 }
 
@@ -141,17 +188,15 @@ impl ScaledDotProductAttentionMask<'_> {
 /// > Note: The softmax operation is performed in float32 precision regardless of input precision (float16 or float32).
 ///
 /// > Note: For Grouped Query Attention and Multi-Query Attention, the input arrays for `key` and `value` should not be pre-tiled to match the `query` array.
-#[generate_macro(customize(root = "$crate::fast"))]
-#[default_device]
-pub fn scaled_dot_product_attention_device<'a>(
+pub fn scaled_dot_product_attention<'a>(
     queries: impl AsRef<Array>,
     keys: impl AsRef<Array>,
     values: impl AsRef<Array>,
     scale: f32,
-    #[optional] mask: impl IntoOption<ScaledDotProductAttentionMask<'a>>,
-    #[optional] sinks: impl Into<Option<&'a Array>>,
-    #[optional] stream: impl AsRef<Stream>,
+    mask: impl IntoOption<ScaledDotProductAttentionMask<'a>>,
+    sinks: impl Into<Option<&'a Array>>,
 ) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let (mask_mode, mask_arr) = mask.into_option().map_or_else(
         || (DEFAULT_MASK_MODE, unsafe { mlx_sys::mlx_array_new() }),
         |m| m.as_mode_and_mask(),
@@ -170,8 +215,29 @@ pub fn scaled_dot_product_attention_device<'a>(
                 .into()
                 .map(|a| a.as_ptr())
                 .unwrap_or(mlx_sys::mlx_array_new()),
+            false,
             stream.as_ref().as_ptr(),
         )
+    })
+}
+
+/// Compatibility shim for [`scaled_dot_product_attention`].
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::fast"))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `scaled_dot_product_attention`"
+)]
+pub fn scaled_dot_product_attention_device<'a>(
+    queries: impl AsRef<Array>,
+    keys: impl AsRef<Array>,
+    values: impl AsRef<Array>,
+    scale: f32,
+    #[optional] mask: impl IntoOption<ScaledDotProductAttentionMask<'a>>,
+    #[optional] sinks: impl Into<Option<&'a Array>>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || {
+        scaled_dot_product_attention(queries, keys, values, scale, mask, sinks)
     })
 }
 
@@ -182,26 +248,41 @@ pub fn scaled_dot_product_attention_device<'a>(
 /// # Params
 ///
 /// - x: input array
-/// - weight: A multiplicative weight to scale the result by. The `weight` should be one-dimensional with the same size as the last axis of `x`.
+/// - weight: An optional multiplicative weight. When present, it must be one-dimensional with the
+///   same size as the last axis of `x`. When absent, only normalization is applied.
 /// - eps: A small additive constant for numerical stability
-/// - stream: stream or device to evaluate on
-#[generate_macro(customize(root = "$crate::fast"))]
-#[default_device]
+pub fn rms_norm(x: impl AsRef<Array>, weight: Option<&Array>, eps: f32) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
+    let empty_weight = weight
+        .is_none()
+        .then(|| unsafe { Array::from_ptr(mlx_sys::mlx_array_new()) });
+    let weight = weight
+        .map(Array::as_ptr)
+        .unwrap_or_else(|| empty_weight.as_ref().unwrap().as_ptr());
+    Array::try_from_op(|res| unsafe {
+        mlx_sys::mlx_fast_rms_norm(
+            res,
+            x.as_ref().as_ptr(),
+            weight,
+            eps,
+            stream.as_ref().as_ptr(),
+        )
+    })
+}
+
+/// Compatibility shim for [`rms_norm`].
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::fast"))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `rms_norm`"
+)]
 pub fn rms_norm_device(
     x: impl AsRef<Array>,
     weight: impl AsRef<Array>,
     eps: f32,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    Array::try_from_op(|res| unsafe {
-        mlx_sys::mlx_fast_rms_norm(
-            res,
-            x.as_ref().as_ptr(),
-            weight.as_ref().as_ptr(),
-            eps,
-            stream.as_ref().as_ptr(),
-        )
-    })
+    crate::with_stream(stream.as_ref(), || rms_norm(x, Some(weight.as_ref()), eps))
 }
 
 /// Layer normalization.
@@ -217,15 +298,13 @@ pub fn rms_norm_device(
 ///   with the same size as the last axis of `x`.  It not given no offset will occur.
 /// - eps: A small additive constant for numerical stability
 /// - stream: stream or device to evaluate on
-#[generate_macro(customize(root = "$crate::fast"))]
-#[default_device]
-pub fn layer_norm_device<'a>(
-    #[named] x: impl AsRef<Array>,
-    #[optional] weight: impl Into<Option<&'a Array>>,
-    #[optional] bias: impl Into<Option<&'a Array>>,
-    #[named] eps: f32,
-    #[optional] stream: impl AsRef<Stream>,
+pub fn layer_norm<'a>(
+    x: impl AsRef<Array>,
+    weight: impl Into<Option<&'a Array>>,
+    bias: impl Into<Option<&'a Array>>,
+    eps: f32,
 ) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_fast_layer_norm(
             res,
@@ -241,6 +320,22 @@ pub fn layer_norm_device<'a>(
             stream.as_ref().as_ptr(),
         )
     })
+}
+
+/// Compatibility shim for [`layer_norm`].
+#[generate_macro(customize(forwarding_shim = true, root = "$crate::fast"))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `layer_norm`"
+)]
+pub fn layer_norm_device<'a>(
+    #[named] x: impl AsRef<Array>,
+    #[optional] weight: impl Into<Option<&'a Array>>,
+    #[optional] bias: impl Into<Option<&'a Array>>,
+    #[named] eps: f32,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || layer_norm(x, weight, bias, eps))
 }
 
 #[cfg(test)]
@@ -264,12 +359,12 @@ mod tests {
         assert_eq!(result.shape(), [2, 8, 16]);
         assert_eq!(result.dtype(), crate::Dtype::Float32);
         assert_float_eq!(
-            result.mean(None).unwrap().item::<f32>(),
+            result.mean(None).unwrap().item_exact::<f32>(),
             0.456_253_77,
             abs <= 0.009_125_075
         );
         assert_float_eq!(
-            result.sum(None).unwrap().item::<f32>(),
+            result.sum(None).unwrap().item_exact::<f32>(),
             116.800_964,
             abs <= 2.336_019_3
         );
@@ -296,7 +391,7 @@ mod tests {
 
         // The results should be close
         let diff = &result - &result_int_offset;
-        let max_diff = diff.abs().unwrap().max(None).unwrap().item::<f32>();
+        let max_diff = diff.abs().unwrap().max(None).unwrap().item_exact::<f32>();
         assert!(max_diff < 1e-5, "Max difference was {}", max_diff);
     }
 
@@ -308,19 +403,23 @@ mod tests {
         assert_eq!(a.dtype(), crate::Dtype::Float32);
 
         let weight = Array::ones::<f32>(&[16]).unwrap();
-        let result = rms_norm(a, weight, 1e-5).unwrap();
+        let result = rms_norm(a, Some(&weight), 1e-5).unwrap();
         assert_eq!(result.shape(), [2, 8, 16]);
         assert_eq!(result.dtype(), crate::Dtype::Float32);
         assert_float_eq!(
-            result.mean(None).unwrap().item::<f32>(),
+            result.mean(None).unwrap().item_exact::<f32>(),
             0.872_938_75,
             abs <= 0.017_458_774
         );
         assert_float_eq!(
-            result.sum(None).unwrap().item::<f32>(),
+            result.sum(None).unwrap().item_exact::<f32>(),
             223.472_32,
             abs <= 4.469_446
         );
+
+        let ones = Array::ones::<f32>(&[2, 4]).unwrap();
+        let normalized = rms_norm(&ones, None, 0.0).unwrap();
+        assert_eq!(normalized.as_slice::<f32>(), &[1.0; 8]);
     }
 
     #[test]
@@ -337,12 +436,12 @@ mod tests {
         assert_eq!(result.shape(), [2, 8]);
         assert_eq!(result.dtype(), crate::Dtype::Float32);
         assert_float_eq!(
-            result.mean(None).unwrap().item::<f32>(),
+            result.mean(None).unwrap().item_exact::<f32>(),
             0.290_990_38,
             abs <= 0.005_819_807_8
         );
         assert_float_eq!(
-            result.sum(None).unwrap().item::<f32>(),
+            result.sum(None).unwrap().item_exact::<f32>(),
             4.655_846,
             abs <= 0.093_116_924
         );
@@ -376,6 +475,7 @@ mod tests {
                 let result = scaled_dot_product_attention(q, k, v, scale, None, None).unwrap();
                 assert_eq!(result.shape(), [B, H, seq_len, Dk]);
                 assert_eq!(result.dtype(), dtype);
+                result.eval().unwrap();
             }
         }
     }

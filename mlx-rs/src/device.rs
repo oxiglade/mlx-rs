@@ -123,6 +123,9 @@ mod tests {
     fn test_fmt() {
         let device = Device::default();
         let description = format!("{device}");
+        #[cfg(feature = "metal")]
         assert_eq!(description, "Device(gpu, 0)");
+        #[cfg(not(feature = "metal"))]
+        assert_eq!(description, "Device(cpu, 0)");
     }
 }

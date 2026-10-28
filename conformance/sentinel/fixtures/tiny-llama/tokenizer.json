@@ -1,0 +1,42 @@
+{
+  "version": "1.0",
+  "truncation": null,
+  "padding": null,
+  "added_tokens": [],
+  "normalizer": null,
+  "pre_tokenizer": {
+    "type": "Whitespace"
+  },
+  "post_processor": null,
+  "decoder": null,
+  "model": {
+    "type": "WordLevel",
+    "vocab": {
+      "<unk>": 0,
+      "red": 1,
+      "blue": 2,
+      "green": 3,
+      "yellow": 4,
+      "orange": 5,
+      "purple": 6,
+      "black": 7,
+      "white": 8,
+      "circle": 9,
+      "square": 10,
+      "triangle": 11,
+      "small": 12,
+      "large": 13,
+      "near": 14,
+      "far": 15,
+      "one": 16,
+      "two": 17,
+      "three": 18,
+      "four": 19,
+      "alpha": 20,
+      "beta": 21,
+      "gamma": 22,
+      "delta": 23
+    },
+    "unk_token": "<unk>"
+  }
+}

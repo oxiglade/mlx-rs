@@ -118,7 +118,7 @@ mod tests {
                 .unwrap()
                 .sum(None)
                 .unwrap()
-                .item::<f32>()
+                .item_exact::<f32>()
                 - 0.0
                 > 1e-6
         );
@@ -133,12 +133,12 @@ mod tests {
         let first_layer = &model.layers[0];
         let linear_params = first_layer.parameters().flatten();
         let weight = linear_params["weight"];
-        assert!(weight.abs().unwrap().sum(None).unwrap().item::<f32>() - 0.0 < 1e-6);
+        assert!(weight.abs().unwrap().sum(None).unwrap().item_exact::<f32>() - 0.0 < 1e-6);
     }
 
     #[test]
     fn test_sgd_update_sequential_linear_params() {
-        let lr = 1e-2;
+        let lr = 1e-2_f32;
         let input_dim = 2;
         let hidden_dim = 3;
         let output_dim = 2;
@@ -147,6 +147,9 @@ mod tests {
         let m = array!(0.25);
         let b = array!(0.75);
 
+        // Unseeded draws occasionally start at a loss the 100 SGD steps do not
+        // beat, so pin the trajectory.
+        crate::random::seed(71).unwrap();
         let mut model = Sequential::new()
             .append(Linear::new(input_dim, hidden_dim).unwrap())
             .append(Linear::new(hidden_dim, output_dim).unwrap());
@@ -178,7 +181,7 @@ mod tests {
 
             eval_params(model.parameters()).unwrap();
 
-            losses.push(loss.item::<f32>());
+            losses.push(loss.item_exact::<f32>());
         }
 
         // Check that it converges

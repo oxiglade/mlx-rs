@@ -1,0 +1,28 @@
+{
+  "metadata": {
+    "total_size": 230656
+  },
+  "weight_map": {
+    "lm_head.weight": "model-00001-of-00002.safetensors",
+    "model.embed_tokens.weight": "model-00001-of-00002.safetensors",
+    "model.layers.0.input_layernorm.weight": "model-00001-of-00002.safetensors",
+    "model.layers.0.mlp.down_proj.weight": "model-00001-of-00002.safetensors",
+    "model.layers.0.mlp.gate_proj.weight": "model-00001-of-00002.safetensors",
+    "model.layers.0.mlp.up_proj.weight": "model-00001-of-00002.safetensors",
+    "model.layers.0.post_attention_layernorm.weight": "model-00001-of-00002.safetensors",
+    "model.layers.0.self_attn.k_proj.weight": "model-00001-of-00002.safetensors",
+    "model.layers.0.self_attn.o_proj.weight": "model-00001-of-00002.safetensors",
+    "model.layers.0.self_attn.q_proj.weight": "model-00001-of-00002.safetensors",
+    "model.layers.0.self_attn.v_proj.weight": "model-00002-of-00002.safetensors",
+    "model.layers.1.input_layernorm.weight": "model-00002-of-00002.safetensors",
+    "model.layers.1.mlp.down_proj.weight": "model-00002-of-00002.safetensors",
+    "model.layers.1.mlp.gate_proj.weight": "model-00002-of-00002.safetensors",
+    "model.layers.1.mlp.up_proj.weight": "model-00002-of-00002.safetensors",
+    "model.layers.1.post_attention_layernorm.weight": "model-00002-of-00002.safetensors",
+    "model.layers.1.self_attn.k_proj.weight": "model-00002-of-00002.safetensors",
+    "model.layers.1.self_attn.o_proj.weight": "model-00002-of-00002.safetensors",
+    "model.layers.1.self_attn.q_proj.weight": "model-00002-of-00002.safetensors",
+    "model.layers.1.self_attn.v_proj.weight": "model-00002-of-00002.safetensors",
+    "model.norm.weight": "model-00002-of-00002.safetensors"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "additional_special_tokens": [
+    "<|end_of_text|>",
+    "<|eot_id|>",
+    "<|begin_of_text|>",
+    "<|start_header_id|>",
+    "<|end_header_id|>",
+    "<|im_start|>",
+    "<|im_end|>",
+    "<|endoftext|>",
+    "<think>",
+    "</think>"
+  ],
+  "bos_token": null,
+  "chat_template": "{%- for message in messages %}{{- '<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>\n' }}{%- endfor %}{%- if add_generation_prompt %}{{- '<|im_start|>assistant\n' }}{%- if enable_thinking is defined and enable_thinking is false %}{{- '<think>\n\n</think>\n\n' }}{%- endif %}{%- endif %}",
+  "clean_up_tokenization_spaces": false,
+  "eos_token": "<|endoftext|>",
+  "model_max_length": 128,
+  "pad_token": "<pad>",
+  "tokenizer_class": "PreTrainedTokenizerFast",
+  "unk_token": "<unk>"
+}

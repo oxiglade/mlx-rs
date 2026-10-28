@@ -1,0 +1,427 @@
+{
+  "schema_version": 1,
+  "name": "reductions",
+  "fixture": "fixtures/reductions.safetensors",
+  "cases": [
+    {
+      "id": "reductions.001",
+      "semantic_op": "sum",
+      "recipe": "sum",
+      "rust_call": "ops.sum.axis_optional",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "reductions.001.input.0"
+        },
+        {
+          "name": "axis",
+          "kind": "optional_axis",
+          "value": null
+        },
+        {
+          "name": "keepdims",
+          "kind": "optional_bool",
+          "value": null
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "reductions.001.output.0",
+            "dtype": "F32",
+            "shape": [],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "reductions.002",
+      "semantic_op": "sum",
+      "recipe": "sum",
+      "rust_call": "ops.sum.axis_optional",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "reductions.002.input.0"
+        },
+        {
+          "name": "axis",
+          "kind": "optional_axis",
+          "value": 0
+        },
+        {
+          "name": "keepdims",
+          "kind": "optional_bool",
+          "value": false
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "reductions.002.output.0",
+            "dtype": "I32",
+            "shape": [
+              3
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "reductions.003",
+      "semantic_op": "sum",
+      "recipe": "sum",
+      "rust_call": "ops.sum.axis_optional",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "reductions.003.input.0"
+        },
+        {
+          "name": "axis",
+          "kind": "optional_axis",
+          "value": -1
+        },
+        {
+          "name": "keepdims",
+          "kind": "optional_bool",
+          "value": false
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "reductions.003.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "reductions.004",
+      "semantic_op": "sum_axes",
+      "recipe": "sum_axes",
+      "rust_call": "ops.sum.axes",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "reductions.004.input.0"
+        },
+        {
+          "name": "axes",
+          "kind": "axes",
+          "values": [
+            0,
+            2
+          ]
+        },
+        {
+          "name": "keepdims",
+          "kind": "optional_bool",
+          "value": false
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "reductions.004.output.0",
+            "dtype": "F32",
+            "shape": [
+              3
+            ],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "reductions.005",
+      "semantic_op": "sum_axes",
+      "recipe": "sum_axes",
+      "rust_call": "ops.sum.axes",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "reductions.005.input.0"
+        },
+        {
+          "name": "axes",
+          "kind": "axes",
+          "values": [
+            -1,
+            0
+          ]
+        },
+        {
+          "name": "keepdims",
+          "kind": "optional_bool",
+          "value": true
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "reductions.005.output.0",
+            "dtype": "I64",
+            "shape": [
+              1,
+              3,
+              1
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "reductions.006",
+      "semantic_op": "sum",
+      "recipe": "sum",
+      "rust_call": "array.sum.all_optional",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "reductions.006.input.0"
+        },
+        {
+          "name": "keepdims",
+          "kind": "optional_bool",
+          "value": null
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "reductions.006.output.0",
+            "dtype": "F16",
+            "shape": [],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "reductions.007",
+      "semantic_op": "sum",
+      "recipe": "sum",
+      "rust_call": "array.sum.all_optional",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "reductions.007.input.0"
+        },
+        {
+          "name": "keepdims",
+          "kind": "optional_bool",
+          "value": false
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "reductions.007.output.0",
+            "dtype": "BF16",
+            "shape": [],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "reductions.008",
+      "semantic_op": "sum",
+      "recipe": "sum",
+      "rust_call": "ops.sum.axis_optional",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "reductions.008.input.0"
+        },
+        {
+          "name": "axis",
+          "kind": "optional_axis",
+          "value": 1
+        },
+        {
+          "name": "keepdims",
+          "kind": "optional_bool",
+          "value": true
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "reductions.008.output.0",
+            "dtype": "F32",
+            "shape": [
+              7,
+              1
+            ],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "reductions.009",
+      "semantic_op": "sum",
+      "recipe": "sum",
+      "rust_call": "ops.sum.axis_optional",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "reductions.009.input.0"
+        },
+        {
+          "name": "axis",
+          "kind": "optional_axis",
+          "value": 0
+        },
+        {
+          "name": "keepdims",
+          "kind": "optional_bool",
+          "value": false
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "reductions.009.output.0",
+            "dtype": "F32",
+            "shape": [
+              3
+            ],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "reductions.010",
+      "semantic_op": "sum",
+      "recipe": "sum",
+      "rust_call": "array.sum.all_optional",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "reductions.010.input.0"
+        },
+        {
+          "name": "keepdims",
+          "kind": "optional_bool",
+          "value": true
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "reductions.010.output.0",
+            "dtype": "U32",
+            "shape": [
+              1,
+              1
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    }
+  ]
+}

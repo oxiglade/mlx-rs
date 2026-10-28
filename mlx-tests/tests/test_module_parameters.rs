@@ -2,6 +2,7 @@ use mlx_rs::{
     array,
     macros::ModuleParameters,
     module::{ModuleParameters, Param, Parameter},
+    test_utils::{assert_array_eq, tolerances},
     Array,
 };
 
@@ -61,8 +62,18 @@ fn test_module_parameters() {
 
     let flattened = m.parameters().flatten();
     assert_eq!(flattened.len(), 2);
-    assert_eq!(flattened["a"], &array!(1.0));
-    assert_eq!(flattened["b"], &array!(2.0));
+    assert_array_eq(
+        flattened["a"],
+        &array!(1.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
+    assert_array_eq(
+        flattened["b"],
+        &array!(2.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
 
     let m = StructModule {
         a: Param::new(array!(1.0)),
@@ -72,9 +83,24 @@ fn test_module_parameters() {
 
     let flattened = m.parameters().flatten();
     assert_eq!(flattened.len(), 3);
-    assert_eq!(flattened["a"], &array!(1.0));
-    assert_eq!(flattened["b"], &array!(2.0));
-    assert_eq!(flattened["c"], &array!(3.0));
+    assert_array_eq(
+        flattened["a"],
+        &array!(1.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
+    assert_array_eq(
+        flattened["b"],
+        &array!(2.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
+    assert_array_eq(
+        flattened["c"],
+        &array!(3.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
 }
 
 #[test]
@@ -87,8 +113,18 @@ fn test_module_parameters_mut() {
 
     let flattened = m.parameters_mut().flatten();
     assert_eq!(flattened.len(), 2);
-    assert_eq!(flattened["a"], &mut array!(1.0));
-    assert_eq!(flattened["b"], &mut array!(2.0));
+    assert_array_eq(
+        &**flattened.get("a").unwrap(),
+        &mut array!(1.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
+    assert_array_eq(
+        &**flattened.get("b").unwrap(),
+        &mut array!(2.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
 
     let mut m = StructModule {
         a: Param::new(array!(1.0)),
@@ -98,9 +134,24 @@ fn test_module_parameters_mut() {
 
     let flattened = m.parameters_mut().flatten();
     assert_eq!(flattened.len(), 3);
-    assert_eq!(flattened["a"], &mut array!(1.0));
-    assert_eq!(flattened["b"], &mut array!(2.0));
-    assert_eq!(flattened["c"], &mut array!(3.0));
+    assert_array_eq(
+        &**flattened.get("a").unwrap(),
+        &mut array!(1.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
+    assert_array_eq(
+        &**flattened.get("b").unwrap(),
+        &mut array!(2.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
+    assert_array_eq(
+        &**flattened.get("c").unwrap(),
+        &mut array!(3.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
 }
 
 #[test]
@@ -113,8 +164,18 @@ fn test_module_trainable_parameters_all_trainable() {
 
     let flattened = m.trainable_parameters().flatten();
     assert_eq!(flattened.len(), 2);
-    assert_eq!(flattened["a"], &array!(1.0));
-    assert_eq!(flattened["b"], &array!(2.0));
+    assert_array_eq(
+        flattened["a"],
+        &array!(1.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
+    assert_array_eq(
+        flattened["b"],
+        &array!(2.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
 
     let m = StructModule {
         a: Param::new(array!(1.0)),
@@ -124,9 +185,24 @@ fn test_module_trainable_parameters_all_trainable() {
 
     let flattened = m.trainable_parameters().flatten();
     assert_eq!(flattened.len(), 3);
-    assert_eq!(flattened["a"], &array!(1.0));
-    assert_eq!(flattened["b"], &array!(2.0));
-    assert_eq!(flattened["c"], &array!(3.0));
+    assert_array_eq(
+        flattened["a"],
+        &array!(1.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
+    assert_array_eq(
+        flattened["b"],
+        &array!(2.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
+    assert_array_eq(
+        flattened["c"],
+        &array!(3.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
 }
 
 #[test]
@@ -142,39 +218,84 @@ fn test_module_trainable_parameters_partial_freeze() {
 
     let flattened = m.trainable_parameters().flatten();
     assert_eq!(flattened.len(), 1);
-    assert_eq!(flattened["b"], &array!(2.0));
+    assert_array_eq(
+        flattened["b"],
+        &array!(2.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
 
     // Now freeze the optional parameter
     m.c.freeze(true);
 
     let flattened = m.trainable_parameters().flatten();
     assert_eq!(flattened.len(), 1);
-    assert_eq!(flattened["b"], &array!(2.0));
+    assert_array_eq(
+        flattened["b"],
+        &array!(2.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
 
     // Unfreeze the non-optional parameter
     m.a.unfreeze(true);
 
     let flattened = m.trainable_parameters().flatten();
     assert_eq!(flattened.len(), 2);
-    assert_eq!(flattened["a"], &array!(1.0));
-    assert_eq!(flattened["b"], &array!(2.0));
+    assert_array_eq(
+        flattened["a"],
+        &array!(1.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
+    assert_array_eq(
+        flattened["b"],
+        &array!(2.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
 
     // Set the optional parameter to Some but still frozen
     m.c.value = Some(array!(3.0));
 
     let flattened = m.trainable_parameters().flatten();
     assert_eq!(flattened.len(), 2);
-    assert_eq!(flattened["a"], &array!(1.0));
-    assert_eq!(flattened["b"], &array!(2.0));
+    assert_array_eq(
+        flattened["a"],
+        &array!(1.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
+    assert_array_eq(
+        flattened["b"],
+        &array!(2.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
 
     // Unfreeze the optional parameter
     m.c.unfreeze(true);
 
     let flattened = m.trainable_parameters().flatten();
     assert_eq!(flattened.len(), 3);
-    assert_eq!(flattened["a"], &array!(1.0));
-    assert_eq!(flattened["b"], &array!(2.0));
-    assert_eq!(flattened["c"], &array!(3.0));
+    assert_array_eq(
+        flattened["a"],
+        &array!(1.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
+    assert_array_eq(
+        flattened["b"],
+        &array!(2.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
+    assert_array_eq(
+        flattened["c"],
+        &array!(3.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
 }
 
 #[test]
@@ -267,9 +388,24 @@ fn test_nested_module_parameters() {
 
     let flattened = m.parameters().flatten();
     assert_eq!(flattened.len(), 3);
-    assert_eq!(flattened["a"], &array!(1.0));
-    assert_eq!(flattened["nested.a"], &array!(2.0));
-    assert_eq!(flattened["nested.b"], &array!(3.0));
+    assert_array_eq(
+        flattened["a"],
+        &array!(1.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
+    assert_array_eq(
+        flattened["nested.a"],
+        &array!(2.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
+    assert_array_eq(
+        flattened["nested.b"],
+        &array!(3.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
 }
 
 #[test]
@@ -286,9 +422,24 @@ fn test_nested_module_parameters_mut() {
 
     let flattened = m.parameters_mut().flatten();
     assert_eq!(flattened.len(), 3);
-    assert_eq!(flattened["a"], &mut array!(1.0));
-    assert_eq!(flattened["nested.a"], &mut array!(2.0));
-    assert_eq!(flattened["nested.b"], &mut array!(3.0));
+    assert_array_eq(
+        &**flattened.get("a").unwrap(),
+        &mut array!(1.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
+    assert_array_eq(
+        &**flattened.get("nested.a").unwrap(),
+        &mut array!(2.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
+    assert_array_eq(
+        &**flattened.get("nested.b").unwrap(),
+        &mut array!(3.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
 }
 
 #[test]
@@ -329,7 +480,12 @@ fn test_nested_module_freeze_submodule() {
 
     let flattened = m.trainable_parameters().flatten();
     assert_eq!(flattened.len(), 1);
-    assert_eq!(flattened["a"], &array!(1.0));
+    assert_array_eq(
+        flattened["a"],
+        &array!(1.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
 }
 
 #[test]
@@ -351,9 +507,24 @@ fn test_nested_module_unfreeze_submodule() {
 
     let flattened = m.trainable_parameters().flatten();
     assert_eq!(flattened.len(), 3);
-    assert_eq!(flattened["a"], &array!(1.0));
-    assert_eq!(flattened["nested.a"], &array!(2.0));
-    assert_eq!(flattened["nested.b"], &array!(3.0));
+    assert_array_eq(
+        flattened["a"],
+        &array!(1.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
+    assert_array_eq(
+        flattened["nested.a"],
+        &array!(2.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
+    assert_array_eq(
+        flattened["nested.b"],
+        &array!(3.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
 }
 
 #[test]
@@ -374,7 +545,22 @@ fn test_nested_module_recursive_unfreeze() {
 
     let flattened = m.trainable_parameters().flatten();
     assert_eq!(flattened.len(), 3);
-    assert_eq!(flattened["a"], &array!(1.0));
-    assert_eq!(flattened["nested.a"], &array!(2.0));
-    assert_eq!(flattened["nested.b"], &array!(3.0));
+    assert_array_eq(
+        flattened["a"],
+        &array!(1.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
+    assert_array_eq(
+        flattened["nested.a"],
+        &array!(2.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
+    assert_array_eq(
+        flattened["nested.b"],
+        &array!(3.0),
+        tolerances::EXACT.rtol,
+        tolerances::EXACT.atol,
+    );
 }

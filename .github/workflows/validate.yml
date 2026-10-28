@@ -4,43 +4,17 @@ on:
     branches:
       - main
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-jobs:
-  checks:
-    runs-on: blaze/macos-15
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          submodules: true
-      - run: sudo xcodes select 16.4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          components: rustfmt, clippy
-      - run: cargo --version
-      - run: cargo fmt -- --check
-      - run: cargo clippy -- -D warnings
 
-  tests:
-    runs-on: blaze/${{ matrix.runner }}
-    strategy:
-      matrix:
-        runner: [macos-15]
-        rust: [1.85.0, stable]
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          submodules: true
-      - run: sudo xcodes select 16.4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          cache: false
-          toolchain: ${{ matrix.rust }}
-          rustflags: "" # Disable when we're ready
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ matrix.rust }}-${{ matrix.runner }}-${{ hashFiles('**/Cargo.toml') }}
-      - run: cargo test --all -- --test-threads=1 # MLX is not thread safe
+jobs:
+  validation:
+    uses: ./.github/workflows/bump-admission.yml
+    with:
+      ordinary: true

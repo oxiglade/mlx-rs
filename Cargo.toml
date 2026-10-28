@@ -1,19 +1,17 @@
 [workspace.package]
-# All but mlx-sys should follow the same version. mlx-sys should follow
-# the version of mlx-c.
-version = "0.25.3"
+version = "0.33.0"
 edition = "2021"
 authors = [
     "Minghua Wu <michael.wu1107@gmail.com>",
     "David Chavez <david@dcvz.io>",
 ]
 
-repository = "https://github.com/oxideai/mlx-rs"
+repository = "https://github.com/oxiglade/mlx-rs"
 keywords = ["mlx", "deep-learning", "machine-learning"]
 categories = ["science"]
 license = "MIT OR Apache-2.0"
-documentation = "https://oxideai.github.io/mlx-rs/mlx_rs/"
-rust-version = "1.85.0"
+documentation = "https://oxiglade.github.io/mlx-rs/mlx_rs/"
+rust-version = "1.88.0"
 
 [workspace]
 members = [
@@ -22,21 +20,20 @@ members = [
     "mlx-rs",
     "mlx-internal-macros",
     "mlx-lm",
-    "mlx-lm-utils",
+    "mlx-lm-cli",
     "mlx-tests",
-    "xtask",
 ]
 
+exclude = ["xtask"]
 resolver = "2"
 
 [workspace.dependencies]
 # workspace local dependencies
-mlx-sys = { version = "=0.2.0", path = "mlx-sys" }
-mlx-macros = { version = "0.25", path = "mlx-macros" }
-mlx-internal-macros = { version = "0.25", path = "mlx-internal-macros" }
-mlx-rs = { version = "0.25", path = "mlx-rs" }
-mlx-lm = { version = "0.0.1", path = "mlx-lm" }
-mlx-lm-utils = { version = "0.0.1", path = "mlx-lm-utils" }
+mlx-sys = { version = "=0.7.0", path = "mlx-sys", default-features = false }
+mlx-macros = { version = "0.33", path = "mlx-macros" }
+mlx-internal-macros = { version = "0.33", path = "mlx-internal-macros" }
+mlx-rs = { version = "0.33", path = "mlx-rs", default-features = false }
+mlx-lm = { version = "0.33", path = "mlx-lm" }
 
 # external dependencies
 thiserror = "2"
@@ -50,7 +47,7 @@ num_enum = "0.7"
 num-traits = "0.2"
 paste = "1"
 smallvec = "1"
-strum = { version = "0.27", features = ["derive"] }
+strum = { version = "0.28", features = ["derive"] }
 libc = "0.2"
 parking_lot = "0.12"
 tempfile = "3"
@@ -62,6 +59,6 @@ proc-macro2 = "1"
 bindgen = "0.72.1"
 cmake = "0.1"
 cc = "1"
-safetensors = "0.6"
+safetensors = "0.8"
 bytemuck = "1"
 memmap2 = "0.9"

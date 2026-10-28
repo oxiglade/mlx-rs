@@ -1,0 +1,421 @@
+{
+  "schema_version": 1,
+  "admissions": [
+    {
+      "feature": "contiguous",
+      "canonical_path": "mlx_rs::Array::contiguous",
+      "symbols": {
+        "mlx_contiguous": "mlx_rs::Array::contiguous and mlx_rs::Array::contiguous_with_options"
+      },
+      "evidence": {
+        "conformance": "conformance/suites/shapes.json shapes.015 through shapes.018",
+        "stream": "shapes.018 explicit CPU",
+        "leaks": "mlx-tests/tests/ffi_safety.rs",
+        "guard_malloc": "mlx-tests/tests/ffi_safety.rs",
+        "qualification": "conformance/qualification.json contiguous_value_mangle"
+      }
+    },
+    {
+      "feature": "gguf",
+      "canonical_path": "mlx_rs::io::GgufFile",
+      "evidence": {
+        "conformance": "conformance/suites/gguf.json",
+        "stream": "gguf.018 and gguf.019",
+        "leaks": "mlx-tests/tests/ffi_safety.rs",
+        "guard_malloc": "mlx-tests/tests/ffi_safety.rs",
+        "qualification": "conformance/qualification/gguf-save.json"
+      }
+    },
+    {
+      "feature": "general-math",
+      "canonical_path": "mlx_rs::ops and mlx_rs::linalg",
+      "evidence": {
+        "conformance": "conformance/suites/math.json",
+        "stream": "math.007 explicit CPU, math.078 explicit GPU, and linalg CPU-scoped cases",
+        "leaks": "mlx-tests/tests/ffi_safety.rs",
+        "guard_malloc": "mlx-tests/tests/ffi_safety.rs",
+        "qualification": "conformance/qualification.json"
+      }
+    },
+    {
+      "feature": "metal-library-path",
+      "canonical_path": "mlx_rs::metal",
+      "symbols": {
+        "mlx_metal_get_metallib_path": "mlx_rs::metal::metallib_path",
+        "mlx_metal_set_metallib_path": "mlx_rs::metal::set_metallib_path"
+      },
+      "evidence": {
+        "api": "mlx-rs/src/metal.rs",
+        "distribution": "mlx-sys/build.rs",
+        "test": "mlx-rs/src/metal.rs#metallib_path_roundtrips"
+      },
+      "api_feature_sets": [
+        "default",
+        "safetensors"
+      ]
+    },
+    {
+      "feature": "memory-control",
+      "canonical_path": "mlx_rs::memory",
+      "symbols": {
+        "mlx_clear_cache": "mlx_rs::memory::clear_cache",
+        "mlx_get_active_memory": "mlx_rs::memory::active_memory",
+        "mlx_get_cache_memory": "mlx_rs::memory::cache_memory",
+        "mlx_get_memory_limit": "mlx_rs::memory::memory_limit",
+        "mlx_get_peak_memory": "mlx_rs::memory::peak_memory",
+        "mlx_reset_peak_memory": "mlx_rs::memory::reset_peak_memory",
+        "mlx_set_cache_limit": "mlx_rs::memory::set_cache_limit",
+        "mlx_set_memory_limit": "mlx_rs::memory::set_memory_limit",
+        "mlx_set_wired_limit": "mlx_rs::memory::set_wired_limit"
+      },
+      "evidence": {
+        "api": "mlx-rs/src/memory.rs",
+        "test": "mlx-rs/tests/memory.rs",
+        "leaks": "mlx-tests/tests/ffi_safety.rs",
+        "guard_malloc": "mlx-tests/tests/ffi_safety.rs"
+      }
+    },
+    {
+      "feature": "rms-norm-optional-weight",
+      "canonical_path": "mlx_rs::fast::rms_norm",
+      "symbols": {
+        "mlx_fast_rms_norm": "mlx_rs::fast::rms_norm"
+      },
+      "evidence": {
+        "conformance": "conformance/suites/fast.json",
+        "stream": "fast.005 explicit CPU",
+        "leaks": "mlx-tests/tests/ffi_safety.rs",
+        "guard_malloc": "mlx-tests/tests/ffi_safety.rs",
+        "qualification": "conformance/qualification.json rms_norm_weight_ignored and rms_norm_eps_ignored"
+      }
+    },
+    {
+      "feature": "slice-update",
+      "canonical_path": "mlx_rs::ops::indexing::TryIndexUpdateOp",
+      "symbols": {
+        "mlx_slice_update": "mlx_rs::ops::indexing::TryIndexUpdateOp::try_index_update and mlx_rs::ops::indexing::UpdateMode::Replace"
+      },
+      "evidence": {
+        "conformance": "conformance/suites/indexing.json",
+        "stream": "ambient stream coverage through every static and advanced mode",
+        "leaks": "mlx-tests/tests/ffi_safety.rs",
+        "guard_malloc": "mlx-tests/tests/ffi_safety.rs",
+        "qualification": "conformance/qualification.json"
+      },
+      "deferred_symbols": {
+        "mlx_slice_update_dynamic": "deferred because runtime start arrays provide replacement-only semantics and do not compose with Rust ArrayIndex slice syntax or the five-mode family"
+      }
+    },
+    {
+      "feature": "mlx-lm-oracle-gate",
+      "status": "tranche-1-gate-only",
+      "evidence": {
+        "contract": "conformance/mlx-lm/SCHEMA.md",
+        "qualification": "mlx-lm/tests/parity/mutations.rs",
+        "prototype": "mlx-lm/tests/parity/prototype.rs",
+        "decisions": "mlx-lm/SUPPORT.md",
+        "verification": "cargo test -p mlx-lm --features oracle-hooks --test parity -- --test-threads=1",
+        "fixture_runtime": "mlx-lm/tests/parity.rs: committed_fixture_layout_and_policies and prototype_llama_base_prefill_cache_and_greedy_parity; each prints NOT RUN on stderr when conformance/mlx-lm/fixtures is absent"
+      },
+      "test_path": "mlx-lm/tests/parity.rs"
+    },
+    {
+      "feature": "metal-kernel",
+      "canonical_path": "mlx_rs::fast::MetalKernel",
+      "symbols": {
+        "mlx_fast_metal_kernel_apply": "mlx_rs::fast::MetalKernel::apply",
+        "mlx_fast_metal_kernel_config_add_output_arg": "mlx_rs::fast::MetalKernel::apply",
+        "mlx_fast_metal_kernel_config_add_template_arg_bool": "mlx_rs::fast::MetalKernel::apply",
+        "mlx_fast_metal_kernel_config_add_template_arg_dtype": "mlx_rs::fast::MetalKernel::apply",
+        "mlx_fast_metal_kernel_config_add_template_arg_int": "mlx_rs::fast::MetalKernel::apply",
+        "mlx_fast_metal_kernel_config_free": "mlx_rs::fast::MetalKernel::apply",
+        "mlx_fast_metal_kernel_config_new": "mlx_rs::fast::MetalKernel::apply",
+        "mlx_fast_metal_kernel_config_set_grid": "mlx_rs::fast::MetalKernel::apply",
+        "mlx_fast_metal_kernel_config_set_init_value": "mlx_rs::fast::MetalKernel::apply",
+        "mlx_fast_metal_kernel_config_set_thread_group": "mlx_rs::fast::MetalKernel::apply",
+        "mlx_fast_metal_kernel_config_set_verbose": "mlx_rs::fast::MetalKernel::apply",
+        "mlx_fast_metal_kernel_free": "mlx_rs::fast::MetalKernel",
+        "mlx_fast_metal_kernel_new": "mlx_rs::fast::MetalKernel::new"
+      },
+      "evidence": {
+        "api": "mlx-rs/src/fast.rs",
+        "test": "mlx-rs/src/fast/metal_kernel.rs#test_metal_kernel_template_args_and_shapes (inline expected values from elementwise scale, bias and shape arithmetic; not conformance oracle evidence)",
+        "leaks": "mlx-tests/tests/ffi_safety.rs",
+        "guard_malloc": "mlx-tests/tests/ffi_safety.rs",
+        "stream": "mlx-rs/src/fast/metal_kernel.rs#test_metal_kernel_gpu_fallback_and_scopes",
+        "layout": "mlx-rs/src/fast/metal_kernel.rs#test_metal_kernel_layout_copies_are_opt_in",
+        "deferred_errors": "mlx-rs/src/fast/metal_kernel.rs#test_metal_kernel_errors_are_deferred",
+        "thread": "mlx-tests/tests/ffi_safety.rs: MetalKernel is not Clone, Send or Sync",
+        "safety": "mlx-rs/src/fast/metal_kernel.rs#MetalKernel::apply: caller proves memory safety throughout deferred execution"
+      },
+      "api_feature_sets": [
+        "default",
+        "safetensors"
+      ],
+      "python_path": "mlx.core.fast.metal_kernel",
+      "ownership": "MetalKernel owns one kernel handle; configuration, string-vector and destruction symbols are internal RAII support for this capability."
+    }
+  ],
+  "builds": [
+    {
+      "id": "macos-arm64-cpu-only",
+      "target_triple": "aarch64-apple-darwin",
+      "default_features": false,
+      "features": [
+        "accelerate"
+      ],
+      "verification": [
+        "build",
+        "test"
+      ],
+      "purpose": "CPU-only Accelerate configuration",
+      "required": true,
+      "profile": "debug",
+      "toolchain": "stable",
+      "packages": [
+        "mlx-rs",
+        "mlx-tests"
+      ],
+      "native": {
+        "MLX_BUILD_METAL": "OFF",
+        "MLX_BUILD_ACCELERATE": "ON",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "MLX_METAL_JIT": "OFF"
+      },
+      "allow_empty": [
+        "mlx-tests::doctest::mlx_tests",
+        "mlx-tests::lib::mlx_tests",
+        "mlx-tests::test::ci_leak_calibration",
+        "mlx-tests::test::common",
+        "mlx-tests::test::test_quantizable"
+      ],
+      "resolved_features": {
+        "mlx-rs": [
+          "accelerate"
+        ],
+        "mlx-sys": [
+          "accelerate"
+        ],
+        "mlx-tests": [
+          "accelerate"
+        ]
+      },
+      "checkpoints_required": false
+    },
+    {
+      "id": "macos-arm64-default",
+      "target_triple": "aarch64-apple-darwin",
+      "default_features": true,
+      "features": [
+        "accelerate",
+        "metal",
+        "mlx-lm/oracle-hooks"
+      ],
+      "verification": [
+        "build",
+        "test"
+      ],
+      "purpose": "Default supported macOS arm64 configuration with Accelerate and Metal",
+      "required": true,
+      "profile": "debug",
+      "toolchain": "stable",
+      "packages": [],
+      "native": {
+        "MLX_BUILD_METAL": "ON",
+        "MLX_BUILD_ACCELERATE": "ON",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "MLX_METAL_JIT": "OFF"
+      },
+      "allow_empty": [
+        "mlx-internal-macros::doctest::mlx_internal_macros",
+        "mlx-internal-macros::lib::mlx_internal_macros",
+        "mlx-macros::doctest::mlx_macros",
+        "mlx-macros::lib::mlx_macros",
+        "mlx-sys::doctest::mlx_sys",
+        "mlx-tests::doctest::mlx_tests",
+        "mlx-tests::lib::mlx_tests",
+        "mlx-tests::test::ci_leak_calibration",
+        "mlx-tests::test::common",
+        "mlx-tests::test::test_quantizable"
+      ],
+      "resolved_features": {
+        "mlx-rs": [
+          "accelerate",
+          "default",
+          "metal"
+        ],
+        "mlx-sys": [
+          "accelerate",
+          "default",
+          "metal"
+        ],
+        "mlx-tests": [
+          "accelerate",
+          "default",
+          "metal"
+        ],
+        "mlx-lm": [
+          "default",
+          "oracle-hooks"
+        ]
+      },
+      "checkpoints_required": true
+    },
+    {
+      "id": "macos-arm64-default-msrv",
+      "target_triple": "aarch64-apple-darwin",
+      "default_features": true,
+      "features": [
+        "accelerate",
+        "metal"
+      ],
+      "verification": [
+        "build",
+        "test"
+      ],
+      "purpose": "Default macOS arm64 configuration on the minimum supported Rust version",
+      "required": true,
+      "profile": "debug",
+      "toolchain": "1.88.0",
+      "packages": [],
+      "native": {
+        "MLX_BUILD_METAL": "ON",
+        "MLX_BUILD_ACCELERATE": "ON",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "MLX_METAL_JIT": "OFF"
+      },
+      "allow_empty": [
+        "mlx-internal-macros::doctest::mlx_internal_macros",
+        "mlx-internal-macros::lib::mlx_internal_macros",
+        "mlx-macros::doctest::mlx_macros",
+        "mlx-macros::lib::mlx_macros",
+        "mlx-sys::doctest::mlx_sys",
+        "mlx-tests::doctest::mlx_tests",
+        "mlx-tests::lib::mlx_tests",
+        "mlx-tests::test::ci_leak_calibration",
+        "mlx-tests::test::common",
+        "mlx-tests::test::test_quantizable"
+      ],
+      "resolved_features": {
+        "mlx-rs": [
+          "accelerate",
+          "default",
+          "metal"
+        ],
+        "mlx-sys": [
+          "accelerate",
+          "default",
+          "metal"
+        ],
+        "mlx-tests": [
+          "accelerate",
+          "default",
+          "metal"
+        ]
+      },
+      "checkpoints_required": false
+    },
+    {
+      "id": "macos-arm64-cpu-only-release",
+      "target_triple": "aarch64-apple-darwin",
+      "default_features": false,
+      "features": [
+        "accelerate"
+      ],
+      "verification": [
+        "build",
+        "test"
+      ],
+      "purpose": "CPU-only Accelerate configuration with the release profile",
+      "required": true,
+      "profile": "release",
+      "toolchain": "stable",
+      "packages": [
+        "mlx-rs",
+        "mlx-tests"
+      ],
+      "native": {
+        "MLX_BUILD_METAL": "OFF",
+        "MLX_BUILD_ACCELERATE": "ON",
+        "CMAKE_BUILD_TYPE": "Release",
+        "MLX_METAL_JIT": "OFF"
+      },
+      "allow_empty": [
+        "mlx-tests::doctest::mlx_tests",
+        "mlx-tests::lib::mlx_tests",
+        "mlx-tests::test::ci_leak_calibration",
+        "mlx-tests::test::common",
+        "mlx-tests::test::test_quantizable"
+      ],
+      "resolved_features": {
+        "mlx-rs": [
+          "accelerate"
+        ],
+        "mlx-sys": [
+          "accelerate"
+        ],
+        "mlx-tests": [
+          "accelerate"
+        ]
+      },
+      "checkpoints_required": false
+    },
+    {
+      "id": "macos-arm64-metal-jit",
+      "target_triple": "aarch64-apple-darwin",
+      "default_features": true,
+      "features": [
+        "accelerate",
+        "metal",
+        "metal-jit"
+      ],
+      "verification": [
+        "build",
+        "test"
+      ],
+      "purpose": "Default macOS arm64 configuration with Metal JIT compilation",
+      "required": true,
+      "profile": "debug",
+      "toolchain": "stable",
+      "packages": [],
+      "native": {
+        "MLX_BUILD_METAL": "ON",
+        "MLX_BUILD_ACCELERATE": "ON",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "MLX_METAL_JIT": "ON"
+      },
+      "allow_empty": [
+        "mlx-internal-macros::doctest::mlx_internal_macros",
+        "mlx-internal-macros::lib::mlx_internal_macros",
+        "mlx-macros::doctest::mlx_macros",
+        "mlx-macros::lib::mlx_macros",
+        "mlx-sys::doctest::mlx_sys",
+        "mlx-tests::doctest::mlx_tests",
+        "mlx-tests::lib::mlx_tests",
+        "mlx-tests::test::ci_leak_calibration",
+        "mlx-tests::test::common",
+        "mlx-tests::test::test_quantizable"
+      ],
+      "resolved_features": {
+        "mlx-rs": [
+          "accelerate",
+          "default",
+          "metal",
+          "metal-jit"
+        ],
+        "mlx-sys": [
+          "accelerate",
+          "default",
+          "metal",
+          "metal-jit"
+        ],
+        "mlx-tests": [
+          "accelerate",
+          "default",
+          "metal"
+        ]
+      },
+      "checkpoints_required": false
+    }
+  ]
+}

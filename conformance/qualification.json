@@ -1,0 +1,281 @@
+{
+  "schema_version": 1,
+  "mutations": [
+    {
+      "id": "dtype_changed_values_equal",
+      "base_case_id": "arithmetic.001",
+      "kind": "dtype_changed_values_equal",
+      "expected_class": "dtype"
+    },
+    {
+      "id": "shape_changed_same_count",
+      "base_case_id": "arithmetic.001",
+      "kind": "shape_changed_same_count",
+      "expected_class": "shape"
+    },
+    {
+      "id": "output_removed",
+      "base_case_id": "arithmetic.011",
+      "kind": "output_removed",
+      "expected_class": "output_count"
+    },
+    {
+      "id": "output_added",
+      "base_case_id": "arithmetic.001",
+      "kind": "output_added",
+      "expected_class": "output_count"
+    },
+    {
+      "id": "output_reordered",
+      "base_case_id": "arithmetic.011",
+      "kind": "output_reordered",
+      "expected_class": "output_order"
+    },
+    {
+      "id": "beyond_absolute",
+      "base_case_id": "arithmetic.001",
+      "kind": "beyond_absolute",
+      "expected_class": "value_absolute"
+    },
+    {
+      "id": "beyond_relative",
+      "base_case_id": "arithmetic.001",
+      "kind": "beyond_relative",
+      "expected_class": "value_relative"
+    },
+    {
+      "id": "nan_vs_finite",
+      "base_case_id": "arithmetic.019",
+      "kind": "nan_vs_finite",
+      "expected_class": "nan"
+    },
+    {
+      "id": "positive_inf_vs_negative_inf",
+      "base_case_id": "arithmetic.019",
+      "kind": "positive_inf_vs_negative_inf",
+      "expected_class": "infinity_sign"
+    },
+    {
+      "id": "swapped_subtraction",
+      "base_case_id": "arithmetic.004",
+      "kind": "swapped_subtraction",
+      "expected_class": "value"
+    },
+    {
+      "id": "wrong_axis",
+      "base_case_id": "reductions.003",
+      "kind": "wrong_axis",
+      "expected_class": "shape"
+    },
+    {
+      "id": "error_to_valid",
+      "base_case_id": "errors.001",
+      "kind": "error_to_valid",
+      "expected_class": "expected_error"
+    },
+    {
+      "id": "f16_decoder",
+      "base_case_id": "dtypes.010",
+      "kind": "f16_decoder",
+      "expected_class": "decoder_f16"
+    },
+    {
+      "id": "bf16_decoder",
+      "base_case_id": "dtypes.011",
+      "kind": "bf16_decoder",
+      "expected_class": "decoder_bf16"
+    },
+    {
+      "id": "empty_tensor",
+      "base_case_id": "arithmetic.021",
+      "kind": "empty_tensor",
+      "expected_class": "empty"
+    },
+    {
+      "id": "endianness",
+      "base_case_id": "dtypes.008",
+      "kind": "endianness",
+      "expected_class": "endianness"
+    },
+    {
+      "id": "count_nonzero_drop_keepdims",
+      "base_case_id": "math.004",
+      "kind": "count_nonzero_drop_keepdims",
+      "expected_class": "shape"
+    },
+    {
+      "id": "count_nonzero_axis_selection",
+      "base_case_id": "math.004",
+      "kind": "count_nonzero_axis_selection",
+      "expected_class": "shape"
+    },
+    {
+      "id": "linspace_endpoint",
+      "base_case_id": "math.036",
+      "kind": "linspace_endpoint",
+      "expected_class": "value"
+    },
+    {
+      "id": "search_sorted_side",
+      "base_case_id": "math.054",
+      "kind": "search_sorted_side",
+      "expected_class": "value"
+    },
+    {
+      "id": "logcumsumexp_reverse",
+      "base_case_id": "math.047",
+      "kind": "logcumsumexp_reverse",
+      "expected_class": "value"
+    },
+    {
+      "id": "logcumsumexp_inclusive",
+      "base_case_id": "math.044",
+      "kind": "logcumsumexp_inclusive",
+      "expected_class": "infinity_sign"
+    },
+    {
+      "id": "logcumsumexp_naive",
+      "base_case_id": "math.044",
+      "kind": "logcumsumexp_naive",
+      "expected_class": "infinity_sign"
+    },
+    {
+      "id": "vecdot_without_conjugation",
+      "base_case_id": "math.077",
+      "kind": "vecdot_without_conjugation",
+      "expected_class": "value"
+    },
+    {
+      "id": "trace_ignore_dtype",
+      "base_case_id": "math.066",
+      "kind": "trace_ignore_dtype",
+      "expected_class": "dtype"
+    },
+    {
+      "id": "slogdet_reverse_outputs",
+      "base_case_id": "math.027",
+      "kind": "slogdet_reverse_outputs",
+      "expected_class": "value"
+    },
+    {
+      "id": "unstack_drop_output",
+      "base_case_id": "math.071",
+      "kind": "unstack_drop_output",
+      "expected_class": "output_count"
+    },
+    {
+      "id": "unstack_reorder_outputs",
+      "base_case_id": "math.071",
+      "kind": "unstack_reorder_outputs",
+      "expected_class": "value"
+    },
+    {
+      "id": "index_update_mode_substitution",
+      "base_case_id": "indexing.002",
+      "kind": "index_update_mode_substitution",
+      "expected_class": "value"
+    },
+    {
+      "id": "index_update_stride_reversal",
+      "base_case_id": "indexing.007",
+      "kind": "index_update_stride_reversal",
+      "expected_class": "value"
+    },
+    {
+      "id": "index_update_force_scatter",
+      "base_case_id": "indexing.002",
+      "kind": "index_update_force_scatter",
+      "expected_class": "value"
+    },
+    {
+      "id": "index_update_force_slice",
+      "base_case_id": "indexing.012",
+      "kind": "index_update_force_slice",
+      "expected_class": "value"
+    },
+    {
+      "id": "contiguous_value_mangle",
+      "base_case_id": "shapes.015",
+      "kind": "contiguous_value_mangle",
+      "expected_class": "signed_zero"
+    },
+    {
+      "id": "rms_norm_weight_ignored",
+      "base_case_id": "fast.002",
+      "kind": "rms_norm_weight_ignored",
+      "expected_class": "value"
+    },
+    {
+      "id": "rms_norm_eps_ignored",
+      "base_case_id": "fast.002",
+      "kind": "rms_norm_eps_ignored",
+      "expected_class": "value"
+    },
+    {
+      "id": "gguf_array_dtype_changed_values_equal",
+      "base_case_id": "gguf.001",
+      "kind": "gguf_array_dtype_changed_values_equal",
+      "expected_class": "dtype"
+    },
+    {
+      "id": "gguf_array_beyond_tolerance",
+      "base_case_id": "gguf.001",
+      "kind": "gguf_array_beyond_tolerance",
+      "expected_class": "value_relative"
+    },
+    {
+      "id": "gguf_array_key_removed",
+      "base_case_id": "gguf.001",
+      "kind": "gguf_array_key_removed",
+      "expected_class": "array_keys"
+    },
+    {
+      "id": "gguf_metadata_kind_swapped",
+      "base_case_id": "gguf.002",
+      "kind": "gguf_metadata_kind_swapped",
+      "expected_class": "metadata_kind"
+    },
+    {
+      "id": "gguf_metadata_entry_missing",
+      "base_case_id": "gguf.002",
+      "kind": "gguf_metadata_entry_missing",
+      "expected_class": "metadata_missing"
+    },
+    {
+      "id": "gguf_error_variant_mismatch",
+      "base_case_id": "gguf.006",
+      "kind": "gguf_error_variant_mismatch",
+      "expected_class": "error_variant"
+    },
+    {
+      "id": "gguf_wrong_kind_fields_009",
+      "base_case_id": "gguf.009",
+      "kind": "gguf_wrong_kind_fields",
+      "expected_class": "wrong_kind_fields"
+    },
+    {
+      "id": "gguf_wrong_kind_fields_010",
+      "base_case_id": "gguf.010",
+      "kind": "gguf_wrong_kind_fields",
+      "expected_class": "wrong_kind_fields"
+    },
+    {
+      "id": "gguf_wrong_kind_fields_011",
+      "base_case_id": "gguf.011",
+      "kind": "gguf_wrong_kind_fields",
+      "expected_class": "wrong_kind_fields"
+    },
+    {
+      "id": "gguf_dequantized_observation_dropped",
+      "base_case_id": "gguf.012",
+      "kind": "gguf_dequantized_observation_dropped",
+      "expected_class": "dequantized_missing"
+    },
+    {
+      "id": "gguf_dequantized_beyond_tolerance",
+      "base_case_id": "gguf.012",
+      "kind": "gguf_dequantized_beyond_tolerance",
+      "expected_class": "value_relative"
+    }
+  ]
+}

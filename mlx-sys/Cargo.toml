@@ -1,6 +1,6 @@
 [package]
 name = "mlx-sys"
-version = "0.2.0" # mlx-sys version should follow that of mlx-c
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
 
@@ -10,6 +10,8 @@ keywords.workspace = true
 categories.workspace = true
 license.workspace = true
 readme = "README.md"
+# Exposes build-script metadata to dependents as DEP_MLX_* (see README.md).
+links = "mlx"
 
 [package.metadata.docs.rs]
 targets = [
@@ -23,6 +25,7 @@ default = ["accelerate", "metal"]
 
 accelerate = []
 metal = []
+metal-jit = ["metal"]
 
 [dependencies]
 

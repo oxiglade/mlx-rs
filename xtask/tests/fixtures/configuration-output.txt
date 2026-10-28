@@ -1,0 +1,124 @@
+     Running unittests src/lib.rs (/target/host/debug/deps/mlx_internal_macros-97a35fc340cb0c83)
+running 0 tests
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/forwarding_macro.rs (/target/debug/deps/forwarding_macro-326499662cc01f63)
+running 3 tests
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/lib.rs (/target/debug/deps/mlx_lm-8027723bb920ffc2)
+running 159 tests
+test result: ok. 159 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 119.39s
+     Running tests/generation_ffi.rs (/target/debug/deps/generation_ffi-6fe845d3c76c3c47)
+running 1 test
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 50.96s
+     Running tests/real_checkpoints.rs (/target/debug/deps/real_checkpoints-144ded3620680bf0)
+running 7 tests
+test real_checkpoints ... NOT RUN: local real-checkpoint manifest not supplied
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+     Running unittests src/main.rs (/target/debug/deps/mlx_lm-5ddec05bfe491a68)
+running 16 tests
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/process.rs (/target/debug/deps/process-6ca994fe07e20521)
+running 11 tests
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.23s
+     Running unittests src/lib.rs (/target/host/debug/deps/mlx_macros-07613ce65792e799)
+running 0 tests
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/lib.rs (/target/debug/deps/mlx_rs-a00c00c8c3cd4003)
+running 629 tests
+test result: ok. 629 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.79s
+     Running tests/memory.rs (/target/debug/deps/memory-04698b1d37b9f1f9)
+running 1 test
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+     Running unittests src/lib.rs (/target/debug/deps/mlx_sys-271abbdb715ff539)
+running 92 tests
+test result: ok. 92 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/lib.rs (/target/debug/deps/mlx_tests-c67ab5866282fa04)
+running 0 tests
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/bump_tuple.rs (/target/debug/deps/bump_tuple-41c8a7a563bc7a9d)
+running 2 tests
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+     Running tests/ci_leak_calibration.rs (/target/debug/deps/ci_leak_calibration-a2185b566d4bed47)
+running 1 test
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/common.rs (/target/debug/deps/common-9f4ac279714c9757)
+running 0 tests
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/conformance.rs (/target/debug/deps/conformance-087ce8262e4d7594)
+running 3 tests
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+     Running tests/ffi_safety.rs (/target/debug/deps/ffi_safety-d33473af0a0d0ed5)
+running 22 tests
+test result: ok. 21 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 2.14s
+     Running tests/gguf.rs (/target/debug/deps/gguf-4bd5f61ad24c9d7f)
+running 2 tests
+test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.13s
+     Running tests/padded_buffer.rs (/target/debug/deps/padded_buffer-6d11e10c05392fc5)
+running 2 tests
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+     Running tests/state_compile.rs (/target/debug/deps/state_compile-6281d29dae5a90b9)
+running 15 tests
+running 1 test
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.34s
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.12s
+     Running tests/state_optimizers.rs (/target/debug/deps/state_optimizers-043ac2ad9ab573d4)
+running 24 tests
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.74s
+     Running tests/state_transforms.rs (/target/debug/deps/state_transforms-1866de148efa2880)
+running 6 tests
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+     Running tests/stream_admission.rs (/target/debug/deps/stream_admission-fe35536d82f3741a)
+running 6 tests
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+     Running tests/test_compile_with_state.rs (/target/debug/deps/test_compile_with_state-dd45aaac812bd399)
+running 12 tests
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.51s
+     Running tests/test_disable_compile.rs (/target/debug/deps/test_disable_compile-8226227845df937b)
+running 1 test
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+     Running tests/test_exported_macros.rs (/target/debug/deps/test_exported_macros-b340d7ba99703a06)
+running 10 tests
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+     Running tests/test_generate_builder.rs (/target/debug/deps/test_generate_builder-c3a3e1a1b713a2aa)
+running 1 test
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/test_generate_macro.rs (/target/debug/deps/test_generate_macro-2bb17e3265273e89)
+running 3 tests
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+     Running tests/test_internal_macros.rs (/target/debug/deps/test_internal_macros-66e373846d448c90)
+running 1 test
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/test_module.rs (/target/debug/deps/test_module-f0444f75d706d4fb)
+running 1 test
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+     Running tests/test_module_parameters.rs (/target/debug/deps/test_module_parameters-974a17e4be717e65)
+running 18 tests
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+     Running tests/test_optimizers.rs (/target/debug/deps/test_optimizers-76ce876e8d1e6618)
+running 12 tests
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+     Running tests/test_quantizable.rs (/target/debug/deps/test_quantizable-7ef87b4ff17b003d)
+running 0 tests
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/main.rs (/target/debug/deps/xtask-98e130569e0fb80a)
+running 117 tests
+test result: ok. 1 passed; 0 failed
+test result: ok. 117 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.13s
+   Doc-tests mlx_internal_macros
+running 2 tests
+test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+   Doc-tests mlx_lm
+running 1 test
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+   Doc-tests mlx_macros
+running 1 test
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+   Doc-tests mlx_rs
+running 188 tests
+test result: ok. 141 passed; 0 failed; 47 ignored; 0 measured; 0 filtered out; finished in 157.89s
+   Doc-tests mlx_sys
+running 0 tests
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+   Doc-tests mlx_tests
+running 0 tests
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

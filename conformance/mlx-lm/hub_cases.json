@@ -1,0 +1,3040 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "client_constructions": 1,
+        "error": null,
+        "provenance": {
+          "repo": "contract/tiny-llama",
+          "requested_revision": "main",
+          "resolved_revision": "0123456789abcdef0123456789abcdef01234567"
+        },
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [
+            "model.safetensors.index.json"
+          ],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model.safetensors",
+              "sha256": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+              "size": 232752
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+              "size": 4561
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "single"
+        },
+        "recorded_absences": [
+          "model.safetensors.index.json"
+        ],
+        "selected_files": [
+          "config.json",
+          "generation_config.json",
+          "model.safetensors",
+          "tokenizer.json",
+          "tokenizer_config.json"
+        ],
+        "transport_calls": [
+          {
+            "operation": "info",
+            "repo": "contract/tiny-llama",
+            "revision": "main"
+          },
+          {
+            "commit": "0123456789abcdef0123456789abcdef01234567",
+            "filename": "config.json",
+            "operation": "download",
+            "repo": "contract/tiny-llama"
+          },
+          {
+            "commit": "0123456789abcdef0123456789abcdef01234567",
+            "filename": "generation_config.json",
+            "operation": "download",
+            "repo": "contract/tiny-llama"
+          },
+          {
+            "commit": "0123456789abcdef0123456789abcdef01234567",
+            "filename": "model.safetensors",
+            "operation": "download",
+            "repo": "contract/tiny-llama"
+          },
+          {
+            "commit": "0123456789abcdef0123456789abcdef01234567",
+            "filename": "tokenizer.json",
+            "operation": "download",
+            "repo": "contract/tiny-llama"
+          },
+          {
+            "commit": "0123456789abcdef0123456789abcdef01234567",
+            "filename": "tokenizer_config.json",
+            "operation": "download",
+            "repo": "contract/tiny-llama"
+          }
+        ]
+      },
+      "fixture": "llama-base",
+      "name": "online_single_snapshot",
+      "recorded_absences": [
+        "model.safetensors.index.json"
+      ],
+      "request": {
+        "offline": false,
+        "repo": "contract/tiny-llama",
+        "revision": "main"
+      },
+      "returned_commit": "0123456789abcdef0123456789abcdef01234567",
+      "selected_files": [
+        "config.json",
+        "generation_config.json",
+        "model.safetensors",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ],
+      "setup": {
+        "file_layout": "same_repository_blob_links",
+        "mutations": [],
+        "receipt": null,
+        "refs": {
+          "main": "0123456789abcdef0123456789abcdef01234567"
+        }
+      },
+      "siblings": [
+        "README.md",
+        "chat_template.jinja",
+        "config.json",
+        "custom.py",
+        "generation_config.json",
+        "model.safetensors",
+        "pytorch_model.bin",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ]
+    },
+    {
+      "expected": {
+        "client_constructions": 1,
+        "error": null,
+        "provenance": {
+          "repo": "contract/tiny-llama",
+          "requested_revision": "main",
+          "resolved_revision": "0123456789abcdef0123456789abcdef01234567"
+        },
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model-00001-of-00002.safetensors",
+              "sha256": "cce38cfb33c5e94c4cb1db997a5f39e0e43c4ab26ada0895ad58a8456327ebb6",
+              "size": 124376
+            },
+            {
+              "path": "model-00002-of-00002.safetensors",
+              "sha256": "51abf485e7841ed34fe5b2372ee30d58acbdd542a662a7bda6070d4c283cfac7",
+              "size": 108360
+            },
+            {
+              "path": "model.safetensors.index.json",
+              "sha256": "cf5619c08e82fd693d65b7f51b8f867fb6ba44c055f5f9abdccd13fd4eb1ccd6",
+              "size": 1727
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "d3f6e27c58186b601192ffef2c870af3877a3ec271c53468a3368977e07f75ba",
+              "size": 3777
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "indexed"
+        },
+        "recorded_absences": [],
+        "selected_files": [
+          "config.json",
+          "generation_config.json",
+          "model-00001-of-00002.safetensors",
+          "model-00002-of-00002.safetensors",
+          "model.safetensors.index.json",
+          "tokenizer.json",
+          "tokenizer_config.json"
+        ],
+        "transport_calls": [
+          {
+            "operation": "info",
+            "repo": "contract/tiny-llama",
+            "revision": "main"
+          },
+          {
+            "commit": "0123456789abcdef0123456789abcdef01234567",
+            "filename": "model.safetensors.index.json",
+            "operation": "download",
+            "repo": "contract/tiny-llama"
+          },
+          {
+            "commit": "0123456789abcdef0123456789abcdef01234567",
+            "filename": "config.json",
+            "operation": "download",
+            "repo": "contract/tiny-llama"
+          },
+          {
+            "commit": "0123456789abcdef0123456789abcdef01234567",
+            "filename": "generation_config.json",
+            "operation": "download",
+            "repo": "contract/tiny-llama"
+          },
+          {
+            "commit": "0123456789abcdef0123456789abcdef01234567",
+            "filename": "model-00001-of-00002.safetensors",
+            "operation": "download",
+            "repo": "contract/tiny-llama"
+          },
+          {
+            "commit": "0123456789abcdef0123456789abcdef01234567",
+            "filename": "model-00002-of-00002.safetensors",
+            "operation": "download",
+            "repo": "contract/tiny-llama"
+          },
+          {
+            "commit": "0123456789abcdef0123456789abcdef01234567",
+            "filename": "tokenizer.json",
+            "operation": "download",
+            "repo": "contract/tiny-llama"
+          },
+          {
+            "commit": "0123456789abcdef0123456789abcdef01234567",
+            "filename": "tokenizer_config.json",
+            "operation": "download",
+            "repo": "contract/tiny-llama"
+          }
+        ]
+      },
+      "fixture": "llama-sharded",
+      "name": "online_indexed_snapshot",
+      "recorded_absences": [],
+      "request": {
+        "offline": false,
+        "repo": "contract/tiny-llama",
+        "revision": "main"
+      },
+      "returned_commit": "0123456789abcdef0123456789abcdef01234567",
+      "selected_files": [
+        "config.json",
+        "generation_config.json",
+        "model-00001-of-00002.safetensors",
+        "model-00002-of-00002.safetensors",
+        "model.safetensors.index.json",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ],
+      "setup": {
+        "file_layout": "same_repository_blob_links",
+        "mutations": [],
+        "receipt": null,
+        "refs": {
+          "main": "0123456789abcdef0123456789abcdef01234567"
+        }
+      },
+      "siblings": [
+        "README.md",
+        "chat_template.jinja",
+        "config.json",
+        "custom.py",
+        "generation_config.json",
+        "model-00001-of-00002.safetensors",
+        "model-00002-of-00002.safetensors",
+        "model.safetensors.index.json",
+        "pytorch_model.bin",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ]
+    },
+    {
+      "expected": {
+        "client_constructions": 1,
+        "error": null,
+        "provenance": {
+          "repo": "contract/tiny-llama",
+          "requested_revision": "main",
+          "resolved_revision": "0123456789abcdef0123456789abcdef01234567"
+        },
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [
+            "model.safetensors.index.json"
+          ],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model.safetensors",
+              "sha256": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+              "size": 232752
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+              "size": 4561
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "single"
+        },
+        "recorded_absences": [
+          "model.safetensors.index.json"
+        ],
+        "selected_files": [
+          "config.json",
+          "generation_config.json",
+          "model.safetensors",
+          "tokenizer.json",
+          "tokenizer_config.json"
+        ],
+        "transport_calls": [
+          {
+            "operation": "info",
+            "repo": "contract/tiny-llama",
+            "revision": "main"
+          },
+          {
+            "commit": "0123456789abcdef0123456789abcdef01234567",
+            "filename": "config.json",
+            "operation": "download",
+            "repo": "contract/tiny-llama"
+          },
+          {
+            "commit": "0123456789abcdef0123456789abcdef01234567",
+            "filename": "generation_config.json",
+            "operation": "download",
+            "repo": "contract/tiny-llama"
+          },
+          {
+            "commit": "0123456789abcdef0123456789abcdef01234567",
+            "filename": "model.safetensors",
+            "operation": "download",
+            "repo": "contract/tiny-llama"
+          },
+          {
+            "commit": "0123456789abcdef0123456789abcdef01234567",
+            "filename": "tokenizer.json",
+            "operation": "download",
+            "repo": "contract/tiny-llama"
+          },
+          {
+            "commit": "0123456789abcdef0123456789abcdef01234567",
+            "filename": "tokenizer_config.json",
+            "operation": "download",
+            "repo": "contract/tiny-llama"
+          }
+        ]
+      },
+      "fixture": "llama-base",
+      "name": "moving_ref_pinned_after_info",
+      "recorded_absences": [
+        "model.safetensors.index.json"
+      ],
+      "request": {
+        "offline": false,
+        "repo": "contract/tiny-llama",
+        "revision": "main"
+      },
+      "returned_commit": "0123456789abcdef0123456789abcdef01234567",
+      "selected_files": [
+        "config.json",
+        "generation_config.json",
+        "model.safetensors",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ],
+      "setup": {
+        "file_layout": "same_repository_blob_links",
+        "mutations": [
+          {
+            "at": "after_info",
+            "commit": "89abcdef0123456789abcdef0123456789abcdef",
+            "operation": "move_ref"
+          }
+        ],
+        "receipt": null,
+        "refs": {
+          "main": "0123456789abcdef0123456789abcdef01234567"
+        }
+      },
+      "siblings": [
+        "README.md",
+        "chat_template.jinja",
+        "config.json",
+        "custom.py",
+        "generation_config.json",
+        "model.safetensors",
+        "pytorch_model.bin",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ]
+    },
+    {
+      "expected": {
+        "client_constructions": 1,
+        "error": {
+          "fields": {
+            "actual": "89abcdef0123456789abcdef0123456789abcdef",
+            "expected": "0123456789abcdef0123456789abcdef01234567"
+          },
+          "variant": "HubError::RevisionMismatch"
+        },
+        "provenance": null,
+        "receipt": null,
+        "recorded_absences": [
+          "model.safetensors.index.json"
+        ],
+        "selected_files": [
+          "config.json",
+          "generation_config.json",
+          "model.safetensors",
+          "tokenizer.json",
+          "tokenizer_config.json"
+        ],
+        "transport_calls": [
+          {
+            "operation": "info",
+            "repo": "contract/tiny-llama",
+            "revision": "main"
+          },
+          {
+            "commit": "0123456789abcdef0123456789abcdef01234567",
+            "filename": "config.json",
+            "operation": "download",
+            "repo": "contract/tiny-llama"
+          }
+        ]
+      },
+      "fixture": "llama-base",
+      "name": "server_returns_different_commit",
+      "recorded_absences": [
+        "model.safetensors.index.json"
+      ],
+      "request": {
+        "offline": false,
+        "repo": "contract/tiny-llama",
+        "revision": "main"
+      },
+      "returned_commit": "0123456789abcdef0123456789abcdef01234567",
+      "selected_files": [
+        "config.json",
+        "generation_config.json",
+        "model.safetensors",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ],
+      "setup": {
+        "file_layout": "same_repository_blob_links",
+        "mutations": [
+          {
+            "at": "download:config.json",
+            "commit": "89abcdef0123456789abcdef0123456789abcdef",
+            "operation": "return_commit"
+          }
+        ],
+        "receipt": null,
+        "refs": {
+          "main": "0123456789abcdef0123456789abcdef01234567"
+        }
+      },
+      "siblings": [
+        "README.md",
+        "chat_template.jinja",
+        "config.json",
+        "custom.py",
+        "generation_config.json",
+        "model.safetensors",
+        "pytorch_model.bin",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ]
+    },
+    {
+      "expected": {
+        "client_constructions": 1,
+        "error": {
+          "fields": {
+            "actual": "89abcdef0123456789abcdef0123456789abcdef",
+            "expected": "0123456789abcdef0123456789abcdef01234567"
+          },
+          "variant": "HubError::RevisionMismatch"
+        },
+        "provenance": null,
+        "receipt": null,
+        "recorded_absences": [
+          "model.safetensors.index.json"
+        ],
+        "selected_files": [
+          "config.json",
+          "generation_config.json",
+          "model.safetensors",
+          "tokenizer.json",
+          "tokenizer_config.json"
+        ],
+        "transport_calls": [
+          {
+            "operation": "info",
+            "repo": "contract/tiny-llama",
+            "revision": "0123456789abcdef0123456789abcdef01234567"
+          }
+        ]
+      },
+      "fixture": "llama-base",
+      "name": "requested_sha_not_honored",
+      "recorded_absences": [
+        "model.safetensors.index.json"
+      ],
+      "request": {
+        "offline": false,
+        "repo": "contract/tiny-llama",
+        "revision": "0123456789abcdef0123456789abcdef01234567"
+      },
+      "returned_commit": "89abcdef0123456789abcdef0123456789abcdef",
+      "selected_files": [
+        "config.json",
+        "generation_config.json",
+        "model.safetensors",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ],
+      "setup": {
+        "file_layout": "same_repository_blob_links",
+        "mutations": [],
+        "receipt": null,
+        "refs": {}
+      },
+      "siblings": [
+        "README.md",
+        "chat_template.jinja",
+        "config.json",
+        "custom.py",
+        "generation_config.json",
+        "model.safetensors",
+        "pytorch_model.bin",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ]
+    },
+    {
+      "expected": {
+        "client_constructions": 0,
+        "error": {
+          "fields": {
+            "path": "snapshot/model-00002-of-00002.safetensors"
+          },
+          "variant": "HubError::UnsafePath"
+        },
+        "provenance": null,
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model-00001-of-00002.safetensors",
+              "sha256": "cce38cfb33c5e94c4cb1db997a5f39e0e43c4ab26ada0895ad58a8456327ebb6",
+              "size": 124376
+            },
+            {
+              "path": "model-00002-of-00002.safetensors",
+              "sha256": "51abf485e7841ed34fe5b2372ee30d58acbdd542a662a7bda6070d4c283cfac7",
+              "size": 108360
+            },
+            {
+              "path": "model.safetensors.index.json",
+              "sha256": "cf5619c08e82fd693d65b7f51b8f867fb6ba44c055f5f9abdccd13fd4eb1ccd6",
+              "size": 1727
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "d3f6e27c58186b601192ffef2c870af3877a3ec271c53468a3368977e07f75ba",
+              "size": 3777
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "indexed"
+        },
+        "recorded_absences": [],
+        "selected_files": [
+          "config.json",
+          "generation_config.json",
+          "model-00001-of-00002.safetensors",
+          "model-00002-of-00002.safetensors",
+          "model.safetensors.index.json",
+          "tokenizer.json",
+          "tokenizer_config.json"
+        ],
+        "transport_calls": []
+      },
+      "fixture": "llama-sharded",
+      "name": "wrong_repository_blob",
+      "recorded_absences": [],
+      "request": {
+        "offline": true,
+        "repo": "contract/tiny-llama",
+        "revision": "main"
+      },
+      "returned_commit": "0123456789abcdef0123456789abcdef01234567",
+      "selected_files": [
+        "config.json",
+        "generation_config.json",
+        "model-00001-of-00002.safetensors",
+        "model-00002-of-00002.safetensors",
+        "model.safetensors.index.json",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ],
+      "setup": {
+        "file_layout": "same_repository_blob_links",
+        "mutations": [
+          {
+            "at": "before_validation",
+            "operation": "link_other_repository_blob",
+            "path": "model-00002-of-00002.safetensors"
+          }
+        ],
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model-00001-of-00002.safetensors",
+              "sha256": "cce38cfb33c5e94c4cb1db997a5f39e0e43c4ab26ada0895ad58a8456327ebb6",
+              "size": 124376
+            },
+            {
+              "path": "model-00002-of-00002.safetensors",
+              "sha256": "51abf485e7841ed34fe5b2372ee30d58acbdd542a662a7bda6070d4c283cfac7",
+              "size": 108360
+            },
+            {
+              "path": "model.safetensors.index.json",
+              "sha256": "cf5619c08e82fd693d65b7f51b8f867fb6ba44c055f5f9abdccd13fd4eb1ccd6",
+              "size": 1727
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "d3f6e27c58186b601192ffef2c870af3877a3ec271c53468a3368977e07f75ba",
+              "size": 3777
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "indexed"
+        },
+        "refs": {
+          "main": "0123456789abcdef0123456789abcdef01234567"
+        }
+      },
+      "siblings": [
+        "README.md",
+        "chat_template.jinja",
+        "config.json",
+        "custom.py",
+        "generation_config.json",
+        "model-00001-of-00002.safetensors",
+        "model-00002-of-00002.safetensors",
+        "model.safetensors.index.json",
+        "pytorch_model.bin",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ]
+    },
+    {
+      "expected": {
+        "client_constructions": 0,
+        "error": {
+          "fields": {
+            "path": "snapshot/model-00002-of-00002.safetensors"
+          },
+          "variant": "HubError::UnsafePath"
+        },
+        "provenance": null,
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model-00001-of-00002.safetensors",
+              "sha256": "cce38cfb33c5e94c4cb1db997a5f39e0e43c4ab26ada0895ad58a8456327ebb6",
+              "size": 124376
+            },
+            {
+              "path": "model-00002-of-00002.safetensors",
+              "sha256": "51abf485e7841ed34fe5b2372ee30d58acbdd542a662a7bda6070d4c283cfac7",
+              "size": 108360
+            },
+            {
+              "path": "model.safetensors.index.json",
+              "sha256": "cf5619c08e82fd693d65b7f51b8f867fb6ba44c055f5f9abdccd13fd4eb1ccd6",
+              "size": 1727
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "d3f6e27c58186b601192ffef2c870af3877a3ec271c53468a3368977e07f75ba",
+              "size": 3777
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "indexed"
+        },
+        "recorded_absences": [],
+        "selected_files": [
+          "config.json",
+          "generation_config.json",
+          "model-00001-of-00002.safetensors",
+          "model-00002-of-00002.safetensors",
+          "model.safetensors.index.json",
+          "tokenizer.json",
+          "tokenizer_config.json"
+        ],
+        "transport_calls": []
+      },
+      "fixture": "llama-sharded",
+      "name": "snapshot_directory_escape",
+      "recorded_absences": [],
+      "request": {
+        "offline": true,
+        "repo": "contract/tiny-llama",
+        "revision": "main"
+      },
+      "returned_commit": "0123456789abcdef0123456789abcdef01234567",
+      "selected_files": [
+        "config.json",
+        "generation_config.json",
+        "model-00001-of-00002.safetensors",
+        "model-00002-of-00002.safetensors",
+        "model.safetensors.index.json",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ],
+      "setup": {
+        "file_layout": "same_repository_blob_links",
+        "mutations": [
+          {
+            "at": "before_validation",
+            "operation": "link_snapshot_directory_outside_cache",
+            "path": "model-00002-of-00002.safetensors"
+          }
+        ],
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model-00001-of-00002.safetensors",
+              "sha256": "cce38cfb33c5e94c4cb1db997a5f39e0e43c4ab26ada0895ad58a8456327ebb6",
+              "size": 124376
+            },
+            {
+              "path": "model-00002-of-00002.safetensors",
+              "sha256": "51abf485e7841ed34fe5b2372ee30d58acbdd542a662a7bda6070d4c283cfac7",
+              "size": 108360
+            },
+            {
+              "path": "model.safetensors.index.json",
+              "sha256": "cf5619c08e82fd693d65b7f51b8f867fb6ba44c055f5f9abdccd13fd4eb1ccd6",
+              "size": 1727
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "d3f6e27c58186b601192ffef2c870af3877a3ec271c53468a3368977e07f75ba",
+              "size": 3777
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "indexed"
+        },
+        "refs": {
+          "main": "0123456789abcdef0123456789abcdef01234567"
+        }
+      },
+      "siblings": [
+        "README.md",
+        "chat_template.jinja",
+        "config.json",
+        "custom.py",
+        "generation_config.json",
+        "model-00001-of-00002.safetensors",
+        "model-00002-of-00002.safetensors",
+        "model.safetensors.index.json",
+        "pytorch_model.bin",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ]
+    },
+    {
+      "expected": {
+        "client_constructions": 0,
+        "error": {
+          "fields": {
+            "path": "snapshot/model-00002-of-00002.safetensors"
+          },
+          "variant": "HubError::UnsafePath"
+        },
+        "provenance": null,
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model-00001-of-00002.safetensors",
+              "sha256": "cce38cfb33c5e94c4cb1db997a5f39e0e43c4ab26ada0895ad58a8456327ebb6",
+              "size": 124376
+            },
+            {
+              "path": "model-00002-of-00002.safetensors",
+              "sha256": "51abf485e7841ed34fe5b2372ee30d58acbdd542a662a7bda6070d4c283cfac7",
+              "size": 108360
+            },
+            {
+              "path": "model.safetensors.index.json",
+              "sha256": "cf5619c08e82fd693d65b7f51b8f867fb6ba44c055f5f9abdccd13fd4eb1ccd6",
+              "size": 1727
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "d3f6e27c58186b601192ffef2c870af3877a3ec271c53468a3368977e07f75ba",
+              "size": 3777
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "indexed"
+        },
+        "recorded_absences": [],
+        "selected_files": [
+          "config.json",
+          "generation_config.json",
+          "model-00001-of-00002.safetensors",
+          "model-00002-of-00002.safetensors",
+          "model.safetensors.index.json",
+          "tokenizer.json",
+          "tokenizer_config.json"
+        ],
+        "transport_calls": []
+      },
+      "fixture": "llama-sharded",
+      "name": "wrong_snapshot_file",
+      "recorded_absences": [],
+      "request": {
+        "offline": true,
+        "repo": "contract/tiny-llama",
+        "revision": "main"
+      },
+      "returned_commit": "0123456789abcdef0123456789abcdef01234567",
+      "selected_files": [
+        "config.json",
+        "generation_config.json",
+        "model-00001-of-00002.safetensors",
+        "model-00002-of-00002.safetensors",
+        "model.safetensors.index.json",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ],
+      "setup": {
+        "file_layout": "same_repository_blob_links",
+        "mutations": [
+          {
+            "at": "before_validation",
+            "operation": "link_other_snapshot_file",
+            "path": "model-00002-of-00002.safetensors"
+          }
+        ],
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model-00001-of-00002.safetensors",
+              "sha256": "cce38cfb33c5e94c4cb1db997a5f39e0e43c4ab26ada0895ad58a8456327ebb6",
+              "size": 124376
+            },
+            {
+              "path": "model-00002-of-00002.safetensors",
+              "sha256": "51abf485e7841ed34fe5b2372ee30d58acbdd542a662a7bda6070d4c283cfac7",
+              "size": 108360
+            },
+            {
+              "path": "model.safetensors.index.json",
+              "sha256": "cf5619c08e82fd693d65b7f51b8f867fb6ba44c055f5f9abdccd13fd4eb1ccd6",
+              "size": 1727
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "d3f6e27c58186b601192ffef2c870af3877a3ec271c53468a3368977e07f75ba",
+              "size": 3777
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "indexed"
+        },
+        "refs": {
+          "main": "0123456789abcdef0123456789abcdef01234567"
+        }
+      },
+      "siblings": [
+        "README.md",
+        "chat_template.jinja",
+        "config.json",
+        "custom.py",
+        "generation_config.json",
+        "model-00001-of-00002.safetensors",
+        "model-00002-of-00002.safetensors",
+        "model.safetensors.index.json",
+        "pytorch_model.bin",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ]
+    },
+    {
+      "expected": {
+        "client_constructions": 0,
+        "error": {
+          "fields": {
+            "filename": "model-00002-of-00002.safetensors",
+            "repo": "contract/tiny-llama",
+            "revision": "0123456789abcdef0123456789abcdef01234567"
+          },
+          "variant": "HubError::MissingFile"
+        },
+        "provenance": null,
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model-00001-of-00002.safetensors",
+              "sha256": "cce38cfb33c5e94c4cb1db997a5f39e0e43c4ab26ada0895ad58a8456327ebb6",
+              "size": 124376
+            },
+            {
+              "path": "model-00002-of-00002.safetensors",
+              "sha256": "51abf485e7841ed34fe5b2372ee30d58acbdd542a662a7bda6070d4c283cfac7",
+              "size": 108360
+            },
+            {
+              "path": "model.safetensors.index.json",
+              "sha256": "cf5619c08e82fd693d65b7f51b8f867fb6ba44c055f5f9abdccd13fd4eb1ccd6",
+              "size": 1727
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "d3f6e27c58186b601192ffef2c870af3877a3ec271c53468a3368977e07f75ba",
+              "size": 3777
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "indexed"
+        },
+        "recorded_absences": [],
+        "selected_files": [
+          "config.json",
+          "generation_config.json",
+          "model-00001-of-00002.safetensors",
+          "model-00002-of-00002.safetensors",
+          "model.safetensors.index.json",
+          "tokenizer.json",
+          "tokenizer_config.json"
+        ],
+        "transport_calls": []
+      },
+      "fixture": "llama-sharded",
+      "name": "missing_shard_link",
+      "recorded_absences": [],
+      "request": {
+        "offline": true,
+        "repo": "contract/tiny-llama",
+        "revision": "main"
+      },
+      "returned_commit": "0123456789abcdef0123456789abcdef01234567",
+      "selected_files": [
+        "config.json",
+        "generation_config.json",
+        "model-00001-of-00002.safetensors",
+        "model-00002-of-00002.safetensors",
+        "model.safetensors.index.json",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ],
+      "setup": {
+        "file_layout": "same_repository_blob_links",
+        "mutations": [
+          {
+            "at": "before_validation",
+            "operation": "remove_file",
+            "path": "model-00002-of-00002.safetensors"
+          }
+        ],
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model-00001-of-00002.safetensors",
+              "sha256": "cce38cfb33c5e94c4cb1db997a5f39e0e43c4ab26ada0895ad58a8456327ebb6",
+              "size": 124376
+            },
+            {
+              "path": "model-00002-of-00002.safetensors",
+              "sha256": "51abf485e7841ed34fe5b2372ee30d58acbdd542a662a7bda6070d4c283cfac7",
+              "size": 108360
+            },
+            {
+              "path": "model.safetensors.index.json",
+              "sha256": "cf5619c08e82fd693d65b7f51b8f867fb6ba44c055f5f9abdccd13fd4eb1ccd6",
+              "size": 1727
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "d3f6e27c58186b601192ffef2c870af3877a3ec271c53468a3368977e07f75ba",
+              "size": 3777
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "indexed"
+        },
+        "refs": {
+          "main": "0123456789abcdef0123456789abcdef01234567"
+        }
+      },
+      "siblings": [
+        "README.md",
+        "chat_template.jinja",
+        "config.json",
+        "custom.py",
+        "generation_config.json",
+        "model-00001-of-00002.safetensors",
+        "model-00002-of-00002.safetensors",
+        "model.safetensors.index.json",
+        "pytorch_model.bin",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ]
+    },
+    {
+      "expected": {
+        "client_constructions": 0,
+        "error": {
+          "fields": {
+            "path": "snapshot/model-00002-of-00002.safetensors"
+          },
+          "variant": "HubError::SnapshotIntegrity"
+        },
+        "provenance": null,
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model-00001-of-00002.safetensors",
+              "sha256": "cce38cfb33c5e94c4cb1db997a5f39e0e43c4ab26ada0895ad58a8456327ebb6",
+              "size": 124376
+            },
+            {
+              "path": "model-00002-of-00002.safetensors",
+              "sha256": "51abf485e7841ed34fe5b2372ee30d58acbdd542a662a7bda6070d4c283cfac7",
+              "size": 108360
+            },
+            {
+              "path": "model.safetensors.index.json",
+              "sha256": "cf5619c08e82fd693d65b7f51b8f867fb6ba44c055f5f9abdccd13fd4eb1ccd6",
+              "size": 1727
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "d3f6e27c58186b601192ffef2c870af3877a3ec271c53468a3368977e07f75ba",
+              "size": 3777
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "indexed"
+        },
+        "recorded_absences": [],
+        "selected_files": [
+          "config.json",
+          "generation_config.json",
+          "model-00001-of-00002.safetensors",
+          "model-00002-of-00002.safetensors",
+          "model.safetensors.index.json",
+          "tokenizer.json",
+          "tokenizer_config.json"
+        ],
+        "transport_calls": []
+      },
+      "fixture": "llama-sharded",
+      "name": "broken_shard_link",
+      "recorded_absences": [],
+      "request": {
+        "offline": true,
+        "repo": "contract/tiny-llama",
+        "revision": "main"
+      },
+      "returned_commit": "0123456789abcdef0123456789abcdef01234567",
+      "selected_files": [
+        "config.json",
+        "generation_config.json",
+        "model-00001-of-00002.safetensors",
+        "model-00002-of-00002.safetensors",
+        "model.safetensors.index.json",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ],
+      "setup": {
+        "file_layout": "same_repository_blob_links",
+        "mutations": [
+          {
+            "at": "before_validation",
+            "operation": "break_blob_link",
+            "path": "model-00002-of-00002.safetensors"
+          }
+        ],
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model-00001-of-00002.safetensors",
+              "sha256": "cce38cfb33c5e94c4cb1db997a5f39e0e43c4ab26ada0895ad58a8456327ebb6",
+              "size": 124376
+            },
+            {
+              "path": "model-00002-of-00002.safetensors",
+              "sha256": "51abf485e7841ed34fe5b2372ee30d58acbdd542a662a7bda6070d4c283cfac7",
+              "size": 108360
+            },
+            {
+              "path": "model.safetensors.index.json",
+              "sha256": "cf5619c08e82fd693d65b7f51b8f867fb6ba44c055f5f9abdccd13fd4eb1ccd6",
+              "size": 1727
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "d3f6e27c58186b601192ffef2c870af3877a3ec271c53468a3368977e07f75ba",
+              "size": 3777
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "indexed"
+        },
+        "refs": {
+          "main": "0123456789abcdef0123456789abcdef01234567"
+        }
+      },
+      "siblings": [
+        "README.md",
+        "chat_template.jinja",
+        "config.json",
+        "custom.py",
+        "generation_config.json",
+        "model-00001-of-00002.safetensors",
+        "model-00002-of-00002.safetensors",
+        "model.safetensors.index.json",
+        "pytorch_model.bin",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ]
+    },
+    {
+      "expected": {
+        "client_constructions": 1,
+        "error": {
+          "fields": {
+            "key": "x",
+            "shard": "b.safetensors"
+          },
+          "variant": "HubError::Load::Weights::ConflictingIndex"
+        },
+        "provenance": null,
+        "receipt": null,
+        "recorded_absences": [],
+        "selected_files": [
+          "model.safetensors.index.json"
+        ],
+        "transport_calls": [
+          {
+            "operation": "info",
+            "repo": "contract/tiny-llama",
+            "revision": "main"
+          },
+          {
+            "commit": "0123456789abcdef0123456789abcdef01234567",
+            "filename": "model.safetensors.index.json",
+            "operation": "download",
+            "repo": "contract/tiny-llama"
+          }
+        ]
+      },
+      "fixture": "llama-sharded",
+      "name": "duplicate_index_entry",
+      "recorded_absences": [],
+      "request": {
+        "offline": false,
+        "repo": "contract/tiny-llama",
+        "revision": "main"
+      },
+      "returned_commit": "0123456789abcdef0123456789abcdef01234567",
+      "selected_files": [
+        "model.safetensors.index.json"
+      ],
+      "setup": {
+        "file_layout": "same_repository_blob_links",
+        "mutations": [
+          {
+            "at": "download:model.safetensors.index.json",
+            "operation": "replace_bytes",
+            "utf8": "{\"weight_map\":{\"x\":\"a.safetensors\",\"x\":\"b.safetensors\"}}"
+          }
+        ],
+        "receipt": null,
+        "refs": {
+          "main": "0123456789abcdef0123456789abcdef01234567"
+        }
+      },
+      "siblings": [
+        "README.md",
+        "chat_template.jinja",
+        "config.json",
+        "custom.py",
+        "generation_config.json",
+        "model-00001-of-00002.safetensors",
+        "model-00002-of-00002.safetensors",
+        "model.safetensors.index.json",
+        "pytorch_model.bin",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ]
+    },
+    {
+      "expected": {
+        "client_constructions": 1,
+        "error": {
+          "fields": {
+            "key": "x",
+            "shard": "../escape.safetensors"
+          },
+          "variant": "HubError::Load::Weights::ConflictingIndex"
+        },
+        "provenance": null,
+        "receipt": null,
+        "recorded_absences": [],
+        "selected_files": [
+          "model.safetensors.index.json"
+        ],
+        "transport_calls": [
+          {
+            "operation": "info",
+            "repo": "contract/tiny-llama",
+            "revision": "main"
+          },
+          {
+            "commit": "0123456789abcdef0123456789abcdef01234567",
+            "filename": "model.safetensors.index.json",
+            "operation": "download",
+            "repo": "contract/tiny-llama"
+          }
+        ]
+      },
+      "fixture": "llama-sharded",
+      "name": "traversing_index_entry",
+      "recorded_absences": [],
+      "request": {
+        "offline": false,
+        "repo": "contract/tiny-llama",
+        "revision": "main"
+      },
+      "returned_commit": "0123456789abcdef0123456789abcdef01234567",
+      "selected_files": [
+        "model.safetensors.index.json"
+      ],
+      "setup": {
+        "file_layout": "same_repository_blob_links",
+        "mutations": [
+          {
+            "at": "download:model.safetensors.index.json",
+            "operation": "replace_bytes",
+            "utf8": "{\"weight_map\":{\"x\":\"../escape.safetensors\"}}"
+          }
+        ],
+        "receipt": null,
+        "refs": {
+          "main": "0123456789abcdef0123456789abcdef01234567"
+        }
+      },
+      "siblings": [
+        "README.md",
+        "chat_template.jinja",
+        "config.json",
+        "custom.py",
+        "generation_config.json",
+        "model-00001-of-00002.safetensors",
+        "model-00002-of-00002.safetensors",
+        "model.safetensors.index.json",
+        "pytorch_model.bin",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ]
+    },
+    {
+      "expected": {
+        "client_constructions": 0,
+        "error": {
+          "fields": {
+            "path": "snapshot/generation_config.json"
+          },
+          "variant": "HubError::SnapshotIntegrity"
+        },
+        "provenance": null,
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [
+            "generation_config.json",
+            "model.safetensors.index.json",
+            "tokenizer_config.json"
+          ],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "model.safetensors",
+              "sha256": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+              "size": 232752
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+              "size": 4561
+            }
+          ],
+          "weight_mode": "single"
+        },
+        "recorded_absences": [
+          "generation_config.json",
+          "model.safetensors.index.json",
+          "tokenizer_config.json"
+        ],
+        "selected_files": [
+          "config.json",
+          "model.safetensors",
+          "tokenizer.json"
+        ],
+        "transport_calls": []
+      },
+      "fixture": "llama-base",
+      "name": "recorded_absence_appears_generation_config.json",
+      "recorded_absences": [
+        "generation_config.json",
+        "model.safetensors.index.json",
+        "tokenizer_config.json"
+      ],
+      "request": {
+        "offline": true,
+        "repo": "contract/tiny-llama",
+        "revision": "main"
+      },
+      "returned_commit": "0123456789abcdef0123456789abcdef01234567",
+      "selected_files": [
+        "config.json",
+        "model.safetensors",
+        "tokenizer.json"
+      ],
+      "setup": {
+        "file_layout": "same_repository_blob_links",
+        "mutations": [
+          {
+            "at": "before_validation",
+            "fixture": "llama-base",
+            "operation": "copy_fixture_file",
+            "path": "generation_config.json"
+          }
+        ],
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [
+            "generation_config.json",
+            "model.safetensors.index.json",
+            "tokenizer_config.json"
+          ],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "model.safetensors",
+              "sha256": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+              "size": 232752
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+              "size": 4561
+            }
+          ],
+          "weight_mode": "single"
+        },
+        "refs": {
+          "main": "0123456789abcdef0123456789abcdef01234567"
+        }
+      },
+      "siblings": [
+        "README.md",
+        "chat_template.jinja",
+        "config.json",
+        "custom.py",
+        "model.safetensors",
+        "pytorch_model.bin",
+        "tokenizer.json"
+      ]
+    },
+    {
+      "expected": {
+        "client_constructions": 0,
+        "error": {
+          "fields": {
+            "path": "snapshot/tokenizer_config.json"
+          },
+          "variant": "HubError::SnapshotIntegrity"
+        },
+        "provenance": null,
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [
+            "generation_config.json",
+            "model.safetensors.index.json",
+            "tokenizer_config.json"
+          ],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "model.safetensors",
+              "sha256": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+              "size": 232752
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+              "size": 4561
+            }
+          ],
+          "weight_mode": "single"
+        },
+        "recorded_absences": [
+          "generation_config.json",
+          "model.safetensors.index.json",
+          "tokenizer_config.json"
+        ],
+        "selected_files": [
+          "config.json",
+          "model.safetensors",
+          "tokenizer.json"
+        ],
+        "transport_calls": []
+      },
+      "fixture": "llama-base",
+      "name": "recorded_absence_appears_tokenizer_config.json",
+      "recorded_absences": [
+        "generation_config.json",
+        "model.safetensors.index.json",
+        "tokenizer_config.json"
+      ],
+      "request": {
+        "offline": true,
+        "repo": "contract/tiny-llama",
+        "revision": "main"
+      },
+      "returned_commit": "0123456789abcdef0123456789abcdef01234567",
+      "selected_files": [
+        "config.json",
+        "model.safetensors",
+        "tokenizer.json"
+      ],
+      "setup": {
+        "file_layout": "same_repository_blob_links",
+        "mutations": [
+          {
+            "at": "before_validation",
+            "fixture": "llama-base",
+            "operation": "copy_fixture_file",
+            "path": "tokenizer_config.json"
+          }
+        ],
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [
+            "generation_config.json",
+            "model.safetensors.index.json",
+            "tokenizer_config.json"
+          ],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "model.safetensors",
+              "sha256": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+              "size": 232752
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+              "size": 4561
+            }
+          ],
+          "weight_mode": "single"
+        },
+        "refs": {
+          "main": "0123456789abcdef0123456789abcdef01234567"
+        }
+      },
+      "siblings": [
+        "README.md",
+        "chat_template.jinja",
+        "config.json",
+        "custom.py",
+        "model.safetensors",
+        "pytorch_model.bin",
+        "tokenizer.json"
+      ]
+    },
+    {
+      "expected": {
+        "client_constructions": 0,
+        "error": {
+          "fields": {
+            "path": "snapshot/model.safetensors.index.json"
+          },
+          "variant": "HubError::SnapshotIntegrity"
+        },
+        "provenance": null,
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [
+            "generation_config.json",
+            "model.safetensors.index.json",
+            "tokenizer_config.json"
+          ],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "model.safetensors",
+              "sha256": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+              "size": 232752
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+              "size": 4561
+            }
+          ],
+          "weight_mode": "single"
+        },
+        "recorded_absences": [
+          "generation_config.json",
+          "model.safetensors.index.json",
+          "tokenizer_config.json"
+        ],
+        "selected_files": [
+          "config.json",
+          "model.safetensors",
+          "tokenizer.json"
+        ],
+        "transport_calls": []
+      },
+      "fixture": "llama-base",
+      "name": "recorded_absence_appears_model.safetensors.index.json",
+      "recorded_absences": [
+        "generation_config.json",
+        "model.safetensors.index.json",
+        "tokenizer_config.json"
+      ],
+      "request": {
+        "offline": true,
+        "repo": "contract/tiny-llama",
+        "revision": "main"
+      },
+      "returned_commit": "0123456789abcdef0123456789abcdef01234567",
+      "selected_files": [
+        "config.json",
+        "model.safetensors",
+        "tokenizer.json"
+      ],
+      "setup": {
+        "file_layout": "same_repository_blob_links",
+        "mutations": [
+          {
+            "at": "before_validation",
+            "fixture": "llama-sharded",
+            "operation": "copy_fixture_file",
+            "path": "model.safetensors.index.json"
+          }
+        ],
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [
+            "generation_config.json",
+            "model.safetensors.index.json",
+            "tokenizer_config.json"
+          ],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "model.safetensors",
+              "sha256": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+              "size": 232752
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+              "size": 4561
+            }
+          ],
+          "weight_mode": "single"
+        },
+        "refs": {
+          "main": "0123456789abcdef0123456789abcdef01234567"
+        }
+      },
+      "siblings": [
+        "README.md",
+        "chat_template.jinja",
+        "config.json",
+        "custom.py",
+        "model.safetensors",
+        "pytorch_model.bin",
+        "tokenizer.json"
+      ]
+    },
+    {
+      "expected": {
+        "client_constructions": 0,
+        "error": null,
+        "provenance": {
+          "repo": "contract/tiny-llama",
+          "requested_revision": "main",
+          "resolved_revision": "0123456789abcdef0123456789abcdef01234567"
+        },
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [
+            "model.safetensors.index.json"
+          ],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model.safetensors",
+              "sha256": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+              "size": 232752
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+              "size": 4561
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "single"
+        },
+        "recorded_absences": [
+          "model.safetensors.index.json"
+        ],
+        "selected_files": [
+          "config.json",
+          "generation_config.json",
+          "model.safetensors",
+          "tokenizer.json",
+          "tokenizer_config.json"
+        ],
+        "transport_calls": []
+      },
+      "fixture": "llama-base",
+      "name": "hash_changed",
+      "note": "Receipts record hashes at download time only, so a same-size content change is not detected offline; see size_changed for the detection the receipt does provide.",
+      "recorded_absences": [
+        "model.safetensors.index.json"
+      ],
+      "request": {
+        "offline": true,
+        "repo": "contract/tiny-llama",
+        "revision": "main"
+      },
+      "returned_commit": "0123456789abcdef0123456789abcdef01234567",
+      "selected_files": [
+        "config.json",
+        "generation_config.json",
+        "model.safetensors",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ],
+      "setup": {
+        "file_layout": "same_repository_blob_links",
+        "mutations": [
+          {
+            "at": "before_validation",
+            "offset": 128,
+            "operation": "flip_byte",
+            "path": "model.safetensors"
+          }
+        ],
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [
+            "model.safetensors.index.json"
+          ],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model.safetensors",
+              "sha256": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+              "size": 232752
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+              "size": 4561
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "single"
+        },
+        "refs": {
+          "main": "0123456789abcdef0123456789abcdef01234567"
+        }
+      },
+      "siblings": [
+        "README.md",
+        "chat_template.jinja",
+        "config.json",
+        "custom.py",
+        "generation_config.json",
+        "model.safetensors",
+        "pytorch_model.bin",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ]
+    },
+    {
+      "expected": {
+        "client_constructions": 0,
+        "error": {
+          "fields": {
+            "path": "snapshot/model.safetensors"
+          },
+          "variant": "HubError::SnapshotIntegrity"
+        },
+        "provenance": null,
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [
+            "model.safetensors.index.json"
+          ],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model.safetensors",
+              "sha256": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+              "size": 232752
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+              "size": 4561
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "single"
+        },
+        "recorded_absences": [
+          "model.safetensors.index.json"
+        ],
+        "selected_files": [
+          "config.json",
+          "generation_config.json",
+          "model.safetensors",
+          "tokenizer.json",
+          "tokenizer_config.json"
+        ],
+        "transport_calls": []
+      },
+      "fixture": "llama-base",
+      "name": "size_changed",
+      "note": "Recorded size differs, which validation checks without reading contents.",
+      "recorded_absences": [
+        "model.safetensors.index.json"
+      ],
+      "request": {
+        "offline": true,
+        "repo": "contract/tiny-llama",
+        "revision": "main"
+      },
+      "returned_commit": "0123456789abcdef0123456789abcdef01234567",
+      "selected_files": [
+        "config.json",
+        "generation_config.json",
+        "model.safetensors",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ],
+      "setup": {
+        "file_layout": "same_repository_blob_links",
+        "mutations": [
+          {
+            "at": "before_validation",
+            "operation": "truncate",
+            "path": "model.safetensors",
+            "size": 1024
+          }
+        ],
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [
+            "model.safetensors.index.json"
+          ],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model.safetensors",
+              "sha256": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+              "size": 232752
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+              "size": 4561
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "single"
+        },
+        "refs": {
+          "main": "0123456789abcdef0123456789abcdef01234567"
+        }
+      },
+      "siblings": [
+        "README.md",
+        "chat_template.jinja",
+        "config.json",
+        "custom.py",
+        "generation_config.json",
+        "model.safetensors",
+        "pytorch_model.bin",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ]
+    },
+    {
+      "expected": {
+        "client_constructions": 0,
+        "error": {
+          "fields": {
+            "repo": "contract/tiny-llama",
+            "revision": "main"
+          },
+          "variant": "HubError::OfflineCacheMiss"
+        },
+        "provenance": null,
+        "receipt": null,
+        "recorded_absences": [
+          "model.safetensors.index.json"
+        ],
+        "selected_files": [
+          "config.json",
+          "generation_config.json",
+          "model.safetensors",
+          "tokenizer.json",
+          "tokenizer_config.json"
+        ],
+        "transport_calls": []
+      },
+      "fixture": "llama-base",
+      "name": "unreceipted_cache",
+      "note": "An offline miss writes nothing; the cache stays unreceipted.",
+      "recorded_absences": [
+        "model.safetensors.index.json"
+      ],
+      "request": {
+        "offline": true,
+        "repo": "contract/tiny-llama",
+        "revision": "main"
+      },
+      "returned_commit": "0123456789abcdef0123456789abcdef01234567",
+      "selected_files": [
+        "config.json",
+        "generation_config.json",
+        "model.safetensors",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ],
+      "setup": {
+        "file_layout": "same_repository_blob_links",
+        "mutations": [],
+        "receipt": null,
+        "refs": {
+          "main": "0123456789abcdef0123456789abcdef01234567"
+        }
+      },
+      "siblings": [
+        "README.md",
+        "chat_template.jinja",
+        "config.json",
+        "custom.py",
+        "generation_config.json",
+        "model.safetensors",
+        "pytorch_model.bin",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ]
+    },
+    {
+      "expected": {
+        "client_constructions": 0,
+        "error": null,
+        "provenance": {
+          "repo": "contract/tiny-llama",
+          "requested_revision": "0123456789abcdef0123456789abcdef01234567",
+          "resolved_revision": "0123456789abcdef0123456789abcdef01234567"
+        },
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [
+            "model.safetensors.index.json"
+          ],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model.safetensors",
+              "sha256": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+              "size": 232752
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+              "size": 4561
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "single"
+        },
+        "recorded_absences": [
+          "model.safetensors.index.json"
+        ],
+        "selected_files": [
+          "config.json",
+          "generation_config.json",
+          "model.safetensors",
+          "tokenizer.json",
+          "tokenizer_config.json"
+        ],
+        "transport_calls": []
+      },
+      "fixture": "llama-base",
+      "name": "public_offline_sha_without_refs_entry",
+      "recorded_absences": [
+        "model.safetensors.index.json"
+      ],
+      "request": {
+        "offline": true,
+        "repo": "contract/tiny-llama",
+        "revision": "0123456789abcdef0123456789abcdef01234567"
+      },
+      "returned_commit": "0123456789abcdef0123456789abcdef01234567",
+      "selected_files": [
+        "config.json",
+        "generation_config.json",
+        "model.safetensors",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ],
+      "setup": {
+        "file_layout": "same_repository_blob_links",
+        "mutations": [],
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [
+            "model.safetensors.index.json"
+          ],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model.safetensors",
+              "sha256": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+              "size": 232752
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+              "size": 4561
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "single"
+        },
+        "refs": {}
+      },
+      "siblings": [
+        "README.md",
+        "chat_template.jinja",
+        "config.json",
+        "custom.py",
+        "generation_config.json",
+        "model.safetensors",
+        "pytorch_model.bin",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ]
+    },
+    {
+      "expected": {
+        "client_constructions": 0,
+        "error": null,
+        "provenance": {
+          "repo": "contract/tiny-llama",
+          "requested_revision": "main",
+          "resolved_revision": "0123456789abcdef0123456789abcdef01234567"
+        },
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [
+            "model.safetensors.index.json"
+          ],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model.safetensors",
+              "sha256": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+              "size": 232752
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+              "size": 4561
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "single"
+        },
+        "recorded_absences": [
+          "model.safetensors.index.json"
+        ],
+        "selected_files": [
+          "config.json",
+          "generation_config.json",
+          "model.safetensors",
+          "tokenizer.json",
+          "tokenizer_config.json"
+        ],
+        "transport_calls": []
+      },
+      "fixture": "llama-base",
+      "name": "public_offline_named_ref",
+      "recorded_absences": [
+        "model.safetensors.index.json"
+      ],
+      "request": {
+        "offline": true,
+        "repo": "contract/tiny-llama",
+        "revision": "main"
+      },
+      "returned_commit": "0123456789abcdef0123456789abcdef01234567",
+      "selected_files": [
+        "config.json",
+        "generation_config.json",
+        "model.safetensors",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ],
+      "setup": {
+        "file_layout": "same_repository_blob_links",
+        "mutations": [],
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [
+            "model.safetensors.index.json"
+          ],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model.safetensors",
+              "sha256": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+              "size": 232752
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+              "size": 4561
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "single"
+        },
+        "refs": {
+          "main": "0123456789abcdef0123456789abcdef01234567"
+        }
+      },
+      "siblings": [
+        "README.md",
+        "chat_template.jinja",
+        "config.json",
+        "custom.py",
+        "generation_config.json",
+        "model.safetensors",
+        "pytorch_model.bin",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ]
+    },
+    {
+      "expected": {
+        "client_constructions": 0,
+        "error": {
+          "fields": {
+            "repo": "contract/tiny-llama",
+            "revision": "main"
+          },
+          "variant": "HubError::OfflineCacheMiss"
+        },
+        "provenance": null,
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [
+            "model.safetensors.index.json"
+          ],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model.safetensors",
+              "sha256": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+              "size": 232752
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+              "size": 4561
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "single"
+        },
+        "recorded_absences": [
+          "model.safetensors.index.json"
+        ],
+        "selected_files": [
+          "config.json",
+          "generation_config.json",
+          "model.safetensors",
+          "tokenizer.json",
+          "tokenizer_config.json"
+        ],
+        "transport_calls": []
+      },
+      "fixture": "llama-base",
+      "name": "offline_missing_ref",
+      "recorded_absences": [
+        "model.safetensors.index.json"
+      ],
+      "request": {
+        "offline": true,
+        "repo": "contract/tiny-llama",
+        "revision": "main"
+      },
+      "returned_commit": "0123456789abcdef0123456789abcdef01234567",
+      "selected_files": [
+        "config.json",
+        "generation_config.json",
+        "model.safetensors",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ],
+      "setup": {
+        "file_layout": "same_repository_blob_links",
+        "mutations": [],
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [
+            "model.safetensors.index.json"
+          ],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model.safetensors",
+              "sha256": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+              "size": 232752
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+              "size": 4561
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "single"
+        },
+        "refs": {}
+      },
+      "siblings": [
+        "README.md",
+        "chat_template.jinja",
+        "config.json",
+        "custom.py",
+        "generation_config.json",
+        "model.safetensors",
+        "pytorch_model.bin",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ]
+    },
+    {
+      "expected": {
+        "client_constructions": 1,
+        "error": {
+          "fields": {},
+          "variant": "HubError::Api"
+        },
+        "provenance": null,
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [
+            "model.safetensors.index.json"
+          ],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model.safetensors",
+              "sha256": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+              "size": 232752
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+              "size": 4561
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "single"
+        },
+        "recorded_absences": [
+          "model.safetensors.index.json"
+        ],
+        "selected_files": [
+          "config.json",
+          "generation_config.json",
+          "model.safetensors",
+          "tokenizer.json",
+          "tokenizer_config.json"
+        ],
+        "transport_calls": [
+          {
+            "operation": "info",
+            "repo": "contract/tiny-llama",
+            "revision": "main"
+          }
+        ]
+      },
+      "fixture": "llama-base",
+      "name": "online_failure_no_fallback_info",
+      "recorded_absences": [
+        "model.safetensors.index.json"
+      ],
+      "request": {
+        "offline": false,
+        "repo": "contract/tiny-llama",
+        "revision": "main"
+      },
+      "returned_commit": "0123456789abcdef0123456789abcdef01234567",
+      "selected_files": [
+        "config.json",
+        "generation_config.json",
+        "model.safetensors",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ],
+      "setup": {
+        "file_layout": "same_repository_blob_links",
+        "mutations": [
+          {
+            "at": "info",
+            "operation": "transport_error"
+          }
+        ],
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [
+            "model.safetensors.index.json"
+          ],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model.safetensors",
+              "sha256": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+              "size": 232752
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+              "size": 4561
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "single"
+        },
+        "refs": {
+          "main": "0123456789abcdef0123456789abcdef01234567"
+        }
+      },
+      "siblings": [
+        "README.md",
+        "chat_template.jinja",
+        "config.json",
+        "custom.py",
+        "generation_config.json",
+        "model.safetensors",
+        "pytorch_model.bin",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ]
+    },
+    {
+      "expected": {
+        "client_constructions": 1,
+        "error": {
+          "fields": {},
+          "variant": "HubError::Api"
+        },
+        "provenance": null,
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [
+            "model.safetensors.index.json"
+          ],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model.safetensors",
+              "sha256": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+              "size": 232752
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+              "size": 4561
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "single"
+        },
+        "recorded_absences": [
+          "model.safetensors.index.json"
+        ],
+        "selected_files": [
+          "config.json",
+          "generation_config.json",
+          "model.safetensors",
+          "tokenizer.json",
+          "tokenizer_config.json"
+        ],
+        "transport_calls": [
+          {
+            "operation": "info",
+            "repo": "contract/tiny-llama",
+            "revision": "main"
+          },
+          {
+            "commit": "0123456789abcdef0123456789abcdef01234567",
+            "filename": "config.json",
+            "operation": "download",
+            "repo": "contract/tiny-llama"
+          }
+        ]
+      },
+      "fixture": "llama-base",
+      "name": "online_failure_no_fallback_download_config.json",
+      "recorded_absences": [
+        "model.safetensors.index.json"
+      ],
+      "request": {
+        "offline": false,
+        "repo": "contract/tiny-llama",
+        "revision": "main"
+      },
+      "returned_commit": "0123456789abcdef0123456789abcdef01234567",
+      "selected_files": [
+        "config.json",
+        "generation_config.json",
+        "model.safetensors",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ],
+      "setup": {
+        "file_layout": "same_repository_blob_links",
+        "mutations": [
+          {
+            "at": "download:config.json",
+            "operation": "transport_error"
+          }
+        ],
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [
+            "model.safetensors.index.json"
+          ],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+              "size": 333
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model.safetensors",
+              "sha256": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+              "size": 232752
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+              "size": 4561
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "single"
+        },
+        "refs": {
+          "main": "0123456789abcdef0123456789abcdef01234567"
+        }
+      },
+      "siblings": [
+        "README.md",
+        "chat_template.jinja",
+        "config.json",
+        "custom.py",
+        "generation_config.json",
+        "model.safetensors",
+        "pytorch_model.bin",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ]
+    },
+    {
+      "expected": {
+        "client_constructions": 0,
+        "error": {
+          "fields": {
+            "value": "unsupported-contract-model"
+          },
+          "variant": "HubError::Load::Config::UnsupportedArchitecture"
+        },
+        "provenance": null,
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [
+            "model.safetensors.index.json"
+          ],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "6bd183556f398e17685061e374076260332b9b362ce39d9302559ca18e37e5b9",
+              "size": 354
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model.safetensors",
+              "sha256": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+              "size": 232752
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+              "size": 4561
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "single"
+        },
+        "recorded_absences": [
+          "model.safetensors.index.json"
+        ],
+        "selected_files": [
+          "config.json",
+          "generation_config.json",
+          "model.safetensors",
+          "tokenizer.json",
+          "tokenizer_config.json"
+        ],
+        "transport_calls": []
+      },
+      "fixture": "llama-base",
+      "name": "public_offline_local_load_error",
+      "recorded_absences": [
+        "model.safetensors.index.json"
+      ],
+      "request": {
+        "offline": true,
+        "repo": "contract/tiny-llama",
+        "revision": "main"
+      },
+      "returned_commit": "0123456789abcdef0123456789abcdef01234567",
+      "selected_files": [
+        "config.json",
+        "generation_config.json",
+        "model.safetensors",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ],
+      "setup": {
+        "file_layout": "same_repository_blob_links",
+        "mutations": [
+          {
+            "at": "before_receipt",
+            "key": "model_type",
+            "operation": "set_json",
+            "path": "config.json",
+            "value": "unsupported-contract-model"
+          }
+        ],
+        "receipt": {
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "recorded_absences": [
+            "model.safetensors.index.json"
+          ],
+          "repo": "contract/tiny-llama",
+          "schema_version": 1,
+          "selected_files": [
+            {
+              "path": "config.json",
+              "sha256": "6bd183556f398e17685061e374076260332b9b362ce39d9302559ca18e37e5b9",
+              "size": 354
+            },
+            {
+              "path": "generation_config.json",
+              "sha256": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+              "size": 41
+            },
+            {
+              "path": "model.safetensors",
+              "sha256": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+              "size": 232752
+            },
+            {
+              "path": "tokenizer.json",
+              "sha256": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+              "size": 4561
+            },
+            {
+              "path": "tokenizer_config.json",
+              "sha256": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+              "size": 769
+            }
+          ],
+          "weight_mode": "single"
+        },
+        "refs": {
+          "main": "0123456789abcdef0123456789abcdef01234567"
+        }
+      },
+      "siblings": [
+        "README.md",
+        "chat_template.jinja",
+        "config.json",
+        "custom.py",
+        "generation_config.json",
+        "model.safetensors",
+        "pytorch_model.bin",
+        "tokenizer.json",
+        "tokenizer_config.json"
+      ]
+    }
+  ],
+  "client_contract": {
+    "anonymous": true,
+    "authorization_header": null,
+    "offline_client_constructions": 0,
+    "token_file_discovery_claim": false
+  },
+  "cohort": "hub_contract_v1",
+  "path_symbols": {
+    "blobs": "cache/models--contract--tiny-llama/blobs",
+    "snapshot": "cache/models--contract--tiny-llama/snapshots/0123456789abcdef0123456789abcdef01234567"
+  },
+  "provenance": {
+    "base_revision": "2ef763838fe0f1a4c5b52f3c9688249092a2d57b",
+    "design": "t4/position-astra.md sections 2, 7.4; DECISIONS A-M",
+    "kind": "reviewed_rust_product_contract",
+    "sources": {
+      "fixtures/llama-base/config.json": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+      "fixtures/llama-base/expectations.json": "faeedde392c11950fa3e93b3fea4774e0ff4689a346d9500ac0f35ee469e811c",
+      "fixtures/llama-base/expectations.safetensors": "8d5aabb69cd3be92e9577490b5de0a8b7db81e35c6976870b5bd90e927a2e02e",
+      "fixtures/llama-base/generation_config.json": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+      "fixtures/llama-base/inputs.json": "156a0687c33fe2d656a1aefa5031a7cc012f3262ba4b9f6dfa9a4b87d6dd3b1c",
+      "fixtures/llama-base/model.safetensors": "883d5cd63dd9c71454d8f826221c32b9eaf6f65840b27df5193324ff054e5bd2",
+      "fixtures/llama-base/tokenizer.json": "488af6afcfbb82349903968e7c1bcedba8513dc86ed63fe84629bc26a3bd1aec",
+      "fixtures/llama-base/tokenizer_config.json": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+      "fixtures/llama-sharded/config.json": "46709ab5f70b50d0cefd389e353e046a68d7d276156329ac80d09fd00f5617e0",
+      "fixtures/llama-sharded/expectations.safetensors": "951d7673dcdaf4de997339ad7df842ebf12030f2597d3848ca1b3af442e5376d",
+      "fixtures/llama-sharded/generation_config.json": "38a7aad3b2668e12a01202c871a6b8c4fb9418a085a89c802cc1eb5b38dd6c32",
+      "fixtures/llama-sharded/model-00001-of-00002.safetensors": "cce38cfb33c5e94c4cb1db997a5f39e0e43c4ab26ada0895ad58a8456327ebb6",
+      "fixtures/llama-sharded/model-00002-of-00002.safetensors": "51abf485e7841ed34fe5b2372ee30d58acbdd542a662a7bda6070d4c283cfac7",
+      "fixtures/llama-sharded/model.safetensors.index.json": "cf5619c08e82fd693d65b7f51b8f867fb6ba44c055f5f9abdccd13fd4eb1ccd6",
+      "fixtures/llama-sharded/tokenizer.json": "d3f6e27c58186b601192ffef2c870af3877a3ec271c53468a3368977e07f75ba",
+      "fixtures/llama-sharded/tokenizer_config.json": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
+      "generate_contracts.py": "bb919b99d83332767f86ed14325f754ea685206c8ed6d56f3a2cd38c209ad5a4",
+      "manifest.json": "344b1795ac8a61520cdcc28042d769570c354ff9ce62958461501df32b719f07",
+      "requirements.lock": "94537fca297d4e6dacb5ea901cd5dd7ef0e297a6e1ec426c1922c74fa0f5cf6d",
+      "test_contracts.py": "1e8756d42191069ea58c29eab1d30d8021321e85089b3018ff5da9fe3fd2d24c"
+    }
+  },
+  "schema_version": 1
+}

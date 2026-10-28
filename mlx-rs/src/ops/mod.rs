@@ -14,6 +14,7 @@ mod shapes;
 mod sort;
 
 pub mod indexing;
+pub mod windows;
 
 pub use arithmetic::*;
 pub use conversion::*;

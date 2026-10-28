@@ -1,0 +1,409 @@
+{
+  "cases": [
+    {
+      "id": "errors.001",
+      "input_refs": [
+        "errors.001.input.0",
+        "errors.001.input.1"
+      ],
+      "input_sha256": "sha256:8ec91e001f96a9e8317c44a375846f04b05cb5011d8bd998a886acdf6e0e838e",
+      "recipe": "add",
+      "seed_hex": "90a2f67e8d22cc2408ad1cc61fcf8683",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "errors.002",
+      "input_refs": [
+        "errors.002.input.0"
+      ],
+      "input_sha256": "sha256:37de48d850df61485087115ea558c3fac8eafc971f82a965f3c394ac33c21e2e",
+      "recipe": "reshape",
+      "seed_hex": "54166d53b3b78e92e03ad5bc7b61cb8a",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "errors.003",
+      "input_refs": [
+        "errors.003.input.0",
+        "errors.003.input.1"
+      ],
+      "input_sha256": "sha256:5755893ff3334b4a172a2472aac4407e8edae6f0a8c67255c7cdffedacf287a1",
+      "recipe": "take",
+      "seed_hex": "567049d5970b0813c26944910367216c",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "errors.004",
+      "input_refs": [
+        "errors.004.input.0"
+      ],
+      "input_sha256": "sha256:f8810ac341f455ea4bcf08e698165f0c23f3cce1be2405a7494ac7a1cfaeb580",
+      "recipe": "negative",
+      "seed_hex": "253ad55b908c6db939b617c81ebf7399",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "errors.005",
+      "input_refs": [
+        "errors.005.input.0"
+      ],
+      "input_sha256": "sha256:77b2c256c611560f8bddbc081799edd166d46053cd9714ba224c34e4929217b5",
+      "recipe": "diff",
+      "seed_hex": "d0ab9907b7670b9edd5701a82236dee9",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "errors.006",
+      "input_refs": [
+        "errors.006.input.0"
+      ],
+      "input_sha256": "sha256:f2d2945145e0f4183582e247a67b8a69ad37eb29406c86bfc19a9096be3fc804",
+      "recipe": "diff",
+      "seed_hex": "d17853eaff850e46c59cac9527005a3d",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "errors.007",
+      "input_refs": [
+        "errors.007.input.0"
+      ],
+      "input_sha256": "sha256:6c81ee5ac0b7d21698397c86c1182037fdd65e6bb218ae64a21a98671e6ef915",
+      "recipe": "det",
+      "seed_hex": "2e3834863f44270a0ea23c5610d88b26",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "errors.008",
+      "input_refs": [
+        "errors.008.input.0.real",
+        "errors.008.input.0.imag"
+      ],
+      "input_sha256": "sha256:c511226c5c686c0716f2a6d6d8735c8e5071448d31daea0965f85062c44abb9e",
+      "recipe": "det",
+      "seed_hex": "d2fd449aa57041fd17e03c98c9d69f43",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "errors.009",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "linspace",
+      "seed_hex": "dc2d447ce9b089d3579716f681e271dd",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "errors.010",
+      "input_refs": [
+        "errors.010.input.0",
+        "errors.010.input.1"
+      ],
+      "input_sha256": "sha256:562352f9813e747b8c8dc9bfa48306090d9cf9a4c3a22b6b6fa8f5a1e59f58c5",
+      "recipe": "search_sorted",
+      "seed_hex": "5efff0a4f170d56480fef85ac3b178f1",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "errors.011",
+      "input_refs": [
+        "errors.011.input.0"
+      ],
+      "input_sha256": "sha256:033dc928185371f03bb2c0ed6606c54d49252258094d13a0400ed73bd32f72de",
+      "recipe": "trace",
+      "seed_hex": "2adfe9a79a98f4c2b50edd202ee11e39",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "IndexError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "errors.012",
+      "input_refs": [
+        "errors.012.input.0.real",
+        "errors.012.input.0.imag"
+      ],
+      "input_sha256": "sha256:b2a257e9bc9da60b65b175689db12e4e4d89c7bad6d72f921cd839060f8775b9",
+      "recipe": "trunc",
+      "seed_hex": "14b1c2697c3ff2189f1b7ccbc3d3d00e",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "errors.013",
+      "input_refs": [
+        "errors.013.input.0"
+      ],
+      "input_sha256": "sha256:06f82306083ef1d9b3f0eaf54a62a669b6ecb0f7a3f911f8106f0922606de538",
+      "recipe": "unstack",
+      "seed_hex": "fab8f4ff9cd5c4441430be68c59e9514",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "errors.014",
+      "input_refs": [
+        "errors.014.input.0"
+      ],
+      "input_sha256": "sha256:9b17843b60f61de2bb25b4ad01b11e94dfbad33f6400323c634a7dbf70fdee44",
+      "recipe": "unstack",
+      "seed_hex": "62355559f4d09ebdec26d21332bcd322",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "errors.015",
+      "input_refs": [
+        "errors.015.input.0",
+        "errors.015.input.1"
+      ],
+      "input_sha256": "sha256:2dc6901e56f7e866540662b38a670371abb99b28ec52e700b80f8e15ee076def",
+      "recipe": "vecdot",
+      "seed_hex": "60782aa8afede4a7e8bb421bed6d5bd6",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "errors.016",
+      "input_refs": [
+        "errors.016.input.0",
+        "errors.016.input.1"
+      ],
+      "input_sha256": "sha256:16017d164fcb08b6100300c09f54cdd4ef700aef9e477b83a5ceefc472049288",
+      "recipe": "vecdot",
+      "seed_hex": "729b7771b86839a3a7084978fcdbbad1",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "errors.017",
+      "input_refs": [
+        "errors.017.input.0",
+        "errors.017.input.1"
+      ],
+      "input_sha256": "sha256:a2ae138ff49318da5f223c158940c7d156506edf1db6e1ccd1584b23567f3fe9",
+      "recipe": "vecdot",
+      "seed_hex": "4e8fc68c13d264fc5a74c1531521006b",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "errors.018",
+      "input_refs": [
+        "errors.018.input.0"
+      ],
+      "input_sha256": "sha256:c52bd0c96595a3895c2863a64f624764b225c11863552dba784ed38c3c572cab",
+      "recipe": "det",
+      "seed_hex": "f1dde3b894f2007e65af5bcd728a11c9",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "errors.019",
+      "input_refs": [
+        "errors.019.input.0"
+      ],
+      "input_sha256": "sha256:596a1ae41da2098f85eb461e49aec7b07c07510030e63f3783f56485386ce5c8",
+      "recipe": "det_gpu",
+      "seed_hex": "528581cfe199add42791b47222754d5f",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "errors.020",
+      "input_refs": [
+        "errors.020.input.0"
+      ],
+      "input_sha256": "sha256:5d7161b4748ae33e73de87330f458ddf93768ea5d09ccaa89643a22257dbe735",
+      "recipe": "trace",
+      "seed_hex": "caeab54caf4df5c8fc273f7c7581a3fe",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "errors.021",
+      "input_refs": [
+        "errors.021.input.0",
+        "errors.021.input.1"
+      ],
+      "input_sha256": "sha256:48cfb270f751c5b7ea427ddde4142d066042215cb969055336eaeadddf79b483",
+      "recipe": "vecdot",
+      "seed_hex": "fdba13bfaf95f69e8333b899b253be70",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    }
+  ],
+  "old_environment": {
+    "architecture": "arm64",
+    "mlx_metal_package": "0.32.2",
+    "mlx_package": "0.32.2",
+    "mlx_runtime": "0.32.2",
+    "numpy": "2.2.6",
+    "python": "3.12.14"
+  },
+  "schema_version": 1,
+  "suite": "errors",
+  "target_environment": {
+    "architecture": "arm64",
+    "device": "cpu",
+    "mlx": "0.32.2",
+    "mlx_metal": "0.32.2",
+    "mlx_runtime": "0.32.2",
+    "numpy": "2.2.6",
+    "python": "3.12.14",
+    "venv": "/Users/ci/hub/scratch/bump-a341b49/canonical-replay/venv"
+  }
+}

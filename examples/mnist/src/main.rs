@@ -61,7 +61,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!(
             "Epoch: {}, Test accuracy: {:.2}, Time: {:.2} s",
             e,
-            accuracy.item::<f32>(),
+            accuracy.item_exact::<f32>(),
             elapsed.as_secs_f32()
         );
     }

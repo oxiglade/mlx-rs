@@ -246,13 +246,13 @@ mod tests {
             move |args: &[Array]| -> Vec<Array> { grad_with_argnums(fun, argnums)(args).unwrap() };
         let (z, d2fdx2) = value_and_grad_with_argnums(grad_fn, argnums)(x).unwrap();
 
-        assert_eq!(z[0].item::<f32>(), 1.0);
-        assert_eq!(d2fdx2[0].item::<f32>(), 0.0);
+        assert_eq!(z[0].item_exact::<f32>(), 1.0);
+        assert_eq!(d2fdx2[0].item_exact::<f32>(), 0.0);
 
         let grad_fn = move |args: &[Array]| -> Vec<Array> { grad(fun)(args).unwrap() };
         let (z, d2fdx2) = value_and_grad(grad_fn)(x).unwrap();
 
-        assert_eq!(z[0].item::<f32>(), 1.0);
-        assert_eq!(d2fdx2[0].item::<f32>(), 0.0);
+        assert_eq!(z[0].item_exact::<f32>(), 1.0);
+        assert_eq!(d2fdx2[0].item_exact::<f32>(), 0.0);
     }
 }

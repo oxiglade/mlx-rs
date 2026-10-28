@@ -6,7 +6,7 @@ use std::marker::PhantomData;
 
 use crate::{error::Exception, Array};
 
-use super::{type_id_to_usize, Closure, Compiled, CompiledState, Guarded, VectorArray};
+use super::{Closure, Compiled, CompiledState, Guarded, VectorArray};
 
 /// Returns a compiled function that produces the same output as `f`.
 ///
@@ -18,15 +18,11 @@ pub fn compile<F, A, O, E>(
     shapeless: impl Into<Option<bool>>,
 ) -> impl for<'a> FnMut(F::Args<'a>) -> Result<O, Exception>
 where
-    F: Compile<A, O, E> + 'static + Copy,
+    F: Compile<A, O, E> + 'static,
 {
     let shapeless = shapeless.into().unwrap_or(false);
-    move |args| {
-        // NOTE: we have to place this here to avoid the lifetime issue
-        // `f.compile` will look up the cached compiled function so it shouldn't result in re-compilation
-        let mut compiled = f.compile(shapeless);
-        compiled.call_mut(args)
-    }
+    let mut compiled = f.compile(shapeless);
+    move |args| compiled.call_mut(args)
 }
 
 /// A trait for functions that can be compiled.
@@ -45,7 +41,7 @@ pub trait Compile<A, O, E>: Sized {
     type Args<'a>;
 
     /// Compiles the function.
-    fn compile<'args>(self, shapeless: bool) -> impl CallMut<Self::Args<'args>, O, E>;
+    fn compile(self, shapeless: bool) -> impl for<'args> CallMut<Self::Args<'args>, O, E>;
 }
 
 impl<F> Compile<&[Array], Vec<Array>, ()> for F
@@ -54,16 +50,13 @@ where
 {
     type Args<'a> = &'a [Array];
 
-    fn compile<'args>(self, shapeless: bool) -> impl CallMut<Self::Args<'args>, Vec<Array>, ()> {
-        let id = type_id_to_usize(&self);
-        let state = CompiledState {
-            f: self,
-
-            shapeless,
-            id,
-        };
-        Compiled {
-            f_marker: PhantomData::<F>,
+    fn compile(
+        self,
+        shapeless: bool,
+    ) -> impl for<'args> CallMut<Self::Args<'args>, Vec<Array>, ()> {
+        let state = CompiledState::new(self, shapeless);
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -75,15 +68,14 @@ where
 {
     type Args<'a> = &'a Array;
 
-    fn compile<'args>(mut self, shapeless: bool) -> impl CallMut<Self::Args<'args>, Array, ()> {
-        let id = type_id_to_usize(&self);
+    fn compile(mut self, shapeless: bool) -> impl for<'args> CallMut<Self::Args<'args>, Array, ()> {
         let f = move |args: &[Array]| -> Vec<Array> {
             let result = (self)(&args[0]);
             vec![result]
         };
-        let state = CompiledState { f, shapeless, id };
-        Compiled {
-            f_marker: PhantomData::<F>,
+        let state = CompiledState::new(f, shapeless);
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -95,15 +87,14 @@ where
 {
     type Args<'a> = (&'a Array, &'a Array);
 
-    fn compile<'args>(mut self, shapeless: bool) -> impl CallMut<Self::Args<'args>, Array, ()> {
-        let id = type_id_to_usize(&self);
+    fn compile(mut self, shapeless: bool) -> impl for<'args> CallMut<Self::Args<'args>, Array, ()> {
         let f = move |args: &[Array]| -> Vec<Array> {
             let result = (self)((&args[0], &args[1]));
             vec![result]
         };
-        let state = CompiledState { f, shapeless, id };
-        Compiled {
-            f_marker: PhantomData::<F>,
+        let state = CompiledState::new(f, shapeless);
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -115,15 +106,14 @@ where
 {
     type Args<'a> = (&'a Array, &'a Array, &'a Array);
 
-    fn compile<'args>(mut self, shapeless: bool) -> impl CallMut<Self::Args<'args>, Array, ()> {
-        let id = type_id_to_usize(&self);
+    fn compile(mut self, shapeless: bool) -> impl for<'args> CallMut<Self::Args<'args>, Array, ()> {
         let f = move |args: &[Array]| -> Vec<Array> {
             let result = (self)((&args[0], &args[1], &args[2]));
             vec![result]
         };
-        let state = CompiledState { f, shapeless, id };
-        Compiled {
-            f_marker: PhantomData::<F>,
+        let state = CompiledState::new(f, shapeless);
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -135,18 +125,13 @@ where
 {
     type Args<'a> = &'a [Array];
 
-    fn compile<'args>(
+    fn compile(
         self,
         shapeless: bool,
-    ) -> impl CallMut<Self::Args<'args>, Vec<Array>, Exception> {
-        let id = type_id_to_usize(&self);
-        let state = CompiledState {
-            f: self,
-            shapeless,
-            id,
-        };
-        Compiled {
-            f_marker: PhantomData::<F>,
+    ) -> impl for<'args> CallMut<Self::Args<'args>, Vec<Array>, Exception> {
+        let state = CompiledState::new(self, shapeless);
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -158,18 +143,17 @@ where
 {
     type Args<'a> = &'a Array;
 
-    fn compile<'args>(
+    fn compile(
         mut self,
         shapeless: bool,
-    ) -> impl CallMut<Self::Args<'args>, Array, Exception> {
-        let id = type_id_to_usize(&self);
+    ) -> impl for<'args> CallMut<Self::Args<'args>, Array, Exception> {
         let f = move |args: &[Array]| -> Result<Vec<Array>, Exception> {
             let result = (self)(&args[0])?;
             Ok(vec![result])
         };
-        let state = CompiledState { f, shapeless, id };
-        Compiled {
-            f_marker: PhantomData::<F>,
+        let state = CompiledState::new(f, shapeless);
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -181,18 +165,17 @@ where
 {
     type Args<'a> = (&'a Array, &'a Array);
 
-    fn compile<'args>(
+    fn compile(
         mut self,
         shapeless: bool,
-    ) -> impl CallMut<Self::Args<'args>, Array, Exception> {
-        let id = type_id_to_usize(&self);
+    ) -> impl for<'args> CallMut<Self::Args<'args>, Array, Exception> {
         let f = move |args: &[Array]| -> Result<Vec<Array>, Exception> {
             let result = (self)((&args[0], &args[1]))?;
             Ok(vec![result])
         };
-        let state = CompiledState { f, shapeless, id };
-        Compiled {
-            f_marker: PhantomData::<F>,
+        let state = CompiledState::new(f, shapeless);
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -204,18 +187,17 @@ where
 {
     type Args<'a> = (&'a Array, &'a Array, &'a Array);
 
-    fn compile<'args>(
+    fn compile(
         mut self,
         shapeless: bool,
-    ) -> impl CallMut<Self::Args<'args>, Array, Exception> {
-        let id = type_id_to_usize(&self);
+    ) -> impl for<'args> CallMut<Self::Args<'args>, Array, Exception> {
         let f = move |args: &[Array]| -> Result<Vec<Array>, Exception> {
             let result = (self)((&args[0], &args[1], &args[2]))?;
             Ok(vec![result])
         };
-        let state = CompiledState { f, shapeless, id };
-        Compiled {
-            f_marker: PhantomData::<F>,
+        let state = CompiledState::new(f, shapeless);
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -379,12 +361,11 @@ impl<F> CompiledState<F> {
 
 #[cfg(test)]
 mod tests {
-    use core::panic;
-
     use crate::{
         array,
         error::Exception,
         ops::{multiply, ones},
+        test_utils::{assert_array_eq, tolerances},
         Array,
     };
 
@@ -394,41 +375,20 @@ mod tests {
         x + 1.0
     }
 
-    fn example_fn_3(x: f32) -> f32 {
-        x + 1.0
+    #[test]
+    fn compile_ids_are_unique_for_live_instances_of_the_same_type() {
+        let first = super::CompiledState::new(example_fn_0, false);
+        let second = super::CompiledState::new(example_fn_0, false);
+
+        assert_ne!(first.id, second.id);
     }
 
     #[test]
-    fn test_type_id_to_usize() {
-        // We would like to check that different functions that share the same signature can produce
-        // different ids
+    fn cloned_compile_state_gets_a_fresh_monotonic_id() {
+        let first = super::CompiledState::new(example_fn_0, false);
+        let cloned = super::CompiledState::clone(&first);
 
-        let example_fn_1 = |x: f32| x + 1.0;
-        let example_fn_2 = |x: f32| x + 1.0;
-
-        let mut ids = Vec::new();
-
-        ids.push(super::type_id_to_usize(&example_fn_0));
-
-        let id1 = super::type_id_to_usize(&example_fn_1);
-        if ids.contains(&id1) {
-            panic!("id1 already exists");
-        }
-        ids.push(id1);
-
-        let id2 = super::type_id_to_usize(&example_fn_2);
-        if ids.contains(&id2) {
-            panic!("id2 already exists");
-        }
-        ids.push(id2);
-
-        let id3 = super::type_id_to_usize(&example_fn_3);
-        if ids.contains(&id3) {
-            panic!("id3 already exists");
-        }
-        ids.push(id3);
-
-        assert_eq!(ids.len(), 4);
+        assert!(cloned.id > first.id);
     }
 
     #[test]
@@ -448,10 +408,10 @@ mod tests {
         // evaluate compiled
         let r2 = compiled(&args).unwrap().drain(0..1).next().unwrap();
 
-        assert_eq!(&r1, &r2);
+        assert_array_eq(&r1, &r2, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let r3 = compiled(&args).unwrap().drain(0..1).next().unwrap();
-        assert_eq!(&r1, &r3);
+        assert_array_eq(&r1, &r3, tolerances::EXACT.rtol, tolerances::EXACT.atol);
     }
 
     #[test]
@@ -472,10 +432,10 @@ mod tests {
         let mut compiled = compile(f, None);
         let r2 = compiled(&args).unwrap().drain(0..1).next().unwrap();
 
-        assert_eq!(&r1, &r2);
+        assert_array_eq(&r1, &r2, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let r3 = compiled(&args).unwrap().drain(0..1).next().unwrap();
-        assert_eq!(&r1, &r3);
+        assert_array_eq(&r1, &r3, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         // Error case
         let a = array!([1.0, 2.0, 3.0]);
@@ -516,10 +476,10 @@ mod tests {
         let mut compiled = compile(f, None);
         let r2 = compiled(&i).unwrap();
 
-        assert_eq!(&r1, &r2);
+        assert_array_eq(&r1, &r2, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let r3 = compiled(&i).unwrap();
-        assert_eq!(&r1, &r3);
+        assert_array_eq(&r1, &r3, tolerances::EXACT.rtol, tolerances::EXACT.atol);
     }
 
     #[test]
@@ -536,10 +496,10 @@ mod tests {
         let mut compiled = compile(f, None);
         let r2 = compiled((&i1, &i2)).unwrap();
 
-        assert_eq!(&r1, &r2);
+        assert_array_eq(&r1, &r2, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let r3 = compiled((&i1, &i2)).unwrap();
-        assert_eq!(&r1, &r3);
+        assert_array_eq(&r1, &r3, tolerances::EXACT.rtol, tolerances::EXACT.atol);
     }
 
     #[test]
@@ -557,9 +517,9 @@ mod tests {
         // evaluate compiled
         let r2 = compiled((&i1, &i2, &i3)).unwrap();
 
-        assert_eq!(&r1, &r2);
+        assert_array_eq(&r1, &r2, tolerances::EXACT.rtol, tolerances::EXACT.atol);
 
         let r3 = compiled((&i1, &i2, &i3)).unwrap();
-        assert_eq!(&r1, &r3);
+        assert_array_eq(&r1, &r3, tolerances::EXACT.rtol, tolerances::EXACT.atol);
     }
 }

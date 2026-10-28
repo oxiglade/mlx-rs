@@ -1,0 +1,982 @@
+{
+  "schema_version": 1,
+  "name": "gguf",
+  "fixture": "fixtures/gguf.safetensors",
+  "cases": [
+    {
+      "id": "gguf.001",
+      "rust_call": "gguf.load",
+      "recipe": {
+        "kind": "load",
+        "path": "fixtures/gguf/basic.gguf",
+        "execution": "default_cpu"
+      },
+      "expected": {
+        "status": "success",
+        "array_keys": [
+          "tensor.f16",
+          "tensor.f32",
+          "tensor.i16",
+          "tensor.i32",
+          "tensor.i8"
+        ],
+        "arrays": [
+          {
+            "key": "tensor.f16",
+            "ref": "gguf.001.tensor.f16",
+            "dtype": "F16",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "low_precision_float"
+          },
+          {
+            "key": "tensor.f32",
+            "ref": "gguf.001.tensor.f32",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "elementwise_float"
+          },
+          {
+            "key": "tensor.i16",
+            "ref": "gguf.001.tensor.i16",
+            "dtype": "I16",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "key": "tensor.i32",
+            "ref": "gguf.001.tensor.i32",
+            "dtype": "I32",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "key": "tensor.i8",
+            "ref": "gguf.001.tensor.i8",
+            "dtype": "I8",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "exact_numeric"
+          }
+        ],
+        "metadata": []
+      }
+    },
+    {
+      "id": "gguf.002",
+      "rust_call": "gguf.load",
+      "recipe": {
+        "kind": "load",
+        "path": "fixtures/gguf/metadata.gguf",
+        "execution": "default_cpu"
+      },
+      "expected": {
+        "status": "success",
+        "array_keys": [
+          "shared"
+        ],
+        "arrays": [
+          {
+            "key": "shared",
+            "ref": "gguf.002.shared",
+            "dtype": "I32",
+            "shape": [
+              1
+            ],
+            "policy": "exact_numeric"
+          }
+        ],
+        "metadata": [
+          {
+            "kind": "array",
+            "key": "scalar.bool",
+            "ref": "gguf.002.metadata.scalar.bool",
+            "dtype": "BOOL",
+            "shape": [],
+            "policy": "exact_numeric"
+          },
+          {
+            "kind": "array",
+            "key": "scalar.f32",
+            "ref": "gguf.002.metadata.scalar.f32",
+            "dtype": "F32",
+            "shape": [],
+            "policy": "elementwise_float"
+          },
+          {
+            "kind": "array",
+            "key": "scalar.i16",
+            "ref": "gguf.002.metadata.scalar.i16",
+            "dtype": "I16",
+            "shape": [],
+            "policy": "exact_numeric"
+          },
+          {
+            "kind": "array",
+            "key": "scalar.i32",
+            "ref": "gguf.002.metadata.scalar.i32",
+            "dtype": "I32",
+            "shape": [],
+            "policy": "exact_numeric"
+          },
+          {
+            "kind": "array",
+            "key": "scalar.i64",
+            "ref": "gguf.002.metadata.scalar.i64",
+            "dtype": "I64",
+            "shape": [],
+            "policy": "exact_numeric"
+          },
+          {
+            "kind": "array",
+            "key": "scalar.i8",
+            "ref": "gguf.002.metadata.scalar.i8",
+            "dtype": "I8",
+            "shape": [],
+            "policy": "exact_numeric"
+          },
+          {
+            "kind": "array",
+            "key": "scalar.u16",
+            "ref": "gguf.002.metadata.scalar.u16",
+            "dtype": "U16",
+            "shape": [],
+            "policy": "exact_numeric"
+          },
+          {
+            "kind": "array",
+            "key": "scalar.u32",
+            "ref": "gguf.002.metadata.scalar.u32",
+            "dtype": "U32",
+            "shape": [],
+            "policy": "exact_numeric"
+          },
+          {
+            "kind": "array",
+            "key": "scalar.u64",
+            "ref": "gguf.002.metadata.scalar.u64",
+            "dtype": "U64",
+            "shape": [],
+            "policy": "exact_numeric"
+          },
+          {
+            "kind": "array",
+            "key": "scalar.u8",
+            "ref": "gguf.002.metadata.scalar.u8",
+            "dtype": "U8",
+            "shape": [],
+            "policy": "exact_numeric"
+          },
+          {
+            "key": "text",
+            "kind": "string",
+            "value": "metadata"
+          },
+          {
+            "key": "texts",
+            "kind": "strings",
+            "value": [
+              "one",
+              "two",
+              "three"
+            ]
+          },
+          {
+            "kind": "array",
+            "key": "vector.bool",
+            "ref": "gguf.002.metadata.vector.bool",
+            "dtype": "BOOL",
+            "shape": [
+              2
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "kind": "array",
+            "key": "vector.f32",
+            "ref": "gguf.002.metadata.vector.f32",
+            "dtype": "F32",
+            "shape": [
+              2
+            ],
+            "policy": "elementwise_float"
+          },
+          {
+            "kind": "array",
+            "key": "vector.i16",
+            "ref": "gguf.002.metadata.vector.i16",
+            "dtype": "I16",
+            "shape": [
+              2
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "kind": "array",
+            "key": "vector.i32",
+            "ref": "gguf.002.metadata.vector.i32",
+            "dtype": "I32",
+            "shape": [
+              2
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "kind": "array",
+            "key": "vector.i64",
+            "ref": "gguf.002.metadata.vector.i64",
+            "dtype": "I64",
+            "shape": [
+              2
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "kind": "array",
+            "key": "vector.i8",
+            "ref": "gguf.002.metadata.vector.i8",
+            "dtype": "I8",
+            "shape": [
+              2
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "kind": "array",
+            "key": "vector.u16",
+            "ref": "gguf.002.metadata.vector.u16",
+            "dtype": "U16",
+            "shape": [
+              2
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "kind": "array",
+            "key": "vector.u32",
+            "ref": "gguf.002.metadata.vector.u32",
+            "dtype": "U32",
+            "shape": [
+              2
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "kind": "array",
+            "key": "vector.u64",
+            "ref": "gguf.002.metadata.vector.u64",
+            "dtype": "U64",
+            "shape": [
+              2
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "kind": "array",
+            "key": "vector.u8",
+            "ref": "gguf.002.metadata.vector.u8",
+            "dtype": "U8",
+            "shape": [
+              2
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "gguf.003",
+      "rust_call": "gguf.load",
+      "recipe": {
+        "kind": "load",
+        "path": "fixtures/gguf/unicode.gguf",
+        "execution": "default_cpu"
+      },
+      "expected": {
+        "status": "success",
+        "array_keys": [
+          "\u5f20\u91cf.\ud83e\udd80"
+        ],
+        "arrays": [
+          {
+            "key": "\u5f20\u91cf.\ud83e\udd80",
+            "ref": "gguf.003.\u5f20\u91cf.\ud83e\udd80",
+            "dtype": "F32",
+            "shape": [
+              2
+            ],
+            "policy": "elementwise_float"
+          }
+        ],
+        "metadata": [
+          {
+            "key": "cl\u00e9.\u65e5\u672c\u8a9e",
+            "kind": "string",
+            "value": "na\u00efve \ud83e\udd80"
+          },
+          {
+            "key": "\u5217\u8868",
+            "kind": "strings",
+            "value": [
+              "\u03b1",
+              "\u96ea",
+              "emoji \ud83d\ude00"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "gguf.004",
+      "rust_call": "gguf.load",
+      "recipe": {
+        "kind": "load",
+        "path": "fixtures/gguf/large-asymmetric.gguf",
+        "execution": "default_cpu"
+      },
+      "expected": {
+        "status": "success",
+        "array_keys": [
+          "asymmetric",
+          "non_contiguous"
+        ],
+        "arrays": [
+          {
+            "key": "asymmetric",
+            "ref": "gguf.004.asymmetric",
+            "dtype": "F32",
+            "shape": [
+              129,
+              257
+            ],
+            "policy": "elementwise_float"
+          },
+          {
+            "key": "non_contiguous",
+            "ref": "gguf.004.non_contiguous",
+            "dtype": "F32",
+            "shape": [
+              257,
+              129
+            ],
+            "policy": "elementwise_float"
+          }
+        ],
+        "metadata": []
+      }
+    },
+    {
+      "id": "gguf.005",
+      "rust_call": "gguf.load",
+      "recipe": {
+        "kind": "load",
+        "path": "fixtures/gguf/empty.gguf",
+        "execution": "default_cpu"
+      },
+      "expected": {
+        "status": "success",
+        "array_keys": [],
+        "arrays": [],
+        "metadata": []
+      }
+    },
+    {
+      "id": "gguf.006",
+      "rust_call": "gguf.load_error",
+      "recipe": {
+        "kind": "load",
+        "path": "fixtures/gguf/missing.gguf",
+        "execution": "default_cpu"
+      },
+      "expected": {
+        "status": "error",
+        "variant": "not_file"
+      }
+    },
+    {
+      "id": "gguf.007",
+      "rust_call": "gguf.load_error",
+      "recipe": {
+        "kind": "load",
+        "path": "fixtures/gguf/not-gguf.gguf",
+        "execution": "default_cpu"
+      },
+      "expected": {
+        "status": "error",
+        "variant": "exception"
+      }
+    },
+    {
+      "id": "gguf.008",
+      "rust_call": "gguf.absence",
+      "recipe": {
+        "kind": "absence",
+        "path": "fixtures/gguf/metadata.gguf",
+        "array_key": "absent",
+        "metadata_key": "absent"
+      },
+      "expected": {
+        "status": "success",
+        "array_absent": true,
+        "metadata_absent": true
+      }
+    },
+    {
+      "id": "gguf.009",
+      "rust_call": "gguf.wrong_kind",
+      "recipe": {
+        "kind": "wrong_kind",
+        "path": "fixtures/gguf/metadata.gguf",
+        "key": "text",
+        "requested": "array"
+      },
+      "expected": {
+        "status": "error",
+        "variant": "wrong_metadata_kind",
+        "expected_kind": "array",
+        "actual_kind": "string"
+      }
+    },
+    {
+      "id": "gguf.010",
+      "rust_call": "gguf.wrong_kind",
+      "recipe": {
+        "kind": "wrong_kind",
+        "path": "fixtures/gguf/metadata.gguf",
+        "key": "texts",
+        "requested": "string"
+      },
+      "expected": {
+        "status": "error",
+        "variant": "wrong_metadata_kind",
+        "expected_kind": "string",
+        "actual_kind": "strings"
+      }
+    },
+    {
+      "id": "gguf.011",
+      "rust_call": "gguf.wrong_kind",
+      "recipe": {
+        "kind": "wrong_kind",
+        "path": "fixtures/gguf/metadata.gguf",
+        "key": "scalar.i32",
+        "requested": "strings"
+      },
+      "expected": {
+        "status": "error",
+        "variant": "wrong_metadata_kind",
+        "expected_kind": "strings",
+        "actual_kind": "array"
+      }
+    },
+    {
+      "id": "gguf.012",
+      "rust_call": "gguf.load",
+      "recipe": {
+        "kind": "load",
+        "path": "fixtures/gguf/q4-0.gguf",
+        "execution": "default_cpu",
+        "dequantize": {
+          "group_size": 32,
+          "bits": 4
+        }
+      },
+      "expected": {
+        "status": "success",
+        "array_keys": [
+          "quantized.biases",
+          "quantized.scales",
+          "quantized.weight"
+        ],
+        "arrays": [
+          {
+            "key": "quantized.biases",
+            "ref": "gguf.012.quantized.biases",
+            "dtype": "F16",
+            "shape": [
+              2,
+              1
+            ],
+            "policy": "low_precision_float"
+          },
+          {
+            "key": "quantized.scales",
+            "ref": "gguf.012.quantized.scales",
+            "dtype": "F16",
+            "shape": [
+              2,
+              1
+            ],
+            "policy": "low_precision_float"
+          },
+          {
+            "key": "quantized.weight",
+            "ref": "gguf.012.quantized.weight",
+            "dtype": "U32",
+            "shape": [
+              2,
+              4
+            ],
+            "policy": "exact_numeric"
+          }
+        ],
+        "metadata": [
+          {
+            "kind": "array",
+            "key": "general.alignment",
+            "ref": "gguf.012.metadata.general.alignment",
+            "dtype": "U32",
+            "shape": [],
+            "policy": "exact_numeric"
+          },
+          {
+            "key": "quantization.fixture",
+            "kind": "string",
+            "value": "Q4_0"
+          }
+        ],
+        "dequantized": {
+          "key": "dequantized",
+          "ref": "gguf.012.dequantized",
+          "dtype": "F16",
+          "shape": [
+            2,
+            32
+          ],
+          "policy": "low_precision_float"
+        }
+      }
+    },
+    {
+      "id": "gguf.013",
+      "rust_call": "gguf.load",
+      "recipe": {
+        "kind": "load",
+        "path": "fixtures/gguf/q4-1.gguf",
+        "execution": "default_cpu",
+        "dequantize": {
+          "group_size": 32,
+          "bits": 4
+        }
+      },
+      "expected": {
+        "status": "success",
+        "array_keys": [
+          "quantized.biases",
+          "quantized.scales",
+          "quantized.weight"
+        ],
+        "arrays": [
+          {
+            "key": "quantized.biases",
+            "ref": "gguf.013.quantized.biases",
+            "dtype": "F16",
+            "shape": [
+              2,
+              1
+            ],
+            "policy": "low_precision_float"
+          },
+          {
+            "key": "quantized.scales",
+            "ref": "gguf.013.quantized.scales",
+            "dtype": "F16",
+            "shape": [
+              2,
+              1
+            ],
+            "policy": "low_precision_float"
+          },
+          {
+            "key": "quantized.weight",
+            "ref": "gguf.013.quantized.weight",
+            "dtype": "U32",
+            "shape": [
+              2,
+              4
+            ],
+            "policy": "exact_numeric"
+          }
+        ],
+        "metadata": [
+          {
+            "kind": "array",
+            "key": "general.alignment",
+            "ref": "gguf.013.metadata.general.alignment",
+            "dtype": "U32",
+            "shape": [],
+            "policy": "exact_numeric"
+          },
+          {
+            "key": "quantization.fixture",
+            "kind": "string",
+            "value": "Q4_1"
+          }
+        ],
+        "dequantized": {
+          "key": "dequantized",
+          "ref": "gguf.013.dequantized",
+          "dtype": "F16",
+          "shape": [
+            2,
+            32
+          ],
+          "policy": "low_precision_float"
+        }
+      }
+    },
+    {
+      "id": "gguf.014",
+      "rust_call": "gguf.load",
+      "recipe": {
+        "kind": "load",
+        "path": "fixtures/gguf/q8-0.gguf",
+        "execution": "default_cpu",
+        "dequantize": {
+          "group_size": 32,
+          "bits": 8
+        }
+      },
+      "expected": {
+        "status": "success",
+        "array_keys": [
+          "quantized.biases",
+          "quantized.scales",
+          "quantized.weight"
+        ],
+        "arrays": [
+          {
+            "key": "quantized.biases",
+            "ref": "gguf.014.quantized.biases",
+            "dtype": "F16",
+            "shape": [
+              2,
+              1
+            ],
+            "policy": "low_precision_float"
+          },
+          {
+            "key": "quantized.scales",
+            "ref": "gguf.014.quantized.scales",
+            "dtype": "F16",
+            "shape": [
+              2,
+              1
+            ],
+            "policy": "low_precision_float"
+          },
+          {
+            "key": "quantized.weight",
+            "ref": "gguf.014.quantized.weight",
+            "dtype": "U32",
+            "shape": [
+              2,
+              8
+            ],
+            "policy": "exact_numeric"
+          }
+        ],
+        "metadata": [
+          {
+            "kind": "array",
+            "key": "general.alignment",
+            "ref": "gguf.014.metadata.general.alignment",
+            "dtype": "U32",
+            "shape": [],
+            "policy": "exact_numeric"
+          },
+          {
+            "key": "quantization.fixture",
+            "kind": "string",
+            "value": "Q8_0"
+          }
+        ],
+        "dequantized": {
+          "key": "dequantized",
+          "ref": "gguf.014.dequantized",
+          "dtype": "F16",
+          "shape": [
+            2,
+            32
+          ],
+          "policy": "low_precision_float"
+        }
+      }
+    },
+    {
+      "id": "gguf.015",
+      "rust_call": "gguf.load_error",
+      "recipe": {
+        "kind": "load",
+        "path": "fixtures/gguf/q5-0-unsupported.gguf",
+        "execution": "default_cpu"
+      },
+      "expected": {
+        "status": "error",
+        "variant": "exception"
+      }
+    },
+    {
+      "id": "gguf.016",
+      "rust_call": "gguf.prevalidation",
+      "recipe": {
+        "kind": "tensor_rejects",
+        "accepted": [
+          "F32",
+          "F16",
+          "I8",
+          "I16",
+          "I32"
+        ],
+        "dtypes": [
+          "BOOL",
+          "U8",
+          "U16",
+          "U32",
+          "U64",
+          "I64",
+          "BF16",
+          "C64"
+        ]
+      },
+      "expected": {
+        "status": "error",
+        "variant": "unsupported_tensor_dtype"
+      }
+    },
+    {
+      "id": "gguf.017",
+      "rust_call": "gguf.prevalidation",
+      "recipe": {
+        "kind": "metadata_rejects",
+        "accepted": [
+          "BOOL",
+          "I8",
+          "I16",
+          "I32",
+          "I64",
+          "U8",
+          "U16",
+          "U32",
+          "U64",
+          "F32"
+        ],
+        "dtypes": [
+          "F16",
+          "BF16",
+          "C64"
+        ],
+        "ranks": [
+          2
+        ],
+        "empty": true
+      },
+      "expected": {
+        "status": "error",
+        "variants": [
+          "unsupported_metadata_array_dtype",
+          "invalid_metadata_array_rank",
+          "empty_metadata_array"
+        ]
+      }
+    },
+    {
+      "id": "gguf.018",
+      "rust_call": "gguf.load",
+      "recipe": {
+        "kind": "load",
+        "path": "fixtures/gguf/basic.gguf",
+        "execution": "default_cpu"
+      },
+      "expected": {
+        "status": "success",
+        "array_keys": [
+          "tensor.f16",
+          "tensor.f32",
+          "tensor.i16",
+          "tensor.i32",
+          "tensor.i8"
+        ],
+        "arrays": [
+          {
+            "key": "tensor.f16",
+            "ref": "gguf.001.tensor.f16",
+            "dtype": "F16",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "low_precision_float"
+          },
+          {
+            "key": "tensor.f32",
+            "ref": "gguf.001.tensor.f32",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "elementwise_float"
+          },
+          {
+            "key": "tensor.i16",
+            "ref": "gguf.001.tensor.i16",
+            "dtype": "I16",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "key": "tensor.i32",
+            "ref": "gguf.001.tensor.i32",
+            "dtype": "I32",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "key": "tensor.i8",
+            "ref": "gguf.001.tensor.i8",
+            "dtype": "I8",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "exact_numeric"
+          }
+        ],
+        "metadata": []
+      }
+    },
+    {
+      "id": "gguf.019",
+      "rust_call": "gguf.load",
+      "recipe": {
+        "kind": "load",
+        "path": "fixtures/gguf/basic.gguf",
+        "execution": "explicit_cpu"
+      },
+      "expected": {
+        "status": "success",
+        "array_keys": [
+          "tensor.f16",
+          "tensor.f32",
+          "tensor.i16",
+          "tensor.i32",
+          "tensor.i8"
+        ],
+        "arrays": [
+          {
+            "key": "tensor.f16",
+            "ref": "gguf.001.tensor.f16",
+            "dtype": "F16",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "low_precision_float"
+          },
+          {
+            "key": "tensor.f32",
+            "ref": "gguf.001.tensor.f32",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "elementwise_float"
+          },
+          {
+            "key": "tensor.i16",
+            "ref": "gguf.001.tensor.i16",
+            "dtype": "I16",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "key": "tensor.i32",
+            "ref": "gguf.001.tensor.i32",
+            "dtype": "I32",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "exact_numeric"
+          },
+          {
+            "key": "tensor.i8",
+            "ref": "gguf.001.tensor.i8",
+            "dtype": "I8",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "exact_numeric"
+          }
+        ],
+        "metadata": []
+      }
+    },
+    {
+      "id": "gguf.020",
+      "rust_call": "gguf.construct",
+      "recipe": {
+        "kind": "construct_save",
+        "path": "rust-save-qualified.gguf",
+        "same_spelling": "shared",
+        "metadata_value": "metadata",
+        "non_contiguous_shape": [
+          129,
+          257
+        ]
+      },
+      "expected": {
+        "status": "success",
+        "array_keys": [
+          "shared"
+        ],
+        "arrays": [
+          {
+            "key": "shared",
+            "ref": "gguf.020.shared",
+            "dtype": "F32",
+            "shape": [
+              257,
+              129
+            ],
+            "policy": "elementwise_float"
+          }
+        ],
+        "metadata": [
+          {
+            "key": "shared",
+            "kind": "string",
+            "value": "metadata"
+          }
+        ],
+        "duplicate_array_variant": "array_key_already_exists",
+        "duplicate_metadata_variant": "metadata_key_already_exists"
+      }
+    }
+  ]
+}

@@ -6,7 +6,7 @@ authors.workspace = true
 
 [dependencies]
 # Local dependencies
-mlx-rs.workspace = true
+mlx-rs = { workspace = true, default-features = true }
 
 # External dependencies
 tokenizers = "0.22.0"

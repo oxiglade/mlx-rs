@@ -8,7 +8,7 @@ use mlx_rs::{
 };
 
 #[derive(Debug, ModuleParameters, Quantizable)]
-struct QuantizableExample {
+pub struct QuantizableExample {
     #[quantizable]
     pub ql: MaybeQuantized<Linear>,
 }

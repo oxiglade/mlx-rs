@@ -127,8 +127,8 @@ mod tests {
 
         let (value, grad) = vg(parameters, 0).unwrap();
 
-        assert_eq!(value[0].item::<f32>(), 1.5 * 2.0);
-        assert_eq!(grad["x"].item::<f32>(), 2.0);
-        assert_eq!(grad["y"].item::<f32>(), 1.5);
+        assert_eq!(value[0].item_exact::<f32>(), 1.5 * 2.0);
+        assert_eq!(grad["x"].item_exact::<f32>(), 2.0);
+        assert_eq!(grad["y"].item_exact::<f32>(), 1.5);
     }
 }

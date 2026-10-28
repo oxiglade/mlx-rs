@@ -50,6 +50,7 @@ default = ["accelerate", "metal"]
 
 accelerate = ["mlx-sys/accelerate"]
 metal = ["mlx-sys/metal"]
+metal-jit = ["metal", "mlx-sys/metal-jit"]
 
 # Enables conversion between `Array` and `safetensors::TensorView`
 safetensors = ["dep:safetensors", "dep:bytemuck"]

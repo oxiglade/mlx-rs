@@ -1,0 +1,424 @@
+{
+  "cases": [
+    {
+      "id": "signal.001",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "bartlett",
+      "seed_hex": "8b659ec8b4073010a70a008622d8c459",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000803f",
+            "dtype": "F32",
+            "shape": [
+              1
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "signal.002",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "bartlett",
+      "seed_hex": "549860abecddd5d6e355fae045155a59",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000000000000000",
+            "dtype": "F32",
+            "shape": [
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "signal.003",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "bartlett",
+      "seed_hex": "929ccc0542706a4b80fa8ba3866a21bb",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00000000acaaaa3eabaa2a3f0000803faaaa2a3fa8aaaa3e00000000",
+            "dtype": "F32",
+            "shape": [
+              7
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "signal.004",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "blackman",
+      "seed_hex": "17632493484fef61b6fb3010d2c24d97",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000803f",
+            "dtype": "F32",
+            "shape": [
+              1
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "signal.005",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "blackman",
+      "seed_hex": "a7ce2907444c886d877bfcee34315335",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000000000000000",
+            "dtype": "F32",
+            "shape": [
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "signal.006",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "blackman",
+      "seed_hex": "2f68194854c68c61a26512d741d12905",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00000000b91e053eaf47213f0000803fad47213fba1e053e00000000",
+            "dtype": "F32",
+            "shape": [
+              7
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "signal.007",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "hamming",
+      "seed_hex": "b4849cc5d4ccf0ab7fa33d8cfa925d9a",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000803f",
+            "dtype": "F32",
+            "shape": [
+              1
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "signal.008",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "hamming",
+      "seed_hex": "c68de57f2661c571d4ee07d9a12440b9",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0cd7a33d0cd7a33d",
+            "dtype": "F32",
+            "shape": [
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "signal.009",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "hamming",
+      "seed_hex": "c890f7fc2943051fec1d765bf9c08bd1",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0cd7a33d53b89e3eb91e453f0000803fb81e453f54b89e3e0cd7a33d",
+            "dtype": "F32",
+            "shape": [
+              7
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "signal.010",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "hann",
+      "seed_hex": "0b0e3f82a23bd5d3dcf2e8186aba233f",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000803f",
+            "dtype": "F32",
+            "shape": [
+              1
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "signal.011",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "hann",
+      "seed_hex": "2c30d6c7e355da397210fefd72d9c8d9",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00000000edad0928",
+            "dtype": "F32",
+            "shape": [
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "signal.012",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "hann",
+      "seed_hex": "a6d17fce06345d72a47db0c8187cdd4e",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000000000000803e0100403f0000803ffeff3f3f0200803eedad0928",
+            "dtype": "F32",
+            "shape": [
+              7
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "signal.013",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "fftfreq",
+      "seed_hex": "00907c58336285d7ffb517ad23ddacf1",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00000000cdcc4c3ecdcccc3ecdccccbecdcc4cbe",
+            "dtype": "F32",
+            "shape": [
+              5
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "signal.014",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "fftfreq",
+      "seed_hex": "8ee8c6ebe43122d881d897c8f78c7394",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00000000cdcccc3ecdcc4c3fcdcc4cbfcdccccbe",
+            "dtype": "F32",
+            "shape": [
+              5
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "signal.015",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "fftfreq",
+      "seed_hex": "0fcda4c0282747f21e9246fc2f001e42",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00000000abaa2a3eabaaaa3e000000bfabaaaabeabaa2abe",
+            "dtype": "F32",
+            "shape": [
+              6
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "signal.016",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "fftfreq",
+      "seed_hex": "10fc5c145d2a2939fae60d199f0e2a61",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00000000abaaaa3eabaa2a3f000080bfabaa2abfabaaaabe",
+            "dtype": "F32",
+            "shape": [
+              6
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "signal.017",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "rfftfreq",
+      "seed_hex": "20db002e19357de6a8dc550f62ea3ef0",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00000000cdcc4c3ecdcccc3e",
+            "dtype": "F32",
+            "shape": [
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "signal.018",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "rfftfreq",
+      "seed_hex": "750c1c201603969e5fb2d34940f91f6e",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00000000cdcccc3ecdcc4c3f",
+            "dtype": "F32",
+            "shape": [
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "signal.019",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "rfftfreq",
+      "seed_hex": "42a0f5a62daedd16e40e225f9e998c6c",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00000000abaa2a3eabaaaa3e0000003f",
+            "dtype": "F32",
+            "shape": [
+              4
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "signal.020",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "rfftfreq",
+      "seed_hex": "58dce89819a8a74059a079e75653c287",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00000000abaaaa3eabaa2a3f0000803f",
+            "dtype": "F32",
+            "shape": [
+              4
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    }
+  ],
+  "old_environment": {
+    "architecture": "arm64",
+    "mlx_metal_package": "0.32.2",
+    "mlx_package": "0.32.2",
+    "mlx_runtime": "0.32.2",
+    "numpy": "2.2.6",
+    "python": "3.12.14"
+  },
+  "schema_version": 1,
+  "suite": "signal",
+  "target_environment": {
+    "architecture": "arm64",
+    "device": "cpu",
+    "mlx": "0.32.2",
+    "mlx_metal": "0.32.2",
+    "mlx_runtime": "0.32.2",
+    "numpy": "2.2.6",
+    "python": "3.12.14",
+    "venv": "/Users/ci/hub/scratch/bump-a341b49/canonical-replay/venv"
+  }
+}

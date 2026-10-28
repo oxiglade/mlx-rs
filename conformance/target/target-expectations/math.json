@@ -1,0 +1,1784 @@
+{
+  "cases": [
+    {
+      "id": "math.001",
+      "input_refs": [
+        "math.001.input.0"
+      ],
+      "input_sha256": "sha256:2ccfdbc114edb2134d69306a6a154b289151a3fe968eb83348dda3229d071080",
+      "recipe": "count_nonzero",
+      "seed_hex": "d40c10afbbc0a5b1f31d495a476b8fee",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "03000000",
+            "dtype": "I32",
+            "shape": []
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.002",
+      "input_refs": [
+        "math.002.input.0.real",
+        "math.002.input.0.imag"
+      ],
+      "input_sha256": "sha256:2cceea5ca31ece5e6dc8f3bec03713ba8bf0bb6034dea1721629d5a0fb984c0d",
+      "recipe": "count_nonzero",
+      "seed_hex": "a86bfe524c8e100a60882bf82fb45b18",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "02000000",
+            "dtype": "I32",
+            "shape": [
+              1
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.003",
+      "input_refs": [
+        "math.003.input.0"
+      ],
+      "input_sha256": "sha256:08ef1e9b9c50bdcade945df35ac2df8b0d0a888eb20971e19a3b40deca900ef0",
+      "recipe": "count_nonzero",
+      "seed_hex": "194b0f8029c20b1de35cab09551e43fb",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0200000001000000",
+            "dtype": "I32",
+            "shape": [
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.004",
+      "input_refs": [
+        "math.004.input.0"
+      ],
+      "input_sha256": "sha256:813c3960dd88272ed0f8fbf5b13d1f95962bbdcacb71346e0863efe1d4491044",
+      "recipe": "count_nonzero",
+      "seed_hex": "68162670ed8110b1ef0bbe62816fa4b5",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "030000000100000002000000",
+            "dtype": "I32",
+            "shape": [
+              1,
+              3,
+              1
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.005",
+      "input_refs": [
+        "math.005.input.0"
+      ],
+      "input_sha256": "sha256:27a2068f5f8e08880ecb0f7d67478a88c018ccb2ff5475a1e13698e7b3d6ee81",
+      "recipe": "count_nonzero",
+      "seed_hex": "60deaf57697685a19bdf2eda0ab3b0b9",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00000000010000000100000000000000",
+            "dtype": "I32",
+            "shape": [
+              2,
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.006",
+      "input_refs": [
+        "math.006.input.0"
+      ],
+      "input_sha256": "sha256:b4a9552c45cf9ed828729cc0a886ba58847d6a92d32d886e110083e7cae112c9",
+      "recipe": "count_nonzero",
+      "seed_hex": "fcc13605ef4c0c342ab9c4d5f26a1b7c",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000000000000000000000000",
+            "dtype": "I32",
+            "shape": [
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.007",
+      "input_refs": [
+        "math.007.input.0"
+      ],
+      "input_sha256": "sha256:2a50c6517c873f462604ab106c69cc6a4160b9c905afc4059cab8cd46efe4940",
+      "recipe": "count_nonzero",
+      "seed_hex": "31ceccd653edc46dde190127f14a12d8",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "02000000",
+            "dtype": "I32",
+            "shape": []
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.008",
+      "input_refs": [
+        "math.008.input.0"
+      ],
+      "input_sha256": "sha256:8dbc3495301a4b3420578d36addebb85a84ebc43fab17f057146ef79ab89a1b5",
+      "recipe": "diff",
+      "seed_hex": "a994146fd2c13cbd49d661ae28465ccb",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000000001000000020000000300000004000000050000000600000007000000",
+            "dtype": "I32",
+            "shape": [
+              2,
+              4
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.009",
+      "input_refs": [
+        "math.009.input.0"
+      ],
+      "input_sha256": "sha256:cfcb2cb6e0e5fcfa9a0fa9ed8490bb65ac85584d688f7f68e8aa8660da4b1a9a",
+      "recipe": "diff",
+      "seed_hex": "b5c3d83bd45d98a3f417e33dcfa9343a",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "04000000040000000400000004000000",
+            "dtype": "I32",
+            "shape": [
+              1,
+              4
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.010",
+      "input_refs": [
+        "math.010.input.0"
+      ],
+      "input_sha256": "sha256:71c2363c3d95927600d3466e58febec80f6a5eef55cf4285683b4d6547f30241",
+      "recipe": "diff",
+      "seed_hex": "916856aa39873e4a148753170656dcf2",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00000000000000000000000000000000",
+            "dtype": "F32",
+            "shape": [
+              2,
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.011",
+      "input_refs": [
+        "math.011.input.0"
+      ],
+      "input_sha256": "sha256:a10a4a5b58327ee3250e4dc7d815b2efb4eb34379165bcd98aff675fede3c4ea",
+      "recipe": "diff",
+      "seed_hex": "a6d2cbf7491767168903c95dae65a92a",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "",
+            "dtype": "I32",
+            "shape": [
+              2,
+              0
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.012",
+      "input_refs": [
+        "math.012.input.0.real",
+        "math.012.input.0.imag"
+      ],
+      "input_sha256": "sha256:cee4b42563e83cabcd495c5c4f45e4b38b5842cc29a568fec5e634231ac5af31",
+      "recipe": "diff",
+      "seed_hex": "c1ef456a04369992c34710c95278df1d",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00000040000040c0000040c00000a040000000c0000040c0",
+            "dtype": "C64",
+            "shape": [
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.013",
+      "input_refs": [
+        "math.013.input.0"
+      ],
+      "input_sha256": "sha256:0dc7ec73aae6906abc35e3955ff7ad6b9f7141d80a25a48a3827c0262fcbdd3b",
+      "recipe": "flip",
+      "seed_hex": "1e1470ddec4dcf83e056d6d7eb95db2c",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "060000000500000004000000030000000200000001000000",
+            "dtype": "I32",
+            "shape": [
+              2,
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.014",
+      "input_refs": [
+        "math.014.input.0"
+      ],
+      "input_sha256": "sha256:d7827a2c6b7e3de122c9ce3ce1e4ca388839ed303160e6328c0842e911396eb2",
+      "recipe": "flip",
+      "seed_hex": "9ee4b879f39af2f095bfa5ca2d0acefd",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000000400000803f000000000000a0400000804000004040",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.015",
+      "input_refs": [
+        "math.015.input.0.real",
+        "math.015.input.0.imag"
+      ],
+      "input_sha256": "sha256:d7bd0e4c3e2bbc6c9305c7d11493e2a0d97faa2d62e8b8925f4b62a07c6af868",
+      "recipe": "flip",
+      "seed_hex": "600f3ee4994df71081d12919e9786f58",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000a0400000a0c000008040000080c00000e0400000e0c00000c0400000c0c00000803f000080bf000000000000000000004040000040c000000040000000c0",
+            "dtype": "C64",
+            "shape": [
+              2,
+              2,
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.016",
+      "input_refs": [
+        "math.016.input.0"
+      ],
+      "input_sha256": "sha256:b6415bfa2f9f85860cab45225b656a20a31a623012f9a80709d397d3aa824101",
+      "recipe": "flip",
+      "seed_hex": "ec97b9749dc27ea46b7a7153a093b240",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000001000200030004000500",
+            "dtype": "I16",
+            "shape": [
+              2,
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.017",
+      "input_refs": [
+        "math.017.input.0"
+      ],
+      "input_sha256": "sha256:ec126a0b746fbba5ef2567387d0eae8eab3a8bfec7434e426f52a5b37e675710",
+      "recipe": "flip",
+      "seed_hex": "34a9f0d5af6b9365269cd56df49e4ff4",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "020000000100000000000000050000000400000003000000",
+            "dtype": "I32",
+            "shape": [
+              2,
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.018",
+      "input_refs": [
+        "math.018.input.0"
+      ],
+      "input_sha256": "sha256:8b1fbf13e9b2d7e24fcdc09e1e359760b99c7f58ed0f22d83198b835366db02d",
+      "recipe": "flip",
+      "seed_hex": "e4e83c5947defca9e861074610808adc",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "",
+            "dtype": "F32",
+            "shape": [
+              0,
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.019",
+      "input_refs": [
+        "math.019.input.0"
+      ],
+      "input_sha256": "sha256:026f7442b888372a57cf2d6db3cca7ec983eca4863c3343cf0104200ab0ced60",
+      "recipe": "det",
+      "seed_hex": "f8a2b2d5721878f8103cfca2c3a8b26e",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00008040",
+            "dtype": "F32",
+            "shape": []
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.020",
+      "input_refs": [
+        "math.020.input.0"
+      ],
+      "input_sha256": "sha256:09ca25938c282eefeef67604ca983f7633264f522ce471d7bf9cf3073509ad4d",
+      "recipe": "det",
+      "seed_hex": "a1cb5c98ae26f1426648f9cbfd3bd37f",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000000c0",
+            "dtype": "F32",
+            "shape": []
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.021",
+      "input_refs": [
+        "math.021.input.0"
+      ],
+      "input_sha256": "sha256:a604d6f29eded48468fd2df81794182ce7d8dc3ef077f5d6e281c276f1589777",
+      "recipe": "det",
+      "seed_hex": "1714fed4638e3f75975188c1a0f02c3f",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000000000002040",
+            "dtype": "F64",
+            "shape": []
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.022",
+      "input_refs": [
+        "math.022.input.0"
+      ],
+      "input_sha256": "sha256:63940be365a7046e0609ff9971c1cd3cc37e96fe853238cac122388124d3d843",
+      "recipe": "det",
+      "seed_hex": "c524b49ff2b3c7d5aedae94781683ac6",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "fdffad42",
+            "dtype": "F32",
+            "shape": []
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.023",
+      "input_refs": [
+        "math.023.input.0"
+      ],
+      "input_sha256": "sha256:9a76e16b3b8251821ad91d7584abd444f060b79359816b2d16415ec446db7086",
+      "recipe": "det",
+      "seed_hex": "b04322d360bec145df15ed6eca6e6150",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000a040",
+            "dtype": "F32",
+            "shape": []
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.024",
+      "input_refs": [
+        "math.024.input.0"
+      ],
+      "input_sha256": "sha256:e10815ead85ce8f3e7df24c041184b3a2331f758faf56c12edface606d0a2d9f",
+      "recipe": "det",
+      "seed_hex": "ea1c9f50504814f3cba256545e8e5b39",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000000c000002041",
+            "dtype": "F32",
+            "shape": [
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.025",
+      "input_refs": [
+        "math.025.input.0"
+      ],
+      "input_sha256": "sha256:e71bc588a233b2906e3c37b6127971f29ca224c0d2cfb29890fc3361cefc9265",
+      "recipe": "det",
+      "seed_hex": "79b732ddc2c46c0f891d0cc1b2fb23a2",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00000000",
+            "dtype": "F32",
+            "shape": []
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.026",
+      "input_refs": [
+        "math.026.input.0"
+      ],
+      "input_sha256": "sha256:309eccf86925f0d27efa044359a0afd733f1b54811030559e2bec2f97a6fd303",
+      "recipe": "det",
+      "seed_hex": "933e039b0e2d348fc72d57febe215bb3",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000803f",
+            "dtype": "F32",
+            "shape": []
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.027",
+      "input_refs": [
+        "math.027.input.0"
+      ],
+      "input_sha256": "sha256:d07053abf07df655ee132543631077f946b5de8a7c06e118ece87d9120336c0a",
+      "recipe": "slogdet",
+      "seed_hex": "120b99e7c8630c0da61b0c161e60c94b",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000803f",
+            "dtype": "F32",
+            "shape": []
+          },
+          {
+            "data_hex": "6058e53f",
+            "dtype": "F32",
+            "shape": []
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.028",
+      "input_refs": [
+        "math.028.input.0"
+      ],
+      "input_sha256": "sha256:03f688ca59de7ee687da8320e9ed46a26bb58ff599db46d5e082314500923f1d",
+      "recipe": "slogdet",
+      "seed_hex": "0666b70d5fe149cf984b12033a379cca",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000080bf",
+            "dtype": "F32",
+            "shape": []
+          },
+          {
+            "data_hex": "6058e53f",
+            "dtype": "F32",
+            "shape": []
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.029",
+      "input_refs": [
+        "math.029.input.0"
+      ],
+      "input_sha256": "sha256:745b185ad97385016f1a7e28064908b33096b29e93c68ba037f0fc3d3dbe3d52",
+      "recipe": "slogdet",
+      "seed_hex": "a439405fd359d9a2052cdae80d6bcbfb",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00000000",
+            "dtype": "F32",
+            "shape": []
+          },
+          {
+            "data_hex": "000080ff",
+            "dtype": "F32",
+            "shape": []
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.030",
+      "input_refs": [
+        "math.030.input.0"
+      ],
+      "input_sha256": "sha256:2659dcf1226d35c114f86c0a3672c54702c6b8e9bb8fb54752b1c696aafd1e6c",
+      "recipe": "slogdet",
+      "seed_hex": "e7c0f401e72a16dc06e069c585b3d69c",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000803f000080bf00000000",
+            "dtype": "F32",
+            "shape": [
+              3
+            ]
+          },
+          {
+            "data_hex": "6058e53f92150540000080ff",
+            "dtype": "F32",
+            "shape": [
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.031",
+      "input_refs": [
+        "math.031.input.0"
+      ],
+      "input_sha256": "sha256:8a14521149d36916d510fa733657264caa0b5ada721bc1bb5bc70fcfa636b18e",
+      "recipe": "slogdet",
+      "seed_hex": "c5432d10a02b33d6749cac8120d17b70",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000803f",
+            "dtype": "F32",
+            "shape": []
+          },
+          {
+            "data_hex": "b8e88e40",
+            "dtype": "F32",
+            "shape": []
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.032",
+      "input_refs": [
+        "math.032.input.0"
+      ],
+      "input_sha256": "sha256:f7782b211190ce6f87e7e5d3ef595f2156ff5b2d9112d21492303714efd8ff45",
+      "recipe": "slogdet",
+      "seed_hex": "3bed2edd6b56a5a7804755ba040ac7f1",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000803f",
+            "dtype": "F32",
+            "shape": []
+          },
+          {
+            "data_hex": "00000000",
+            "dtype": "F32",
+            "shape": []
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.033",
+      "input_refs": [
+        "math.033.input.0"
+      ],
+      "input_sha256": "sha256:7552c66d3ca04bc08638f58a61c999fe10a4feeb2f1a0b19f4a2f4a50180fe35",
+      "recipe": "slogdet",
+      "seed_hex": "de876ced8c6485b46e56a14089d83a49",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000803f",
+            "dtype": "F32",
+            "shape": []
+          },
+          {
+            "data_hex": "0000807f",
+            "dtype": "F32",
+            "shape": []
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.034",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "linspace",
+      "seed_hex": "37cbd09155c222c2ba749640165d8088",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00000000052fa73c052f273d88c67a3d052fa73dc7fad03d88c6fa3d2549123e052f273ee6143c3ec7fa503ea7e0653e88c67a3e34d6873e2549923e15bc9c3e052fa73ef6a1b13ee614bc3ed687c63ec7fad03eb76ddb3ea7e0e53e9853f03e88c6fa3ebc9c023f34d6073fac0f0d3f2549123f9d82173f15bc1c3f8df5213f052f273f7d682c3ff6a1313f6edb363fe6143c3f5e4e413fd687463f4ec14b3fc7fa503f3f34563fb76d5b3f2fa7603fa7e0653f1f1a6b3f9853703f108d753f88c67a3f0000803f",
+            "dtype": "F32",
+            "shape": [
+              50
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.035",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "linspace",
+      "seed_hex": "41845629220229ad5da7a8cfddce7d18",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000000000000803e0000003f0000403f0000803f",
+            "dtype": "F32",
+            "shape": [
+              5
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.036",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "linspace",
+      "seed_hex": "5e98c573b6e4df936a3b1318ea1dd098",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00000000cdcc4c3ecdcccc3e9a99193fcdcc4c3f",
+            "dtype": "F32",
+            "shape": [
+              5
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.037",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "linspace",
+      "seed_hex": "fe37d6e70af2f445ad14d8a71c21f488",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000803fa9aaaa3eacaaaabe000080bf",
+            "dtype": "F32",
+            "shape": [
+              4
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.038",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "linspace",
+      "seed_hex": "35d6a7e0cb0985dcb28f6af865cd5670",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000000400000004000000040",
+            "dtype": "F32",
+            "shape": [
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.039",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "linspace",
+      "seed_hex": "7f085a290a5d94a02b6ecbfb5775c74a",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "",
+            "dtype": "F32",
+            "shape": [
+              0
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.040",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "linspace",
+      "seed_hex": "5834ab492fa2687760065b58150790e2",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000803f",
+            "dtype": "F32",
+            "shape": [
+              1
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.041",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "linspace",
+      "seed_hex": "5b817b455a5491b3366841f9bb4ecb38",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000000100000704100000020000070410000003000007041",
+            "dtype": "F64",
+            "shape": [
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.042",
+      "input_refs": [],
+      "input_sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "recipe": "linspace",
+      "seed_hex": "606aaea4d04d71c4bbfe0a83acc780e1",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "fdffffffffffffff000000000200000004000000",
+            "dtype": "I32",
+            "shape": [
+              5
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.043",
+      "input_refs": [
+        "math.043.input.0"
+      ],
+      "input_sha256": "sha256:d34313cfc87337f9077e48d60af1d8f7f69f64668c4638457aeb4a10fcf8c77a",
+      "recipe": "logcumsumexp",
+      "seed_hex": "fceb48894026c00446873967cc4c9001",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000080ff00007a440c547a440c547a44",
+            "dtype": "F32",
+            "shape": [
+              4
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.044",
+      "input_refs": [
+        "math.044.input.0"
+      ],
+      "input_sha256": "sha256:3b35094d005f0e9953d4cc8a40380b447fef904fa293afe57bd84ee6e9c5219e",
+      "recipe": "logcumsumexp",
+      "seed_hex": "85f9601a0a333d21f624519108f27992",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00007a440c547a440c547a440000807f",
+            "dtype": "F32",
+            "shape": [
+              4
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.045",
+      "input_refs": [
+        "math.045.input.0"
+      ],
+      "input_sha256": "sha256:2039005482a8b0fcf93331d5088af6250af7e4ae5f3669698af8f7d957799fc6",
+      "recipe": "logcumsumexp",
+      "seed_hex": "24b2e89e96a9ce65128df19491401166",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000807f0000807f0000807f000080ff",
+            "dtype": "F32",
+            "shape": [
+              4
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.046",
+      "input_refs": [
+        "math.046.input.0"
+      ],
+      "input_sha256": "sha256:8683a97673bb6eba23934ae94e123b296b0b495d20ac9aa5a0df8e9147aa1ebe",
+      "recipe": "logcumsumexp",
+      "seed_hex": "8ded2152ee59c58bbd8498d5b9e62d8d",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000807f0000807f0000807f0000807f",
+            "dtype": "F32",
+            "shape": [
+              4
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.047",
+      "input_refs": [
+        "math.047.input.0"
+      ],
+      "input_sha256": "sha256:c767b6f69cde8689b70d17b3feea692bd63331a61c2d044b8503ce62f2a77dd5",
+      "recipe": "logcumsumexp",
+      "seed_hex": "6fd8c47dd6a95b6456311e15e6d76c84",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00c07eb98636003ca040d142",
+            "dtype": "F16",
+            "shape": [
+              2,
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.048",
+      "input_refs": [
+        "math.048.input.0"
+      ],
+      "input_sha256": "sha256:61f3a7764c02b266094d87fa92a401a6bd52f8611edae7aa510e4534c951c23d",
+      "recipe": "logcumsumexp",
+      "seed_hex": "09609e921bb3949250c29149fd586071",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "803f0040404080ff80ff80ff",
+            "dtype": "BF16",
+            "shape": [
+              2,
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.049",
+      "input_refs": [
+        "math.049.input.0.real",
+        "math.049.input.0.imag"
+      ],
+      "input_sha256": "sha256:1eb02719ac6ac8aa85c4eed4157a99de0738d1f0ec676f656c0522252539ad42",
+      "recipe": "logcumsumexp",
+      "seed_hex": "d4a22187678986fa1f41d37411361b00",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000803f000000402ccf3640f45a7abfe4dc3740082a84bf",
+            "dtype": "C64",
+            "shape": [
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.050",
+      "input_refs": [
+        "math.050.input.0"
+      ],
+      "input_sha256": "sha256:251f29cb4d98160f3bdaceac5b6da709c9cc33b08cbb3f59dd24760437866e14",
+      "recipe": "logcumsumexp",
+      "seed_hex": "611a59c30d2bd6c3c08b8c6576dabfb3",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "",
+            "dtype": "F32",
+            "shape": [
+              0
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.051",
+      "input_refs": [
+        "math.051.input.0",
+        "math.051.input.1"
+      ],
+      "input_sha256": "sha256:2d669f0a7923c7ef8dadd9b684130bd5322c06ab5a5da05d1a1c8094af5f16f7",
+      "recipe": "logical_xor",
+      "seed_hex": "92b7d29c2580187c44b3b6d4e54f0af0",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00010100",
+            "dtype": "BOOL",
+            "shape": [
+              4
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.052",
+      "input_refs": [
+        "math.052.input.0",
+        "math.052.input.1"
+      ],
+      "input_sha256": "sha256:ae63ea69c50124bf927ff4e813a8fc0fec1cecb0ad2441d12e1e72f97a84ee9e",
+      "recipe": "logical_xor",
+      "seed_hex": "e89fe07da7ad66be36c6461e965ee82c",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000101010000",
+            "dtype": "BOOL",
+            "shape": [
+              2,
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.053",
+      "input_refs": [
+        "math.053.input.0",
+        "math.053.input.1"
+      ],
+      "input_sha256": "sha256:225201ea34e9235d29c427558bd19e095d4dcdc9182b95f9526f4f1827d6b33f",
+      "recipe": "logical_xor",
+      "seed_hex": "7ae41d37e03bcb1c42b5e42c9000e193",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "",
+            "dtype": "BOOL",
+            "shape": [
+              0,
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.054",
+      "input_refs": [
+        "math.054.input.0",
+        "math.054.input.1"
+      ],
+      "input_sha256": "sha256:4c85a09ca20922daebf7bfa082a04c3699f0b2fda60d947cd3d7196c810f7817",
+      "recipe": "search_sorted",
+      "seed_hex": "dddf54c2190148688e56a8377da41ced",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000000000100000004000000",
+            "dtype": "U32",
+            "shape": [
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.055",
+      "input_refs": [
+        "math.055.input.0",
+        "math.055.input.1"
+      ],
+      "input_sha256": "sha256:89643aea505775b80020d2ab394fca9338434e48f5f813f056d45e0d8e457420",
+      "recipe": "search_sorted",
+      "seed_hex": "8a5ebbade076c265084b0b5ccaeb5e06",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000000000300000004000000",
+            "dtype": "U32",
+            "shape": [
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.056",
+      "input_refs": [
+        "math.056.input.0",
+        "math.056.input.1"
+      ],
+      "input_sha256": "sha256:08968ac4da8e4c55eca5b164f17afe2858dd1608d19eeb782c65b9162a290029",
+      "recipe": "search_sorted",
+      "seed_hex": "dc80608b56d2e5ddf402ecedc51e59e5",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "02000000",
+            "dtype": "U32",
+            "shape": []
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.057",
+      "input_refs": [
+        "math.057.input.0",
+        "math.057.input.1"
+      ],
+      "input_sha256": "sha256:73294d16f519e52c6dc5f8c60d2ebeeb3272289078d337de79044e493adca6b8",
+      "recipe": "search_sorted",
+      "seed_hex": "328e2d3771b846438bb9e63de9930ad5",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00000000020000000300000004000000",
+            "dtype": "U32",
+            "shape": [
+              2,
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.058",
+      "input_refs": [
+        "math.058.input.0",
+        "math.058.input.1"
+      ],
+      "input_sha256": "sha256:3a5f64cc4f284f94e26280a22d67d4d18e9491720570de09e82d68d49a63a0e7",
+      "recipe": "search_sorted",
+      "seed_hex": "7c852e960b7a1318898bb3d64513e2d2",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000000000000000",
+            "dtype": "U32",
+            "shape": [
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.059",
+      "input_refs": [
+        "math.059.input.0",
+        "math.059.input.1"
+      ],
+      "input_sha256": "sha256:cffd945ddab65f00ffd65b1036ef800bfafa91de00e3c470411023f4d4adfccc",
+      "recipe": "search_sorted",
+      "seed_hex": "0a95cf06f8881bdad4455421516f9bac",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0200000001000000",
+            "dtype": "U32",
+            "shape": [
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.060",
+      "input_refs": [
+        "math.060.input.0",
+        "math.060.input.1"
+      ],
+      "input_sha256": "sha256:46069ca8a580e3e28a822bec2fcc9707e6ae41d9fdf51471b049815849804ddb",
+      "recipe": "search_sorted",
+      "seed_hex": "b94d4ec8e8ce7b7d70e9f25017bcdd65",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0200000002000000",
+            "dtype": "U32",
+            "shape": [
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.061",
+      "input_refs": [
+        "math.061.input.0"
+      ],
+      "input_sha256": "sha256:3a63cbb1df86d5925d85b06b4e054bd095b587c958a4bb06cf247c2b965d408b",
+      "recipe": "trace",
+      "seed_hex": "1f0c2570a1ffce9fa0a7701347e742fc",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00004041",
+            "dtype": "F32",
+            "shape": []
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.062",
+      "input_refs": [
+        "math.062.input.0"
+      ],
+      "input_sha256": "sha256:8d393f8a4647d7cb5c3620eee5672489c62c4497a0dabb34aa0d322074812e4a",
+      "recipe": "trace",
+      "seed_hex": "c305a8effda622a19b3b54fdc934cd04",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000000410000a041",
+            "dtype": "F32",
+            "shape": [
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.063",
+      "input_refs": [
+        "math.063.input.0"
+      ],
+      "input_sha256": "sha256:12c32a547c512e6cfc76930a1923c11fc1703a5323a2ade702d2cc7f76affd4e",
+      "recipe": "trace",
+      "seed_hex": "aeb568a8d14694edf8707d86e8632c87",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000904100005842",
+            "dtype": "F32",
+            "shape": [
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.064",
+      "input_refs": [
+        "math.064.input.0"
+      ],
+      "input_sha256": "sha256:02e799fb0ff8de0bf9b5bc00227240aaa50d2a9c36819ec2c4a453d4d50d386b",
+      "recipe": "trace",
+      "seed_hex": "8abb1f422d5e8a68a622aa966fd3fa9a",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0d000000150000001d000000",
+            "dtype": "I32",
+            "shape": [
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.065",
+      "input_refs": [
+        "math.065.input.0"
+      ],
+      "input_sha256": "sha256:df8536919fd833f498499d91c84622c34fd03e6a6d8a37de8fd472074e061ef9",
+      "recipe": "trace",
+      "seed_hex": "d5de9d87f362cb2f91dd284ba18d7dee",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00000000",
+            "dtype": "F32",
+            "shape": []
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.066",
+      "input_refs": [
+        "math.066.input.0"
+      ],
+      "input_sha256": "sha256:290373c6b8b86140154d914dbcec4e3348375c44dab458db2ad7430e5ec1fd1e",
+      "recipe": "trace",
+      "seed_hex": "a733333277f7bc40586f08f68fd9411d",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0c000000",
+            "dtype": "I32",
+            "shape": []
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.067",
+      "input_refs": [
+        "math.067.input.0"
+      ],
+      "input_sha256": "sha256:f01bd2d730d4470cdc27023ab61e26f1e1f7969e112bef066d95f825ba76ca5c",
+      "recipe": "trunc",
+      "seed_hex": "ff036dd409e71314bcdbf38041edc1c7",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000000c000000080000000000000803f00000040000040c0",
+            "dtype": "F32",
+            "shape": [
+              6
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.068",
+      "input_refs": [
+        "math.068.input.0"
+      ],
+      "input_sha256": "sha256:3d57f5498b0e573cf76b265b997c14435c0dcecbfa95cdb7f2382e2f9a5af6f6",
+      "recipe": "trunc",
+      "seed_hex": "28648eb16fa56e0ba4ad6b6e7091bc56",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00bc00000040",
+            "dtype": "F16",
+            "shape": [
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.069",
+      "input_refs": [
+        "math.069.input.0"
+      ],
+      "input_sha256": "sha256:50ca11315e7851eb82887ce0a22ce931390c001381b57cdbd0fd6ddf4d27efe3",
+      "recipe": "trunc",
+      "seed_hex": "49f15f8b74889a1590497a1e2ece1d1d",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000000000000f0bf00000000000000000000000000000040",
+            "dtype": "F64",
+            "shape": [
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.070",
+      "input_refs": [
+        "math.070.input.0"
+      ],
+      "input_sha256": "sha256:50bc0df2be40d968a7a5e44d2e2b0a1b6e09848ab385eaba5ca4258b5beab2d8",
+      "recipe": "trunc",
+      "seed_hex": "af1e48d2c525d55d6d79c4fed3414ff9",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "ffffffff0000000002000000",
+            "dtype": "I32",
+            "shape": [
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.071",
+      "input_refs": [
+        "math.071.input.0"
+      ],
+      "input_sha256": "sha256:2317ac0733cd3216ebab999390e4a52515c6ba01f7a8dbab5476d8e4db56211e",
+      "recipe": "unstack",
+      "seed_hex": "bfc1055d3d7ef734c96f9ddbebe39734",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "010000000200000003000000",
+            "dtype": "I32",
+            "shape": [
+              3
+            ]
+          },
+          {
+            "data_hex": "040000000500000006000000",
+            "dtype": "I32",
+            "shape": [
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.072",
+      "input_refs": [
+        "math.072.input.0"
+      ],
+      "input_sha256": "sha256:9661c0fa1db9b843abc24e4b395e1e74705eceeab1085448d3eaab9fe39157c5",
+      "recipe": "unstack",
+      "seed_hex": "221d341a7443e05ada36096240a10895",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000000000000803f0000c0400000e040",
+            "dtype": "F32",
+            "shape": [
+              2,
+              2
+            ]
+          },
+          {
+            "data_hex": "00000040000040400000004100001041",
+            "dtype": "F32",
+            "shape": [
+              2,
+              2
+            ]
+          },
+          {
+            "data_hex": "000080400000a0400000204100003041",
+            "dtype": "F32",
+            "shape": [
+              2,
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.073",
+      "input_refs": [
+        "math.073.input.0"
+      ],
+      "input_sha256": "sha256:780ba54d4f84721cc241ca0013dfe2b03e30e24eb4689b43235a66ae6f864487",
+      "recipe": "unstack",
+      "seed_hex": "be4093d28a57d7a1a98c624d43db5f4e",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000000000000040000080400000c0400000004100002041",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ]
+          },
+          {
+            "data_hex": "0000803f000040400000a0400000e0400000104100003041",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.074",
+      "input_refs": [
+        "math.074.input.0"
+      ],
+      "input_sha256": "sha256:c3a706f0685ff4b9d379ec418b621de64d1c2563e8ced5834c494fa8458114ed",
+      "recipe": "unstack",
+      "seed_hex": "38c231287cde56d4abb92a6fdd1052c3",
+      "target": {
+        "outputs": [],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.075",
+      "input_refs": [
+        "math.075.input.0",
+        "math.075.input.1"
+      ],
+      "input_sha256": "sha256:0aa95d391fb3def528a31749ef3303076ca5f58cfbc96a12957f4ac20bfc91bf",
+      "recipe": "vecdot",
+      "seed_hex": "cf1e23414577eceb4c2e390110d50c67",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "1c0000001c000000",
+            "dtype": "I32",
+            "shape": [
+              2
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.076",
+      "input_refs": [
+        "math.076.input.0",
+        "math.076.input.1"
+      ],
+      "input_sha256": "sha256:68bf825cd5c8fff4d7aaf2fc89ca700a188963dae5a6ffc9300b078fe546ca46",
+      "recipe": "vecdot",
+      "seed_hex": "13dbca0268841392b8b21b69e8a91bea",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "00004042000084420000b0420000e442000080420000b4420000f04200001a430000a0420000e4420000184300004243",
+            "dtype": "F32",
+            "shape": [
+              3,
+              4
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.077",
+      "input_refs": [
+        "math.077.input.0.real",
+        "math.077.input.0.imag",
+        "math.077.input.1.real",
+        "math.077.input.1.imag"
+      ],
+      "input_sha256": "sha256:a7fc61cad9632962797987b996ff13bbedb24ab58e7e4aa295190dd7a4312ee9",
+      "recipe": "vecdot",
+      "seed_hex": "950ae74bf3bb967c53a24436af13e5b0",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000000400000803f",
+            "dtype": "C64",
+            "shape": []
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "math.078",
+      "input_refs": [
+        "math.078.input.0",
+        "math.078.input.1"
+      ],
+      "input_sha256": "sha256:da56a6b95b7ce4f1f93f1fad15072f8505d19dd577a57919140dcacaef6c2a50",
+      "recipe": "search_sorted",
+      "seed_hex": "ae3fa137e57b2f7afb14303d8624529b",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "000000000100000004000000",
+            "dtype": "U32",
+            "shape": [
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    }
+  ],
+  "old_environment": {
+    "architecture": "arm64",
+    "mlx_metal_package": "0.32.2",
+    "mlx_package": "0.32.2",
+    "mlx_runtime": "0.32.2",
+    "numpy": "2.2.6",
+    "python": "3.12.14"
+  },
+  "schema_version": 1,
+  "suite": "math",
+  "target_environment": {
+    "architecture": "arm64",
+    "device": "cpu",
+    "mlx": "0.32.2",
+    "mlx_metal": "0.32.2",
+    "mlx_runtime": "0.32.2",
+    "numpy": "2.2.6",
+    "python": "3.12.14",
+    "venv": "/Users/ci/hub/scratch/bump-a341b49/canonical-replay/venv"
+  }
+}

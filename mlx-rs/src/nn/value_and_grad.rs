@@ -148,9 +148,18 @@ where
 #[cfg(test)]
 mod tests {
     use crate::module::Module;
-    use crate::{array, error::Exception, Array};
+    use crate::{error::Exception, Array, Dtype};
 
     use crate::nn::{self, Linear};
+
+    fn assert_finite_nonzero(value: impl AsRef<Array>) {
+        let value = value.as_ref();
+        assert_eq!(value.dtype(), Dtype::Float32);
+        assert!(value.shape().is_empty());
+        let value = value.item_exact::<f32>();
+        assert!(value.is_finite());
+        assert_ne!(value, 0.0);
+    }
 
     // The unit test below is adapted from `test_compiled_optimizer` in
     // `mlx/python/tests/test_optimizers.py``
@@ -166,9 +175,9 @@ mod tests {
         let mut vg = nn::value_and_grad(loss);
         let (v, g) = vg(&mut model, &x).unwrap();
 
-        assert_ne!(v[0].sum(None).unwrap(), array!(0.0));
-        assert_ne!(g["weight"].sum(None).unwrap(), array!(0.0));
-        assert_ne!(g["bias"].sum(None).unwrap(), array!(0.0));
+        assert_finite_nonzero(v[0].sum(None).unwrap());
+        assert_finite_nonzero(g["weight"].sum(None).unwrap());
+        assert_finite_nonzero(g["bias"].sum(None).unwrap());
     }
 
     #[test]
@@ -183,9 +192,9 @@ mod tests {
         let mut vg = nn::value_and_grad(loss);
         let (v, g) = vg(&mut model, &x).unwrap();
 
-        assert_ne!(v.sum(None).unwrap(), array!(0.0));
-        assert_ne!(g["weight"].sum(None).unwrap(), array!(0.0));
-        assert_ne!(g["bias"].sum(None).unwrap(), array!(0.0));
+        assert_finite_nonzero(v.sum(None).unwrap());
+        assert_finite_nonzero(g["weight"].sum(None).unwrap());
+        assert_finite_nonzero(g["bias"].sum(None).unwrap());
     }
 
     #[test]
@@ -200,9 +209,9 @@ mod tests {
         let mut vg = nn::value_and_grad(loss);
         let (v, g) = vg(&mut model, &x).unwrap();
 
-        assert_ne!(v[0].sum(None).unwrap(), array!(0.0));
-        assert_ne!(g["weight"].sum(None).unwrap(), array!(0.0));
-        assert_ne!(g["bias"].sum(None).unwrap(), array!(0.0));
+        assert_finite_nonzero(v[0].sum(None).unwrap());
+        assert_finite_nonzero(g["weight"].sum(None).unwrap());
+        assert_finite_nonzero(g["bias"].sum(None).unwrap());
     }
 
     #[test]
@@ -224,9 +233,9 @@ mod tests {
         let mut vg = nn::value_and_grad(loss);
         let (v, g) = vg(&mut model, (&x, &y)).unwrap();
 
-        assert_ne!(v[0].sum(None).unwrap(), array!(0.0));
-        assert_ne!(g["weight"].sum(None).unwrap(), array!(0.0));
-        assert_ne!(g["bias"].sum(None).unwrap(), array!(0.0));
+        assert_finite_nonzero(v[0].sum(None).unwrap());
+        assert_finite_nonzero(g["weight"].sum(None).unwrap());
+        assert_finite_nonzero(g["bias"].sum(None).unwrap());
     }
 
     #[test]

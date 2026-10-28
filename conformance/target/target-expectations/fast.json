@@ -1,0 +1,132 @@
+{
+  "cases": [
+    {
+      "id": "fast.001",
+      "input_refs": [
+        "fast.001.input.0"
+      ],
+      "input_sha256": "sha256:9fcb5e487421a6b434b46e119c37fb95e9452d340aa5851f95d1f8b8a4fc815a",
+      "recipe": "rms_norm",
+      "seed_hex": "1f94f29a2e60183aad4fffa8a61d83a3",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "0000803f0000803f0000803f0000803f0000803f0000803f0000803f0000803f",
+            "dtype": "F32",
+            "shape": [
+              2,
+              4
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "fast.002",
+      "input_refs": [
+        "fast.002.input.0",
+        "fast.002.input.1"
+      ],
+      "input_sha256": "sha256:38642d71234aeb2e7e9e087691c73c8a1e9f7d29aa1ed11be45df92a3acf4576",
+      "recipe": "rms_norm",
+      "seed_hex": "99d578833e0b9d24d5b28f8ca301665f",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "d8e7663ed8e7e63fe22dadbf4125c9be916efb3ff1db963f",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "fast.003",
+      "input_refs": [
+        "fast.003.input.0",
+        "fast.003.input.1"
+      ],
+      "input_sha256": "sha256:0e950ea36a7ae6c1bbe2c9ddf7e985b26b407d7532685f12e35cfa3753cfa7e8",
+      "recipe": "rms_norm",
+      "seed_hex": "5438cf38651d47d720d3427c3899e049",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "fast.004",
+      "input_refs": [
+        "fast.004.input.0",
+        "fast.004.input.1"
+      ],
+      "input_sha256": "sha256:5a7cc934ef5ea92fa057e1dfac1e37f4eff28455f655034b3e154dac6ec44f7d",
+      "recipe": "rms_norm",
+      "seed_hex": "f1d5c818580cc19a8b58b36521e7a795",
+      "target": {
+        "exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "stage": "invoke",
+        "status": "error"
+      },
+      "verdict": "identical"
+    },
+    {
+      "id": "fast.005",
+      "input_refs": [
+        "fast.005.input.0"
+      ],
+      "input_sha256": "sha256:ac556c976fad880dfece5506456dacaa91e997baa3291c3be3457764aa7db9c8",
+      "recipe": "rms_norm",
+      "seed_hex": "7191d47d568c13e044ad5d6f3410648a",
+      "target": {
+        "outputs": [
+          {
+            "data_hex": "8af1ba3e8af13abf28358c3f8af1babf",
+            "dtype": "F32",
+            "shape": [
+              1,
+              4
+            ]
+          }
+        ],
+        "status": "success"
+      },
+      "verdict": "identical"
+    }
+  ],
+  "old_environment": {
+    "architecture": "arm64",
+    "mlx_metal_package": "0.32.2",
+    "mlx_package": "0.32.2",
+    "mlx_runtime": "0.32.2",
+    "numpy": "2.2.6",
+    "python": "3.12.14"
+  },
+  "schema_version": 1,
+  "suite": "fast",
+  "target_environment": {
+    "architecture": "arm64",
+    "device": "cpu",
+    "mlx": "0.32.2",
+    "mlx_metal": "0.32.2",
+    "mlx_runtime": "0.32.2",
+    "numpy": "2.2.6",
+    "python": "3.12.14",
+    "venv": "/Users/ci/hub/scratch/bump-a341b49/canonical-replay/venv"
+  }
+}

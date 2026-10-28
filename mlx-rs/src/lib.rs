@@ -9,6 +9,14 @@
 //! - [Indexing Arrays](#indexing-arrays)
 //! - [Saving and Loading](#saving-and-loading)
 //!
+//! # Threading
+//!
+//! [`Array`] values may move between threads. MLX 0.32.2 keeps default streams per thread, so each
+//! worker must perform operations through its own default or thread-local scoped override.
+//! [`Stream`] and compiled closures are thread-affine and cannot move or be shared across threads.
+//! The scoped Rust override is thread-local, not asynchronous task-local, and does not propagate
+//! across `.await`.
+//!
 //! # Quick Start
 //!
 //! See also [MLX python
@@ -29,7 +37,7 @@
 //!
 //! Operations in MLX are lazy. Use [`Array::eval`] to evaluate the the output
 //! of an operation. Operations are also automatically evaluated when inspecting
-//! an array with [`Array::item`], printing an array, or attempting to obtain
+//! an array with [`Array::item_exact`] or [`Array::item_cast`], printing an array, or attempting to obtain
 //! the underlying data with [`Array::as_slice`].
 //!
 //! ```rust
@@ -52,7 +60,7 @@
 //!
 //! ## Function and Graph Transformations
 //!
-//! TODO: https://github.com/oxideai/mlx-rs/issues/214
+//! TODO: https://github.com/oxiglade/mlx-rs/issues/214
 //!
 //! TODO: also document that all `Array` in the args for function
 //!       transformations
@@ -86,7 +94,7 @@
 //! In MLX you do not need to worry as much about computing outputs that are
 //! never used. For example:
 //!
-//! ```rust,ignore
+//! ```text
 //! fn fun(x: &Array) -> (Array, Array) {
 //!     let a = cheap_fun(x);
 //!     let b = expensive_fun(x);
@@ -111,7 +119,7 @@
 //!
 //! This pattern is simple to do in MLX thanks to lazy computation:
 //!
-//! ```rust,ignore
+//! ```text
 //! let mut model = Model::new();
 //! model.load_safetensors("model.safetensors").unwrap();
 //! ```
@@ -123,16 +131,20 @@
 //!
 //! For example
 //!
-//! ```rust,ignore
+//! ```rust
+//! # use mlx_rs::array;
 //! let mut a = array!([1, 2, 3, 4]);
 //! let mut b = array!([1.0, 2.0, 3.0, 4.0]);
 //!
-//! for _ in 0..100 {
-//!     a = a + b;
+//! for _ in 0..3 {
+//!     a = a + &b;
 //!     a.eval()?;
 //!     b = b * 2.0;
 //!     b.eval()?;
 //! }
+//! assert_eq!(a.as_slice::<f32>(), &[8.0, 16.0, 24.0, 32.0]);
+//! assert_eq!(b.as_slice::<f32>(), &[8.0, 16.0, 24.0, 32.0]);
+//! # Ok::<(), mlx_rs::error::Exception>(())
 //! ```
 //!
 //! This is a bad idea because there is some fixed overhead with each graph
@@ -150,7 +162,7 @@
 //!
 //! Here is a concrete example:
 //!
-//! ```rust,ignore
+//! ```text
 //! for batch in dataset {
 //!     // Nothing has been evaluated yet
 //!     let (loss, grad) = value_and_grad_fn(&mut model, batch)?;
@@ -170,9 +182,9 @@
 //! [`Array::save_numpy`] or [`Array::save_safetensors`] (or any other MLX
 //! saving functions) will also evaluate the array.
 //!
-//! Calling [`Array::item`] on a scalar array will also evaluate it. In the
+//! Calling [`Array::item_exact`] or [`Array::item_cast`] on a scalar array will also evaluate it. In the
 //! example above, printing the loss (`println!("{:?}", loss)`) or pushing the
-//! loss scalar to a [`Vec`] (`losses.push(loss.item::<f32>())`) would cause a
+//! loss scalar to a [`Vec`] (`losses.push(loss.item_exact::<f32>())`) would cause a
 //! graph evaluation. If these lines are before evaluating the loss and module
 //! parameters, then this will be a partial evaluation, computing only the
 //! forward pass.
@@ -182,11 +194,11 @@
 //!
 //! **Warning**: Using scalar arrays for control-flow will cause an evaluation.
 //!
-//! ```rust,ignore
+//! ```text
 //! fn fun(x: &Array) -> Array {
 //!     let (h, y) = first_layer(x);
 //!
-//!     if y.gt(array!(0.5)).unwrap().item() {
+//!     if y.gt(array!(0.5)).unwrap().item_exact() {
 //!         second_layer_a(h)
 //!     } else {
 //!         second_layer_b(h)
@@ -210,11 +222,8 @@
 //! location:
 //!
 //! ```rust
-//! // let a = mlx_rs::random::normal(&[100], None, None, None, None).unwrap();
-//! // let b = mlx_rs::random::normal(&[100], None, None, None, None).unwrap();
-//!
-//! let a = mlx_rs::normal!(shape=&[100]).unwrap();
-//! let b = mlx_rs::normal!(shape=&[100]).unwrap();
+//! let a = mlx_rs::random::normal::<f32>(&[100], None, None, None).unwrap();
+//! let b = mlx_rs::random::normal::<f32>(&[100], None, None, None).unwrap();
 //! ```
 //!
 //! Both `a` and `b` live in unified memory.
@@ -224,12 +233,17 @@
 //! without needing to move them from one memory location to another. For
 //! example:
 //!
-//! ```rust,ignore
-//! // mlx_rs::ops::add_device(&a, &b, StreamOrDevice::cpu()).unwrap();
-//! // mlx_rs::ops::add_device(&a, &b, StreamOrDevice::gpu()).unwrap();
+//! ```rust
+//! use mlx_rs::{array, ops, with_device, Device};
 //!
-//! mlx_rs::add!(&a, &b, stream=StreamOrDevice::cpu()).unwrap();
-//! mlx_rs::add!(&a, &b, stream=StreamOrDevice::gpu()).unwrap();
+//! let a = array!([1.0, 2.0]);
+//! let b = array!([3.0, 4.0]);
+//! let on_cpu = with_device(Device::cpu(), || ops::add(&a, &b)).unwrap();
+//! # assert_eq!(on_cpu.as_slice::<f32>(), &[4.0, 6.0]);
+//! # #[cfg(feature = "metal")]
+//! let on_gpu = with_device(Device::gpu(), || ops::add(&a, &b)).unwrap();
+//! # #[cfg(feature = "metal")]
+//! assert_eq!(on_cpu.as_slice::<f32>(), on_gpu.as_slice::<f32>());
 //! ```
 //!
 //! In the above, both the CPU and the GPU will perform the same add operation.
@@ -290,22 +304,32 @@ mod dtype;
 pub mod error;
 pub mod fast;
 pub mod fft;
+pub mod io;
 pub mod linalg;
 pub mod losses;
+pub mod memory;
+#[cfg(feature = "metal")]
+pub mod metal;
 pub mod module;
 pub mod nested;
 pub mod nn;
 pub mod ops;
 pub mod optimizers;
+mod options;
 pub mod quantization;
 pub mod random;
 mod stream;
 pub mod transforms;
 pub mod utils;
 
+/// Test-only assertion support shared with the workspace integration tests.
+#[doc(hidden)]
+pub mod test_utils;
+
 pub use array::*;
 pub use device::*;
 pub use dtype::*;
+pub use options::*;
 pub use stream::*;
 
 pub(crate) mod constants {

@@ -2,6 +2,7 @@
 
 use crate::Dtype;
 use libc::strdup;
+use std::any::Any;
 use std::convert::Infallible;
 use std::ffi::NulError;
 use std::panic::Location;
@@ -51,6 +52,10 @@ pub enum IoError {
     #[error(transparent)]
     Unflatten(#[from] UnflattenError),
 
+    /// Error projecting optimizer state for serialization.
+    #[error(transparent)]
+    StateProjection(#[from] StateProjectionError),
+
     /// Exception
     #[error(transparent)]
     Exception(#[from] Exception),
@@ -76,9 +81,13 @@ impl From<RawException> for IoError {
 /// Error associated with `Array::try_as_slice()`
 #[derive(Debug, PartialEq, Error)]
 pub enum AsSliceError {
-    /// The underlying data pointer is null.
-    ///
-    /// This is likely because the array has not been evaluated yet.
+    /// The array data is not contiguous in row-major order.
+    #[error(
+        "array data is not contiguous row-major; call `Array::contiguous()` before borrowing it as a slice"
+    )]
+    NotContiguous,
+
+    /// The underlying data pointer is null or the array is empty.
     #[error("The data pointer is null.")]
     Null,
 
@@ -121,37 +130,101 @@ pub enum OptimizerStateLoadError {
     Unflatten(#[from] UnflattenError),
 }
 
+/// Error declaring, restoring, or evaluating a keyed state projection.
+#[derive(Debug, PartialEq, Error)]
+pub enum StateProjectionError {
+    /// A projection declared the same key more than once.
+    #[error("duplicate state key {0}")]
+    DuplicateKey(String),
+
+    /// A projected key was absent from the supplied snapshot.
+    #[error("state snapshot is missing key {0}")]
+    MissingKey(String),
+
+    /// The supplied snapshot contains keys absent from the projection.
+    #[error("state snapshot contains unknown keys {0:?}")]
+    UnknownKeys(Vec<String>),
+
+    /// A required slot was absent in the supplied snapshot.
+    #[error("required state key {0} is absent")]
+    RequiredSlotAbsent(String),
+
+    /// A compiled state vector has the wrong number of present values.
+    #[error("state value count mismatch: expected {expected}, found {actual}")]
+    Cardinality {
+        /// The number of present values declared by the layout.
+        expected: usize,
+        /// The supplied value count.
+        actual: usize,
+    },
+
+    /// The upstream runtime rejected an operation needed to restore state.
+    #[error(transparent)]
+    Exception(#[from] Exception),
+}
+
+impl From<StateProjectionError> for Exception {
+    #[track_caller]
+    fn from(error: StateProjectionError) -> Self {
+        match error {
+            StateProjectionError::Exception(error) => error,
+            error => Self::custom(error.to_string()),
+        }
+    }
+}
+
 impl From<Infallible> for OptimizerStateLoadError {
     fn from(_: Infallible) -> Self {
         unreachable!()
     }
 }
 
-cfg_safetensors! {
-    /// Error associated with conversion between `safetensors::tensor::TensorView` and `Array`
-    /// when the data type is not supported.
-    #[derive(Debug, Error)]
-    pub enum ConversionError {
-        /// The safetensors data type that is not supported.
-        ///
-        /// This is the error type for conversions from `safetensors::tensor::TensorView` to `Array`.
-        #[error("The safetensors data type {0:?} is not supported.")]
-        SafeTensorDtype(safetensors::tensor::Dtype),
+/// Error converting an array or serialized tensor representation.
+#[derive(Debug, Error)]
+pub enum ConversionError {
+    /// The requested element type does not match the array dtype.
+    #[error("dtype mismatch: expected {expected:?}, found {actual:?}")]
+    DtypeMismatch {
+        /// The requested element type.
+        expected: Dtype,
+        /// The array element type.
+        actual: Dtype,
+    },
 
-        /// The mlx data type that is not supported.
-        ///
-        /// This is the error type for conversions from `Array` to `safetensors::tensor::TensorView`.
-        #[error("The mlx data type {0:?} is not supported.")]
-        MlxDtype(crate::Dtype),
+    /// Scalar extraction was requested from a non-scalar array.
+    #[error("scalar extraction requires one element, found {actual}")]
+    NotScalar {
+        /// The array element count.
+        actual: usize,
+    },
 
-        /// Error casting the data buffer to `&[u8]`.
-        #[error(transparent)]
-        PodCastError(#[from] bytemuck::PodCastError),
+    /// The array cannot be borrowed as a contiguous slice.
+    #[error(transparent)]
+    ArraySlice(#[from] AsSliceError),
 
-        /// Error with creating a `safetensors::tensor::TensorView`.
-        #[error(transparent)]
-        SafeTensorError(#[from] safetensors::tensor::SafeTensorError),
-    }
+    /// The upstream runtime rejected the conversion.
+    #[error(transparent)]
+    Exception(#[from] Exception),
+
+    /// The safetensors data type is not supported.
+    #[cfg(feature = "safetensors")]
+    #[error("The safetensors data type {0:?} is not supported.")]
+    SafeTensorDtype(safetensors::tensor::Dtype),
+
+    /// The MLX data type is not supported by safetensors.
+    #[cfg(feature = "safetensors")]
+    #[error("The mlx data type {0:?} is not supported.")]
+    MlxDtype(crate::Dtype),
+
+    /// Error casting the data buffer to `&[u8]`.
+    #[cfg(feature = "safetensors")]
+    #[error(transparent)]
+    PodCastError(#[from] bytemuck::PodCastError),
+
+    /// Error creating a safetensors tensor view.
+    #[cfg(feature = "safetensors")]
+    #[error(transparent)]
+    SafeTensorError(#[from] safetensors::tensor::SafeTensorError),
 }
 
 pub(crate) struct RawException {
@@ -223,39 +296,113 @@ impl From<Exception> for String {
     }
 }
 
+enum ClosureFailure {
+    Error(Exception),
+    Panic(Box<dyn Any + Send>),
+}
+
+/// Frees an undrained stash when its thread exits; a leaked message would otherwise
+/// outlive every chance to read it.
+struct LastErrorStash(Cell<*const c_char>);
+
+impl LastErrorStash {
+    fn replace(&self, ptr: *const c_char) -> *const c_char {
+        self.0.replace(ptr)
+    }
+}
+
+impl Drop for LastErrorStash {
+    fn drop(&mut self) {
+        let ptr = self.0.replace(std::ptr::null());
+        if !ptr.is_null() {
+            unsafe { libc::free(ptr as *mut libc::c_void) };
+        }
+    }
+}
+
 thread_local! {
-    static CLOSURE_ERROR: Cell<Option<Exception>> = const { Cell::new(None) };
-    static LAST_MLX_ERROR: Cell<*const c_char> = const { Cell::new(std::ptr::null()) };
-    pub(crate) static INIT_ERR_HANDLER: Once = const { Once::new() };
+    static CLOSURE_ERROR: Cell<Option<ClosureFailure>> = const { Cell::new(None) };
+    static LAST_MLX_ERROR: LastErrorStash = const { LastErrorStash(Cell::new(std::ptr::null())) };
+}
+
+pub(crate) static INIT_ERR_HANDLER: ErrorHandlerRegistration = ErrorHandlerRegistration::new();
+
+pub(crate) struct ErrorHandlerRegistration(Once);
+
+impl ErrorHandlerRegistration {
+    const fn new() -> Self {
+        Self(Once::new())
+    }
+
+    pub(crate) fn call_once(&self, f: impl FnOnce()) {
+        self.0.call_once(f);
+    }
+
+    pub(crate) fn with<T>(&self, f: impl FnOnce(&Once) -> T) -> T {
+        f(&self.0)
+    }
 }
 
 #[no_mangle]
 extern "C" fn default_mlx_error_handler(msg: *const c_char, _data: *mut std::ffi::c_void) {
     unsafe {
         LAST_MLX_ERROR.with(|last_error| {
-            last_error.set(strdup(msg));
+            // MLX can report several errors before a caller drains one; keep the
+            // newest message but free the overwritten stash.
+            let previous = last_error.replace(strdup(msg));
+            if !previous.is_null() {
+                libc::free(previous as *mut libc::c_void);
+            }
         });
     }
 }
 
-#[no_mangle]
-extern "C" fn noop_mlx_error_handler_data_deleter(_data: *mut std::ffi::c_void) {}
-
+/// Registers one process-global handler; the handler delivers each error through calling-thread
+/// TLS, so one registration serves every thread.
 pub(crate) fn setup_mlx_error_handler() {
-    let handler = default_mlx_error_handler;
-    let data_ptr = LAST_MLX_ERROR.with(|last_error| last_error.as_ptr() as *mut std::ffi::c_void);
-    let dtor = noop_mlx_error_handler_data_deleter;
     unsafe {
-        mlx_sys::mlx_set_error_handler(Some(handler), data_ptr, Some(dtor));
+        mlx_sys::mlx_set_error_handler(Some(default_mlx_error_handler), std::ptr::null_mut(), None);
     }
 }
 
 pub(crate) fn set_closure_error(err: Exception) {
-    CLOSURE_ERROR.with(|closure_error| closure_error.set(Some(err)));
+    CLOSURE_ERROR.with(|closure_error| closure_error.set(Some(ClosureFailure::Error(err))));
 }
 
 pub(crate) fn get_and_clear_closure_error() -> Option<Exception> {
-    CLOSURE_ERROR.with(|closure_error| closure_error.replace(None))
+    CLOSURE_ERROR.with(|closure_error| match closure_error.take() {
+        Some(ClosureFailure::Error(err)) => Some(err),
+        Some(ClosureFailure::Panic(payload)) => resume_closure_unwind(payload),
+        None => None,
+    })
+}
+
+pub(crate) fn set_closure_panic(payload: Box<dyn Any + Send>) {
+    CLOSURE_ERROR.with(|closure_error| closure_error.set(Some(ClosureFailure::Panic(payload))));
+}
+
+/// Resumes a panic captured by an MLX closure trampoline after control has returned to Rust.
+///
+/// Closure errors remain available to the calling transform as an [`Exception`]. Panics instead
+/// retain their original payload and resume before the FFI wrapper returns to its caller.
+pub(crate) fn resume_closure_panic() {
+    CLOSURE_ERROR.with(|closure_error| {
+        if let Some(failure) = closure_error.take() {
+            match failure {
+                ClosureFailure::Error(err) => {
+                    closure_error.set(Some(ClosureFailure::Error(err)));
+                }
+                ClosureFailure::Panic(payload) => resume_closure_unwind(payload),
+            }
+        }
+    });
+}
+
+fn resume_closure_unwind(payload: Box<dyn Any + Send>) -> ! {
+    // MLX records its own error when the trampoline reports failure. The panic is the real
+    // cause, so drop that message rather than leaving it to surface against a later operation.
+    let _ = get_and_clear_last_mlx_error();
+    std::panic::resume_unwind(payload)
 }
 
 #[track_caller]
@@ -277,6 +424,13 @@ pub(crate) fn get_and_clear_last_mlx_error() -> Option<RawException> {
 
         Some(RawException { what: last_err })
     })
+}
+
+#[track_caller]
+pub(crate) fn exception_from_status(status: i32, operation: &str) -> Exception {
+    get_and_clear_last_mlx_error()
+        .map(Exception::from)
+        .unwrap_or_else(|| Exception::custom(format!("{operation} failed with status {status}")))
 }
 
 /// Error with building a cross-entropy loss function
@@ -331,6 +485,42 @@ pub enum DropoutBuildError {
     /// Dropout probability must be in the range [0, 1)
     #[error("Dropout probability must be in the range [0, 1)")]
     InvalidProbability,
+}
+
+/// Error with building a convolution module
+#[derive(Debug, PartialEq, Error)]
+pub enum ConvBuildError {
+    /// `groups` must be positive and divide both channel counts
+    #[error(
+        "groups ({groups}) must be positive and divide both input channels ({input_channels}) \
+         and output channels ({output_channels})"
+    )]
+    InvalidGroups {
+        /// Requested number of groups
+        groups: i32,
+        /// Number of input channels
+        input_channels: i32,
+        /// Number of output channels
+        output_channels: i32,
+    },
+
+    /// MLX only supports grouped convolution in 1D and 2D
+    #[error("grouped 3D convolution is not supported (groups = {0})")]
+    GroupedConv3d(i32),
+
+    /// Exceptions
+    #[error(transparent)]
+    Exception(#[from] Exception),
+}
+
+impl From<ConvBuildError> for Exception {
+    #[track_caller]
+    fn from(value: ConvBuildError) -> Self {
+        match value {
+            ConvBuildError::Exception(exception) => exception,
+            other => Exception::custom(other.to_string()),
+        }
+    }
 }
 
 /// Error with building a MultiHeadAttention module

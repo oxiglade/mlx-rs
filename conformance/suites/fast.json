@@ -1,0 +1,244 @@
+{
+  "schema_version": 1,
+  "name": "fast",
+  "fixture": "fixtures/fast.safetensors",
+  "cases": [
+    {
+      "id": "fast.001",
+      "semantic_op": "rms_norm",
+      "recipe": "rms_norm",
+      "rust_call": "fast.rms_norm.none",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "fast.001.input.0"
+        },
+        {
+          "name": "has_weight",
+          "kind": "scalar",
+          "type": "bool",
+          "value": false
+        },
+        {
+          "name": "eps",
+          "kind": "scalar",
+          "type": "f32",
+          "bits": "0x00000000"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "numpy_corroborated",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "fast.001.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              4
+            ],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "fast.002",
+      "semantic_op": "rms_norm",
+      "recipe": "rms_norm",
+      "rust_call": "fast.rms_norm.weighted",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "fast.002.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "fast.002.input.1"
+        },
+        {
+          "name": "has_weight",
+          "kind": "scalar",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "eps",
+          "kind": "scalar",
+          "type": "f32",
+          "bits": "0x3e800000"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "fast.002.output.0",
+            "dtype": "F32",
+            "shape": [
+              2,
+              3
+            ],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    },
+    {
+      "id": "fast.003",
+      "semantic_op": "rms_norm",
+      "recipe": "rms_norm",
+      "rust_call": "fast.rms_norm.weighted",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "fast.003.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "fast.003.input.1"
+        },
+        {
+          "name": "has_weight",
+          "kind": "scalar",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "eps",
+          "kind": "scalar",
+          "type": "f32",
+          "bits": "0x3727c5ac"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "error",
+        "allowed_stage": "invoke_only",
+        "reason": "RMSNorm weight shape is invalid",
+        "python_exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "control_case_id": "fast.002",
+        "diagnostic": "[rms_norm] (*weight) must have the same size as the last dimension of x but has 2 elements.",
+        "rust_diagnostic": "[rms_norm]"
+      }
+    },
+    {
+      "id": "fast.004",
+      "semantic_op": "rms_norm",
+      "recipe": "rms_norm",
+      "rust_call": "fast.rms_norm.weighted",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "fast.004.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "fast.004.input.1"
+        },
+        {
+          "name": "has_weight",
+          "kind": "scalar",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "eps",
+          "kind": "scalar",
+          "type": "f32",
+          "bits": "0x3727c5ac"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "error",
+        "allowed_stage": "invoke_only",
+        "reason": "RMSNorm weight shape is invalid",
+        "python_exception": {
+          "module": "builtins",
+          "type": "ValueError"
+        },
+        "control_case_id": "fast.002",
+        "diagnostic": "[rms_norm] (*weight) must have 1 dimension but has 2 dimensions.",
+        "rust_diagnostic": "[rms_norm]"
+      }
+    },
+    {
+      "id": "fast.005",
+      "semantic_op": "rms_norm",
+      "recipe": "rms_norm",
+      "rust_call": "fast.rms_norm.explicit_cpu",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "fast.005.input.0"
+        },
+        {
+          "name": "has_weight",
+          "kind": "scalar",
+          "type": "bool",
+          "value": false
+        },
+        {
+          "name": "eps",
+          "kind": "scalar",
+          "type": "f32",
+          "bits": "0x3a83126f"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "explicit_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "fast.005.output.0",
+            "dtype": "F32",
+            "shape": [
+              1,
+              4
+            ],
+            "policy": "reduction_float"
+          }
+        ]
+      }
+    }
+  ]
+}

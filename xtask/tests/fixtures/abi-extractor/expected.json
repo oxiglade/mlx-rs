@@ -1,0 +1,123 @@
+{
+  "headers": [
+    "mlx/c/api.h",
+    "mlx/c/types.h"
+  ],
+  "entries": [
+    {
+      "kind": "function",
+      "name": "mlx_apply",
+      "signature": "fn(mlx_handle,* const mlx_io_vtable,mlx_size)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_handle_free",
+      "signature": "fn(mlx_handle)->:: std :: os :: raw :: c_int"
+    },
+    {
+      "kind": "function",
+      "name": "mlx_handle_new",
+      "signature": "fn()->mlx_handle"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_callback",
+      "definition": ":: std :: option :: Option < unsafe extern \"C\" fn (ctx : * mut :: std :: os :: raw :: c_void , count : mlx_size ,) -> :: std :: os :: raw :: c_int , >"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_handle",
+      "definition": "mlx_handle_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_io_vtable",
+      "definition": "mlx_io_vtable_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_mode",
+      "definition": "mlx_mode_"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_mode_",
+      "definition": ":: std :: os :: raw :: c_uint"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_size",
+      "definition": ":: std :: os :: raw :: c_uint"
+    },
+    {
+      "kind": "type",
+      "name": "mlx_value",
+      "definition": "mlx_value_"
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_handle_",
+      "fields": [
+        {
+          "name": "ctx",
+          "type": "* mut :: std :: os :: raw :: c_void"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_io_vtable_",
+      "fields": [
+        {
+          "name": "read",
+          "type": "mlx_callback"
+        },
+        {
+          "name": "close",
+          "type": ":: std :: option :: Option < unsafe extern \"C\" fn (ctx : * mut :: std :: os :: raw :: c_void) >"
+        }
+      ]
+    },
+    {
+      "kind": "struct",
+      "name": "mlx_value_",
+      "fields": [
+        {
+          "name": "integer",
+          "type": ":: std :: os :: raw :: c_int"
+        },
+        {
+          "name": "real",
+          "type": "f64"
+        }
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "mlx_mode",
+      "repr": "mlx_mode_",
+      "variants": [
+        {
+          "name": "mlx_read",
+          "value": "1"
+        },
+        {
+          "name": "mlx_write",
+          "value": "4"
+        }
+      ]
+    },
+    {
+      "kind": "constant",
+      "name": "mlx_limit",
+      "type": "u32",
+      "value": "16"
+    },
+    {
+      "kind": "handle",
+      "name": "mlx_handle",
+      "new": "mlx_handle_new",
+      "free": "mlx_handle_free"
+    }
+  ]
+}

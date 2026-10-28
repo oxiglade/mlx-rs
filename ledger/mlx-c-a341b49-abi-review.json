@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "report_id": "bump-a341b49-abi-review",
+  "evidence_class": "ffi",
+  "source_commit": "a341b4925024b88b2c593468f16e12f5e17315da",
+  "verdict": "pass",
+  "scope": "source-level ABI and caller review only; runtime, ownership and threading admission remain separate gates",
+  "old_source_commit": "c74db5307cc8ce122f48d97ef951b30578674e7f",
+  "nested_mlx_version": "0.32.2",
+  "delta_counts": {
+    "added": 25,
+    "removed": 0,
+    "changed": 1
+  },
+  "findings": [
+    {
+      "cohort": "thread-local streams",
+      "evidence": "stream.cpp allocates and frees ThreadLocalStream handles and resolves a concrete stream for the current thread; mlx-rs/src/stream.rs has no caller of the new functions",
+      "decision": "defer a public thread-local stream abstraction until separate ownership and cross-thread admission"
+    },
+    {
+      "cohort": "stream vectors",
+      "evidence": "vector.cpp owns std::vector<Stream> behind a new/free handle and copies elements through mlx_vector_stream_get; no mlx-rs caller uses this family",
+      "decision": "defer enumeration and vector ownership as one cohort"
+    },
+    {
+      "cohort": "stream lifecycle",
+      "evidence": "mlx_clear_streams calls mlx::core::clear_streams; existing Rust handles have no lifetime relation to that registry mutation",
+      "decision": "intentionally leave registry destruction unexposed; defer default synchronization to a synchronization cohort"
+    },
+    {
+      "cohort": "custom I/O",
+      "evidence": "io_types.h changes seek from void to int and read/read_at_offset/write from void to size_t; private/io.h rejects negative seek status and short byte counts; mlx-rs does not construct mlx_io_vtable callbacks",
+      "decision": "defer custom I/O adapters; generated mlx-sys bindings pick up the ABI change without a high-level rebind"
+    }
+  ],
+  "source_sha256": {
+    "mlx-sys/src/mlx-c/mlx/c/stream.h": "cc73482bf011f487d3aef4f1d1830bcd2eca7023009004412059570a9fb5c2f5",
+    "mlx-sys/src/mlx-c/mlx/c/stream.cpp": "cf4d900adae4a759827cfc5f0b04a91944990c838cbf811724686b4a561f747e",
+    "mlx-sys/src/mlx-c/mlx/c/vector.h": "56f523542a591e80833e4a523316174e951f0508cae71b9ece577e7f1d4b0e09",
+    "mlx-sys/src/mlx-c/mlx/c/vector.cpp": "38b9e32b4c553521877e1e834c71175c84e1164ad8146102a2a6e22bca9e1451",
+    "mlx-sys/src/mlx-c/mlx/c/io_types.h": "845cb8922495e76c22a131a68406b0e29d93527566b310cf610f2e35708653ab",
+    "mlx-sys/src/mlx-c/mlx/c/private/io.h": "d36c9e25423f111b6e4cb9f0dbdf5a8729184dcf69b239375f716abc88f9aea5",
+    "mlx-rs/src/stream.rs": "7c25e218671b689217f8d0cb5e57bf012de6bea8a84e0f2a9930b3047497e612",
+    "mlx-rs/src/io/mod.rs": "47815f66f5fc2e49a357133728ca9d3f020747870323caf4a4c8f8d371751f07",
+    "mlx-sys/src/bindgen_config.rs": "c90bc916c1bf5b11c7ce2dcbb84e10b22f8c1f0bf37d161ad6b4950306ff5542"
+  }
+}

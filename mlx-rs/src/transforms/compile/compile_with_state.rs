@@ -8,18 +8,19 @@
 
 use std::{
     cell::{Cell, RefCell},
+    collections::BTreeSet,
     marker::PhantomData,
     rc::Rc,
 };
 
 use crate::{
     error::Exception,
-    transforms::compile::{type_id_to_usize, CompiledState},
-    utils::Updatable,
+    transforms::compile::CompiledState,
+    utils::{StateSnapshot, Updatable},
     Array,
 };
 
-use super::{update_by_replace_with_ref_to_new_array, Closure, Compiled, Guarded, VectorArray};
+use super::{Closure, Compiled, Guarded, StateLayout, VectorArray};
 
 /// Similar to [`crate::transforms::compile`] but allows for functions that take
 /// a mutable reference to a state `U`.
@@ -28,14 +29,12 @@ pub fn compile_with_state<F, U, A, O, E>(
     shapeless: impl Into<Option<bool>>,
 ) -> impl for<'a> FnMut(&mut U, F::Args<'a>) -> Result<O, Exception>
 where
-    F: CompileWithState<U, A, O, E> + Copy + 'static,
+    F: CompileWithState<U, A, O, E> + 'static,
     U: Updatable,
 {
     let shapeless = shapeless.into().unwrap_or(false);
-    move |state, args| {
-        let mut compiled = f.compile(shapeless);
-        compiled.call_mut(state, args)
-    }
+    let mut compiled = f.compile(shapeless);
+    move |state, args| compiled.call_mut(state, args)
 }
 
 /// A trait for functions that can be compiled with state.
@@ -58,7 +57,10 @@ pub trait CompileWithState<U, A, O, E> {
     type Args<'a>;
 
     /// Compile the function.
-    fn compile<'args>(self, shapeless: bool) -> impl CallMutWithState<U, Self::Args<'args>, O, E>;
+    fn compile(
+        self,
+        shapeless: bool,
+    ) -> impl for<'args> CallMutWithState<U, Self::Args<'args>, O, E>;
 }
 
 impl<F, U> CompileWithState<U, &[Array], Vec<Array>, ()> for F
@@ -68,18 +70,13 @@ where
 {
     type Args<'a> = &'a [Array];
 
-    fn compile<'args>(
+    fn compile(
         self,
         shapeless: bool,
-    ) -> impl CallMutWithState<U, Self::Args<'args>, Vec<Array>, ()> {
-        let id = type_id_to_usize(&self);
-        let state = CompiledState {
-            f: self,
-            shapeless,
-            id,
-        };
-        Compiled {
-            f_marker: PhantomData::<F>,
+    ) -> impl for<'args> CallMutWithState<U, Self::Args<'args>, Vec<Array>, ()> {
+        let state = CompiledState::new(self, shapeless);
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -92,18 +89,17 @@ where
 {
     type Args<'a> = &'a Array;
 
-    fn compile<'args>(
+    fn compile(
         mut self,
         shapeless: bool,
-    ) -> impl CallMutWithState<U, Self::Args<'args>, Array, ()> {
-        let id = type_id_to_usize(&self);
+    ) -> impl for<'args> CallMutWithState<U, Self::Args<'args>, Array, ()> {
         let f = move |state: &mut U, args: &[Array]| -> Vec<Array> {
             let result = (self)(state, &args[0]);
             vec![result]
         };
-        let state = CompiledState { f, shapeless, id };
-        Compiled {
-            f_marker: PhantomData::<F>,
+        let state = CompiledState::new(f, shapeless);
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -116,18 +112,17 @@ where
 {
     type Args<'a> = (&'a Array, &'a Array);
 
-    fn compile<'args>(
+    fn compile(
         mut self,
         shapeless: bool,
-    ) -> impl CallMutWithState<U, Self::Args<'args>, Array, ()> {
-        let id = type_id_to_usize(&self);
+    ) -> impl for<'args> CallMutWithState<U, Self::Args<'args>, Array, ()> {
         let f = move |state: &mut U, args: &[Array]| -> Vec<Array> {
             let result = (self)(state, (&args[0], &args[1]));
             vec![result]
         };
-        let state = CompiledState { f, shapeless, id };
-        Compiled {
-            f_marker: PhantomData::<F>,
+        let state = CompiledState::new(f, shapeless);
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -140,18 +135,17 @@ where
 {
     type Args<'a> = (&'a Array, &'a Array, &'a Array);
 
-    fn compile<'args>(
+    fn compile(
         mut self,
         shapeless: bool,
-    ) -> impl CallMutWithState<U, Self::Args<'args>, Array, ()> {
-        let id = type_id_to_usize(&self);
+    ) -> impl for<'args> CallMutWithState<U, Self::Args<'args>, Array, ()> {
         let f = move |state: &mut U, args: &[Array]| -> Vec<Array> {
             let result = (self)(state, (&args[0], &args[1], &args[2]));
             vec![result]
         };
-        let state = CompiledState { f, shapeless, id };
-        Compiled {
-            f_marker: PhantomData::<F>,
+        let state = CompiledState::new(f, shapeless);
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -164,18 +158,13 @@ where
 {
     type Args<'a> = &'a [Array];
 
-    fn compile<'args>(
+    fn compile(
         self,
         shapeless: bool,
-    ) -> impl CallMutWithState<U, Self::Args<'args>, Vec<Array>, Exception> {
-        let id = type_id_to_usize(&self);
-        let state = CompiledState {
-            f: self,
-            shapeless,
-            id,
-        };
-        Compiled {
-            f_marker: PhantomData::<F>,
+    ) -> impl for<'args> CallMutWithState<U, Self::Args<'args>, Vec<Array>, Exception> {
+        let state = CompiledState::new(self, shapeless);
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -188,18 +177,17 @@ where
 {
     type Args<'a> = &'a Array;
 
-    fn compile<'args>(
+    fn compile(
         mut self,
         shapeless: bool,
-    ) -> impl CallMutWithState<U, Self::Args<'args>, Array, Exception> {
-        let id = type_id_to_usize(&self);
+    ) -> impl for<'args> CallMutWithState<U, Self::Args<'args>, Array, Exception> {
         let f = move |state: &mut U, args: &[Array]| -> Result<Vec<Array>, Exception> {
             let result = (self)(state, &args[0])?;
             Ok(vec![result])
         };
-        let state = CompiledState { f, shapeless, id };
-        Compiled {
-            f_marker: PhantomData::<F>,
+        let state = CompiledState::new(f, shapeless);
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -212,18 +200,17 @@ where
 {
     type Args<'a> = (&'a Array, &'a Array);
 
-    fn compile<'args>(
+    fn compile(
         mut self,
         shapeless: bool,
-    ) -> impl CallMutWithState<U, Self::Args<'args>, Array, Exception> {
-        let id = type_id_to_usize(&self);
+    ) -> impl for<'args> CallMutWithState<U, Self::Args<'args>, Array, Exception> {
         let f = move |state: &mut U, args: &[Array]| -> Result<Vec<Array>, Exception> {
             let result = (self)(state, (&args[0], &args[1]))?;
             Ok(vec![result])
         };
-        let state = CompiledState { f, shapeless, id };
-        Compiled {
-            f_marker: PhantomData::<F>,
+        let state = CompiledState::new(f, shapeless);
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -236,18 +223,17 @@ where
 {
     type Args<'a> = (&'a Array, &'a Array, &'a Array);
 
-    fn compile<'args>(
+    fn compile(
         mut self,
         shapeless: bool,
-    ) -> impl CallMutWithState<U, Self::Args<'args>, Array, Exception> {
-        let id = type_id_to_usize(&self);
+    ) -> impl for<'args> CallMutWithState<U, Self::Args<'args>, Array, Exception> {
         let f = move |state: &mut U, args: &[Array]| -> Result<Vec<Array>, Exception> {
             let result = (self)(state, (&args[0], &args[1], &args[2]))?;
             Ok(vec![result])
         };
-        let state = CompiledState { f, shapeless, id };
-        Compiled {
-            f_marker: PhantomData::<F>,
+        let state = CompiledState::new(f, shapeless);
+        Compiled::<F, _> {
+            f_marker: PhantomData,
             state,
         }
     }
@@ -266,7 +252,7 @@ where
     U: Updatable,
 {
     fn call_mut(&mut self, state: &mut U, args: &[Array]) -> Result<Vec<Array>, Exception> {
-        self.state.retry_call_mut_with_state(state, args)
+        self.state.call_mut_with_state(state, args)
     }
 }
 
@@ -278,7 +264,7 @@ where
 {
     fn call_mut(&mut self, state: &mut U, args: &Array) -> Result<Array, Exception> {
         let args = std::slice::from_ref(args);
-        let result = self.state.retry_call_mut_with_state(state, args)?;
+        let result = self.state.call_mut_with_state(state, args)?;
         Ok(result.into_iter().next().unwrap())
     }
 }
@@ -291,7 +277,7 @@ where
 {
     fn call_mut(&mut self, state: &mut U, args: (&Array, &Array)) -> Result<Array, Exception> {
         let args = &[args.0, args.1];
-        let result = self.state.retry_call_mut_with_state(state, args)?;
+        let result = self.state.call_mut_with_state(state, args)?;
         Ok(result.into_iter().next().unwrap())
     }
 }
@@ -308,7 +294,7 @@ where
         args: (&Array, &Array, &Array),
     ) -> Result<Array, Exception> {
         let args = &[args.0, args.1, args.2];
-        let result = self.state.retry_call_mut_with_state(state, args)?;
+        let result = self.state.call_mut_with_state(state, args)?;
         Ok(result.into_iter().next().unwrap())
     }
 }
@@ -320,7 +306,7 @@ where
     U: Updatable,
 {
     fn call_mut(&mut self, state: &mut U, args: &[Array]) -> Result<Vec<Array>, Exception> {
-        self.state.retry_fallible_call_mut_with_state(state, args)
+        self.state.fallible_call_mut_with_state(state, args)
     }
 }
 
@@ -332,7 +318,7 @@ where
 {
     fn call_mut(&mut self, state: &mut U, args: &Array) -> Result<Array, Exception> {
         let args = std::slice::from_ref(args);
-        let result = self.state.retry_fallible_call_mut_with_state(state, args)?;
+        let result = self.state.fallible_call_mut_with_state(state, args)?;
         Ok(result.into_iter().next().unwrap())
     }
 }
@@ -345,7 +331,7 @@ where
 {
     fn call_mut(&mut self, state: &mut U, args: (&Array, &Array)) -> Result<Array, Exception> {
         let args = &[args.0, args.1];
-        let result = self.state.retry_fallible_call_mut_with_state(state, args)?;
+        let result = self.state.fallible_call_mut_with_state(state, args)?;
         Ok(result.into_iter().next().unwrap())
     }
 }
@@ -362,7 +348,7 @@ where
         args: (&Array, &Array, &Array),
     ) -> Result<Array, Exception> {
         let args = &[args.0, args.1, args.2];
-        let result = self.state.retry_fallible_call_mut_with_state(state, args)?;
+        let result = self.state.fallible_call_mut_with_state(state, args)?;
         Ok(result.into_iter().next().unwrap())
     }
 }
@@ -375,6 +361,7 @@ fn call_mut_with_state_inner<U>(
     state: Rc<RefCell<&mut U>>,
     args: &[impl AsRef<Array>],
     num_function_outputs: Rc<Cell<Option<usize>>>,
+    state_layout: Rc<RefCell<Option<StateLayout>>>,
 ) -> crate::error::Result<Vec<Array>>
 where
     U: Updatable,
@@ -394,11 +381,12 @@ where
     })?;
 
     let inner_inputs_vector = {
-        let borrow = state.borrow();
+        let mut borrow = state.borrow_mut();
+        let state_inputs = borrow.state_projection()?.snapshot();
         VectorArray::try_from_iter(
             args.iter()
                 .map(AsRef::as_ref)
-                .chain(borrow.updatable_states()),
+                .chain(state_inputs.present_values()),
         )?
     };
 
@@ -417,12 +405,27 @@ where
             "compile_with_state: internal error - function output count not captured during tracing"
         )
     })?;
+    let expected_state_layout = state_layout.borrow().clone().ok_or_else(|| {
+        Exception::custom(
+            "compile_with_state: internal error - state layout not captured during tracing",
+        )
+    })?;
+    validate_state_layout(
+        &expected_state_layout,
+        &mut **state.borrow_mut(),
+        "apply input",
+    )?;
 
-    if num_fn_outputs > result_plus_state_output.len() {
+    let expected_state_outputs = expected_state_layout
+        .iter()
+        .filter(|entry| entry.is_present())
+        .count();
+    let expected_output_count = num_fn_outputs + expected_state_outputs;
+    if result_plus_state_output.len() != expected_output_count {
         return Err(Exception::custom(format!(
-            "compile_with_state: invalid output count - expected {} function outputs \
-             but only got {} total outputs. This indicates an internal compilation error.",
-            num_fn_outputs,
+            "compile_with_state: invalid output count - expected {num_fn_outputs} function \
+             outputs and {} state outputs, got {} total outputs",
+            expected_state_outputs,
             result_plus_state_output.len()
         )));
     }
@@ -430,63 +433,72 @@ where
     let function_results = &result_plus_state_output[..num_fn_outputs];
     let state_outputs = &result_plus_state_output[num_fn_outputs..];
 
-    // Update state arrays. MLX's compiler may prune unchanged arrays from output,
-    // so zip() handles cases where fewer state arrays are returned than expected.
-    for (s, new_values) in state
-        .borrow_mut()
-        .updatable_states_mut()
-        .into_iter()
-        .zip(state_outputs.iter())
-    {
-        update_by_replace_with_ref_to_new_array(s, new_values);
+    let state_output =
+        StateSnapshot::from_layout_and_values(&expected_state_layout, state_outputs)?;
+    let output_layout = state_output.layout();
+    if output_layout != expected_state_layout {
+        return Err(Exception::custom(format!(
+            "compile_with_state: state output layout changed: expected \
+             {expected_state_layout:?}, got {output_layout:?}"
+        )));
     }
+
+    state
+        .borrow_mut()
+        .state_projection()?
+        .restore(state_output, false)?;
 
     // Return only the function results (not the state arrays)
     Ok(function_results.to_vec())
 }
 
+fn current_state_layout(state: &mut impl Updatable) -> Result<StateLayout, Exception> {
+    Ok(state.state_projection()?.layout())
+}
+
+fn validate_state_layout(
+    expected: &[crate::utils::StateLayoutEntry],
+    state: &mut impl Updatable,
+    phase: &str,
+) -> Result<(), Exception> {
+    let actual = current_state_layout(state)?;
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(Exception::custom(format!(
+            "compile_with_state: state layout changed at {phase}: expected {expected:?}, got \
+             {actual:?}"
+        )))
+    }
+}
+
+fn state_snapshot(state: &mut impl Updatable) -> Result<StateSnapshot, Exception> {
+    Ok(state.state_projection()?.snapshot())
+}
+
+fn restore_state(
+    state: &mut impl Updatable,
+    snapshot: &StateSnapshot,
+    reset_new: bool,
+) -> Result<(), Exception> {
+    Ok(state
+        .state_projection()?
+        .restore(snapshot.clone(), reset_new)?)
+}
+
+fn state_grew(before: &StateSnapshot, after: &StateSnapshot) -> bool {
+    let before = before
+        .iter()
+        .map(|(key, _)| key.to_owned())
+        .collect::<BTreeSet<_>>();
+    let after = after
+        .iter()
+        .map(|(key, _)| key.to_owned())
+        .collect::<BTreeSet<_>>();
+    before.len() < after.len() && before.is_subset(&after)
+}
+
 impl<F> CompiledState<F> {
-    fn retry_call_mut_with_state<U>(
-        &mut self,
-        state: &mut U,
-        args: &[impl AsRef<Array>],
-    ) -> Result<Vec<Array>, Exception>
-    where
-        F: FnMut(&mut U, &[Array]) -> Vec<Array>,
-        U: Updatable,
-    {
-        self.call_mut_with_state(state, args).or_else(|_e| {
-            // Somehow the mlx_closure_apply may fail on the first call for
-            // certain types of state with the error message:
-            // "unordered_map::at: key not found", so we just try again.
-            //
-            // One type that is known to cause this is a tuple of
-            // `Module` and `Optimizer` eg. `(<Module>, <Optimizer>)`
-            self.call_mut_with_state(state, args)
-        })
-    }
-
-    fn retry_fallible_call_mut_with_state<U>(
-        &mut self,
-        state: &mut U,
-        args: &[impl AsRef<Array>],
-    ) -> Result<Vec<Array>, Exception>
-    where
-        F: FnMut(&mut U, &[Array]) -> Result<Vec<Array>, Exception>,
-        U: Updatable,
-    {
-        self.fallible_call_mut_with_state(state, args)
-            .or_else(|_e| {
-                // Somehow the mlx_closure_apply may fail on the first call for
-                // certain types of state with the error message:
-                // "unordered_map::at: key not found", so we just try again.
-                //
-                // One type that is known to cause this is a tuple of
-                // `Module` and `Optimizer` eg. `(<Module>, <Optimizer>)`
-                self.fallible_call_mut_with_state(state, args)
-            })
-    }
-
     fn call_mut_with_state<U>(
         &mut self,
         state: &mut U,
@@ -496,16 +508,36 @@ impl<F> CompiledState<F> {
         F: FnMut(&mut U, &[Array]) -> Vec<Array>,
         U: Updatable,
     {
+        self.call_mut_with_state_attempt(state, args, true)
+    }
+
+    fn call_mut_with_state_attempt<U>(
+        &mut self,
+        state: &mut U,
+        args: &[impl AsRef<Array>],
+        allow_growth_recovery: bool,
+    ) -> Result<Vec<Array>, Exception>
+    where
+        F: FnMut(&mut U, &[Array]) -> Vec<Array>,
+        U: Updatable,
+    {
+        let was_untraced = self.state_layout.is_none();
+        if let Some(expected) = self.state_layout.as_deref() {
+            validate_state_layout(expected, state, "call input")?;
+        }
         let args_len = args.len();
+        let saved_state = state_snapshot(state)?;
         let state = Rc::new(RefCell::new(state));
         let f = &mut self.f;
 
         // Cell to capture the number of function outputs during tracing
-        let num_function_outputs = Rc::new(Cell::new(None));
+        let num_function_outputs = Rc::new(Cell::new(self.num_function_outputs));
         let num_fn_outputs_clone = Rc::clone(&num_function_outputs);
+        let state_layout = Rc::new(RefCell::new(self.state_layout.clone()));
+        let state_layout_clone = Rc::clone(&state_layout);
 
         let state_clone = Rc::clone(&state);
-        let inner = move |tracers: &[Array]| -> Vec<Array> {
+        let inner = move |tracers: &[Array]| -> Result<Vec<Array>, Exception> {
             // put the tracers in their appropriate places:
             // - arguments to the function
             // - inner state
@@ -513,22 +545,26 @@ impl<F> CompiledState<F> {
             let tracer_args = &tracers[..args_len];
 
             // save a snapshot of the inner state
-            let saved_state_inputs = state_clone
-                .borrow()
-                .updatable_states()
-                .into_iter()
-                .map(|array| (*array).clone())
-                .collect::<Vec<Array>>();
+            let saved_state_inputs = state_snapshot(&mut **state_clone.borrow_mut())?;
 
             // replace the inner state with the tracers
-            for (s, tracer) in state_clone
-                .borrow_mut()
-                .updatable_states_mut()
-                .into_iter()
-                .zip(tracers.iter().skip(args_len))
-            {
-                update_by_replace_with_ref_to_new_array(s, tracer);
+            let state_input_count = saved_state_inputs.present_values().count();
+            if tracers.len() != args_len + state_input_count {
+                return Err(Exception::custom(format!(
+                    "compile_with_state: invalid tracer count - expected {} arguments and {} state inputs, got {} total inputs",
+                    args_len,
+                    state_input_count,
+                    tracers.len()
+                )));
             }
+            let tracer_state = StateSnapshot::from_layout_and_values(
+                &saved_state_inputs.layout(),
+                &tracers[args_len..],
+            )?;
+            state_clone
+                .borrow_mut()
+                .state_projection()?
+                .restore(tracer_state, false)?;
 
             // call the function with the tracer arguments and the state holding tracers
             let mut result = (f)(*state_clone.borrow_mut(), tracer_args);
@@ -537,38 +573,58 @@ impl<F> CompiledState<F> {
             num_fn_outputs_clone.set(Some(result.len()));
 
             // recapture the state as it may have changed
-            let mut state_output_tracers = state_clone
-                .borrow()
-                .updatable_states()
-                .into_iter()
-                .map(|array| (*array).clone())
-                .collect::<Vec<Array>>();
+            let state_output = state_snapshot(&mut **state_clone.borrow_mut())?;
+            let mut state_output_tracers =
+                state_output.present_values().cloned().collect::<Vec<_>>();
+
+            if state_layout_clone.borrow().is_none() {
+                *state_layout_clone.borrow_mut() = Some(state_output.layout());
+            }
 
             // put the original values back in the state
-            for (s, saved) in state_clone
-                .borrow_mut()
-                .updatable_states_mut()
-                .into_iter()
-                .zip(saved_state_inputs)
-            {
-                update_by_replace_with_ref_to_new_array(s, &saved);
-            }
+            restore_state(*state_clone.borrow_mut(), &saved_state_inputs, true)?;
 
             // return the result of the function and the state
             result.append(&mut state_output_tracers);
 
-            result
+            Ok(result)
         };
 
-        let inner_closure = Closure::new(inner);
-        call_mut_with_state_inner(
+        let inner_closure = Closure::new_fallible(inner);
+        let result = call_mut_with_state_inner(
             inner_closure,
             self.id,
             self.shapeless,
-            state,
+            Rc::clone(&state),
             args,
-            num_function_outputs,
-        )
+            Rc::clone(&num_function_outputs),
+            Rc::clone(&state_layout),
+        );
+        self.num_function_outputs = num_function_outputs.get();
+        self.state_layout = state_layout.borrow().clone();
+        if let Err(error) = &result {
+            let after_failure = state_snapshot(&mut **state.borrow_mut())?;
+            if allow_growth_recovery && was_untraced && state_grew(&saved_state, &after_failure) {
+                restore_state(*state.borrow_mut(), &saved_state, true)?;
+                let retry =
+                    self.call_mut_with_state_attempt(&mut **state.borrow_mut(), args, false);
+                if retry.is_err() {
+                    restore_state(*state.borrow_mut(), &saved_state, false)?;
+                    self.cache.erase(self.id);
+                    self.num_function_outputs = None;
+                    self.state_layout = None;
+                }
+                return retry;
+            }
+            restore_state(*state.borrow_mut(), &saved_state, false).map_err(|restore_error| {
+                Exception::custom(format!(
+                    "{}; transactional restore failed: {}",
+                    error.what(),
+                    restore_error.what()
+                ))
+            })?;
+        }
+        result
     }
 
     fn fallible_call_mut_with_state<U>(
@@ -580,13 +636,33 @@ impl<F> CompiledState<F> {
         F: FnMut(&mut U, &[Array]) -> Result<Vec<Array>, Exception>,
         U: Updatable,
     {
+        self.fallible_call_mut_with_state_attempt(state, args, true)
+    }
+
+    fn fallible_call_mut_with_state_attempt<U>(
+        &mut self,
+        state: &mut U,
+        args: &[impl AsRef<Array>],
+        allow_growth_recovery: bool,
+    ) -> Result<Vec<Array>, Exception>
+    where
+        F: FnMut(&mut U, &[Array]) -> Result<Vec<Array>, Exception>,
+        U: Updatable,
+    {
+        let was_untraced = self.state_layout.is_none();
+        if let Some(expected) = self.state_layout.as_deref() {
+            validate_state_layout(expected, state, "call input")?;
+        }
         let args_len = args.len();
+        let saved_state = state_snapshot(state)?;
         let state = Rc::new(RefCell::new(state));
         let f = &mut self.f;
 
         // Cell to capture the number of function outputs during tracing
-        let num_function_outputs = Rc::new(Cell::new(None));
+        let num_function_outputs = Rc::new(Cell::new(self.num_function_outputs));
         let num_fn_outputs_clone = Rc::clone(&num_function_outputs);
+        let state_layout = Rc::new(RefCell::new(self.state_layout.clone()));
+        let state_layout_clone = Rc::clone(&state_layout);
 
         let state_clone = Rc::clone(&state);
         let inner = move |tracers: &[Array]| -> Result<Vec<Array>, Exception> {
@@ -597,46 +673,62 @@ impl<F> CompiledState<F> {
             let tracer_args = &tracers[..args_len];
 
             // save a snapshot of the inner state
-            let saved_state_inputs = state_clone
-                .borrow()
-                .updatable_states()
-                .into_iter()
-                .map(|array| (*array).clone())
-                .collect::<Vec<Array>>();
+            let saved_state_inputs = state_snapshot(&mut **state_clone.borrow_mut())?;
 
             // replace the inner state with the tracers
-            for (s, tracer) in state_clone
-                .borrow_mut()
-                .updatable_states_mut()
-                .into_iter()
-                .zip(tracers.iter().skip(args_len))
-            {
-                update_by_replace_with_ref_to_new_array(s, tracer);
+            let state_input_count = saved_state_inputs.present_values().count();
+            if tracers.len() != args_len + state_input_count {
+                return Err(Exception::custom(format!(
+                    "compile_with_state: invalid tracer count - expected {} arguments and {} state inputs, got {} total inputs",
+                    args_len,
+                    state_input_count,
+                    tracers.len()
+                )));
             }
+            let tracer_state = StateSnapshot::from_layout_and_values(
+                &saved_state_inputs.layout(),
+                &tracers[args_len..],
+            )?;
+            state_clone
+                .borrow_mut()
+                .state_projection()?
+                .restore(tracer_state, false)?;
 
             // call the function with the tracer arguments and the state holding tracers
-            let mut result = (f)(*state_clone.borrow_mut(), tracer_args)?;
+            let call_result = {
+                let mut state = state_clone.borrow_mut();
+                (f)(&mut **state, tracer_args)
+            };
+            let mut result = match call_result {
+                Ok(result) => result,
+                Err(error) => {
+                    restore_state(*state_clone.borrow_mut(), &saved_state_inputs, false).map_err(
+                        |restore_error| {
+                            Exception::custom(format!(
+                                "{}; transactional restore failed: {}",
+                                error.what(),
+                                restore_error.what()
+                            ))
+                        },
+                    )?;
+                    return Err(error);
+                }
+            };
 
             // Capture function output count before appending state
             num_fn_outputs_clone.set(Some(result.len()));
 
             // recapture the state as it may have changed
-            let mut state_output_tracers = state_clone
-                .borrow()
-                .updatable_states()
-                .into_iter()
-                .map(|array| (*array).clone())
-                .collect::<Vec<Array>>();
+            let state_output = state_snapshot(&mut **state_clone.borrow_mut())?;
+            let mut state_output_tracers =
+                state_output.present_values().cloned().collect::<Vec<_>>();
+
+            if state_layout_clone.borrow().is_none() {
+                *state_layout_clone.borrow_mut() = Some(state_output.layout());
+            }
 
             // put the original values back in the state
-            for (s, saved) in state_clone
-                .borrow_mut()
-                .updatable_states_mut()
-                .into_iter()
-                .zip(saved_state_inputs)
-            {
-                update_by_replace_with_ref_to_new_array(s, &saved);
-            }
+            restore_state(*state_clone.borrow_mut(), &saved_state_inputs, true)?;
 
             // return the result of the function and the state
             result.append(&mut state_output_tracers);
@@ -645,13 +737,42 @@ impl<F> CompiledState<F> {
         };
 
         let inner_closure = Closure::new_fallible(inner);
-        call_mut_with_state_inner(
+        let result = call_mut_with_state_inner(
             inner_closure,
             self.id,
             self.shapeless,
-            state,
+            Rc::clone(&state),
             args,
-            num_function_outputs,
-        )
+            Rc::clone(&num_function_outputs),
+            Rc::clone(&state_layout),
+        );
+        self.num_function_outputs = num_function_outputs.get();
+        self.state_layout = state_layout.borrow().clone();
+        if let Err(error) = &result {
+            let after_failure = state_snapshot(&mut **state.borrow_mut())?;
+            if allow_growth_recovery && was_untraced && state_grew(&saved_state, &after_failure) {
+                restore_state(*state.borrow_mut(), &saved_state, true)?;
+                let retry = self.fallible_call_mut_with_state_attempt(
+                    &mut **state.borrow_mut(),
+                    args,
+                    false,
+                );
+                if retry.is_err() {
+                    restore_state(*state.borrow_mut(), &saved_state, false)?;
+                    self.cache.erase(self.id);
+                    self.num_function_outputs = None;
+                    self.state_layout = None;
+                }
+                return retry;
+            }
+            restore_state(*state.borrow_mut(), &saved_state, false).map_err(|restore_error| {
+                Exception::custom(format!(
+                    "{}; transactional restore failed: {}",
+                    error.what(),
+                    restore_error.what()
+                ))
+            })?;
+        }
+        result
     }
 }

@@ -1,4 +1,4 @@
-use crate::{utils::ScalarOrArray, Array, StreamOrDevice};
+use crate::{utils::ScalarOrArray, Array};
 use num_traits::Pow;
 use std::{
     iter::Product,
@@ -16,9 +16,7 @@ macro_rules! impl_binary_op {
             type Output = Array;
 
             fn $method(self, rhs: T) -> Self::Output {
-                paste::paste! {
-                    self.[<$c_method _device>](rhs.into_owned_or_ref_array(), StreamOrDevice::default()).unwrap()
-                }
+                Array::$c_method(&self, rhs.into_owned_or_ref_array()).unwrap()
             }
         }
 
@@ -29,9 +27,7 @@ macro_rules! impl_binary_op {
             type Output = Array;
 
             fn $method(self, rhs: T) -> Self::Output {
-                paste::paste! {
-                    self.[<$c_method _device>](rhs.into_owned_or_ref_array(), StreamOrDevice::default()).unwrap()
-                }
+                Array::$c_method(self, rhs.into_owned_or_ref_array()).unwrap()
             }
         }
     };
@@ -41,18 +37,14 @@ macro_rules! impl_binary_op_assign {
     ($trait:ident, $method:ident, $c_method:ident) => {
         impl<T: Into<Array>> $trait<T> for Array {
             fn $method(&mut self, rhs: T) {
-                let new_array = paste::paste! {
-                    self.[<$c_method _device>](&rhs.into(), StreamOrDevice::default()).unwrap()
-                };
+                let new_array = Array::$c_method(self, &rhs.into()).unwrap();
                 *self = new_array;
             }
         }
 
         impl $trait<&Array> for Array {
             fn $method(&mut self, rhs: &Self) {
-                let new_array = paste::paste! {
-                    self.[<$c_method _device>](rhs, StreamOrDevice::default()).unwrap()
-                };
+                let new_array = Array::$c_method(self, rhs).unwrap();
                 *self = new_array;
             }
         }
@@ -74,26 +66,26 @@ impl_binary_op!(Pow, pow, power);
 impl Neg for &Array {
     type Output = Array;
     fn neg(self) -> Self::Output {
-        self.negative_device(StreamOrDevice::default()).unwrap()
+        Array::negative(self).unwrap()
     }
 }
 impl Neg for Array {
     type Output = Array;
     fn neg(self) -> Self::Output {
-        self.negative_device(StreamOrDevice::default()).unwrap()
+        Array::negative(&self).unwrap()
     }
 }
 
 impl Not for &Array {
     type Output = Array;
     fn not(self) -> Self::Output {
-        self.logical_not_device(StreamOrDevice::default()).unwrap()
+        Array::logical_not(self).unwrap()
     }
 }
 impl Not for Array {
     type Output = Array;
     fn not(self) -> Self::Output {
-        self.logical_not_device(StreamOrDevice::default()).unwrap()
+        Array::logical_not(&self).unwrap()
     }
 }
 

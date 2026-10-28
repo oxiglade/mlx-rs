@@ -3,8 +3,27 @@ use crate::array::ArrayElement;
 use crate::error::Result;
 use crate::utils::guard::Guarded;
 use crate::{Dtype, Stream};
-use mlx_internal_macros::{default_device, generate_macro};
+use mlx_internal_macros::generate_macro;
 use num_traits::NumCast;
+
+/// Sample count and endpoint behavior for [`linspace`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LinspaceOptions {
+    /// Number of samples.
+    pub count: i32,
+
+    /// Include `stop` as the final sample.
+    pub endpoint: bool,
+}
+
+impl Default for LinspaceOptions {
+    fn default() -> Self {
+        Self {
+            count: 50,
+            endpoint: true,
+        }
+    }
+}
 
 impl Array {
     /// Construct an array of zeros returning an error if shape is invalid.
@@ -16,16 +35,24 @@ impl Array {
     /// # Example
     ///
     /// ```rust
-    /// use mlx_rs::{Array, StreamOrDevice};
-    /// Array::zeros_device::<f32>(&[5, 10], StreamOrDevice::default()).unwrap();
+    /// use mlx_rs::Array;
+    /// Array::zeros::<f32>(&[5, 10]).unwrap();
     /// ```
-    #[default_device]
+    pub fn zeros<T: ArrayElement>(shape: &[i32]) -> Result<Array> {
+        let dtype = T::DTYPE;
+        zeros_dtype(shape, dtype)
+    }
+
+    /// Compatibility shim for [`zeros`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `zeros`"
+    )]
     pub fn zeros_device<T: ArrayElement>(
         shape: &[i32],
         stream: impl AsRef<Stream>,
     ) -> Result<Array> {
-        let dtype = T::DTYPE;
-        zeros_dtype_device(shape, dtype, stream)
+        crate::with_stream(stream.as_ref(), || Self::zeros::<T>(shape))
     }
 
     /// Construct an array of ones returning an error if shape is invalid.
@@ -37,16 +64,24 @@ impl Array {
     /// # Example
     ///
     /// ```rust
-    /// use mlx_rs::{Array, StreamOrDevice};
-    /// Array::ones_device::<f32>(&[5, 10], StreamOrDevice::default()).unwrap();
+    /// use mlx_rs::Array;
+    /// Array::ones::<f32>(&[5, 10]).unwrap();
     /// ```
-    #[default_device]
+    pub fn ones<T: ArrayElement>(shape: &[i32]) -> Result<Array> {
+        let dtype = T::DTYPE;
+        ones_dtype(shape, dtype)
+    }
+
+    /// Compatibility shim for [`ones`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `ones`"
+    )]
     pub fn ones_device<T: ArrayElement>(
         shape: &[i32],
         stream: impl AsRef<Stream>,
     ) -> Result<Array> {
-        let dtype = T::DTYPE;
-        ones_dtype_device(shape, dtype, stream)
+        crate::with_stream(stream.as_ref(), || Self::ones::<T>(shape))
     }
 
     /// Create an identity matrix or a general diagonal matrix returning an error if params are invalid.
@@ -60,17 +95,12 @@ impl Array {
     /// # Example
     ///
     /// ```rust
-    /// use mlx_rs::{Array, StreamOrDevice};
+    /// use mlx_rs::Array;
     /// //  create [10, 10] array with 1's on the diagonal.
-    /// let r = Array::eye_device::<f32>(10, None, None, StreamOrDevice::default()).unwrap();
+    /// let r = Array::eye::<f32>(10, None, None).unwrap();
     /// ```
-    #[default_device]
-    pub fn eye_device<T: ArrayElement>(
-        n: i32,
-        m: Option<i32>,
-        k: Option<i32>,
-        stream: impl AsRef<Stream>,
-    ) -> Result<Array> {
+    pub fn eye<T: ArrayElement>(n: i32, m: Option<i32>, k: Option<i32>) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_eye(
                 res,
@@ -81,6 +111,20 @@ impl Array {
                 stream.as_ref().as_ptr(),
             )
         })
+    }
+
+    /// Compatibility shim for [`eye`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `eye`"
+    )]
+    pub fn eye_device<T: ArrayElement>(
+        n: i32,
+        m: Option<i32>,
+        k: Option<i32>,
+        stream: impl AsRef<Stream>,
+    ) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || Self::eye::<T>(n, m, k))
     }
 
     /// Construct an array with the given value returning an error if shape is invalid.
@@ -96,16 +140,12 @@ impl Array {
     /// # Example
     ///
     /// ```rust
-    /// use mlx_rs::{Array, StreamOrDevice, array};
+    /// use mlx_rs::{Array, array};
     /// //  create [5, 4] array filled with 7
-    /// let r = Array::full_device::<f32>(&[5, 4], array!(7.0f32), StreamOrDevice::default()).unwrap();
+    /// let r = Array::full::<f32>(&[5, 4], array!(7.0f32)).unwrap();
     /// ```
-    #[default_device]
-    pub fn full_device<T: ArrayElement>(
-        shape: &[i32],
-        values: impl AsRef<Array>,
-        stream: impl AsRef<Stream>,
-    ) -> Result<Array> {
+    pub fn full<T: ArrayElement>(shape: &[i32], values: impl AsRef<Array>) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_full(
                 res,
@@ -118,6 +158,19 @@ impl Array {
         })
     }
 
+    /// Compatibility shim for [`full`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `full`"
+    )]
+    pub fn full_device<T: ArrayElement>(
+        shape: &[i32],
+        values: impl AsRef<Array>,
+        stream: impl AsRef<Stream>,
+    ) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || Self::full::<T>(shape, values))
+    }
+
     /// Create a square identity matrix returning an error if params are invalid.
     ///
     /// # Params
@@ -127,15 +180,24 @@ impl Array {
     /// # Example
     ///
     /// ```rust
-    /// use mlx_rs::{Array, StreamOrDevice};
+    /// use mlx_rs::Array;
     /// //  create [10, 10] array with 1's on the diagonal.
-    /// let r = Array::identity_device::<f32>(10, StreamOrDevice::default()).unwrap();
+    /// let r = Array::identity::<f32>(10).unwrap();
     /// ```
-    #[default_device]
-    pub fn identity_device<T: ArrayElement>(n: i32, stream: impl AsRef<Stream>) -> Result<Array> {
+    pub fn identity<T: ArrayElement>(n: i32) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_identity(res, n, T::DTYPE.into(), stream.as_ref().as_ptr())
         })
+    }
+
+    /// Compatibility shim for [`identity`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `identity`"
+    )]
+    pub fn identity_device<T: ArrayElement>(n: i32, stream: impl AsRef<Stream>) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || Self::identity::<T>(n))
     }
 
     /// Generates ranges of numbers.
@@ -151,22 +213,21 @@ impl Array {
     /// # Example
     ///
     /// ```rust
-    /// use mlx_rs::{Array, StreamOrDevice};
+    /// use mlx_rs::Array;
     ///
     /// // Create a 1-D array with values from 0 to 50
     /// let r = Array::arange::<_, f32>(None, 50, None);
     /// ```
-    #[default_device]
-    pub fn arange_device<U, T>(
+    pub fn arange<U, T>(
         start: impl Into<Option<U>>,
         stop: U,
         step: impl Into<Option<U>>,
-        stream: impl AsRef<Stream>,
     ) -> Result<Array>
     where
         U: NumCast,
         T: ArrayElement,
     {
+        let stream = Stream::thread_local_or_default();
         let start: f64 = start.into().and_then(NumCast::from).unwrap_or(0.0);
         let stop: f64 = NumCast::from(stop).unwrap();
         let step: f64 = step.into().and_then(NumCast::from).unwrap_or(1.0);
@@ -183,22 +244,46 @@ impl Array {
         })
     }
 
-    /// Generate `num` evenly spaced numbers over interval `[start, stop]` returning an error if params are invalid.
-    ///
-    /// # Params
-    ///
-    /// - start: start value
-    /// - stop: stop value
-    /// - count: number of samples -- defaults to 50 if not specified
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use mlx_rs::{Array, StreamOrDevice};
-    /// // Create a 50 element 1-D array with values from 0 to 50
-    /// let r = Array::linspace_device::<_, f32>(0, 50, None, StreamOrDevice::default()).unwrap();
-    /// ```
-    #[default_device]
+    /// Compatibility shim for [`arange`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `arange`"
+    )]
+    pub fn arange_device<U, T>(
+        start: impl Into<Option<U>>,
+        stop: U,
+        step: impl Into<Option<U>>,
+        stream: impl AsRef<Stream>,
+    ) -> Result<Array>
+    where
+        U: NumCast,
+        T: ArrayElement,
+    {
+        crate::with_stream(stream.as_ref(), || Self::arange::<U, T>(start, stop, step))
+    }
+
+    /// Compatibility shim for [`linspace`] with endpoint inclusion.
+    #[deprecated(since = "0.26.0", note = "use `ops::linspace` with `LinspaceOptions`")]
+    pub fn linspace<U, T>(start: U, stop: U, count: impl Into<Option<i32>>) -> Result<Array>
+    where
+        U: NumCast,
+        T: ArrayElement,
+    {
+        linspace::<U, T>(
+            start,
+            stop,
+            LinspaceOptions {
+                count: count.into().unwrap_or(50),
+                endpoint: true,
+            },
+        )
+    }
+
+    /// Compatibility shim for [`linspace`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `ops::linspace`"
+    )]
     pub fn linspace_device<U, T>(
         start: U,
         stop: U,
@@ -209,18 +294,14 @@ impl Array {
         U: NumCast,
         T: ArrayElement,
     {
-        let count = count.into().unwrap_or(50);
-        let start_f32 = NumCast::from(start).unwrap();
-        let stop_f32 = NumCast::from(stop).unwrap();
-
-        Array::try_from_op(|res| unsafe {
-            mlx_sys::mlx_linspace(
-                res,
-                start_f32,
-                stop_f32,
-                count,
-                T::DTYPE.into(),
-                stream.as_ref().as_ptr(),
+        crate::with_stream(stream.as_ref(), || {
+            linspace::<U, T>(
+                start,
+                stop,
+                LinspaceOptions {
+                    count: count.into().unwrap_or(50),
+                    endpoint: true,
+                },
             )
         })
     }
@@ -236,20 +317,31 @@ impl Array {
     /// # Example
     ///
     /// ```rust
-    /// use mlx_rs::{Array, StreamOrDevice};
+    /// use mlx_rs::Array;
     /// // repeat a [2, 2] array 4 times along axis 1
     /// let source = Array::from_slice(&[0, 1, 2, 3], &[2, 2]);
     /// let r = Array::repeat_axis::<i32>(source, 4, 1).unwrap();
     /// ```
-    #[default_device]
+    pub fn repeat_axis<T: ArrayElement>(array: Array, count: i32, axis: i32) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
+        Array::try_from_op(|res| unsafe {
+            mlx_sys::mlx_repeat_axis(res, array.as_ptr(), count, axis, stream.as_ref().as_ptr())
+        })
+    }
+
+    /// Compatibility shim for [`repeat_axis`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `repeat_axis`"
+    )]
     pub fn repeat_axis_device<T: ArrayElement>(
         array: Array,
         count: i32,
         axis: i32,
         stream: impl AsRef<Stream>,
     ) -> Result<Array> {
-        Array::try_from_op(|res| unsafe {
-            mlx_sys::mlx_repeat_axis(res, array.as_ptr(), count, axis, stream.as_ref().as_ptr())
+        crate::with_stream(stream.as_ref(), || {
+            Self::repeat_axis::<T>(array, count, axis)
         })
     }
 
@@ -263,20 +355,29 @@ impl Array {
     /// # Example
     ///
     /// ```rust
-    /// use mlx_rs::{Array, StreamOrDevice};
+    /// use mlx_rs::Array;
     /// // repeat a 4 element array 4 times along axis 0
     /// let source = Array::from_slice(&[0, 1, 2, 3], &[2, 2]);
     /// let r = Array::repeat::<i32>(source, 4).unwrap();
     /// ```
-    #[default_device]
+    pub fn repeat<T: ArrayElement>(array: Array, count: i32) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
+        Array::try_from_op(|res| unsafe {
+            mlx_sys::mlx_repeat(res, array.as_ptr(), count, stream.as_ref().as_ptr())
+        })
+    }
+
+    /// Compatibility shim for [`repeat`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `repeat`"
+    )]
     pub fn repeat_device<T: ArrayElement>(
         array: Array,
         count: i32,
         stream: impl AsRef<Stream>,
     ) -> Result<Array> {
-        Array::try_from_op(|res| unsafe {
-            mlx_sys::mlx_repeat(res, array.as_ptr(), count, stream.as_ref().as_ptr())
-        })
+        crate::with_stream(stream.as_ref(), || Self::repeat::<T>(array, count))
     }
 
     /// An array with ones at and below the given diagonal and zeros elsewhere.
@@ -290,17 +391,12 @@ impl Array {
     /// # Example
     ///
     /// ```rust
-    /// use mlx_rs::{Array, StreamOrDevice};
+    /// use mlx_rs::Array;
     /// // [5, 5] array with the lower triangle filled with 1s
-    /// let r = Array::tri_device::<f32>(5, None, None, StreamOrDevice::default());
+    /// let r = Array::tri::<f32>(5, None, None);
     /// ```
-    #[default_device]
-    pub fn tri_device<T: ArrayElement>(
-        n: i32,
-        m: Option<i32>,
-        k: Option<i32>,
-        stream: impl AsRef<Stream>,
-    ) -> Result<Array> {
+    pub fn tri<T: ArrayElement>(n: i32, m: Option<i32>, k: Option<i32>) -> Result<Array> {
+        let stream = Stream::thread_local_or_default();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_tri(
                 res,
@@ -312,39 +408,64 @@ impl Array {
             )
         })
     }
+
+    /// Compatibility shim for [`tri`].
+    #[deprecated(
+        since = "0.26.0",
+        note = "use `with_stream` or `with_device` around `tri`"
+    )]
+    pub fn tri_device<T: ArrayElement>(
+        n: i32,
+        m: Option<i32>,
+        k: Option<i32>,
+        stream: impl AsRef<Stream>,
+    ) -> Result<Array> {
+        crate::with_stream(stream.as_ref(), || Self::tri::<T>(n, m, k))
+    }
 }
 
 /// See [`Array::zeros`]
-#[generate_macro]
-#[default_device]
+pub fn zeros<T: ArrayElement>(shape: &[i32]) -> Result<Array> {
+    Array::zeros::<T>(shape)
+}
+
+/// Compatibility shim for [`zeros`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `zeros`"
+)]
 pub fn zeros_device<T: ArrayElement>(
     shape: &[i32],
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    Array::zeros_device::<T>(shape, stream)
+    crate::with_stream(stream.as_ref(), || zeros::<T>(shape))
 }
 
 /// An array of zeros like the input.
-#[generate_macro]
-#[default_device]
+pub fn zeros_like(input: impl AsRef<Array>) -> Result<Array> {
+    let a = input.as_ref();
+    let shape = a.shape();
+    let dtype = a.dtype();
+    zeros_dtype(shape, dtype)
+}
+
+/// Compatibility shim for [`zeros_like`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `zeros_like`"
+)]
 pub fn zeros_like_device(
     input: impl AsRef<Array>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    let a = input.as_ref();
-    let shape = a.shape();
-    let dtype = a.dtype();
-    zeros_dtype_device(shape, dtype, stream)
+    crate::with_stream(stream.as_ref(), || zeros_like(input))
 }
 
 /// Similar to [`Array::zeros`] but with a specified dtype.
-#[generate_macro]
-#[default_device]
-pub fn zeros_dtype_device(
-    shape: &[i32],
-    dtype: Dtype,
-    #[optional] stream: impl AsRef<Stream>,
-) -> Result<Array> {
+pub fn zeros_dtype(shape: &[i32], dtype: Dtype) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_zeros(
             res,
@@ -356,27 +477,57 @@ pub fn zeros_dtype_device(
     })
 }
 
+/// Compatibility shim for [`zeros_dtype`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `zeros_dtype`"
+)]
+pub fn zeros_dtype_device(
+    shape: &[i32],
+    dtype: Dtype,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || zeros_dtype(shape, dtype))
+}
+
 /// See [`Array::ones`]
-#[generate_macro]
-#[default_device]
+pub fn ones<T: ArrayElement>(shape: &[i32]) -> Result<Array> {
+    Array::ones::<T>(shape)
+}
+
+/// Compatibility shim for [`ones`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `ones`"
+)]
 pub fn ones_device<T: ArrayElement>(
     shape: &[i32],
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    Array::ones_device::<T>(shape, stream)
+    crate::with_stream(stream.as_ref(), || ones::<T>(shape))
 }
 
 /// An array of ones like the input.
-#[generate_macro]
-#[default_device]
+pub fn ones_like(input: impl AsRef<Array>) -> Result<Array> {
+    let a = input.as_ref();
+    let shape = a.shape();
+    let dtype = a.dtype();
+    ones_dtype(shape, dtype)
+}
+
+/// Compatibility shim for [`ones_like`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `ones_like`"
+)]
 pub fn ones_like_device(
     input: impl AsRef<Array>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    let a = input.as_ref();
-    let shape = a.shape();
-    let dtype = a.dtype();
-    ones_dtype_device(shape, dtype, stream)
+    crate::with_stream(stream.as_ref(), || ones_like(input))
 }
 
 /// An array filled with the given value, with the same shape as the input.
@@ -402,14 +553,12 @@ pub fn ones_like_device(
 /// let c = full_like(&a, &Array::from_f32(7.5), Some(Dtype::Float32)).unwrap();
 /// assert_eq!(c.dtype(), Dtype::Float32);
 /// ```
-#[generate_macro]
-#[default_device]
-pub fn full_like_device(
+pub fn full_like(
     input: impl AsRef<Array>,
     values: impl AsRef<Array>,
-    #[optional] dtype: impl Into<Option<Dtype>>,
-    #[optional] stream: impl AsRef<Stream>,
+    dtype: impl Into<Option<Dtype>>,
 ) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let a = input.as_ref();
     let dtype = dtype.into().unwrap_or_else(|| a.dtype());
     Array::try_from_op(|res| unsafe {
@@ -423,14 +572,24 @@ pub fn full_like_device(
     })
 }
 
-/// Similar to [`Array::ones`] but with a specified dtype.
-#[generate_macro]
-#[default_device]
-pub fn ones_dtype_device(
-    shape: &[i32],
-    dtype: Dtype,
+/// Compatibility shim for [`full_like`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `full_like`"
+)]
+pub fn full_like_device(
+    input: impl AsRef<Array>,
+    values: impl AsRef<Array>,
+    #[optional] dtype: impl Into<Option<Dtype>>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || full_like(input, values, dtype))
+}
+
+/// Similar to [`Array::ones`] but with a specified dtype.
+pub fn ones_dtype(shape: &[i32], dtype: Dtype) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_ones(
             res,
@@ -442,42 +601,96 @@ pub fn ones_dtype_device(
     })
 }
 
+/// Compatibility shim for [`ones_dtype`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `ones_dtype`"
+)]
+pub fn ones_dtype_device(
+    shape: &[i32],
+    dtype: Dtype,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || ones_dtype(shape, dtype))
+}
+
 /// See [`Array::eye`]
-#[generate_macro]
-#[default_device]
+pub fn eye<T: ArrayElement>(n: i32, m: Option<i32>, k: Option<i32>) -> Result<Array> {
+    Array::eye::<T>(n, m, k)
+}
+
+/// Compatibility shim for [`eye`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `eye`"
+)]
 pub fn eye_device<T: ArrayElement>(
     n: i32,
     #[optional] m: Option<i32>,
     #[optional] k: Option<i32>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    Array::eye_device::<T>(n, m, k, stream)
+    crate::with_stream(stream.as_ref(), || eye::<T>(n, m, k))
 }
 
 /// See [`Array::full`]
-#[generate_macro]
-#[default_device]
+pub fn full<T: ArrayElement>(shape: &[i32], values: impl AsRef<Array>) -> Result<Array> {
+    Array::full::<T>(shape, values)
+}
+
+/// Compatibility shim for [`full`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `full`"
+)]
 pub fn full_device<T: ArrayElement>(
     shape: &[i32],
     values: impl AsRef<Array>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    Array::full_device::<T>(shape, values, stream)
+    crate::with_stream(stream.as_ref(), || full::<T>(shape, values))
 }
 
 /// See [`Array::identity`]
-#[generate_macro]
-#[default_device]
+pub fn identity<T: ArrayElement>(n: i32) -> Result<Array> {
+    Array::identity::<T>(n)
+}
+
+/// Compatibility shim for [`identity`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `identity`"
+)]
 pub fn identity_device<T: ArrayElement>(
     n: i32,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    Array::identity_device::<T>(n, stream)
+    crate::with_stream(stream.as_ref(), || identity::<T>(n))
 }
 
 /// See [`Array::arange`]
-#[generate_macro]
-#[default_device]
+pub fn arange<U, T>(
+    start: impl Into<Option<U>>,
+    stop: U,
+    step: impl Into<Option<U>>,
+) -> Result<Array>
+where
+    U: NumCast,
+    T: ArrayElement,
+{
+    Array::arange::<U, T>(start, stop, step)
+}
+
+/// Compatibility shim for [`arange`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `arange`"
+)]
 pub fn arange_device<U, T>(
     #[optional] start: impl Into<Option<U>>,
     #[named] stop: U,
@@ -488,12 +701,59 @@ where
     U: NumCast,
     T: ArrayElement,
 {
-    Array::arange_device::<U, T>(start, stop, step, stream)
+    crate::with_stream(stream.as_ref(), || arange::<U, T>(start, stop, step))
 }
 
-/// See [`Array::linspace`]
-#[generate_macro]
-#[default_device]
+/// Generate evenly spaced values between `start` and `stop`.
+///
+/// A negative count errors, zero returns an empty array, and one returns `start`. When `endpoint`
+/// is false, the interval is divided by `count` and `stop` is excluded. Endpoints are converted
+/// directly to the C ABI's `double` representation.
+///
+/// ```rust
+/// use mlx_rs::{ops::{linspace, LinspaceOptions}, with_stream, Stream};
+///
+/// // float64 runs on the CPU only.
+/// let output = with_stream(&Stream::cpu(), || {
+///     linspace::<_, f64>(
+///         16_777_217.0_f64,
+///         16_777_219.0_f64,
+///         LinspaceOptions {
+///             count: 3,
+///             endpoint: true,
+///         },
+///     )
+/// })
+/// .unwrap();
+/// assert_eq!(output.shape(), &[3]);
+/// ```
+pub fn linspace<U, T>(start: U, stop: U, options: LinspaceOptions) -> Result<Array>
+where
+    U: NumCast,
+    T: ArrayElement,
+{
+    let stream = Stream::thread_local_or_default();
+    let start: f64 = NumCast::from(start).unwrap();
+    let stop: f64 = NumCast::from(stop).unwrap();
+    Array::try_from_op(|res| unsafe {
+        mlx_sys::mlx_linspace_endpoint(
+            res,
+            start,
+            stop,
+            options.count,
+            options.endpoint,
+            T::DTYPE.into(),
+            stream.as_ref().as_ptr(),
+        )
+    })
+}
+
+/// Compatibility shim for [`linspace`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `linspace`"
+)]
 pub fn linspace_device<U, T>(
     start: U,
     stop: U,
@@ -504,42 +764,75 @@ where
     U: NumCast,
     T: ArrayElement,
 {
-    Array::linspace_device::<U, T>(start, stop, count, stream)
+    crate::with_stream(stream.as_ref(), || {
+        linspace::<U, T>(
+            start,
+            stop,
+            LinspaceOptions {
+                count: count.into().unwrap_or(50),
+                endpoint: true,
+            },
+        )
+    })
 }
 
 /// See [`Array::repeat`]
-#[generate_macro]
-#[default_device]
+pub fn repeat_axis<T: ArrayElement>(array: Array, count: i32, axis: i32) -> Result<Array> {
+    Array::repeat_axis::<T>(array, count, axis)
+}
+
+/// Compatibility shim for [`repeat_axis`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `repeat_axis`"
+)]
 pub fn repeat_axis_device<T: ArrayElement>(
     array: Array,
     count: i32,
     axis: i32,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    Array::repeat_axis_device::<T>(array, count, axis, stream)
+    crate::with_stream(stream.as_ref(), || repeat_axis::<T>(array, count, axis))
 }
 
 /// See [`Array::repeat`]
-#[generate_macro]
-#[default_device]
+pub fn repeat<T: ArrayElement>(array: Array, count: i32) -> Result<Array> {
+    Array::repeat::<T>(array, count)
+}
+
+/// Compatibility shim for [`repeat`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `repeat`"
+)]
 pub fn repeat_device<T: ArrayElement>(
     array: Array,
     count: i32,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    Array::repeat_device::<T>(array, count, stream)
+    crate::with_stream(stream.as_ref(), || repeat::<T>(array, count))
 }
 
 /// See [`Array::tri`]
-#[generate_macro]
-#[default_device]
+pub fn tri<T: ArrayElement>(n: i32, m: Option<i32>, k: Option<i32>) -> Result<Array> {
+    Array::tri::<T>(n, m, k)
+}
+
+/// Compatibility shim for [`tri`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `tri`"
+)]
 pub fn tri_device<T: ArrayElement>(
     n: i32,
     #[optional] m: Option<i32>,
     #[optional] k: Option<i32>,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
-    Array::tri_device::<T>(n, m, k, stream)
+    crate::with_stream(stream.as_ref(), || tri::<T>(n, m, k))
 }
 
 /// Zeros the array above the given diagonal
@@ -549,18 +842,27 @@ pub fn tri_device<T: ArrayElement>(
 /// - `a`: input array
 /// - `k`: diagonal of the 2D array. Default to `0`
 /// - `stream`: stream to execute on
-#[generate_macro]
-#[default_device]
-pub fn tril_device(
-    a: impl AsRef<Array>,
-    #[optional] k: impl Into<Option<i32>>,
-    #[optional] stream: impl AsRef<Stream>,
-) -> Result<Array> {
+pub fn tril(a: impl AsRef<Array>, k: impl Into<Option<i32>>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let a = a.as_ref();
     let k = k.into().unwrap_or(0);
     Array::try_from_op(|res| unsafe {
         mlx_sys::mlx_tril(res, a.as_ptr(), k, stream.as_ref().as_ptr())
     })
+}
+
+/// Compatibility shim for [`tril`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `tril`"
+)]
+pub fn tril_device(
+    a: impl AsRef<Array>,
+    #[optional] k: impl Into<Option<i32>>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || tril(a, k))
 }
 
 /// Zeros the array below the given diagonal
@@ -569,13 +871,8 @@ pub fn tril_device(
 ///
 /// - `a`: input array
 /// - `k`: diagonal of the 2D array. Default to `0`
-#[generate_macro]
-#[default_device]
-pub fn triu_device(
-    a: impl AsRef<Array>,
-    #[optional] k: impl Into<Option<i32>>,
-    #[optional] stream: impl AsRef<Stream>,
-) -> Result<Array> {
+pub fn triu(a: impl AsRef<Array>, k: impl Into<Option<i32>>) -> Result<Array> {
+    let stream = Stream::thread_local_or_default();
     let a = a.as_ref();
     let k = k.into().unwrap_or(0);
     Array::try_from_op(|res| unsafe {
@@ -583,10 +880,27 @@ pub fn triu_device(
     })
 }
 
+/// Compatibility shim for [`triu`].
+#[generate_macro(customize(forwarding_shim = true))]
+#[deprecated(
+    since = "0.26.0",
+    note = "use `with_stream` or `with_device` around `triu`"
+)]
+pub fn triu_device(
+    a: impl AsRef<Array>,
+    #[optional] k: impl Into<Option<i32>>,
+    #[optional] stream: impl AsRef<Stream>,
+) -> Result<Array> {
+    crate::with_stream(stream.as_ref(), || triu(a, k))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{array, dtype::Dtype, StreamOrDevice};
+    use crate::{
+        array, dtype::Dtype, test_utils::assert_array_eq, test_utils::tolerances, with_device,
+        Device,
+    };
     use half::f16;
 
     #[test]
@@ -634,28 +948,36 @@ mod tests {
         assert_eq!(array.shape(), &[2, 3]);
         assert_eq!(array.dtype(), Dtype::Float32);
 
-        let data: &[f32] = array.as_slice();
-        assert_eq!(data, &[7.0; 6]);
+        assert_array_eq(
+            array,
+            Array::from_slice(&[7.0; 6], &[2, 3]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]
     fn test_full_array() {
-        let source = Array::zeros_device::<f32>(&[1, 3], StreamOrDevice::cpu()).unwrap();
+        let source = with_device(Device::cpu(), || Array::zeros::<f32>(&[1, 3])).unwrap();
         let array = Array::full::<f32>(&[2, 3], source).unwrap();
         assert_eq!(array.shape(), &[2, 3]);
         assert_eq!(array.dtype(), Dtype::Float32);
 
-        let data: &[f32] = array.as_slice();
-        float_eq::float_eq!(*data, [0.0; 6], abs <= [1e-6; 6]);
+        assert_array_eq(
+            array,
+            Array::from_slice(&[0.0; 6], &[2, 3]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 
     #[test]
     fn test_full_try() {
-        let source = Array::zeros_device::<f32>(&[1, 3], StreamOrDevice::default()).unwrap();
+        let source = Array::zeros::<f32>(&[1, 3]).unwrap();
         let array = Array::full::<f32>(&[2, 3], source);
         assert!(array.is_ok());
 
-        let source = Array::zeros_device::<f32>(&[1, 3], StreamOrDevice::default()).unwrap();
+        let source = Array::zeros::<f32>(&[1, 3]).unwrap();
         let array = Array::full::<f32>(&[-1, 3], source);
         assert!(array.is_err());
     }
@@ -712,7 +1034,7 @@ mod tests {
 
     #[test]
     fn test_linspace_int() {
-        let array = Array::linspace::<_, f32>(0, 50, None).unwrap();
+        let array = linspace::<_, f32>(0, 50, LinspaceOptions::default()).unwrap();
         assert_eq!(array.shape(), &[50]);
         assert_eq!(array.dtype(), Dtype::Float32);
 
@@ -724,7 +1046,7 @@ mod tests {
 
     #[test]
     fn test_linspace_float() {
-        let array = Array::linspace::<_, f32>(0., 50., None).unwrap();
+        let array = linspace::<_, f32>(0., 50., LinspaceOptions::default()).unwrap();
         assert_eq!(array.shape(), &[50]);
         assert_eq!(array.dtype(), Dtype::Float32);
 
@@ -736,10 +1058,17 @@ mod tests {
 
     #[test]
     fn test_linspace_try() {
-        let array = Array::linspace::<_, f32>(0, 50, None);
+        let array = linspace::<_, f32>(0, 50, LinspaceOptions::default());
         assert!(array.is_ok());
 
-        let array = Array::linspace::<_, f32>(0, 50, Some(-1));
+        let array = linspace::<_, f32>(
+            0,
+            50,
+            LinspaceOptions {
+                count: -1,
+                ..Default::default()
+            },
+        );
         assert!(array.is_err());
     }
 
@@ -807,28 +1136,43 @@ mod tests {
         assert_eq!(from_array_with_dtype.dtype(), Dtype::Float16);
         assert_eq!(from_array_with_dtype.shape(), &[3]);
 
-        let expected_f16: Vec<f16> = vec![f16::from_f32(7.5); 3];
-        let data: Vec<f16> = from_array_with_dtype.as_slice::<f16>().to_vec();
-        assert_eq!(data, expected_f16);
+        assert_array_eq(
+            from_array_with_dtype,
+            Array::from_slice(&[f16::from_f32(7.5); 3], &[3]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         // Test with default dtype (inherits from input)
         let from_array_default_dtype = full_like(&base_int, &array!(4.0f32), None).unwrap();
         assert_eq!(from_array_default_dtype.dtype(), Dtype::Int16);
-        let data: &[i16] = from_array_default_dtype.as_slice();
-        assert_eq!(data, &[4, 4, 4]);
+        assert_array_eq(
+            from_array_default_dtype,
+            Array::from_slice(&[4_i16, 4, 4], &[3]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         // Test with explicit dtype float32
         let from_scalar_with_dtype =
             full_like(&base_int, &array!(3.25f32), Some(Dtype::Float32)).unwrap();
         assert_eq!(from_scalar_with_dtype.dtype(), Dtype::Float32);
-        let data: &[f32] = from_scalar_with_dtype.as_slice();
-        assert_eq!(data, &[3.25f32, 3.25f32, 3.25f32]);
+        assert_array_eq(
+            from_scalar_with_dtype,
+            Array::from_slice(&[3.25_f32; 3], &[3]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
 
         // Test with float base and int value - uses base dtype
         let base_float = Array::from_slice(&[1.0f32, 2.0f32], &[2]);
         let from_scalar_default_dtype = full_like(&base_float, &array!(2i32), None).unwrap();
         assert_eq!(from_scalar_default_dtype.dtype(), Dtype::Float32);
-        let data: &[f32] = from_scalar_default_dtype.as_slice();
-        assert_eq!(data, &[2.0f32, 2.0f32]);
+        assert_array_eq(
+            from_scalar_default_dtype,
+            Array::from_slice(&[2.0_f32; 2], &[2]),
+            tolerances::EXACT.rtol,
+            tolerances::EXACT.atol,
+        );
     }
 }
