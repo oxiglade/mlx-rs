@@ -574,66 +574,71 @@ pub(super) fn dispatch(case: &Case, safe: &SafeTensors<'_>) -> Result<Vec<Array>
             } else {
                 None
             };
-            args.execution()?;
-            let (packed, scales, biases) = mlx_error(
-                ops::quantize(
-                    &weights,
-                    ops::QuantizeOptions {
-                        mode,
-                        ..Default::default()
-                    },
-                )
-                .map_err(mlx_rs::error::Exception::from),
-            )?;
-            match parts[3] {
-                "roundtrip" => {
-                    let restored = mlx_error(
-                        ops::dequantize(
+            let device = match args.execution()? {
+                ExecutionTarget::ExplicitGpu => Device::gpu(),
+                _ => Device::cpu(),
+            };
+            with_device(device, || -> Result<Vec<Array>, String> {
+                let (packed, scales, biases) = mlx_error(
+                    ops::quantize(
+                        &weights,
+                        ops::QuantizeOptions {
+                            mode,
+                            ..Default::default()
+                        },
+                    )
+                    .map_err(mlx_rs::error::Exception::from),
+                )?;
+                Ok(match parts[3] {
+                    "roundtrip" => {
+                        let restored = mlx_error(
+                            ops::dequantize(
+                                &packed,
+                                &scales,
+                                biases.as_ref(),
+                                ops::DequantizeOptions {
+                                    mode,
+                                    ..Default::default()
+                                },
+                            )
+                            .map_err(mlx_rs::error::Exception::from),
+                        )?;
+                        let mut outputs = vec![packed, scales];
+                        outputs.extend(biases);
+                        outputs.push(restored);
+                        outputs
+                    }
+                    "matmul" => vec![mlx_error(
+                        ops::quantized_matmul(
+                            input.as_ref().unwrap(),
                             &packed,
                             &scales,
                             biases.as_ref(),
-                            ops::DequantizeOptions {
+                            ops::QuantizedMatmulOptions {
                                 mode,
+                                transpose: true,
                                 ..Default::default()
                             },
                         )
                         .map_err(mlx_rs::error::Exception::from),
-                    )?;
-                    let mut outputs = vec![packed, scales];
-                    outputs.extend(biases);
-                    outputs.push(restored);
-                    outputs
-                }
-                "matmul" => vec![mlx_error(
-                    ops::quantized_matmul(
-                        input.as_ref().unwrap(),
-                        &packed,
-                        &scales,
-                        biases.as_ref(),
-                        ops::QuantizedMatmulOptions {
-                            mode,
-                            transpose: true,
-                            ..Default::default()
-                        },
-                    )
-                    .map_err(mlx_rs::error::Exception::from),
-                )?],
-                "gather" => vec![mlx_error(
-                    ops::gather_qmm(
-                        input.as_ref().unwrap(),
-                        &packed,
-                        &scales,
-                        biases.as_ref(),
-                        ops::GatherQmmOptions {
-                            mode,
-                            rhs_indices: indices.as_ref(),
-                            ..Default::default()
-                        },
-                    )
-                    .map_err(mlx_rs::error::Exception::from),
-                )?],
-                operation => return Err(format!("unknown quantization operation {operation}")),
-            }
+                    )?],
+                    "gather" => vec![mlx_error(
+                        ops::gather_qmm(
+                            input.as_ref().unwrap(),
+                            &packed,
+                            &scales,
+                            biases.as_ref(),
+                            ops::GatherQmmOptions {
+                                mode,
+                                rhs_indices: indices.as_ref(),
+                                ..Default::default()
+                            },
+                        )
+                        .map_err(mlx_rs::error::Exception::from),
+                    )?],
+                    operation => return Err(format!("unknown quantization operation {operation}")),
+                })
+            })?
         }
         "ops.add.array_array" => {
             let a = args.tensor("input0")?;
