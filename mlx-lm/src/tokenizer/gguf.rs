@@ -144,7 +144,8 @@ mod tests {
         ));
         t.eos.pop();
         t.inner
-            .add_tokens(&[tokenizers::AddedToken::from("outside_vocab", false)]);
+            .add_tokens([tokenizers::AddedToken::from("outside_vocab", false)])
+            .unwrap();
         assert!(matches!(
             t.validate_gguf_pairing(&metadata, 64),
             Err(LoadError::TokenizerVocabularyOutOfRange {
