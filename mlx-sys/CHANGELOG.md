@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## Unreleased
+
+- Generate the bindings with bindgen 0.73; the system opaque types `_malloc_zone_t`
+  and `__sFILEX` no longer derive `Copy` and `Clone`
+
 ## 0.7.0
 
 - Update the pinned native tuple to mlx-c `a341b49` (v0.7.0); MLX stays at `0.32.2`.
