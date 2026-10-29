@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   build-docs:
-    runs-on: blaze/macos-latest
+    runs-on: macos-26
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
     steps:
