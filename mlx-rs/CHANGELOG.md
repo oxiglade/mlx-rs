@@ -16,6 +16,11 @@ Added
   (#358, thanks @sergey-scherbina). Global scales remain private; nn quantized
   modules remain affine-only.
 
+Fixed
+
+- Preserve activation input precision for float16 and bfloat16, match Python MLX
+  integer promotion and step thresholds, and use 1.702 for fast approximate GELU.
+
 ## 0.33.0
 
 This release stays on MLX 0.32.2. It adds custom Metal kernels and a JIT Metal

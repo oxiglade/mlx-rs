@@ -7,10 +7,18 @@ use crate::{
     error::{Exception, Result},
     ops::{abs, exp, maximum, minimum, multiply, select},
     transforms::compile::compile,
-    Array,
+    Array, Dtype,
 };
 use mlx_internal_macros::{generate_builder, Buildable, Builder};
 use mlx_macros::ModuleParameters;
+
+fn activation_dtype(x: &Array) -> Dtype {
+    if x.dtype().is_inexact() {
+        x.dtype()
+    } else {
+        Dtype::Float32
+    }
+}
 
 /// Applies the element-wise sigmoid logistic sigmoid.
 ///
@@ -28,7 +36,7 @@ pub fn sigmoid(x: impl AsRef<Array>) -> Result<Array> {
 /// maximum(x, 0)
 /// ```
 pub fn relu(x: impl AsRef<Array>) -> Result<Array> {
-    crate::ops::maximum(x.as_ref(), &array!(0))
+    crate::ops::maximum(x.as_ref(), &array!(0).as_dtype(x.as_ref().dtype())?)
 }
 
 /// Applies the Leaky Rectified Linear Unit.
@@ -41,10 +49,12 @@ pub fn relu(x: impl AsRef<Array>) -> Result<Array> {
 /// maximum(neg_slope * x, x)
 /// ```
 pub fn leaky_relu(x: impl AsRef<Array>, neg_slope: impl Into<Option<f32>>) -> Result<Array> {
-    let neg_slope = array!(neg_slope.into().unwrap_or(0.01));
+    let x = x.as_ref();
+    let dtype = activation_dtype(x);
+    let neg_slope = array!(neg_slope.into().unwrap_or(0.01)).as_dtype(dtype)?;
     // We have to use this indirection, otherwise the compiler cannot
     // infer the lifetime of the value returned by the closure properly
-    compiled_leaky_relu(x.as_ref(), &neg_slope)
+    compiled_leaky_relu(x, &neg_slope)
 }
 
 /// Applies the Log Softmax function.
@@ -73,10 +83,12 @@ pub fn log_softmax(x: impl AsRef<Array>, axis: impl Into<Option<i32>>) -> Result
 /// - `x`: The input array
 /// - `alpha`: Default to 1.0 if not provided
 pub fn elu(x: impl AsRef<Array>, alpha: impl Into<Option<f32>>) -> Result<Array> {
-    let alpha = array!(alpha.into().unwrap_or(1.0));
+    let x = x.as_ref();
+    let dtype = activation_dtype(x);
+    let alpha = array!(alpha.into().unwrap_or(1.0)).as_dtype(dtype)?;
     // We have to use this indirection, otherwise the compiler cannot
     // infer the lifetime of the value returned by the closure properly
-    compiled_elu(x.as_ref(), &alpha)
+    compiled_elu(x, &alpha)
 }
 
 /// Applies the Rectified Linear Unit 6.
@@ -98,7 +110,7 @@ pub fn relu6(x: impl AsRef<Array>) -> Result<Array> {
 /// logaddexp(x, 0)
 /// ```
 pub fn softplus(x: impl AsRef<Array>) -> Result<Array> {
-    crate::ops::logaddexp(x.as_ref(), &array!(0))
+    crate::ops::logaddexp(x.as_ref(), &array!(0).as_dtype(x.as_ref().dtype())?)
 }
 
 /// Applies the Softsign function.
@@ -120,10 +132,12 @@ pub fn softsign(x: impl AsRef<Array>) -> Result<Array> {
 /// maximum(x, 0) + alpha * (exp(minimum(x, 0) / alpha) - 1)
 /// ```
 pub fn celu(x: impl AsRef<Array>, alpha: impl Into<Option<f32>>) -> Result<Array> {
-    let alpha = array!(alpha.into().unwrap_or(1.0));
+    let x = x.as_ref();
+    let dtype = activation_dtype(x);
+    let alpha = array!(alpha.into().unwrap_or(1.0)).as_dtype(dtype)?;
     // We have to use this indirection, otherwise the compiler cannot
     // infer the lifetime of the value returned by the closure properly
-    compiled_celu(x.as_ref(), &alpha)
+    compiled_celu(x, &alpha)
 }
 
 /// Applies the Sigmoid Linear Unit. Also known as Swish.
@@ -175,7 +189,7 @@ pub fn gelu_approximate(x: impl AsRef<Array>) -> Result<Array> {
 /// This is:
 ///
 /// ```text
-/// x * sigmoid(1.773 * x)
+/// x * sigmoid(1.702 * x)
 /// ```
 pub fn gelu_fast_approximate(x: impl AsRef<Array>) -> Result<Array> {
     compiled_gelu_fast_approximate(x.as_ref())
@@ -194,16 +208,18 @@ pub fn glu(x: impl AsRef<Array>, axis: impl Into<Option<i32>>) -> Result<Array> 
 /// Applies the Step Activation Function.
 ///
 /// This function implements a binary step activation, where the output is set
-/// to 1 if the input is greater than a specified threshold, and 0 otherwise.
+/// to 1 if the input is greater than or equal to a specified threshold, and 0 otherwise.
 ///
 /// This is:
 ///
 /// ```text
-/// select(x.gt(threshold), 1, 0)
+/// select(x.ge(threshold), 1, 0)
 /// ```
 pub fn step(x: impl AsRef<Array>, threshold: impl Into<Option<f32>>) -> Result<Array> {
-    let threshold = array!(threshold.into().unwrap_or(0.0));
-    crate::ops::select(&x.as_ref().gt(threshold)?, &array!(1), &array!(0))
+    let x = x.as_ref();
+    let dtype = activation_dtype(x);
+    let threshold = array!(threshold.into().unwrap_or(0.0)).as_dtype(dtype)?;
+    crate::ops::select(&x.ge(threshold)?, &array!(1), &array!(0))
 }
 
 /// Applies the Scaled Exponential Linear Unit.
@@ -755,12 +771,12 @@ generate_builder! {
     /// Applies the Step Activation Function.
     ///
     /// This function implements a binary step activation, where the output is set
-    /// to 1 if the input is greater than a specified threshold, and 0 otherwise.
+    /// to 1 if the input is greater than or equal to a specified threshold, and 0 otherwise.
     ///
     /// This is:
     ///
     /// ```text
-    /// select(x.gt(threshold), 1, 0)
+    /// select(x.ge(threshold), 1, 0)
     /// ```
     #[derive(Debug, Clone, ModuleParameters, Buildable)]
     #[module(root = crate)]
@@ -829,7 +845,11 @@ fn compiled_leaky_relu(x: &Array, neg_slope: &Array) -> Result<Array> {
 #[inline]
 fn compiled_elu(x: &Array, alpha: &Array) -> Result<Array> {
     let f = |(x_, alpha_): (&Array, &Array)| {
-        select(&x_.gt(&array!(0.0))?, x_, alpha_ * (exp(x_)? - array!(1.0)))
+        select(
+            &x_.gt(&array!(0).as_dtype(x_.dtype())?)?,
+            x_,
+            alpha_ * (exp(x_)? - array!(1).as_dtype(alpha_.dtype())?),
+        )
     };
     let mut compiled = compile(f, true);
     compiled((x, alpha))
@@ -837,14 +857,20 @@ fn compiled_elu(x: &Array, alpha: &Array) -> Result<Array> {
 
 #[inline]
 fn compiled_relu6(x: &Array) -> Result<Array> {
-    let f = |x_: &Array| minimum(maximum(x_, &array!(0.0))?, &array!(6.0));
+    let f = |x_: &Array| {
+        let dtype = activation_dtype(x_);
+        minimum(
+            maximum(x_, &array!(0).as_dtype(x_.dtype())?)?,
+            &array!(6.0).as_dtype(dtype)?,
+        )
+    };
     let mut compiled = compile(f, true);
     compiled(x)
 }
 
 #[inline]
 fn compiled_softsign(x: &Array) -> Result<Array> {
-    let f = |x_: &Array| x_.divide(array!(1.0) + abs(x_)?);
+    let f = |x_: &Array| x_.divide(array!(1).as_dtype(x_.dtype())? + abs(x_)?);
     let mut compiled = compile(f, true);
     compiled(x)
 }
@@ -852,8 +878,10 @@ fn compiled_softsign(x: &Array) -> Result<Array> {
 #[inline]
 fn compiled_celu(x: &Array, alpha: &Array) -> Result<Array> {
     let f = |(x_, alpha_): (&Array, &Array)| {
-        maximum(x_, &array!(0.0))?
-            .add(alpha_.multiply(exp(&(minimum(x_, &array!(0.0))? / alpha_))? - array!(1.0))?)
+        maximum(x_, &array!(0.0).as_dtype(alpha_.dtype())?)?.add(alpha_.multiply(
+            exp(&(minimum(x_, &array!(0.0).as_dtype(alpha_.dtype())?)? / alpha_))?
+                - array!(1).as_dtype(alpha_.dtype())?,
+        )?)
     };
     let mut compiled = compile(f, true);
     compiled((x, alpha))
@@ -877,8 +905,11 @@ fn compiled_log_sigmoid(x: &Array) -> Result<Array> {
 fn compiled_gelu(x: &Array) -> Result<Array> {
     use crate::ops::erf;
     let f = |x_: &Array| {
-        x_.multiply(array!(1) + erf(&(x_ / array!(2f32.sqrt())))?)?
-            .divide(array!(2.0))
+        let dtype = activation_dtype(x_);
+        x_.multiply(
+            array!(1).as_dtype(dtype)? + erf(&(x_ / array!(2f32.sqrt()).as_dtype(dtype)?))?,
+        )?
+        .divide(array!(2).as_dtype(dtype)?)
     };
     let mut compiled = compile(f, true);
     compiled(x)
@@ -886,14 +917,17 @@ fn compiled_gelu(x: &Array) -> Result<Array> {
 
 #[inline]
 fn compiled_gelu_approximate(x: &Array) -> Result<Array> {
-    use crate::ops::{sqrt, tanh};
+    use crate::ops::tanh;
 
     let f = move |x_: &Array| {
-        // 0.5 * x * (1 + tanh(sqrt(2 / Float.pi) * (x + 0.044715 * x ** 3)))
-        array!(0.5).multiply(x_)?.multiply(
-            array!(1.0).add(tanh(
-                &(sqrt(&array!(2.0 / PI))?
-                    .multiply(x_ + array!(0.044715).multiply(x_.power(&array!(3))?)?)?),
+        let dtype = activation_dtype(x_);
+        array!(0.5).as_dtype(dtype)?.multiply(x_)?.multiply(
+            array!(1).as_dtype(dtype)?.add(tanh(
+                &(array!((2.0 / PI).sqrt()).as_dtype(dtype)?.multiply(
+                    x_ + array!(0.044715)
+                        .as_dtype(dtype)?
+                        .multiply(x_.power(&array!(3).as_dtype(x_.dtype())?)?)?,
+                )?),
             )?)?,
         )
     };
@@ -903,14 +937,20 @@ fn compiled_gelu_approximate(x: &Array) -> Result<Array> {
 
 #[inline]
 fn compiled_gelu_fast_approximate(x: &Array) -> Result<Array> {
-    let f = |x_: &Array| x_.multiply(sigmoid(&(array!(1.773) * x_))?);
+    let f = |x_: &Array| {
+        let dtype = activation_dtype(x_);
+        x_.multiply(sigmoid(&(array!(1.702).as_dtype(dtype)? * x_))?)
+    };
     let mut compiled = compile(f, true);
     compiled(x)
 }
 
 #[inline]
 fn compiled_selu(x: &Array) -> Result<Array> {
-    let f = |x_: &Array| elu(x_, 1.67326)?.multiply(array!(1.0507));
+    let f = |x_: &Array| {
+        let y = elu(x_, 1.67326)?;
+        y.multiply(array!(1.0507).as_dtype(y.dtype())?)
+    };
     let mut compiled = compile(f, true);
     compiled(x)
 }
@@ -918,7 +958,8 @@ fn compiled_selu(x: &Array) -> Result<Array> {
 #[inline]
 fn compiled_prelu(x: &Array, alpha: &Array) -> Result<Array> {
     let f = |(x_, alpha_): (&Array, &Array)| {
-        maximum(&array!(0.0), x_)?.add(alpha_ * minimum(&array!(0.0), x_)?)
+        maximum(&array!(0).as_dtype(x_.dtype())?, x_)?
+            .add(alpha_ * minimum(&array!(0).as_dtype(x_.dtype())?, x_)?)
     };
     let mut compiled = compile(f, true);
     compiled((x, alpha))
@@ -936,16 +977,17 @@ fn compiled_mish(x: &Array) -> Result<Array> {
 #[inline]
 fn compiled_hard_swish(x: &Array) -> Result<Array> {
     let f = |x_: &Array| {
-        let max_x_plus_3 = maximum(&(x_ + array!(3.0)), &array!(0.0))?;
-        x_.multiply(minimum(&max_x_plus_3, &array!(6.0))?)?
-            .divide(&array!(6.0))
+        let max_x_plus_3 = maximum(
+            &(x_ + array!(3).as_dtype(x_.dtype())?),
+            &array!(0).as_dtype(x_.dtype())?,
+        )?;
+        x_.multiply(minimum(&max_x_plus_3, &array!(6).as_dtype(x_.dtype())?)?)?
+            .divide(&array!(6).as_dtype(x_.dtype())?)
     };
     let mut compiled = compile(f, true);
     compiled(x)
 }
 
-// The following tests are ported from the swift binding:
-// mlx-swift/Tests/MLXTests/IntegrationTests.swift
 #[cfg(test)]
 mod tests {
     use crate::{builder::Builder, random::uniform, Dtype};
@@ -953,6 +995,291 @@ mod tests {
 
     use super::*;
 
+    #[test]
+    fn test_activation_dtypes_python() {
+        use crate::{with_device, Device};
+        use Dtype::{Bfloat16, Float16, Float32, Int32};
+
+        // Python MLX 0.32.2, CPU: nn.<function>(mx.array([-3, -1, 0, 1, 7], dtype=dtype)).
+        // Rows are bfloat16, float16, float32, int32; prelu uses mx.array(0.25, dtype=dtype).
+        // Python calls the GELU approximations gelu_approx/gelu_fast_approx and hard_swish hardswish.
+        type Activation = fn(&Array) -> Result<Array>;
+        type Case = (&'static str, Activation, [Dtype; 4], [[f32; 5]; 4]);
+        let floating = [Bfloat16, Float16, Float32, Float32];
+        let cases: &[Case] = &[
+            (
+                "relu",
+                |x| relu(x),
+                [Bfloat16, Float16, Float32, Int32],
+                [
+                    [0.0, 0.0, 0.0, 1.0, 7.0],
+                    [0.0, 0.0, 0.0, 1.0, 7.0],
+                    [0.0, 0.0, 0.0, 1.0, 7.0],
+                    [0.0, 0.0, 0.0, 1.0, 7.0],
+                ],
+            ),
+            (
+                "leaky_relu",
+                |x| leaky_relu(x, None),
+                floating,
+                [
+                    [-0.030029297, -0.010009766, 0.0, 1.0, 7.0],
+                    [-0.02999878, -0.010002136, 0.0, 1.0, 7.0],
+                    [-0.03, -0.01, 0.0, 1.0, 7.0],
+                    [-0.03, -0.01, 0.0, 1.0, 7.0],
+                ],
+            ),
+            (
+                "elu",
+                |x| elu(x, None),
+                floating,
+                [
+                    [-0.94921875, -0.6328125, 0.0, 1.0, 7.0],
+                    [-0.9501953, -0.63183594, 0.0, 1.0, 7.0],
+                    [-0.95021296, -0.63212055, 0.0, 1.0, 7.0],
+                    [-0.95021296, -0.63212055, 0.0, 1.0, 7.0],
+                ],
+            ),
+            (
+                "relu6",
+                |x| relu6(x),
+                floating,
+                [
+                    [0.0, 0.0, 0.0, 1.0, 6.0],
+                    [0.0, 0.0, 0.0, 1.0, 6.0],
+                    [0.0, 0.0, 0.0, 1.0, 6.0],
+                    [0.0, 0.0, 0.0, 1.0, 6.0],
+                ],
+            ),
+            (
+                "softplus",
+                |x| softplus(x),
+                floating,
+                [
+                    [0.048583984, 0.3125, 0.69140625, 1.3125, 7.0],
+                    [0.048583984, 0.31323242, 0.6933594, 1.3134766, 7.0],
+                    [0.048587356, 0.3132617, 0.6931472, 1.3132617, 7.000911],
+                    [0.048587356, 0.3132617, 0.6931472, 1.3132617, 7.000911],
+                ],
+            ),
+            (
+                "softsign",
+                |x| softsign(x),
+                floating,
+                [
+                    [-0.75, -0.5, 0.0, 0.5, 0.875],
+                    [-0.75, -0.5, 0.0, 0.5, 0.875],
+                    [-0.75, -0.5, 0.0, 0.5, 0.875],
+                    [-0.75, -0.5, 0.0, 0.5, 0.875],
+                ],
+            ),
+            (
+                "celu",
+                |x| celu(x, None),
+                floating,
+                [
+                    [-0.94921875, -0.6328125, 0.0, 1.0, 7.0],
+                    [-0.9501953, -0.63183594, 0.0, 1.0, 7.0],
+                    [-0.95021296, -0.63212055, 0.0, 1.0, 7.0],
+                    [-0.95021296, -0.63212055, 0.0, 1.0, 7.0],
+                ],
+            ),
+            (
+                "silu",
+                |x| silu(x),
+                floating,
+                [
+                    [-0.14257812, -0.26953125, 0.0, 0.73046875, 7.0],
+                    [-0.14233398, -0.26879883, 0.0, 0.73095703, 6.9921875],
+                    [-0.14227763, -0.26894143, 0.0, 0.7310586, 6.993623],
+                    [-0.14227763, -0.26894143, 0.0, 0.7310586, 6.993623],
+                ],
+            ),
+            (
+                "log_sigmoid",
+                |x| log_sigmoid(x),
+                floating,
+                [
+                    [-3.046875, -1.3125, -0.69140625, -0.3125, -0.00091171265],
+                    [
+                        -3.0488281,
+                        -1.3134766,
+                        -0.6933594,
+                        -0.31323242,
+                        -0.0009112358,
+                    ],
+                    [
+                        -3.0485873,
+                        -1.3132617,
+                        -0.6931472,
+                        -0.3132617,
+                        -0.0009114663,
+                    ],
+                    [
+                        -3.0485873,
+                        -1.3132617,
+                        -0.6931472,
+                        -0.3132617,
+                        -0.0009114663,
+                    ],
+                ],
+            ),
+            (
+                "gelu",
+                |x| gelu(x),
+                floating,
+                [
+                    [-0.005859375, -0.15820312, 0.0, 0.84375, 7.0],
+                    [-0.0043945312, -0.1586914, 0.0, 0.8413086, 7.0],
+                    [-0.004049957, -0.15865538, 0.0, 0.8413446, 7.0],
+                    [-0.004049957, -0.15865538, 0.0, 0.8413446, 7.0],
+                ],
+            ),
+            (
+                "gelu_approximate",
+                |x| gelu_approximate(x),
+                floating,
+                [
+                    [-0.005859375, -0.15820312, 0.0, 0.84375, 7.0],
+                    [-0.0036621094, -0.15893555, 0.0, 0.8408203, 7.0],
+                    [-0.003637433, -0.158808, 0.0, 0.841192, 7.0],
+                    [-0.003637433, -0.158808, 0.0, 0.841192, 7.0],
+                ],
+            ),
+            (
+                "gelu_fast_approximate",
+                |x| gelu_fast_approximate(x),
+                floating,
+                [
+                    [-0.017822266, -0.15429688, 0.0, 0.84765625, 7.0],
+                    [-0.018081665, -0.1541748, 0.0, 0.8457031, 7.0],
+                    [-0.018071312, -0.15420423, 0.0, 0.84579575, 6.9999533],
+                    [-0.018071312, -0.15420423, 0.0, 0.84579575, 6.9999533],
+                ],
+            ),
+            (
+                "step",
+                |x| step(x, None),
+                [Int32; 4],
+                [
+                    [0.0, 0.0, 1.0, 1.0, 1.0],
+                    [0.0, 0.0, 1.0, 1.0, 1.0],
+                    [0.0, 0.0, 1.0, 1.0, 1.0],
+                    [0.0, 0.0, 1.0, 1.0, 1.0],
+                ],
+            ),
+            (
+                "selu",
+                |x| selu(x),
+                floating,
+                [
+                    [-1.6640625, -1.1015625, 0.0, 1.046875, 7.3125],
+                    [-1.6708984, -1.1103516, 0.0, 1.0507812, 7.3554688],
+                    [-1.6705638, -1.1113275, 0.0, 1.0507, 7.3548994],
+                    [-1.6705638, -1.1113275, 0.0, 1.0507, 7.3548994],
+                ],
+            ),
+            (
+                "prelu",
+                |x| prelu(x, array!(0.25).as_dtype(x.dtype())?),
+                [Bfloat16, Float16, Float32, Int32],
+                [
+                    [-0.75, -0.25, 0.0, 1.0, 7.0],
+                    [-0.75, -0.25, 0.0, 1.0, 7.0],
+                    [-0.75, -0.25, 0.0, 1.0, 7.0],
+                    [0.0, 0.0, 0.0, 1.0, 7.0],
+                ],
+            ),
+            (
+                "mish",
+                |x| mish(x),
+                floating,
+                [
+                    [-0.14550781, -0.30273438, 0.0, 0.86328125, 7.0],
+                    [-0.14562988, -0.3034668, 0.0, 0.8652344, 7.0],
+                    [-0.14564747, -0.30340147, 0.0, 0.8650984, 6.9999886],
+                    [-0.14564747, -0.30340147, 0.0, 0.8650984, 6.9999886],
+                ],
+            ),
+            (
+                "hard_swish",
+                |x| hard_swish(x),
+                floating,
+                [
+                    [-0.0, -0.33398438, 0.0, 0.66796875, 7.0],
+                    [-0.0, -0.33325195, 0.0, 0.6665039, 7.0],
+                    [-0.0, -0.33333334, 0.0, 0.6666667, 7.0],
+                    [0.0, -0.33333334, 0.0, 0.6666667, 7.0],
+                ],
+            ),
+        ];
+        with_device(Device::cpu(), || {
+            for &(name, activation, output_dtypes, expected) in cases {
+                for ((dtype, expected_dtype), values) in [Bfloat16, Float16, Float32, Int32]
+                    .into_iter()
+                    .zip(output_dtypes)
+                    .zip(expected)
+                {
+                    let x = array!([-3, -1, 0, 1, 7]).as_dtype(dtype).unwrap();
+                    let y = activation(&x).unwrap();
+                    assert_eq!(y.dtype(), expected_dtype, "{name}({dtype:?})");
+                    #[cfg(feature = "metal")]
+                    with_device(Device::gpu(), || {
+                        let y = activation(&x).unwrap();
+                        assert_eq!(y.dtype(), expected_dtype, "{name}({dtype:?}) on Metal");
+                        y.eval().unwrap();
+                    });
+                    assert_eq!(y.shape(), &[5]);
+                    for (got, want) in y.to_vec_cast::<f32>().unwrap().into_iter().zip(values) {
+                        assert_float_eq!(got, want, abs <= 1e-5 * (1.0 + want.abs()));
+                    }
+                }
+            }
+        });
+    }
+
+    #[test]
+    fn test_step_fractional_threshold_python() {
+        // Python MLX 0.32.2: nn.step(mx.array([-1, 0, 0.1, 1], dtype=dtype), 0.1).
+        for dtype in [
+            Dtype::Bfloat16,
+            Dtype::Float16,
+            Dtype::Float32,
+            Dtype::Int32,
+        ] {
+            let x = array!([-1.0, 0.0, 0.1, 1.0]).as_dtype(dtype).unwrap();
+            let y = step(&x, 0.1).unwrap();
+            assert_eq!(y.dtype(), Dtype::Int32);
+            let expected = if dtype == Dtype::Int32 {
+                [0, 0, 0, 1]
+            } else {
+                [0, 0, 1, 1]
+            };
+            assert_eq!(y.to_vec_exact::<i32>().unwrap(), expected);
+        }
+    }
+
+    #[test]
+    fn test_prelu_float32_weights_python() {
+        // Python MLX 0.32.2: nn.prelu(mx.array([-3, -1, 0, 1, 7], dtype=dtype), mx.array(0.25)).
+        for dtype in [
+            Dtype::Bfloat16,
+            Dtype::Float16,
+            Dtype::Float32,
+            Dtype::Int32,
+        ] {
+            let x = array!([-3, -1, 0, 1, 7]).as_dtype(dtype).unwrap();
+            let y = prelu(&x, array!(0.25)).unwrap();
+            assert_eq!(y.dtype(), Dtype::Float32);
+            assert_eq!(
+                y.to_vec_exact::<f32>().unwrap(),
+                [-0.75, -0.25, 0.0, 1.0, 7.0]
+            );
+        }
+    }
+
+    // The following tests are ported from the swift binding:
+    // mlx-swift/Tests/MLXTests/IntegrationTests.swift
     #[test]
     fn test_glu() {
         crate::random::seed(850).unwrap();
