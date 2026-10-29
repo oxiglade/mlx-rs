@@ -308,6 +308,7 @@ fn parse_fields(fields: &syn::Fields) -> Result<(Vec<MandatoryField>, Vec<Option
 
         let ty = match field_prop.ty_override {
             Some(ty_override) => syn::Type::Path(syn::TypePath {
+                attrs: Vec::new(),
                 qself: None,
                 path: ty_override,
             }),
