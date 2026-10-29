@@ -9,7 +9,7 @@ rust-version = "1.88.0"
 resolver = "2"
 
 [dependencies]
-bindgen = "=0.72.1"
+bindgen = "=0.73.2"
 quote = "1"
 public-api = "=0.50.0"
 proc-macro2 = { version = "1", features = ["span-locations"] }
