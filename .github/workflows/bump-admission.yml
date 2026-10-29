@@ -24,9 +24,11 @@ jobs:
       configurations: ${{ steps.configurations.outputs.matrix }}
     steps:
       - uses: actions/checkout@v7
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
           toolchain: 1.88.0
+          build-warnings: ""
+          rustflags: "-D warnings"
           cache: false
       - run: cargo generate-lockfile
       - name: Select every required configuration
@@ -44,7 +46,7 @@ jobs:
               raise SystemExit("No required configurations")
           with open(os.environ["GITHUB_OUTPUT"], "a") as output:
               output.write(f"matrix={json.dumps(matrix)}\n")
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: product-lockfile
           path: Cargo.lock
@@ -58,12 +60,15 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: product-lockfile
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+          digest-mismatch: warn
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
           components: rustfmt, clippy
+          build-warnings: ""
+          rustflags: "-D warnings"
       - run: cargo --version
       - name: Install the ABI extraction toolchain
         run: |
@@ -91,7 +96,7 @@ jobs:
           rustup toolchain install "$(cat xtask/api-nightly.txt)" --profile minimal
           cargo xtask verify-ledger
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: current-abi-inventory
@@ -100,7 +105,7 @@ jobs:
       - name: Check current linked exports
         if: ${{ !cancelled() }}
         run: cargo xtask linked-exports --cargo-output "$RUNNER_TEMP/clippy-artifacts.json" --report "$RUNNER_TEMP/current-exports.json"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: current-linked-exports
@@ -118,9 +123,10 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: true
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: product-lockfile
+          digest-mismatch: warn
       # The runner context is not available in job-level env.
       - name: Use the runner temp dir for build output
         run: |
@@ -129,10 +135,11 @@ jobs:
             echo "MLX_RS_METAL_PATH=$RUNNER_TEMP/guard-malloc/metallib"
             echo "TMPDIR=$RUNNER_TEMP"
           } >> "$GITHUB_ENV"
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
           cache: false
           rustflags: ""
+          build-warnings: ""
       - name: Locate build cache
         id: ffi-cache
         run: echo "target=$(python3 -c 'import os; print(os.path.relpath(os.environ["CARGO_TARGET_DIR"]))')" >> "$GITHUB_OUTPUT"
@@ -161,7 +168,7 @@ jobs:
             --report "$RUNNER_TEMP/ffi-gate/verify-ffi.json" \
             2> >(tee "$RUNNER_TEMP/ffi-gate/stderr.log" >&2) \
             | tee "$RUNNER_TEMP/ffi-gate/calibration.json"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: verify-ffi-calibration
@@ -180,9 +187,10 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: true
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: product-lockfile
+          digest-mismatch: warn
       - name: Set configuration output paths
         id: config-cache
         run: |
@@ -191,11 +199,12 @@ jobs:
             echo "MLX_RS_METAL_PATH=$RUNNER_TEMP/config-metallib/${{ matrix.configuration }}"
           } >> "$GITHUB_ENV"
           echo "target=$(python3 -c 'import os; print(os.path.relpath(os.environ["RUNNER_TEMP"] + "/config-targets/${{ matrix.configuration }}"))')" >> "$GITHUB_OUTPUT"
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
           cache: false
           toolchain: ${{ matrix.rust }}
           rustflags: ""
+          build-warnings: ""
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.configuration }}-${{ matrix.rust }}-${{ hashFiles('Cargo.toml', '*/Cargo.toml') }}
@@ -235,12 +244,12 @@ jobs:
           "$BUMP_PYTHON" -B xtask/provision_checkpoints.py --python "$BUMP_PYTHON" --cache "$BUMP_ROOT/checkpoints" --output "$BUMP_ROOT/reports/checkpoints"
           df -h "$BUMP_ROOT"
       - run: cargo xtask config-report ${{ matrix.configuration }} --report "$RUNNER_TEMP/config-reports/${{ matrix.configuration }}.json"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: config-report-${{ matrix.configuration }}
           path: ${{ runner.temp }}/config-reports/
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always() && !inputs.ordinary && matrix.configuration == 'macos-arm64-default'
         with:
           name: checkpoint-oracle
