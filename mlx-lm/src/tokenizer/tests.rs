@@ -129,46 +129,7 @@ fn every_oracle_tokenizer_and_chat_case() -> Result<(), TokenizerError> {
         let (resolved, source) = tokenizer.resolve_eos(&directory)?;
         assert_eq!(resolved, tokenizer.eos_tokens());
         assert_eq!(source, expected.tokenizer.eos_source, "{directory:?}");
-        for (name, case) in expected.chat {
-            let messages: Vec<_> = case
-                .messages
-                .into_iter()
-                .map(|message| Message {
-                    role: match message.role.as_str() {
-                        "system" => Role::System,
-                        "user" => Role::User,
-                        "assistant" => Role::Assistant,
-                        "tool" => Role::Tool,
-                        _ => Role::Other(message.role),
-                    },
-                    content: message.content,
-                })
-                .collect();
-            let continuation = match case.continuation.as_str() {
-                "closed" => ChatContinuation::Closed,
-                "start_assistant" => ChatContinuation::StartAssistant,
-                "continue_last" => ChatContinuation::ContinueLast,
-                _ => return Err(ChatTemplateError::IncompatibleContinuation.into()),
-            };
-            let rendered = tokenizer.render_chat(
-                &messages,
-                ChatTemplateOptions {
-                    continuation,
-                    enable_thinking: case.template_options.enable_thinking,
-                },
-            )?;
-            let hex: String = rendered
-                .as_bytes()
-                .iter()
-                .map(|byte| format!("{byte:02x}"))
-                .collect();
-            assert_eq!(hex, case.rendered_utf8_hex, "{directory:?}/{name}");
-            assert_eq!(
-                tokenizer.encode(&rendered)?,
-                ids(&case.token_ids),
-                "{directory:?}/{name}"
-            );
-        }
+        check_chat_cases(&tokenizer, expected.chat, &directory)?;
         assert_eq!(
             expected.decode.token_ids.len(),
             expected.decode.text_deltas.len(),
@@ -520,6 +481,93 @@ fn continuation_handles_trimmed_unicode_and_typed_failures() -> Result<(), ChatT
     assert!(matches!(
         render_chat(&env, &Default::default(), &message, options),
         Err(ChatTemplateError::FinalMessageNotFound)
+    ));
+    Ok(())
+}
+
+fn check_chat_cases(
+    tokenizer: &Tokenizer,
+    chat: BTreeMap<String, ChatCase>,
+    directory: &Path,
+) -> Result<(), TokenizerError> {
+    for (name, case) in chat {
+        let messages: Vec<_> = case
+            .messages
+            .into_iter()
+            .map(|message| Message {
+                role: match message.role.as_str() {
+                    "system" => Role::System,
+                    "user" => Role::User,
+                    "assistant" => Role::Assistant,
+                    "tool" => Role::Tool,
+                    _ => Role::Other(message.role),
+                },
+                content: message.content,
+            })
+            .collect();
+        let continuation = match case.continuation.as_str() {
+            "closed" => ChatContinuation::Closed,
+            "start_assistant" => ChatContinuation::StartAssistant,
+            "continue_last" => ChatContinuation::ContinueLast,
+            _ => return Err(ChatTemplateError::IncompatibleContinuation.into()),
+        };
+        let rendered = tokenizer.render_chat(
+            &messages,
+            ChatTemplateOptions {
+                continuation,
+                enable_thinking: case.template_options.enable_thinking,
+            },
+        )?;
+        let hex: String = rendered
+            .as_bytes()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect();
+        assert_eq!(hex, case.rendered_utf8_hex, "{directory:?}/{name}");
+        assert_eq!(
+            tokenizer.encode(&rendered)?,
+            ids(&case.token_ids),
+            "{directory:?}/{name}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn standalone_chat_template_oracles() -> Result<(), TokenizerError> {
+    #[derive(Deserialize)]
+    struct ChatExpectations {
+        chat: BTreeMap<String, ChatCase>,
+    }
+    for name in ["qwen3-2507-jinja", "qwen3-2507-both", "llama-jinja"] {
+        let directory = fixture_root().join("../chat-template-fixtures").join(name);
+        let expected: ChatExpectations = read_json(&directory.join("expectations.json"))?;
+        let tokenizer = Tokenizer::from_dir(&directory)?;
+        check_chat_cases(&tokenizer, expected.chat, &directory)?;
+    }
+    Ok(())
+}
+
+#[test]
+fn unreadable_chat_template_does_not_fall_back_to_config() -> Result<(), TokenizerError> {
+    let directory = tempfile::tempdir()?;
+    for name in ["tokenizer.json", "tokenizer_config.json"] {
+        std::fs::copy(
+            fixture_root().join("qwen3-base").join(name),
+            directory.path().join(name),
+        )?;
+    }
+    let template = directory.path().join("chat_template.jinja");
+    std::fs::write(&template, [0xff])?;
+    assert!(matches!(
+        Tokenizer::from_dir(directory.path()),
+        Err(TokenizerError::Io(_))
+    ));
+    std::fs::remove_file(&template)?;
+    std::fs::create_dir(&template)?;
+    assert!(matches!(
+        Tokenizer::from_dir(directory.path()),
+        Err(TokenizerError::Io(_))
     ));
     Ok(())
 }

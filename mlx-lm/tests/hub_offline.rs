@@ -74,7 +74,11 @@ impl OfflineEnvironment {
         let snapshot = self.snapshot();
         let mut names: Vec<&str> = vec!["config.json", "tokenizer.json"];
         let mut absent = Vec::new();
-        for name in ["generation_config.json", "tokenizer_config.json"] {
+        for name in [
+            "chat_template.jinja",
+            "generation_config.json",
+            "tokenizer_config.json",
+        ] {
             if snapshot.join(name).exists() {
                 names.push(name);
             } else {
