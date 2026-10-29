@@ -63,7 +63,6 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: product-lockfile
-          digest-mismatch: warn
       - uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
           components: rustfmt, clippy
@@ -126,7 +125,6 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: product-lockfile
-          digest-mismatch: warn
       # The runner context is not available in job-level env.
       - name: Use the runner temp dir for build output
         run: |
@@ -190,7 +188,6 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: product-lockfile
-          digest-mismatch: warn
       - name: Set configuration output paths
         id: config-cache
         run: |
