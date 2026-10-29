@@ -48,7 +48,12 @@ impl Tokenizer {
             }),
             _ => None,
         };
-        if let Some(template) = template {
+        let file_template = match std::fs::read_to_string(path.join("chat_template.jinja")) {
+            Ok(template) => Some(template),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+            Err(error) => return Err(error.into()),
+        };
+        if let Some(template) = file_template.as_deref().or(template) {
             tokenizer
                 .env
                 .add_template_owned("chat", template.to_owned())

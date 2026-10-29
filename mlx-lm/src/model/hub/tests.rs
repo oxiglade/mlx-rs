@@ -113,6 +113,7 @@ fn nested_index_shards_are_deduplicated_for_a_slash_ref() {
     let mut fake = Fake::single(root.path());
     fake.files.insert(INDEX.into(), br#"{"weight_map":{"a":"parts/a.safetensors","b":"parts/z.safetensors","c":"parts/a.safetensors"}}"#.to_vec());
     for name in [
+        "chat_template.jinja",
         "parts/a.safetensors",
         "parts/z.safetensors",
         "tokenizer_config.json",
@@ -125,6 +126,7 @@ fn nested_index_shards_are_deduplicated_for_a_slash_ref() {
             "release/v1",
             &[
                 INDEX,
+                "chat_template.jinja",
                 "config.json",
                 "generation_config.json",
                 "parts/a.safetensors",
@@ -138,7 +140,21 @@ fn nested_index_shards_are_deduplicated_for_a_slash_ref() {
     let receipt = serde_json::to_value(&resolved.receipt).unwrap();
     assert_eq!(receipt["weight_mode"], "indexed");
     assert_eq!(receipt["absent_files"], serde_json::json!([]));
+    let template = receipt["selected_files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|asset| asset["path"] == "chat_template.jinja")
+        .unwrap();
+    use sha2::{Digest, Sha256};
+    assert_eq!(template["size"], 2);
+    assert_eq!(template["sha256"], format!("{:x}", Sha256::digest(b"{}")));
     offline(root.path(), "release/v1").unwrap();
+    fs::remove_file(resolved.layout.snapshot().join("chat_template.jinja")).unwrap();
+    assert!(matches!(
+        offline(root.path(), "release/v1"),
+        Err(HubError::MissingFile { filename, .. }) if filename == "chat_template.jinja"
+    ));
 }
 
 #[test]

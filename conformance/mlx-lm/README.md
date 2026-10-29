@@ -531,3 +531,20 @@ with the pinned Python environment to generate expectations on the runner.
 Rust compares all six checkpoint cases on CPU and Metal against that live report.
 See [the bump playbook](../../VERIFICATION.md#repeatable-mlx-c-bump-playbook)
 for provisioning and execution commands.
+
+## Standalone chat templates
+
+`chat_template_reference.py` generates `chat-template-fixtures/` with the pinned
+Transformers `AutoTokenizer.from_pretrained` and `apply_chat_template`. The tiny
+WordLevel Qwen3 fixtures model the 2507 layout and non-thinking textual delimiters:
+`chat_template.jinja` without a config key, and both sources with a deliberately
+different config template. The Llama fixture uses its existing textual template.
+All three record bytes and token IDs for closed, assistant-start and continued
+messages. These are synthetic tokenizer fixtures, not checkpoint inference claims.
+
+Transformers 5.17.0 loads the standalone Jinja file over the config key. It also
+loads named `additional_chat_templates/*.jinja` files (including a `default.jinja` override),
+but its tokenizer loader does not read `chat_template.json`. Named template
+directories and processor templates are outside this fix's admitted profile.
+Regenerate twice with `--output-dir PATH` and compare the trees before replacing
+the committed fixtures; the generator checks the full pinned environment.
