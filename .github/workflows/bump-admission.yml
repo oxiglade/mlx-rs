@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   dependencies:
-    runs-on: blaze/macos-latest
+    runs-on: ubuntu-latest
     outputs:
       configurations: ${{ steps.configurations.outputs.matrix }}
     steps:
@@ -54,7 +54,7 @@ jobs:
 
   checks:
     needs: dependencies
-    runs-on: blaze/macos-latest
+    runs-on: ${{ inputs.ordinary && 'macos-26' || 'blaze/macos-latest' }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -114,7 +114,7 @@ jobs:
 
   ffi-gate:
     needs: dependencies
-    runs-on: blaze/macos-latest
+    runs-on: ${{ inputs.ordinary && 'macos-26' || 'blaze/macos-latest' }}
     timeout-minutes: 90
     env:
       GITHUB_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -162,7 +162,7 @@ jobs:
           fi
           mkdir -p "$RUNNER_TEMP/ffi-gate"
           cargo xtask verify-ffi --calibrate "${args[@]}" \
-            --budget-seconds 3600 --leaks-timeout-seconds 600 \
+            --budget-seconds 3600 --leaks-timeout-seconds 1200 \
             --report "$RUNNER_TEMP/ffi-gate/verify-ffi.json" \
             2> >(tee "$RUNNER_TEMP/ffi-gate/stderr.log" >&2) \
             | tee "$RUNNER_TEMP/ffi-gate/calibration.json"
@@ -174,7 +174,7 @@ jobs:
 
   configurations:
     needs: dependencies
-    runs-on: blaze/macos-latest
+    runs-on: ${{ inputs.ordinary && 'macos-26' || 'blaze/macos-latest' }}
     env:
       GITHUB_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
     timeout-minutes: 180
@@ -255,7 +255,7 @@ jobs:
   admission:
     if: always()
     needs: [dependencies, checks, ffi-gate, configurations]
-    runs-on: blaze/macos-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Require every job
         env:

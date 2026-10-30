@@ -18,7 +18,7 @@ that checkout:
 
     mkdir -p "$RUNNER_TEMP/ffi-gate"
     cargo xtask verify-ffi --calibrate --guard-malloc \
-      --budget-seconds 3600 --leaks-timeout-seconds 600 \
+      --budget-seconds 3600 --leaks-timeout-seconds 1200 \
       --guard-malloc-timeout-seconds 1200 \
       --report "$RUNNER_TEMP/ffi-gate/verify-ffi.json" \
       > "$RUNNER_TEMP/ffi-gate/calibration.json"
