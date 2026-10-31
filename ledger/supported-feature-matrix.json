@@ -270,6 +270,36 @@
       },
       "python_path": "mlx.core.custom_function",
       "ownership": "Function owns the closure handle mlx_custom_vjp returns; the forward and custom closure handles are freed once MLX holds their copies, and each Rust closure's payload is freed by its destructor callback."
+    },
+    {
+      "feature": "conv-transpose-dilation",
+      "canonical_path": [
+        "mlx_rs::nn::ConvTranspose1d",
+        "mlx_rs::nn::ConvTranspose2d",
+        "mlx_rs::nn::ConvTranspose3d"
+      ],
+      "python_path": [
+        "mlx.nn.ConvTranspose1d",
+        "mlx.nn.ConvTranspose2d",
+        "mlx.nn.ConvTranspose3d"
+      ],
+      "symbols": {
+        "mlx_conv_transpose1d": "mlx_rs::ops::conv_transpose1d",
+        "mlx_conv_transpose2d": "mlx_rs::ops::conv_transpose2d",
+        "mlx_conv_transpose3d": "mlx_rs::ops::conv_transpose3d"
+      },
+      "evidence": {
+        "api": "mlx-rs/src/nn/convolution_transpose.rs",
+        "python": "https://github.com/ml-explore/mlx/blob/v0.32.2/python/mlx/nn/layers/convolution_transpose.py",
+        "test": [
+          "mlx-rs/src/nn/convolution_transpose.rs#test_conv_transpose1d_dilation_matches_mlx",
+          "mlx-rs/src/nn/convolution_transpose.rs#test_conv_transpose2d_dilation_matches_mlx",
+          "mlx-rs/src/nn/convolution_transpose.rs#test_conv_transpose3d_dilation_matches_mlx"
+        ],
+        "property": "Default and non-unit dilation preserve Python weight shapes; output shapes follow the transposed convolution size formula. Values match MLX transpose ops with the same stride, padding, dilation, output padding and bias.",
+        "state": "Dilation is non-parameter configuration; weights and optional bias retain their existing Param traversal and training behavior."
+      },
+      "ownership": "Layers retain owned weight and bias Arrays. Forward borrows inputs and parameters through the existing transpose ops; dilation adds no handles or thread traits."
     }
   ],
   "builds": [

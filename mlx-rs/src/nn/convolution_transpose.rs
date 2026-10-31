@@ -43,6 +43,10 @@ pub struct ConvTranspose1dBuilder {
     /// Stride. Default to [`ConvTranspose1d::DEFAULT_STRIDE`] if not specified.
     #[builder(optional, default = ConvTranspose1d::DEFAULT_STRIDE)]
     pub stride: i32,
+
+    /// Dilation. Default to [`ConvTranspose1d::DEFAULT_DILATION`] if not specified.
+    #[builder(optional, default = ConvTranspose1d::DEFAULT_DILATION)]
+    pub dilation: i32,
 }
 
 fn build_conv_transpose_1d(builder: ConvTranspose1dBuilder) -> Result<ConvTranspose1d, Exception> {
@@ -74,6 +78,7 @@ fn build_conv_transpose_1d(builder: ConvTranspose1dBuilder) -> Result<ConvTransp
         padding,
         output_padding,
         stride,
+        dilation: builder.dilation,
     })
 }
 
@@ -104,6 +109,9 @@ pub struct ConvTranspose1d {
 
     /// Stride. Default to 1 if not specified.
     pub stride: i32,
+
+    /// Dilation. Default to [`ConvTranspose1d::DEFAULT_DILATION`] if not specified.
+    pub dilation: i32,
 }
 
 impl ConvTranspose1d {
@@ -118,6 +126,9 @@ impl ConvTranspose1d {
 
     /// Default value for `stride` if not specified.
     pub const DEFAULT_STRIDE: i32 = 1;
+
+    /// Default value for `dilation` if not specified.
+    pub const DEFAULT_DILATION: i32 = 1;
 }
 
 impl Module<&Array> for ConvTranspose1d {
@@ -130,7 +141,7 @@ impl Module<&Array> for ConvTranspose1d {
             self.weight.as_ref(),
             self.stride,
             self.padding,
-            None,
+            self.dilation,
             self.output_padding,
             None,
         )?;
@@ -176,6 +187,10 @@ pub struct ConvTranspose2dBuilder {
     /// Stride. Default to [`ConvTranspose2d::DEFAULT_STRIDE`] if not specified.
     #[builder(optional, default = ConvTranspose2d::DEFAULT_STRIDE)]
     stride: SingleOrPair<i32>,
+
+    /// Dilation. Default to [`ConvTranspose2d::DEFAULT_DILATION`] if not specified.
+    #[builder(optional, default = ConvTranspose2d::DEFAULT_DILATION)]
+    dilation: SingleOrPair<i32>,
 }
 
 fn build_conv_transpose_2d(builder: ConvTranspose2dBuilder) -> Result<ConvTranspose2d, Exception> {
@@ -212,6 +227,7 @@ fn build_conv_transpose_2d(builder: ConvTranspose2dBuilder) -> Result<ConvTransp
         padding,
         output_padding,
         stride,
+        dilation: builder.dilation.into(),
     })
 }
 
@@ -243,6 +259,9 @@ pub struct ConvTranspose2d {
 
     /// Stride. Default to `(1, 1)` if not specified.
     pub stride: (i32, i32),
+
+    /// Dilation. Default to [`ConvTranspose2d::DEFAULT_DILATION`] if not specified.
+    pub dilation: (i32, i32),
 }
 
 impl ConvTranspose2d {
@@ -257,6 +276,9 @@ impl ConvTranspose2d {
 
     /// Default value for `stride` if not specified.
     pub const DEFAULT_STRIDE: SingleOrPair<i32> = SingleOrPair::Pair(1, 1);
+
+    /// Default value for `dilation` if not specified.
+    pub const DEFAULT_DILATION: SingleOrPair<i32> = SingleOrPair::Pair(1, 1);
 }
 
 impl Module<&Array> for ConvTranspose2d {
@@ -269,7 +291,7 @@ impl Module<&Array> for ConvTranspose2d {
             self.weight.as_ref(),
             self.stride,
             self.padding,
-            None,
+            self.dilation,
             self.output_padding,
             None,
         )?;
@@ -315,6 +337,10 @@ pub struct ConvTranspose3dBuilder {
     /// Stride. Default to [`ConvTranspose3d::DEFAULT_STRIDE`] if not specified.
     #[builder(optional, default = ConvTranspose3d::DEFAULT_STRIDE)]
     pub stride: SingleOrTriple<i32>,
+
+    /// Dilation. Default to [`ConvTranspose3d::DEFAULT_DILATION`] if not specified.
+    #[builder(optional, default = ConvTranspose3d::DEFAULT_DILATION)]
+    pub dilation: SingleOrTriple<i32>,
 }
 
 fn build_conv_transpose_3d(builder: ConvTranspose3dBuilder) -> Result<ConvTranspose3d, Exception> {
@@ -353,6 +379,7 @@ fn build_conv_transpose_3d(builder: ConvTranspose3dBuilder) -> Result<ConvTransp
         padding,
         output_padding,
         stride,
+        dilation: builder.dilation.into(),
     })
 }
 
@@ -384,6 +411,9 @@ pub struct ConvTranspose3d {
 
     /// Stride. Default to `(1, 1, 1)` if not specified.
     pub stride: (i32, i32, i32),
+
+    /// Dilation. Default to [`ConvTranspose3d::DEFAULT_DILATION`] if not specified.
+    pub dilation: (i32, i32, i32),
 }
 
 impl ConvTranspose3d {
@@ -398,6 +428,9 @@ impl ConvTranspose3d {
 
     /// Default value for `stride` if not specified.
     pub const DEFAULT_STRIDE: SingleOrTriple<i32> = SingleOrTriple::Triple(1, 1, 1);
+
+    /// Default value for `dilation` if not specified.
+    pub const DEFAULT_DILATION: SingleOrTriple<i32> = SingleOrTriple::Triple(1, 1, 1);
 }
 
 impl Module<&Array> for ConvTranspose3d {
@@ -410,7 +443,7 @@ impl Module<&Array> for ConvTranspose3d {
             self.weight.as_ref(),
             self.stride,
             self.padding,
-            None,
+            self.dilation,
             self.output_padding,
             None,
         )?;
@@ -421,4 +454,168 @@ impl Module<&Array> for ConvTranspose3d {
     }
 
     fn training_mode(&mut self, _: bool) {}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        builder::Builder,
+        ops::arange,
+        test_utils::{assert_array_eq, tolerances},
+    };
+
+    #[test]
+    fn test_conv_transpose1d_dilation_matches_mlx() {
+        let default = ConvTranspose1d::new(2, 3, 3).unwrap();
+        assert_eq!(default.dilation, 1);
+        assert_eq!(default.output_padding, 0);
+        assert_eq!(default.weight.shape(), &[3, 3, 2]);
+        let x = arange::<_, f32>(None, 8, None)
+            .unwrap()
+            .reshape(&[1, 4, 2])
+            .unwrap()
+            / 10.0;
+        for (dilation, bias) in [(1, false), (2, true)] {
+            let mut conv = ConvTranspose1dBuilder::new(2, 3, 3)
+                .stride(2)
+                .padding(1)
+                .output_padding(1)
+                .dilation(dilation)
+                .bias(bias)
+                .build()
+                .unwrap();
+            assert_eq!(conv.weight.shape(), &[3, 3, 2]);
+            conv.weight.value = arange::<_, f32>(None, 18, None)
+                .unwrap()
+                .reshape(&[3, 3, 2])
+                .unwrap()
+                / 7.0;
+            if bias {
+                conv.bias.value = Some(Array::from_slice(&[0.25f32, -0.5, 1.0], &[3]));
+            }
+            let y = conv.forward(&x).unwrap();
+            assert_eq!(y.shape(), &[1, 6 + 2 * dilation, 3]);
+            let mut expected =
+                conv_transpose1d(&x, conv.weight.as_ref(), 2, 1, dilation, 1, None).unwrap();
+            if let Some(bias) = &conv.bias.value {
+                expected += bias;
+            }
+            assert_array_eq(
+                y,
+                expected,
+                tolerances::MLX_DEFAULT.rtol,
+                tolerances::MLX_DEFAULT.atol,
+            );
+        }
+    }
+
+    #[test]
+    fn test_conv_transpose2d_dilation_matches_mlx() {
+        let default = ConvTranspose2d::new(2, 3, (2, 3)).unwrap();
+        assert_eq!(default.dilation, (1, 1));
+        assert_eq!(default.output_padding, (0, 0));
+        assert_eq!(default.weight.shape(), &[3, 2, 3, 2]);
+        let x = arange::<_, f32>(None, 24, None)
+            .unwrap()
+            .reshape(&[1, 3, 4, 2])
+            .unwrap()
+            / 10.0;
+        for (dilation, bias) in [((1, 1), false), ((2, 3), true)] {
+            let mut conv = ConvTranspose2dBuilder::new(2, 3, (2, 3))
+                .stride((2, 1))
+                .padding((1, 0))
+                .output_padding((1, 0))
+                .dilation(dilation)
+                .bias(bias)
+                .build()
+                .unwrap();
+            assert_eq!(conv.weight.shape(), &[3, 2, 3, 2]);
+            conv.weight.value = arange::<_, f32>(None, 36, None)
+                .unwrap()
+                .reshape(&[3, 2, 3, 2])
+                .unwrap()
+                / 7.0;
+            if bias {
+                conv.bias.value = Some(Array::from_slice(&[0.25f32, -0.5, 1.0], &[3]));
+            }
+            let y = conv.forward(&x).unwrap();
+            assert_eq!(y.shape(), &[1, 4 + dilation.0, 4 + 2 * dilation.1, 3]);
+            let mut expected = conv_transpose2d(
+                &x,
+                conv.weight.as_ref(),
+                (2, 1),
+                (1, 0),
+                dilation,
+                (1, 0),
+                None,
+            )
+            .unwrap();
+            if let Some(bias) = &conv.bias.value {
+                expected += bias;
+            }
+            assert_array_eq(
+                y,
+                expected,
+                tolerances::MLX_DEFAULT.rtol,
+                tolerances::MLX_DEFAULT.atol,
+            );
+        }
+    }
+
+    #[test]
+    fn test_conv_transpose3d_dilation_matches_mlx() {
+        let default = ConvTranspose3d::new(2, 3, (2, 2, 2)).unwrap();
+        assert_eq!(default.dilation, (1, 1, 1));
+        assert_eq!(default.output_padding, (0, 0, 0));
+        assert_eq!(default.weight.shape(), &[3, 2, 2, 2, 2]);
+        let x = arange::<_, f32>(None, 48, None)
+            .unwrap()
+            .reshape(&[1, 2, 3, 4, 2])
+            .unwrap()
+            / 10.0;
+        for (dilation, bias) in [((1, 1, 1), false), ((2, 3, 2), true)] {
+            let mut conv = ConvTranspose3dBuilder::new(2, 3, (2, 2, 2))
+                .stride((2, 1, 2))
+                .padding((0, 1, 0))
+                .output_padding((1, 0, 1))
+                .dilation(dilation)
+                .bias(bias)
+                .build()
+                .unwrap();
+            assert_eq!(conv.weight.shape(), &[3, 2, 2, 2, 2]);
+            conv.weight.value = arange::<_, f32>(None, 48, None)
+                .unwrap()
+                .reshape(&[3, 2, 2, 2, 2])
+                .unwrap()
+                / 7.0;
+            if bias {
+                conv.bias.value = Some(Array::from_slice(&[0.25f32, -0.5, 1.0], &[3]));
+            }
+            let y = conv.forward(&x).unwrap();
+            assert_eq!(
+                y.shape(),
+                &[1, 4 + dilation.0, 1 + dilation.1, 8 + dilation.2, 3]
+            );
+            let mut expected = conv_transpose3d(
+                &x,
+                conv.weight.as_ref(),
+                (2, 1, 2),
+                (0, 1, 0),
+                dilation,
+                (1, 0, 1),
+                None,
+            )
+            .unwrap();
+            if let Some(bias) = &conv.bias.value {
+                expected += bias;
+            }
+            assert_array_eq(
+                y,
+                expected,
+                tolerances::MLX_DEFAULT.rtol,
+                tolerances::MLX_DEFAULT.atol,
+            );
+        }
+    }
 }

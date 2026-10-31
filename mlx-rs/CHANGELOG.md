@@ -11,7 +11,8 @@ Breaking
 
 - `ModuleParametersExt::load_safetensors` rejects missing keys, unexpected keys,
   and shape mismatches before changing any parameters (#304, thanks @Vlad-Shcherbina).
-
+- Struct literals for `ConvTranspose*` layers and their 1D/3D builders must
+  supply `dilation` (#203).
 - `quantize`, `dequantize`, `quantized_matmul`, and `gather_qmm` take options
   structs. `quantize` returns optional biases, present only for affine weights
   (#358, thanks @sergey-scherbina). Invalid mode/group/bit combinations return
@@ -19,6 +20,8 @@ Breaking
 
 Added
 
+- Dilation for `nn::ConvTranspose1d`, `ConvTranspose2d`, and `ConvTranspose3d`,
+  matching Python MLX 0.32.2 (#203).
 - `QuantizationMode::{Affine, Mxfp4, Mxfp8, Nvfp4}` with mode-dependent defaults
   and CPU/Metal conformance for packing, round trips, matmul, and indexed gather
   (#358, thanks @sergey-scherbina). Global scales remain private; nn quantized
