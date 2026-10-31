@@ -44,6 +44,7 @@ macro_rules! assert_not_impl_any {
     };
 }
 
+assert_not_impl_any!(Array: Send, Sync);
 assert_not_impl_any!(GgufFile: Clone, Send, Sync);
 assert_not_impl_any!(transforms::Function: Clone, Send, Sync);
 #[cfg(feature = "metal")]

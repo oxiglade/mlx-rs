@@ -71,9 +71,6 @@ impl Drop for Array {
     }
 }
 
-// SAFETY: MLX 0.32.2 supports moving array handles while operations use per-thread default streams.
-unsafe impl Send for Array {}
-
 impl Array {
     /// Create a new array from an existing mlx_array pointer.
     ///

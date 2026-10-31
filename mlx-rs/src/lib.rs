@@ -11,11 +11,12 @@
 //!
 //! # Threading
 //!
-//! [`Array`] values may move between threads. MLX 0.32.2 keeps default streams per thread, so each
-//! worker must perform operations through its own default or thread-local scoped override.
-//! [`Stream`] and compiled closures are thread-affine and cannot move or be shared across threads.
-//! The scoped Rust override is thread-local, not asynchronous task-local, and does not propagate
-//! across `.await`.
+//! [`Array`] is `!Send + !Sync`. Build arrays and models on the thread that uses them; send
+//! plain data via [`Array::to_vec_exact`]/[`Array::from_slice`] or files between threads.
+//! MLX binds lazy arrays to their creator thread's streams and does not synchronize graph state,
+//! so evaluating or dropping shared lazy arrays across threads can crash
+//! ([upstream position](https://github.com/ml-explore/mlx/issues/3529)).
+//! [`Stream`] and compiled closures are also `!Send + !Sync`.
 //!
 //! # Quick Start
 //!
