@@ -19,7 +19,7 @@ generate_builder! {
     ///
     /// Please refer to the original paper for more details:
     ///
-    /// [1]: Zeiler, M.D., 2012. ADADELTA: an adaptive learning rate method. arXiv preprint arXiv:1212.5701.
+    /// \[1\]: Zeiler, M.D., 2012. ADADELTA: an adaptive learning rate method. arXiv preprint arXiv:1212.5701.
     #[derive(Debug, Clone, Buildable)]
     #[buildable(root = crate)]
     #[builder(

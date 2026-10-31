@@ -91,7 +91,7 @@ impl Drop for VectorArray {
 }
 
 /// A helper trait that is just like `Into<Option<T>>` but improves ergonomics by allowing
-/// implicit conversion from &[T; N] to &[T].
+/// implicit conversion from `&[T; N]` to `&[T]`.
 pub trait IntoOption<T> {
     /// Convert into an [`Option`].
     fn into_option(self) -> Option<T>;

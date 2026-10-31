@@ -64,7 +64,7 @@ fn build_instance_norm(builder: InstanceNormBuilder) -> Result<InstanceNorm, Exc
     })
 }
 
-/// Applies instance normalization [1] on the inputs.
+/// Applies instance normalization \[1\] on the inputs.
 ///
 /// ### References
 ///
@@ -158,7 +158,7 @@ fn build_layer_norm(builder: LayerNormBuilder) -> Result<LayerNorm, Exception> {
     })
 }
 
-/// Applies layer normalization [1] on the inputs.
+/// Applies layer normalization \[1\] on the inputs.
 ///
 /// ### References
 ///
@@ -230,7 +230,7 @@ fn build_rms_norm(builder: RmsNormBuilder) -> Result<RmsNorm, Exception> {
     })
 }
 
-/// Applies Root Mean Square normalization [1] to the inputs.
+/// Applies Root Mean Square normalization \[1\] to the inputs.
 ///
 /// Concretely:
 ///
@@ -328,7 +328,7 @@ fn build_group_norm(builder: GroupNormBuilder) -> Result<GroupNorm, Exception> {
     })
 }
 
-/// Applies Group Normalization [1] on the inputs.
+/// Applies Group Normalization \[1\] on the inputs.
 ///
 /// ### References
 ///
@@ -502,7 +502,7 @@ fn build_batch_norm(builder: BatchNormBuilder) -> Result<BatchNorm, Exception> {
     })
 }
 
-/// Applies batch normalization [1] on the inputs.
+/// Applies batch normalization \[1\] on the inputs.
 ///
 /// ### References
 ///

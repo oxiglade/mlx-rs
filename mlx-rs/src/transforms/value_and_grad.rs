@@ -83,7 +83,7 @@ where
 /// Returns a function which computes the value and gradient of `f` with a
 /// default argument number `&[0]`.
 ///
-/// See also [`value_and_grad_with_arg_nums`] for a version that allows
+/// See also [`value_and_grad_with_argnums`] for a version that allows
 /// specifying the argument numbers
 pub fn value_and_grad<'a, F, Err>(
     f: F,

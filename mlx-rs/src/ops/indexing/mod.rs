@@ -427,7 +427,7 @@ impl Array {
     /// The elements are taken from `indices` along the specified axis. If the axis is not specified
     /// the array is treated as a flattened 1-D array prior to performing the take.
     ///
-    /// See [`Array::take_all`] for the flattened array.
+    /// See [`Array::take`] for the flattened array.
     ///
     /// # Params
     ///
@@ -599,7 +599,7 @@ impl Array {
 
 /// Indices of the maximum values along the axis.
 ///
-/// See [`argmax_all`] for the flattened array.
+/// See [`argmax`] for the flattened array.
 ///
 /// # Params
 ///
@@ -676,7 +676,7 @@ pub fn argmax_device(
 
 /// Indices of the minimum values along the axis.
 ///
-/// See [`argmin_all`] for the flattened array.
+/// See [`argmin`] for the flattened array.
 ///
 /// # Params
 ///
@@ -821,7 +821,7 @@ pub fn take_axis_device(
     crate::with_stream(stream.as_ref(), || take_axis(a, indices, axis))
 }
 
-/// See [`Array::take_all`]
+/// See [`Array::take`]
 pub fn take(a: impl AsRef<Array>, indices: impl AsRef<Array>) -> Result<Array> {
     a.as_ref().take(indices)
 }
@@ -844,7 +844,7 @@ pub fn take_device(
 ///
 /// The elements will not necessarily be in sorted order.
 ///
-/// See [`topk_all`] for the flattened array.
+/// See [`topk`] for the flattened array.
 ///
 /// # Params
 ///

@@ -167,7 +167,7 @@ impl Array {
 
     /// Create a new array from raw data buffer.
     ///
-    /// This is a convenience wrapper around [`mlx_sy::mlx_array_new_data`].
+    /// This is a convenience wrapper around [`mlx_sys::mlx_array_new_data`].
     ///
     /// # Safety
     ///
@@ -601,7 +601,7 @@ impl AsRef<Array> for Array {
 
 /// A helper trait to construct `Array` from scalar values.
 ///
-/// This trait is intended to be used with the macro [`array!`] but can be used directly if needed.
+/// This trait is intended to be used with the macro [`crate::array!`] but can be used directly if needed.
 pub trait FromScalar<T>
 where
     T: ArrayElement,
@@ -636,7 +636,7 @@ impl FromScalar<complex64> for Array {
 
 /// A helper trait to construct `Array` from nested arrays or slices.
 ///
-/// Given that this is not intended for use other than the macro [`array!`], this trait is added
+/// Given that this is not intended for use other than the macro [`crate::array!`], this trait is added
 /// instead of directly implementing `From` for `Array` to avoid conflicts with other `From`
 /// implementations.
 ///
