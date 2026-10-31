@@ -103,7 +103,7 @@ use mlx_internal_macros::generate_macro;
 use crate::{
     error::{Exception, Result},
     utils::guard::Guarded,
-    Array, Stream, StreamOrDevice,
+    Array, Stream,
 };
 
 pub(crate) mod index_impl;
@@ -345,7 +345,7 @@ pub trait TryIndexOp<Idx> {
 
     /// Try to index the array with the given index.
     fn try_index(&self, i: Idx) -> Result<Array> {
-        self.try_index_device(i, StreamOrDevice::default())
+        self.try_index_device(i, Stream::thread_local_or_default())
     }
 }
 
@@ -373,7 +373,7 @@ pub trait TryIndexMutOp<Idx, Val> {
 
     /// Try to index the array with the given index and set the value.
     fn try_index_mut(&mut self, i: Idx, val: Val) -> Result<()> {
-        self.try_index_mut_device(i, val, StreamOrDevice::default())
+        self.try_index_mut_device(i, val, Stream::thread_local_or_default())
     }
 }
 
@@ -1260,6 +1260,57 @@ fn expand_ellipsis_operations<'a>(
 mod tests {
     use super::*;
     use crate::{array, ops::reshape, Array};
+
+    struct StreamCheckedArray {
+        array: Array,
+        expected: Stream,
+    }
+
+    impl TryIndexOp<i32> for StreamCheckedArray {
+        fn try_index_device(&self, i: i32, stream: impl AsRef<Stream>) -> Result<Array> {
+            assert_eq!(stream.as_ref(), &self.expected);
+            self.array.try_index_device(i, stream)
+        }
+    }
+
+    impl TryIndexMutOp<i32, Array> for StreamCheckedArray {
+        fn try_index_mut_device(
+            &mut self,
+            i: i32,
+            val: Array,
+            stream: impl AsRef<Stream>,
+        ) -> Result<()> {
+            assert_eq!(stream.as_ref(), &self.expected);
+            self.array.try_index_mut_device(i, val, stream)
+        }
+    }
+
+    #[test]
+    fn indexed_read_uses_scoped_stream() {
+        let stream = Stream::new_with_device(&crate::Device::cpu());
+        assert_ne!(stream, Stream::default());
+        crate::with_stream(&stream, || {
+            let input = StreamCheckedArray {
+                array: array!([1, 2, 3]),
+                expected: stream.clone(),
+            };
+            assert_eq!(input.try_index(1).unwrap().item_exact::<i32>(), 2);
+        });
+    }
+
+    #[test]
+    fn indexed_write_uses_scoped_stream() {
+        let stream = Stream::new_with_device(&crate::Device::cpu());
+        assert_ne!(stream, Stream::default());
+        crate::with_stream(&stream, || {
+            let mut input = StreamCheckedArray {
+                array: array!([1, 2, 3]),
+                expected: stream.clone(),
+            };
+            input.try_index_mut(1, array!(7)).unwrap();
+            assert_eq!(input.array.as_slice::<i32>(), &[1, 7, 3]);
+        });
+    }
 
     // Tests adapted from C++ `ops_tests.cpp/test scatter`
     #[test]

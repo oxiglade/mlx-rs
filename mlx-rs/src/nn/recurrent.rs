@@ -143,7 +143,7 @@ impl Rnn {
                 None => x.index((Ellipsis, index, 0..)),
             };
 
-            let hidden = (self.non_linearity)(&hidden, &Stream::default())?;
+            let hidden = (self.non_linearity)(&hidden, &Stream::thread_local_or_default())?;
             all_hidden.push(hidden);
         }
 
@@ -580,6 +580,27 @@ mod tests {
     use crate::{builder::Builder, ops::maximum, random::normal};
 
     use super::*;
+
+    #[test]
+    fn rnn_activation_uses_scoped_stream() {
+        let stream = Stream::new_with_device(&crate::Device::cpu());
+        assert_ne!(stream, Stream::default());
+        with_stream(&stream, || {
+            let expected = stream.get_index().unwrap();
+            let nonlinearity = move |x: &Array, actual: &Stream| {
+                assert_eq!(actual.get_index().unwrap(), expected);
+                with_stream(actual, || tanh(x))
+            };
+            let mut layer = RnnBuilder::new(2, 3)
+                .non_linearity(Arc::new(nonlinearity) as Arc<NonLinearity>)
+                .build()
+                .unwrap();
+            let input = Array::ones::<f32>(&[1, 2]).unwrap();
+            let output = layer.step(&input, None).unwrap();
+            output.eval().unwrap();
+            assert_eq!(output.shape(), &[1, 3]);
+        });
+    }
 
     #[test]
     fn test_rnn() {
