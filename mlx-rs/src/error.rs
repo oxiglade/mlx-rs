@@ -325,22 +325,20 @@ thread_local! {
     static LAST_MLX_ERROR: LastErrorStash = const { LastErrorStash(Cell::new(std::ptr::null())) };
 }
 
-pub(crate) static INIT_ERR_HANDLER: ErrorHandlerRegistration = ErrorHandlerRegistration::new();
+pub(crate) fn ensure_mlx_error_handler() {
+    static INIT: Once = Once::new();
+    INIT.call_once(setup_mlx_error_handler);
+}
 
-pub(crate) struct ErrorHandlerRegistration(Once);
-
-impl ErrorHandlerRegistration {
-    const fn new() -> Self {
-        Self(Once::new())
+#[track_caller]
+pub(crate) fn infallible<T>(f: impl FnOnce() -> T) -> T {
+    ensure_mlx_error_handler();
+    let _ = get_and_clear_last_mlx_error();
+    let value = f();
+    if let Some(error) = get_and_clear_last_mlx_error() {
+        panic!("{}", error.what);
     }
-
-    pub(crate) fn call_once(&self, f: impl FnOnce()) {
-        self.0.call_once(f);
-    }
-
-    pub(crate) fn with<T>(&self, f: impl FnOnce(&Once) -> T) -> T {
-        f(&self.0)
-    }
+    value
 }
 
 #[no_mangle]
@@ -359,7 +357,7 @@ extern "C" fn default_mlx_error_handler(msg: *const c_char, _data: *mut std::ffi
 
 /// Registers one process-global handler; the handler delivers each error through calling-thread
 /// TLS, so one registration serves every thread.
-pub(crate) fn setup_mlx_error_handler() {
+fn setup_mlx_error_handler() {
     unsafe {
         mlx_sys::mlx_set_error_handler(Some(default_mlx_error_handler), std::ptr::null_mut(), None);
     }
@@ -583,6 +581,18 @@ impl From<InexactDtypeError> for Exception {
 #[cfg(test)]
 mod tests {
     use crate::array;
+
+    #[test]
+    fn infallible_constructor_does_not_report_an_earlier_error() {
+        super::ensure_mlx_error_handler();
+        unsafe {
+            let empty = mlx_sys::mlx_array_new();
+            let mut value = 0;
+            assert_ne!(mlx_sys::mlx_array_item_int32(&mut value, empty), 0);
+            assert_eq!(mlx_sys::mlx_array_free(empty), 0);
+        }
+        assert_eq!(crate::Device::cpu().get_index().unwrap(), 0);
+    }
 
     #[test]
     fn test_exception() {

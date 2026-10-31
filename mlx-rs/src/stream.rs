@@ -216,18 +216,7 @@ impl Stream {
 
     /// Create a new stream on the default device. Panics if fails.
     pub fn new() -> Stream {
-        unsafe {
-            let mut dev = mlx_sys::mlx_device_new();
-            // SAFETY: mlx_get_default_device internally never throws an error
-            mlx_sys::mlx_get_default_device(&mut dev as *mut _);
-
-            let mut c_stream = mlx_sys::mlx_stream_new();
-            // SAFETY: mlx_get_default_stream internally never throws if dev is valid
-            mlx_sys::mlx_get_default_stream(&mut c_stream as *mut _, dev);
-
-            mlx_sys::mlx_device_free(dev);
-            Stream { c_stream }
-        }
+        Self::try_default_on_device(&Device::default()).expect("Failed to create stream")
     }
 
     /// Try to get the default stream on the given device.
@@ -237,10 +226,10 @@ impl Stream {
 
     /// Create a new stream on the given device
     pub fn new_with_device(device: &Device) -> Stream {
-        unsafe {
+        crate::error::infallible(|| unsafe {
             let c_stream = mlx_sys::mlx_stream_new_device(device.c_device);
             Stream { c_stream }
-        }
+        })
     }
 
     /// Get the underlying C pointer.
@@ -250,18 +239,18 @@ impl Stream {
 
     /// Current default CPU stream.
     pub fn cpu() -> Self {
-        unsafe {
+        crate::error::infallible(|| unsafe {
             let c_stream = mlx_sys::mlx_default_cpu_stream_new();
             Stream { c_stream }
-        }
+        })
     }
 
     /// Current default GPU stream.
     pub fn gpu() -> Self {
-        unsafe {
+        crate::error::infallible(|| unsafe {
             let c_stream = mlx_sys::mlx_default_gpu_stream_new();
             Stream { c_stream }
-        }
+        })
     }
 
     /// Get the index of the stream.

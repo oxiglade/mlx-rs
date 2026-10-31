@@ -96,6 +96,7 @@ impl Array {
     /// assert_eq!(duplicate.item_exact::<i32>(), 1);
     /// ```
     pub unsafe fn from_ptr(c_array: mlx_array) -> Array {
+        crate::error::ensure_mlx_error_handler();
         Self { c_array }
     }
 
@@ -106,32 +107,32 @@ impl Array {
 
     /// New array from a bool scalar.
     pub fn from_bool(val: bool) -> Array {
-        let c_array = unsafe { mlx_sys::mlx_array_new_bool(val) };
-        Array { c_array }
+        Array::try_from_op(|res| unsafe { mlx_sys::mlx_array_set_bool(res, val) })
+            .expect("Failed to create array")
     }
 
     /// New array from an int scalar.
     pub fn from_int(val: i32) -> Array {
-        let c_array = unsafe { mlx_sys::mlx_array_new_int(val) };
-        Array { c_array }
+        Array::try_from_op(|res| unsafe { mlx_sys::mlx_array_set_int(res, val) })
+            .expect("Failed to create array")
     }
 
     /// New array from a f32 scalar.
     pub fn from_f32(val: f32) -> Array {
-        let c_array = unsafe { mlx_sys::mlx_array_new_float32(val) };
-        Array { c_array }
+        Array::try_from_op(|res| unsafe { mlx_sys::mlx_array_set_float32(res, val) })
+            .expect("Failed to create array")
     }
 
     /// New array from a f64 scalar.
     pub fn from_f64(val: f64) -> Array {
-        let c_array = unsafe { mlx_sys::mlx_array_new_float64(val) };
-        Array { c_array }
+        Array::try_from_op(|res| unsafe { mlx_sys::mlx_array_set_float64(res, val) })
+            .expect("Failed to create array")
     }
 
     /// New array from a complex scalar.
     pub fn from_complex(val: complex64) -> Array {
-        let c_array = unsafe { mlx_sys::mlx_array_new_complex(val.re, val.im) };
-        Array { c_array }
+        Array::try_from_op(|res| unsafe { mlx_sys::mlx_array_set_complex(res, val.re, val.im) })
+            .expect("Failed to create array")
     }
 
     /// New array from existing buffer.
@@ -183,8 +184,10 @@ impl Array {
             shape.len() as i32
         };
 
-        let c_array = mlx_sys::mlx_array_new_data(data, shape.as_ptr(), dim, dtype.into());
-        Array { c_array }
+        Array::try_from_op(|res| {
+            mlx_sys::mlx_array_set_data(res, data, shape.as_ptr(), dim, dtype.into())
+        })
+        .expect("Failed to create array")
     }
 
     /// New array from an iterator.
@@ -527,10 +530,7 @@ impl Array {
                 }
             };
 
-            let new_c_array =
-                mlx_sys::mlx_array_new_data(data, shape.as_ptr(), shape.len() as i32, dtype.into());
-
-            Array::from_ptr(new_c_array)
+            Self::from_raw_data(data, shape, dtype)
         }
     }
 }

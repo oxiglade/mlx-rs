@@ -105,7 +105,7 @@ impl MetalKernel {
         source: &str,
         options: MetalKernelOptions,
     ) -> Result<Self> {
-        crate::error::INIT_ERR_HANDLER.call_once(crate::error::setup_mlx_error_handler);
+        crate::error::ensure_mlx_error_handler();
         let name = c_string(name)?;
         let source = c_string(source)?;
         let header = c_string(&options.header)?;
@@ -154,7 +154,7 @@ impl MetalKernel {
         thread_group: (i32, i32, i32),
         options: MetalKernelApplyOptions,
     ) -> Result<Vec<Array>> {
-        crate::error::INIT_ERR_HANDLER.call_once(crate::error::setup_mlx_error_handler);
+        crate::error::ensure_mlx_error_handler();
         let config = KernelConfig::new()?;
         for output in outputs {
             config.check(

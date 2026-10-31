@@ -19,6 +19,8 @@ Added
 Fixed
 
 - Honor the scoped stream for indexed reads, indexed writes, and RNN activations.
+- Install the MLX error handler before the first fallible native call, including
+  infallible constructors, which panic with the MLX error instead of exiting.
 - Preserve activation input precision for float16 and bfloat16, match Python MLX
   integer promotion and step thresholds, and use 1.702 for fast approximate GELU.
 

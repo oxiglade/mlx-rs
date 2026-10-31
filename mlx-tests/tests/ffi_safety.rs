@@ -592,6 +592,40 @@ fn float64_is_float_and_inexact() {
 }
 
 #[test]
+fn first_array_constructor_installs_error_handler() {
+    const CHILD: &str = "MLX_RS_FIRST_ARRAY_CHILD";
+    if std::env::var_os(CHILD).is_some() {
+        let array = Array::from_slice(&[1_i32, 2], &[2]);
+        let mut value = 0;
+        let status = unsafe { mlx_sys::mlx_array_item_int32(&mut value, array.as_ptr()) };
+        assert_ne!(status, 0);
+        return;
+    }
+
+    assert_subprocess_success("first_array_constructor_installs_error_handler", CHILD);
+}
+
+#[test]
+fn first_infallible_constructor_error_is_a_rust_panic() {
+    const CHILD: &str = "MLX_RS_FIRST_CONSTRUCTOR_ERROR_CHILD";
+    if std::env::var_os(CHILD).is_some() {
+        unsafe {
+            let device = mlx_sys::mlx_device_new_type(mlx_sys::mlx_device_type__MLX_CPU, i32::MAX);
+            assert_eq!(mlx_sys::mlx_set_default_device(device), 0);
+            assert_eq!(mlx_sys::mlx_device_free(device), 0);
+        }
+        let panic = catch_unwind(Stream::new)
+            .expect_err("an unavailable default device must panic at construction");
+        let message = panic_message(panic).expect("a string panic payload");
+        assert!(message.contains("vector"), "{message}");
+        assert_eq!(Array::from_int(42).item_exact::<i32>(), 42);
+        return;
+    }
+
+    assert_subprocess_success("first_infallible_constructor_error_is_a_rust_panic", CHILD);
+}
+
+#[test]
 fn first_contact_error_registration_is_thread_safe() {
     if std::env::var_os(ERROR_REGISTRATION_CHILD).is_some() {
         run_first_contact_error_registration_child();
@@ -605,17 +639,13 @@ fn first_contact_error_registration_is_thread_safe() {
 }
 
 fn run_first_contact_error_registration_child() {
-    let arrays = (0..ERROR_WORKERS)
-        .map(mismatched_arrays)
-        .collect::<Vec<_>>();
     let barrier = Arc::new(Barrier::new(ERROR_WORKERS));
-    let handles = arrays
-        .into_iter()
-        .enumerate()
-        .map(|(worker, (lhs, rhs, lhs_len, rhs_len))| {
+    let handles = (0..ERROR_WORKERS)
+        .map(|worker| {
             let barrier = Arc::clone(&barrier);
             thread::spawn(move || {
                 barrier.wait();
+                let (lhs, rhs, lhs_len, rhs_len) = mismatched_arrays(worker);
                 assert_own_broadcast_error(lhs.add(&rhs), worker, lhs_len, rhs_len);
             })
         })

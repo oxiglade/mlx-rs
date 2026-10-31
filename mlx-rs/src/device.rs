@@ -30,8 +30,10 @@ impl PartialEq for Device {
 impl Device {
     /// Create a new [`Device`]
     pub fn new(device_type: DeviceType, index: i32) -> Device {
-        let c_device = unsafe { mlx_sys::mlx_device_new_type(device_type.into(), index) };
-        Device { c_device }
+        crate::error::infallible(|| {
+            let c_device = unsafe { mlx_sys::mlx_device_new_type(device_type.into(), index) };
+            Device { c_device }
+        })
     }
 
     /// Try to get the default device.
