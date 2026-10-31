@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+Changed
+
+- Repeat operations and `QuantizedEmbeddingBuilder::build_with_weight` accept
+  borrowed arrays through `AsRef<Array>` (#110, source compatible).
+
 Breaking
 
 - `ModuleParametersExt::load_safetensors` rejects missing keys, unexpected keys,
