@@ -220,6 +220,44 @@
         "stream": "Explicit CPU and GPU scopes in every mode; no new global state.",
         "limitations": "Global scales remain absent; nn quantized modules remain affine-only. qqmm is unchanged and outside the supported macOS surface."
       }
+    },
+    {
+      "feature": "checkpoint",
+      "canonical_path": "mlx_rs::transforms::checkpoint",
+      "symbols": {
+        "mlx_checkpoint": "mlx_rs::transforms::checkpoint"
+      },
+      "evidence": {
+        "api": "mlx-rs/src/transforms/custom.rs",
+        "test": "mlx-rs/src/transforms/custom.rs#test_checkpoint_gives_the_function_and_its_gradients and #test_checkpoint_runs_the_function_again_in_the_backward_pass (named invariants: the checkpointed function's outputs and gradients equal the function's, which runs once forward and again backward; not conformance oracle evidence)",
+        "deferred_errors": "mlx-rs/src/transforms/custom.rs#test_closure_errors_are_returned",
+        "panics": "mlx-rs/src/transforms/custom.rs#test_closure_panics_resume_with_their_payload",
+        "leaks": "mlx-tests/tests/ffi_safety.rs",
+        "guard_malloc": "mlx-tests/tests/ffi_safety.rs",
+        "thread": "mlx-tests/tests/ffi_safety.rs: Function is not Clone, Send or Sync"
+      },
+      "python_path": "mlx.core.checkpoint",
+      "ownership": "Function owns the closure handle mlx_checkpoint returns; the handle wrapping the Rust closure is freed once MLX holds its copy, and the closure's payload is freed by its destructor callback."
+    },
+    {
+      "feature": "custom-vjp",
+      "canonical_path": "mlx_rs::transforms::custom_vjp",
+      "symbols": {
+        "mlx_closure_custom_free": "mlx_rs::transforms::custom_vjp",
+        "mlx_closure_custom_new_func_payload": "mlx_rs::transforms::custom_vjp",
+        "mlx_custom_vjp": "mlx_rs::transforms::custom_vjp"
+      },
+      "evidence": {
+        "api": "mlx-rs/src/transforms/custom.rs",
+        "test": "mlx-rs/src/transforms/custom.rs#test_custom_vjp_uses_the_written_backward_pass and #test_custom_vjp_under_value_and_grad (named invariant: the gradient is the written-out backward pass's, which receives the primals, the cotangents and the outputs; not conformance oracle evidence)",
+        "deferred_errors": "mlx-rs/src/transforms/custom.rs#test_closure_errors_are_returned",
+        "panics": "mlx-rs/src/transforms/custom.rs#test_closure_panics_resume_with_their_payload",
+        "leaks": "mlx-tests/tests/ffi_safety.rs",
+        "guard_malloc": "mlx-tests/tests/ffi_safety.rs",
+        "thread": "mlx-tests/tests/ffi_safety.rs: Function is not Clone, Send or Sync"
+      },
+      "python_path": "mlx.core.custom_function",
+      "ownership": "Function owns the closure handle mlx_custom_vjp returns; the forward and custom closure handles are freed once MLX holds their copies, and each Rust closure's payload is freed by its destructor callback."
     }
   ],
   "builds": [
