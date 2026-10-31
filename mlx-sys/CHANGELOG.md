@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Build against an installed MLX with `MLX_SYS_PREBUILT`, set to its prefix: mlx-c is built
+  against that MLX and linked to its `libmlx.dylib`, so a machine without Xcode's Metal compiler
+  can build. The prefix's `lib/` is published as `DEP_MLX_LIB_DIR`, for dependents' rpath
 - Generate the bindings with bindgen 0.73; the system opaque types `_malloc_zone_t`
   and `__sFILEX` no longer derive `Copy` and `Clone`
 

@@ -27,6 +27,36 @@ JIT builds keep their metallib in `~/.mlx/lib/<mlx-c-key>-jit/`, so they don't o
 library that normal builds use. `MLX_RS_METAL_PATH` is used as given, without the `-jit` suffix,
 so if you set it, point JIT and non-JIT builds at different directories.
 
+## A prebuilt MLX
+
+Building MLX from source compiles its Metal kernels ahead of time with Xcode's Metal compiler,
+which the Command Line Tools do not include; the `metal-jit` feature needs it too, for the kernels
+it still precompiles and for the JIT sources' preamble. Set `MLX_SYS_PREBUILT` to the prefix of an
+installed MLX to build mlx-c against that MLX and link its shared library instead. The prefix holds
+`lib/libmlx.dylib` with `lib/mlx.metallib` beside it, `include/` and `share/cmake/MLX/`; the
+`mlx-metal` wheel on PyPI is a zip archive whose `mlx/` directory is such a prefix. Use the MLX
+version mlx-c pins, named above: the build warns when the two differ, and mlx-c may not compile
+against another version's headers.
+
+`libmlx.dylib`'s install name is `@rpath/libmlx.dylib`, and MLX loads `mlx.metallib` from beside it,
+so binaries need an rpath to the prefix's `lib/`. A build script cannot add one to another
+package's binaries, so the directory is published as `DEP_MLX_LIB_DIR` and a dependent adds it to
+its own:
+
+```rust
+if let Ok(dir) = std::env::var("DEP_MLX_LIB_DIR") {
+    println!("cargo:rustc-link-arg=-Wl,-rpath,{dir}");
+}
+```
+
+This workspace's own tests and examples take it through `RUSTFLAGS`, and its doctests through
+`RUSTDOCFLAGS`, which Cargo does not fill from `RUSTFLAGS`:
+
+```sh
+export RUSTFLAGS="-C link-arg=-Wl,-rpath,$MLX_SYS_PREBUILT/lib"
+export RUSTDOCFLAGS="$RUSTFLAGS"
+```
+
 ## Build metadata for dependents
 
 `mlx-sys` declares `links = "mlx"`, so Cargo runs a dependent's build script after this one and
@@ -37,6 +67,11 @@ passes it the locations of the native sources this build compiled:
 | `DEP_MLX_INCLUDE` | every directory the include path needs, as a path list: the MLX source tree (`mlx/...`), metal-cpp with the `metal` feature, and mlx-c (`mlx/c/...`) |
 | `DEP_MLX_DEFINES` | whitespace-separated `NAME` or `NAME=VALUE` definitions MLX was built with |
 | `DEP_MLX_VERSION` | the MLX version mlx-c pins, when it can be read |
+| `DEP_MLX_LIB_DIR` | with `MLX_SYS_PREBUILT` only: the prefix's `lib/`, which holds `libmlx.dylib` and `mlx.metallib` |
+
+With `MLX_SYS_PREBUILT`, `DEP_MLX_INCLUDE` holds the prefix's `include/` (and `include/metal_cpp`
+with the `metal` feature) and mlx-c, `DEP_MLX_DEFINES` is empty, since MLX is then a shared library
+(no `MLX_STATIC`), and `DEP_MLX_VERSION` is the installed MLX's version.
 
 C++ that extends MLX, such as a custom `mlx::core::Primitive`, must compile against the same
 headers `libmlx` was built from. A dependent can use these with the `cc` crate. Passing the

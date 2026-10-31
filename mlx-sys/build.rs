@@ -90,6 +90,13 @@ fn build_and_link_mlx_c() {
         config.define("CMAKE_BUILD_TYPE", "Release");
     }
 
+    // With `MLX_SYS_PREBUILT`, mlx-c is built against an installed MLX instead (`link_prebuilt_mlx`).
+    println!("cargo:rerun-if-env-changed=MLX_SYS_PREBUILT");
+    if let Some(prefix) = env::var_os("MLX_SYS_PREBUILT") {
+        link_prebuilt_mlx(config, Path::new(&prefix), mlx_c_root);
+        return;
+    }
+
     config.define("MLX_BUILD_METAL", "OFF");
     config.define("MLX_BUILD_ACCELERATE", "OFF");
 
@@ -173,19 +180,90 @@ fn publish_native_sources(dst: &Path, mlx_c_root: &Path) {
         .expect("MLX include directories must not contain the path-list separator");
     println!("cargo::metadata=include={}", include.display());
     println!("cargo::metadata=defines=MLX_STATIC");
-    let version = fs::read_to_string(mlx_c_root.join("CMakeLists.txt"))
-        .ok()
-        .and_then(|cmake| {
-            cmake.lines().find_map(|line| {
-                let tag = line.trim().strip_prefix("GIT_TAG v")?;
-                tag.split(|c: char| c == ')' || c.is_whitespace())
-                    .next()
-                    .map(str::to_owned)
-            })
-        });
+    if let Some(version) = pinned_mlx_version(mlx_c_root) {
+        println!("cargo::metadata=version={version}");
+    }
+}
+
+/// The MLX version mlx-c's CMake configuration pins (`GIT_TAG v<version>`), when it can be read.
+fn pinned_mlx_version(mlx_c_root: &Path) -> Option<String> {
+    let cmake = fs::read_to_string(mlx_c_root.join("CMakeLists.txt")).ok()?;
+    cmake.lines().find_map(|line| {
+        let tag = line.trim().strip_prefix("GIT_TAG v")?;
+        tag.split(|c: char| c == ')' || c.is_whitespace())
+            .next()
+            .map(str::to_owned)
+    })
+}
+
+/// Builds mlx-c against the installed MLX at `prefix` (`MLX_SYS_PREBUILT`) and links MLX's shared
+/// library, instead of building MLX from source, which compiles its Metal kernels ahead of time
+/// with Xcode's Metal compiler (the Command Line Tools do not include it). The prefix holds
+/// `lib/libmlx.dylib` with `lib/mlx.metallib` beside it, `include/` and `share/cmake/MLX/`, as the
+/// `mlx/` directory of the `mlx-metal` wheel does.
+fn link_prebuilt_mlx(mut config: Config, prefix: &Path, mlx_c_root: &Path) {
+    let lib_dir = prefix.join("lib");
+    for file in ["libmlx.dylib", "mlx.metallib"] {
+        assert!(
+            lib_dir.join(file).is_file(),
+            "MLX_SYS_PREBUILT: no {file} in {}",
+            lib_dir.display()
+        );
+    }
+    let cmake_dir = prefix.join("share").join("cmake").join("MLX");
+    let version = prebuilt_version(&cmake_dir);
+    if let (Some(found), Some(pinned)) = (&version, pinned_mlx_version(mlx_c_root)) {
+        if *found != pinned {
+            println!(
+                "cargo:warning=MLX_SYS_PREBUILT holds MLX {found}, but mlx-c is written against MLX {pinned}; mlx-c may not compile against it"
+            );
+        }
+    }
+    config.define("MLX_C_USE_SYSTEM_MLX", "ON");
+    config.define("MLX_DIR", &cmake_dir);
+    let dst = config.build();
+
+    // The same metadata as a build from source (`publish_native_sources`), for this MLX: its
+    // installed headers, and no definitions, since it is a shared library (no `MLX_STATIC`).
+    let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+    let include = [
+        Some(prefix.join("include")),
+        cfg!(feature = "metal").then(|| prefix.join("include").join("metal_cpp")),
+        Some(manifest.join(mlx_c_root)),
+    ];
+    let include = env::join_paths(include.into_iter().flatten())
+        .expect("MLX include directories must not contain the path-list separator");
+    println!("cargo::metadata=include={}", include.display());
+    println!("cargo::metadata=defines=");
     if let Some(version) = version {
         println!("cargo::metadata=version={version}");
     }
+    // libmlx.dylib's install name is `@rpath/libmlx.dylib`, and MLX loads `mlx.metallib` from
+    // beside it. A build script cannot add an rpath to another package's binaries, so the
+    // directory goes to dependents, as `DEP_MLX_LIB_DIR`.
+    println!("cargo::metadata=lib_dir={}", lib_dir.display());
+
+    println!("cargo:rustc-link-search=native={}/build/lib", dst.display());
+    println!("cargo:rustc-link-search=native={}", lib_dir.display());
+    println!("cargo:rustc-link-lib=static=mlxc");
+    println!("cargo:rustc-link-lib=dylib=mlx");
+    println!("cargo:rustc-link-lib=c++");
+    println!("cargo:rustc-link-lib=dylib=objc");
+    println!("cargo:rustc-link-lib=framework=Foundation");
+    if let Some(clang_rt_path) = native_link::find_clang_rt_path() {
+        println!("cargo:rustc-link-search={}", clang_rt_path);
+        println!("cargo:rustc-link-lib=static=clang_rt.osx");
+    }
+}
+
+/// The version of the MLX CMake package in `cmake_dir` (`PACKAGE_VERSION` in
+/// `MLXConfigVersion.cmake`), when it can be read.
+fn prebuilt_version(cmake_dir: &Path) -> Option<String> {
+    let text = fs::read_to_string(cmake_dir.join("MLXConfigVersion.cmake")).ok()?;
+    text.lines().find_map(|line| {
+        let rest = line.trim().strip_prefix("set(PACKAGE_VERSION \"")?;
+        rest.split('"').next().map(str::to_owned)
+    })
 }
 
 fn main() {
