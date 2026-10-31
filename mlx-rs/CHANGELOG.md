@@ -15,6 +15,13 @@ Added
   and CPU/Metal conformance for packing, round trips, matmul, and indexed gather
   (#358, thanks @sergey-scherbina). Global scales remain private; nn quantized
   modules remain affine-only.
+- `transforms::checkpoint`: a function whose intermediate arrays are computed again in
+  the backward pass instead of kept (the Rust counterpart of `mx.checkpoint`).
+- `transforms::custom_vjp`: a function with a written-out backward pass, called with the
+  primals, the cotangents and the outputs (`mx.custom_function` with a `vjp`).
+- `transforms::Function`, which both return: `apply` calls it, traced like any other
+  operation under a transform. Its closures are `'static`, since a backward pass calls
+  them again; an error they return reaches the caller, and a panic resumes there.
 
 Fixed
 

@@ -10,7 +10,7 @@ use mlx_rs::{
         },
         ContiguousOptions, CountNonzeroOptions, TraceOptions,
     },
-    transforms::{fallible_jvp, jvp},
+    transforms::{self, fallible_jvp, fallible_vjp, jvp},
     with_stream, Array, Axes, Dtype, Stream,
 };
 use std::any::Any;
@@ -45,6 +45,7 @@ macro_rules! assert_not_impl_any {
 }
 
 assert_not_impl_any!(GgufFile: Clone, Send, Sync);
+assert_not_impl_any!(transforms::Function: Clone, Send, Sync);
 #[cfg(feature = "metal")]
 assert_not_impl_any!(fast::MetalKernel: Clone, Send, Sync);
 
@@ -359,6 +360,74 @@ fn rms_norm_absence_handles_are_freed_after_each_call() {
     for _ in 0..200 {
         let input = Array::from_slice(&[1.0_f32, 2.0, 3.0, 4.0], &[1, 4]);
         fast::rms_norm(&input, None, 1e-5).unwrap().eval().unwrap();
+    }
+}
+
+#[test]
+fn checkpoint_and_custom_vjp_handles_are_released_on_every_path() {
+    use mlx_rs::error::{Exception, Result};
+
+    for _ in 0..200 {
+        let x = Array::from_slice(&[1.0_f32, 2.0, 3.0], &[3]);
+        let cotangent = Array::from_slice(&[1.0_f32, 1.0, 1.0], &[3]);
+
+        let recomputed = transforms::checkpoint(|x: &[Array]| -> Result<Vec<Array>> {
+            Ok(vec![x[0].exp()?.multiply(&x[0])?])
+        })
+        .unwrap();
+        let (_, recomputed_grads) = fallible_vjp(
+            |x: &[Array]| recomputed.apply(x),
+            std::slice::from_ref(&x),
+            std::slice::from_ref(&cotangent),
+        )
+        .unwrap();
+
+        let square = transforms::custom_vjp(
+            |x: &[Array]| -> Result<Vec<Array>> { Ok(vec![x[0].multiply(&x[0])?]) },
+            |x: &[Array], cotangents: &[Array], _: &[Array]| -> Result<Vec<Array>> {
+                Ok(vec![cotangents[0]
+                    .multiply(&x[0])?
+                    .multiply(Array::from_f32(2.0))?])
+            },
+        )
+        .unwrap();
+        let (_, square_grads) = fallible_vjp(
+            |x: &[Array]| square.apply(x),
+            std::slice::from_ref(&x),
+            std::slice::from_ref(&cotangent),
+        )
+        .unwrap();
+
+        // Each closure failing: the forward pass, and the backward pass under a transform.
+        let failing = transforms::checkpoint(|_: &[Array]| -> Result<Vec<Array>> {
+            Err(Exception::custom("forward failed"))
+        })
+        .unwrap();
+        assert!(failing.apply(std::slice::from_ref(&x)).is_err());
+        let backward_fails = transforms::custom_vjp(
+            |x: &[Array]| -> Result<Vec<Array>> { Ok(vec![x[0].clone()]) },
+            |_: &[Array], _: &[Array], _: &[Array]| -> Result<Vec<Array>> {
+                Err(Exception::custom("backward failed"))
+            },
+        )
+        .unwrap();
+        assert!(fallible_vjp(
+            |x: &[Array]| backward_fails.apply(x),
+            std::slice::from_ref(&x),
+            std::slice::from_ref(&cotangent),
+        )
+        .is_err());
+
+        drop(recomputed);
+        drop(square);
+        drop(failing);
+        drop(backward_fails);
+        drop(x);
+        assert_eq!(
+            square_grads[0].to_vec_exact::<f32>().unwrap(),
+            [2.0, 4.0, 6.0]
+        );
+        recomputed_grads[0].eval().unwrap();
     }
 }
 

@@ -58,10 +58,12 @@ use crate::{
 };
 
 pub mod compile;
+mod custom;
 mod grad;
 mod keyed_value_and_grad;
 mod value_and_grad;
 
+pub use custom::*;
 pub use grad::*;
 pub use keyed_value_and_grad::*;
 pub use value_and_grad::*;
