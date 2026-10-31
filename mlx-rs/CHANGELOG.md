@@ -18,6 +18,7 @@ Added
 
 Fixed
 
+- Honor the scoped stream for indexed reads, indexed writes, and RNN activations.
 - Preserve activation input precision for float16 and bfloat16, match Python MLX
   integer promotion and step thresholds, and use 1.702 for fast approximate GELU.
 
