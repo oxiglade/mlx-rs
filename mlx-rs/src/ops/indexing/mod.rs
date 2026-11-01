@@ -13,6 +13,7 @@
 //! | [`i32`] | An integer index |
 //! | [`Array`] | Use an array to index another array |
 //! | `&Array` | Use a reference to an array to index another array |
+//! | `&[i32]`, `Vec<i32>`, `[i32; N]` | Copy integer indices into a one-dimensional index array |
 //! | [`std::ops::Range<i32>`] | A range index |
 //! | [`std::ops::RangeFrom<i32>`] | A range index |
 //! | [`std::ops::RangeFull`] | A range index |
@@ -22,6 +23,9 @@
 //! | [`StrideBy`] | A range index with stride |
 //! | [`NewAxis`] | Add a new axis |
 //! | [`Ellipsis`] | Consume all axes |
+//!
+//! Integer lists use `i32` indices, including when empty. An empty list selects no elements,
+//! like `mx.array([], dtype=mx.int32)` in Python; Python MLX 0.32.2 rejects an untyped `[]` index.
 //!
 //! # Single axis indexing
 //!

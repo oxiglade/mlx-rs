@@ -25,6 +25,7 @@ Breaking
 
 Added
 
+- Indexing with `&[i32]`, `Vec<i32>`, and `[i32; N]` (#211).
 - Dilation for `nn::ConvTranspose1d`, `ConvTranspose2d`, and `ConvTranspose3d`,
   matching Python MLX 0.32.2 (#203).
 - `QuantizationMode::{Affine, Mxfp4, Mxfp8, Nvfp4}` with mode-dependent defaults
