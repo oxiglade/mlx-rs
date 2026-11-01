@@ -1,11 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.34.0
 
-Changed
-
-- Repeat operations and `QuantizedEmbeddingBuilder::build_with_weight` accept
-  borrowed arrays through `AsRef<Array>` (#110, source compatible).
+This release stays on MLX 0.32.2. `Array` is no longer `Send` and `Device::set_default`
+is unsafe, closing two ways safe code could race MLX across threads. It also makes
+`load_safetensors` strict and adds quantization modes, `checkpoint`/`custom_vjp` and list
+indexing.
 
 Breaking
 
@@ -33,20 +33,26 @@ Added
   (#358, thanks @sergey-scherbina). Global scales remain private; nn quantized
   modules remain affine-only.
 - `transforms::checkpoint`: a function whose intermediate arrays are computed again in
-  the backward pass instead of kept (the Rust counterpart of `mx.checkpoint`).
+  the backward pass instead of kept (the Rust counterpart of `mx.checkpoint`) (#422,
+  thanks @bayanasar).
 - `transforms::custom_vjp`: a function with a written-out backward pass, called with the
-  primals, the cotangents and the outputs (`mx.custom_function` with a `vjp`).
+  primals, the cotangents and the outputs (`mx.custom_function` with a `vjp`) (#422).
 - `transforms::Function`, which both return: `apply` calls it, traced like any other
   operation under a transform. Its closures are `'static`, since a backward pass calls
   them again; an error they return reaches the caller, and a panic resumes there.
 
+Changed
+
+- Repeat operations and `QuantizedEmbeddingBuilder::build_with_weight` accept
+  borrowed arrays through `AsRef<Array>` (#110, source compatible).
+
 Fixed
 
-- Honor the scoped stream for indexed reads, indexed writes, and RNN activations.
+- Honor the scoped stream for indexed reads, indexed writes, and RNN activations (#425).
 - Install the MLX error handler before the first fallible native call, including
-  infallible constructors, which panic with the MLX error instead of exiting.
+  infallible constructors, which panic with the MLX error instead of exiting (#426).
 - Preserve activation input precision for float16 and bfloat16, match Python MLX
-  integer promotion and step thresholds, and use 1.702 for fast approximate GELU.
+  integer promotion and step thresholds, and use 1.702 for fast approximate GELU (#420).
 
 ## 0.33.0
 
