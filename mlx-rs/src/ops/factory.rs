@@ -322,8 +322,13 @@ impl Array {
     /// let source = Array::from_slice(&[0, 1, 2, 3], &[2, 2]);
     /// let r = Array::repeat_axis::<i32>(source, 4, 1).unwrap();
     /// ```
-    pub fn repeat_axis<T: ArrayElement>(array: Array, count: i32, axis: i32) -> Result<Array> {
+    pub fn repeat_axis<T: ArrayElement>(
+        array: impl AsRef<Array>,
+        count: i32,
+        axis: i32,
+    ) -> Result<Array> {
         let stream = Stream::thread_local_or_default();
+        let array = array.as_ref();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_repeat_axis(res, array.as_ptr(), count, axis, stream.as_ref().as_ptr())
         })
@@ -335,7 +340,7 @@ impl Array {
         note = "use `with_stream` or `with_device` around `repeat_axis`"
     )]
     pub fn repeat_axis_device<T: ArrayElement>(
-        array: Array,
+        array: impl AsRef<Array>,
         count: i32,
         axis: i32,
         stream: impl AsRef<Stream>,
@@ -360,8 +365,9 @@ impl Array {
     /// let source = Array::from_slice(&[0, 1, 2, 3], &[2, 2]);
     /// let r = Array::repeat::<i32>(source, 4).unwrap();
     /// ```
-    pub fn repeat<T: ArrayElement>(array: Array, count: i32) -> Result<Array> {
+    pub fn repeat<T: ArrayElement>(array: impl AsRef<Array>, count: i32) -> Result<Array> {
         let stream = Stream::thread_local_or_default();
+        let array = array.as_ref();
         Array::try_from_op(|res| unsafe {
             mlx_sys::mlx_repeat(res, array.as_ptr(), count, stream.as_ref().as_ptr())
         })
@@ -373,7 +379,7 @@ impl Array {
         note = "use `with_stream` or `with_device` around `repeat`"
     )]
     pub fn repeat_device<T: ArrayElement>(
-        array: Array,
+        array: impl AsRef<Array>,
         count: i32,
         stream: impl AsRef<Stream>,
     ) -> Result<Array> {
@@ -777,7 +783,11 @@ where
 }
 
 /// See [`Array::repeat`]
-pub fn repeat_axis<T: ArrayElement>(array: Array, count: i32, axis: i32) -> Result<Array> {
+pub fn repeat_axis<T: ArrayElement>(
+    array: impl AsRef<Array>,
+    count: i32,
+    axis: i32,
+) -> Result<Array> {
     Array::repeat_axis::<T>(array, count, axis)
 }
 
@@ -788,7 +798,7 @@ pub fn repeat_axis<T: ArrayElement>(array: Array, count: i32, axis: i32) -> Resu
     note = "use `with_stream` or `with_device` around `repeat_axis`"
 )]
 pub fn repeat_axis_device<T: ArrayElement>(
-    array: Array,
+    array: impl AsRef<Array>,
     count: i32,
     axis: i32,
     #[optional] stream: impl AsRef<Stream>,
@@ -797,7 +807,7 @@ pub fn repeat_axis_device<T: ArrayElement>(
 }
 
 /// See [`Array::repeat`]
-pub fn repeat<T: ArrayElement>(array: Array, count: i32) -> Result<Array> {
+pub fn repeat<T: ArrayElement>(array: impl AsRef<Array>, count: i32) -> Result<Array> {
     Array::repeat::<T>(array, count)
 }
 
@@ -808,7 +818,7 @@ pub fn repeat<T: ArrayElement>(array: Array, count: i32) -> Result<Array> {
     note = "use `with_stream` or `with_device` around `repeat`"
 )]
 pub fn repeat_device<T: ArrayElement>(
-    array: Array,
+    array: impl AsRef<Array>,
     count: i32,
     #[optional] stream: impl AsRef<Stream>,
 ) -> Result<Array> {
@@ -1070,6 +1080,32 @@ mod tests {
             },
         );
         assert!(array.is_err());
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn test_repeat_borrowed() {
+        let source = Array::from_slice(&[0, 1, 2, 3], &[2, 2]);
+        let stream = Stream::thread_local_or_default();
+        for repeated in [
+            Array::repeat::<i32>(&source, 2).unwrap(),
+            repeat::<i32>(&source, 2).unwrap(),
+            Array::repeat_device::<i32>(&source, 2, &stream).unwrap(),
+            repeat_device::<i32>(&source, 2, &stream).unwrap(),
+        ] {
+            assert_eq!(repeated.shape(), &[8]);
+            assert_eq!(repeated.as_slice::<i32>(), &[0, 0, 1, 1, 2, 2, 3, 3]);
+        }
+        for repeated in [
+            Array::repeat_axis::<i32>(&source, 2, 0).unwrap(),
+            repeat_axis::<i32>(&source, 2, 0).unwrap(),
+            Array::repeat_axis_device::<i32>(&source, 2, 0, &stream).unwrap(),
+            repeat_axis_device::<i32>(&source, 2, 0, &stream).unwrap(),
+        ] {
+            assert_eq!(repeated.shape(), &[4, 2]);
+            assert_eq!(repeated.as_slice::<i32>(), &[0, 1, 0, 1, 2, 3, 2, 3]);
+        }
+        assert_eq!(source.as_slice::<i32>(), &[0, 1, 2, 3]);
     }
 
     #[test]

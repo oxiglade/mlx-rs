@@ -93,20 +93,23 @@ impl QuantizedEmbeddingBuilder {
     }
 
     /// Convenience method to build a new [`QuantizedEmbedding`] with an existing weight matrix
-    pub fn build_with_weight(self, weight: Array) -> Result<QuantizedEmbedding, Exception> {
+    pub fn build_with_weight(
+        self,
+        weight: impl AsRef<Array>,
+    ) -> Result<QuantizedEmbedding, Exception> {
         let group_size = self.group_size;
         let bits = self.bits;
-        build_quantized_embedding_inner(weight, group_size, bits)
+        build_quantized_embedding_inner(weight.as_ref(), group_size, bits)
     }
 }
 
 fn build_quantized_embedding_inner(
-    weight: Array,
+    weight: &Array,
     group_size: i32,
     bits: i32,
 ) -> Result<QuantizedEmbedding, Exception> {
     let (quantized_weight, scales, biases) = ops::quantize(
-        &weight,
+        weight,
         ops::QuantizeOptions {
             group_size: Some(group_size),
             bits: Some(bits),
@@ -167,7 +170,7 @@ impl QuantizedEmbedding {
     ) -> Result<Self, Exception> {
         let group_size = group_size.into().unwrap_or(Self::DEFAULT_GROUP_SIZE);
         let bits = bits.into().unwrap_or(Self::DEFAULT_BITS);
-        build_quantized_embedding_inner(embedding.weight.value, group_size, bits)
+        build_quantized_embedding_inner(&embedding.weight.value, group_size, bits)
     }
 
     /// Call the embedding layer as a linear layer.
@@ -414,5 +417,29 @@ impl Module<&Array> for QuantizedLinear {
 
     fn training_mode(&mut self, mode: bool) {
         self.inner.training_mode(mode);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_with_borrowed_weight() {
+        let weight = crate::ops::arange::<_, f32>(None, 256, None)
+            .unwrap()
+            .reshape(&[4, 64])
+            .unwrap();
+        let borrowed = QuantizedEmbeddingBuilder::new(4, 64)
+            .build_with_weight(&weight)
+            .unwrap();
+        let owned = QuantizedEmbeddingBuilder::new(4, 64)
+            .build_with_weight(weight.clone())
+            .unwrap();
+        assert_eq!(
+            borrowed.inner.weight.to_vec_exact::<u32>().unwrap(),
+            owned.inner.weight.to_vec_exact::<u32>().unwrap()
+        );
+        assert_eq!(weight.shape(), &[4, 64]);
     }
 }
