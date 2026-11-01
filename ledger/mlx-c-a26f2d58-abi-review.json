@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "report_id": "bump-a26f2d58-abi-review",
+  "evidence_class": "ffi",
+  "source_commit": "a26f2d584a14ec619ae8db9a09be03becd47598a",
+  "verdict": "pass",
+  "scope": "source-level ABI and caller review only; runtime, ownership and threading admission remain separate gates",
+  "old_source_commit": "a341b4925024b88b2c593468f16e12f5e17315da",
+  "nested_mlx_version": "0.32.4",
+  "delta_counts": {
+    "added": 9,
+    "removed": 2,
+    "changed": 1
+  },
+  "findings": [
+    {
+      "cohort": "distributed",
+      "evidence": "distributed_group.h replaces rank/size with status-returning get_rank/get_size; distributed_group.cpp retains callback payload ownership through shared_ptr, including failure and cached-group cleanup; mlx-rs has no distributed callers",
+      "decision": "record the two removals and defer the four new functions and callback type as a subsystem"
+    },
+    {
+      "cohort": "gather_qmm",
+      "evidence": "ops.cpp forwards global_scale.ctx as an optional array; the existing Rust wrapper passes its owned absent handle, preserving the previous no-global-scale behavior",
+      "decision": "compatibility rebind without public API changes"
+    },
+    {
+      "cohort": "new operations and memory observer",
+      "evidence": "fast.cpp adds gated_delta_update; memory.cpp adds buffer-size accounting; ops.cpp adds matrix_transpose and fixed-size unique; no existing Rust caller uses these symbols",
+      "decision": "defer each capability under charter rule 13"
+    }
+  ],
+  "source_sha256": {
+    "mlx-sys/src/mlx-c/mlx/c/distributed_group.h": "1c31588c5a7f05371a74d207cefe788be835154fc031fde8b15bdbe486cb06f8",
+    "mlx-sys/src/mlx-c/mlx/c/distributed_group.cpp": "dadb6d5d456170b569089d06d0637bfb95881abd399816920eddbda50e5886a8",
+    "mlx-sys/src/mlx-c/mlx/c/fast.h": "c6b7d449ad6e652a84eafa852c30e61248f32390aa811822e521b5d225bbfe2a",
+    "mlx-sys/src/mlx-c/mlx/c/fast.cpp": "f8a57df9b53aa97260b13477e5f1458572f8136f5c431069604e396c66223e4f",
+    "mlx-sys/src/mlx-c/mlx/c/memory.h": "aa9241e80f661bcfdf4e1a9eb6123be52d3476fdbc6f7288dd3a3c5290b53be9",
+    "mlx-sys/src/mlx-c/mlx/c/memory.cpp": "ae57e430afe8cbbec45a90dd3a47b9ab246fff75f906a12e861a07392902f1de",
+    "mlx-sys/src/mlx-c/mlx/c/ops.h": "4c77b1db780456f85c015a48a9a45cae9eac90ccf75219eb1a83eb2c4a72e546",
+    "mlx-sys/src/mlx-c/mlx/c/ops.cpp": "43f75fda97a30798032e68aff8120f8beddb886256b8834e974e83de07f3697c",
+    "mlx-rs/src/ops/quantization.rs": "a1730ecc5f6bb86156d642fad8742d6339f72647f9a8f17d582049ed678ae9cf"
+  }
+}

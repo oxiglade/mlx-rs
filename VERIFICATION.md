@@ -254,10 +254,10 @@ build contracts. Semantic cases alone cannot prove ownership or threading safety
 
 Freeze the old and target commits and nested MLX version, update the tuple checked by
 `verify-bump` and the ABI classification endpoints, then classify every generated delta.
-The active comparison is mlx-c `c74db5307cc8ce122f48d97ef951b30578674e7f` to
-`a341b4925024b88b2c593468f16e12f5e17315da`; both pin MLX `v0.32.2`.
+The active comparison is mlx-c `a341b4925024b88b2c593468f16e12f5e17315da` (MLX `v0.32.2`) to
+`a26f2d584a14ec619ae8db9a09be03becd47598a` (MLX `v0.32.4`).
 The prior classification is retained in
-`ledger/mlx-c-c74db5307cc8ce122f48d97ef951b30578674e7f-classification.json`.
+`ledger/mlx-c-a341b4925024b88b2c593468f16e12f5e17315da-classification.json`.
 
 Update the `mlx-metal` wheel URL and SHA-256 in
 `.github/workflows/bump-admission.yml` to the target MLX version. Use the wheel
@@ -312,7 +312,7 @@ Downloads use immutable revision URLs and temporary files; mismatches fail befor
 The provisioner reuses `real_checkpoints.py`'s manifest validation and relocates only local paths in
 the committed contract. Pass `--python "$BUMP_PYTHON"`, pointing at a uv-managed Python 3.12.14
 virtualenv installed with `uv pip sync --require-hashes conformance/mlx-lm/requirements.lock`.
-It runs `conformance/mlx-lm/live_oracle.py` in a separate Python process using MLX 0.32.2 and
+It runs `conformance/mlx-lm/live_oracle.py` in a separate Python process using MLX 0.32.4 and
 mlx-lm 0.31.3. The generator never imports or runs mlx-rs. The live report supplies expectations;
 `live-oracle-generation.json` records the Python version and generator, lock, contract and
 live-report hashes. The committed oracle contains only the input contract and environment pins:
