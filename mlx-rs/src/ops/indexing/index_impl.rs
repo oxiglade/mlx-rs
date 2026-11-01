@@ -55,6 +55,25 @@ impl<'a> ArrayIndex<'a> for &'a Array {
     }
 }
 
+impl<'a> ArrayIndex<'a> for &[i32] {
+    fn index_op(self) -> ArrayIndexOp<'a> {
+        let len = i32::try_from(self.len()).expect("Index length is too large");
+        Array::from_slice(self, &[len]).index_op()
+    }
+}
+
+impl<'a> ArrayIndex<'a> for Vec<i32> {
+    fn index_op(self) -> ArrayIndexOp<'a> {
+        self.as_slice().index_op()
+    }
+}
+
+impl<'a, const N: usize> ArrayIndex<'a> for [i32; N] {
+    fn index_op(self) -> ArrayIndexOp<'a> {
+        self.as_slice().index_op()
+    }
+}
+
 impl<'a> ArrayIndex<'a> for ArrayIndexOp<'a> {
     fn index_op(self) -> ArrayIndexOp<'a> {
         self
@@ -1123,10 +1142,77 @@ fn get_item_nd(
 #[cfg(test)]
 mod tests {
     use crate::{
-        ops::indexing::{Ellipsis, IndexOp, IntoStrideBy, NewAxis},
+        ops::indexing::{
+            ArrayIndex, Ellipsis, IndexMutOp, IndexOp, IntoStrideBy, NewAxis, TryIndexMutOp,
+            TryIndexOp, TryIndexUpdateOp, UpdateMode,
+        },
         test_utils::{assert_array_eq, tolerances},
         Array,
     };
+
+    #[test]
+    fn test_integer_list_forms() {
+        fn check(indices: impl for<'a> ArrayIndex<'a> + Clone) {
+            let a = Array::from_iter(0..12, &[3, 4]);
+            let expected = Array::from_slice(&[8, 9, 10, 11, 0, 1, 2, 3], &[2, 4]);
+            assert!(a.index(indices.clone()).eq_exact(&expected).unwrap());
+
+            let update = Array::from_int(20);
+            let expected =
+                Array::from_slice(&[20, 20, 20, 20, 4, 5, 6, 7, 20, 20, 20, 20], &[3, 4]);
+            let mut result = a.clone();
+            result.index_mut(indices.clone(), &update);
+            assert!(result.eq_exact(&expected).unwrap());
+            let result = a
+                .try_index_update(indices.clone(), &update, UpdateMode::Replace)
+                .unwrap();
+            assert!(result.eq_exact(&expected).unwrap());
+
+            let expected = Array::from_slice(&[0, 20, 20, 3, 4, 5, 6, 7, 8, 20, 20, 11], &[3, 4]);
+            let mut result = a.clone();
+            result.index_mut((indices, NewAxis, 1..3), &update);
+            assert!(result.eq_exact(&expected).unwrap());
+        }
+
+        check(&[-1, 0][..]);
+        check(vec![-1, 0]);
+        check([-1, 0]);
+    }
+
+    #[test]
+    fn test_integer_list_out_of_bounds_construction_matches_array() {
+        for a in [
+            Array::from_iter(0..3, &[3]),
+            Array::from_slice::<i32>(&[], &[0]),
+        ] {
+            for indices in [[3], [-4]] {
+                let explicit = Array::from_slice(&indices, &[1]);
+                assert_eq!(
+                    a.try_index(indices).err().map(|e| e.to_string()),
+                    a.try_index(&explicit).err().map(|e| e.to_string()),
+                );
+                let update = Array::from_int(1);
+                assert_eq!(
+                    a.clone()
+                        .try_index_mut(indices, &update)
+                        .err()
+                        .map(|e| e.to_string()),
+                    a.clone()
+                        .try_index_mut(explicit.clone(), &update)
+                        .err()
+                        .map(|e| e.to_string()),
+                );
+                assert_eq!(
+                    a.try_index_update(indices, &update, UpdateMode::Add)
+                        .err()
+                        .map(|e| e.to_string()),
+                    a.try_index_update(&explicit, &update, UpdateMode::Add)
+                        .err()
+                        .map(|e| e.to_string()),
+                );
+            }
+        }
+    }
 
     #[test]
     fn test_array_index_negative_int() {

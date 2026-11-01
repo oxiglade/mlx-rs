@@ -115,6 +115,17 @@
       }
     },
     {
+      "feature": "integer-list-indexing",
+      "canonical_path": "mlx_rs::ops::indexing::ArrayIndex",
+      "python_path": "mlx.core.array.__getitem__",
+      "evidence": {
+        "api": "api:path:mlx_rs::ops::indexing::ArrayIndex",
+        "conformance": "conformance/suites/indexing.json indexing.036 through indexing.045",
+        "test": "mlx-rs/src/ops/indexing/index_impl.rs#test_integer_list_forms"
+      },
+      "ownership": "Copies i32 indices into an owned Array and uses existing array indexing; no new FFI ownership or thread traits."
+    },
+    {
       "feature": "slice-update",
       "canonical_path": "mlx_rs::ops::indexing::TryIndexUpdateOp",
       "symbols": {

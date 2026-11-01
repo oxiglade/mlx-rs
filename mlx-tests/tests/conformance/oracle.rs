@@ -189,6 +189,12 @@ pub(super) enum IndexRecipe {
     NegativeBounds,
     AdvancedTuple,
     ZeroStride,
+    IntegerList,
+    NegativeList,
+    EmptyList,
+    ListSlice,
+    SliceList,
+    ListNewAxis,
 }
 
 #[derive(Clone, Copy, Deserialize)]
