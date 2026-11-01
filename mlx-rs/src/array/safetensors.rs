@@ -11,6 +11,7 @@ use crate::{error::ConversionError, Dtype};
 
 use super::Array;
 
+/// Eagerly copies a tensor view's data into an owned array; float8 dtypes are unsupported.
 impl<'data> TryFrom<TensorView<'data>> for Array {
     type Error = ConversionError;
 
@@ -29,6 +30,7 @@ impl<'data> TryFrom<TensorView<'data>> for Array {
     }
 }
 
+/// Evaluates and borrows nonempty row-major array data without copying; complex dtypes are unsupported.
 impl<'a> TryFrom<&'a Array> for TensorView<'a> {
     type Error = ConversionError;
 
