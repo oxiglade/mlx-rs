@@ -3,8 +3,7 @@
 Use the repo's devenv environment, activated through direnv with `direnv allow`.
 Run tools directly once inside it. Generate the product lockfile once with
 `cargo generate-lockfile` before running locked build commands. Build with `cargo build --workspace`.
-Run tests with `cargo test --workspace -- --test-threads=1`: tests change MLX's
-process-wide default device (`Device::set_default`).
+Run tests with `cargo test --workspace`.
 
 `xtask/` is a separate Cargo workspace with its own committed lockfile.
 Run tools from the repo root with `cargo xtask <command>`; the alias selects
