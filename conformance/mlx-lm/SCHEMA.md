@@ -5,7 +5,7 @@ NumPy reference generator, Rust comparator). Changing it is an `oracle-change:` 
 
 ## Environment
 - Oracle venv: `conformance/.venv-mlx-lm` built from `conformance/mlx-lm/requirements.lock`
-  (pip hashes; python 3.12.14; mlx-lm==0.31.3; mlx==0.32.2; mlx-metal==0.32.2; numpy==2.2.6;
+  (pip hashes; python 3.12.14; mlx-lm==0.31.3; mlx==0.32.4; mlx-metal==0.32.4; numpy==2.2.6;
   transformers 5.x). `manifest.json` records the handshake (arch=arm64, versions, upstream
   commit ed1fca4cef15a824c5f1702c80f70b4cffc8e4dd, sha256 of the mlx-lm wheel).
 - The core oracle venv `conformance/.venv` is never touched.
@@ -50,7 +50,7 @@ a sliding-window layer pattern and llama3 rope in the `llama-sliding` variant). 
 ## expectations.json (JSON, sorted keys, no NaN)
 {
   "schema_version": 1,
-  "provenance": { "python": "3.12.14", "mlx_lm": "0.31.3", "mlx": "0.32.2", "numpy": "2.2.6",
+  "provenance": { "python": "3.12.14", "mlx_lm": "0.31.3", "mlx": "0.32.4", "numpy": "2.2.6",
                   "seed": <int>, "upstream_commit": "ed1fca4c…", "generator": "<file>@<sha256>" },
   "config": { "resolved": { hidden_size, layer_count, intermediate_size, attention_heads,
                kv_heads, head_dim, vocabulary_size, rms_norm_epsilon, rope: {dimensions, theta,

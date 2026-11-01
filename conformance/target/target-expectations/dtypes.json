@@ -487,9 +487,9 @@
   ],
   "old_environment": {
     "architecture": "arm64",
-    "mlx_metal_package": "0.32.2",
-    "mlx_package": "0.32.2",
-    "mlx_runtime": "0.32.2",
+    "mlx_metal_package": "0.32.4",
+    "mlx_package": "0.32.4",
+    "mlx_runtime": "0.32.4",
     "numpy": "2.2.6",
     "python": "3.12.14"
   },
@@ -498,11 +498,11 @@
   "target_environment": {
     "architecture": "arm64",
     "device": "cpu",
-    "mlx": "0.32.2",
-    "mlx_metal": "0.32.2",
-    "mlx_runtime": "0.32.2",
+    "mlx": "0.32.4",
+    "mlx_metal": "0.32.4",
+    "mlx_runtime": "0.32.4",
     "numpy": "2.2.6",
     "python": "3.12.14",
-    "venv": "pinned"
+    "venv": "requirements.lock"
   }
 }

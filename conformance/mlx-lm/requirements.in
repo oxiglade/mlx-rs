@@ -15,9 +15,9 @@ Jinja2==3.1.6
 markdown-it-py==4.2.0
 MarkupSafe==3.0.3
 mdurl==0.1.2
-mlx==0.32.2
+mlx==0.32.4
 mlx-lm==0.31.3
-mlx-metal==0.32.2
+mlx-metal==0.32.4
 numpy==2.2.6
 packaging==26.3
 protobuf==7.36.1

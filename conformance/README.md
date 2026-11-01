@@ -14,13 +14,19 @@ conformance/.venv/bin/python conformance/generate.py
 cargo test -p mlx-tests --test conformance -- --test-threads=1
 ```
 
-The generator requires Python 3.12.14 on arm64, `mlx==0.32.2`, `mlx-metal==0.32.2`,
-`numpy==2.2.6`, and an MLX 0.32.2 runtime. It exits before generation when the reference
+The generator requires Python 3.12.14 on arm64, `mlx==0.32.4`, `mlx-metal==0.32.4`,
+`numpy==2.2.6`, and an MLX 0.32.4 runtime. It exits before generation when the reference
 environment does not match. The lock file pins every wheel with a SHA-256 hash and must be
 installed with `--require-hashes`.
 
-On 2026-08-30 the committed corpus became 0.32.2-canonical; `target/` remains the historical
-0.30.6-to-0.32.2 replay baseline.
+The committed ops corpus is 0.32.4-canonical. `target/` replays the current corpus and
+preserves the historical 0.30.6 reference for its regression probes.
+State fixtures retain their recorded 0.32.2 provenance and are replayed on 0.32.4.
+
+The 0.32.4 ops refresh changes only the Python exception type for `errors.003`,
+`errors.006`, `errors.013`, `errors.014`, and `errors.021`: invalid axes raise
+`IndexError` following [MLX #4484](https://github.com/ml-explore/mlx/pull/4484).
+Tensor fixture bytes and tolerances are unchanged.
 
 Generation builds two independent temporary trees and compares their hashes. It replaces the
 committed catalog, suite files, qualification file, and fixture shards only when both trees are
@@ -31,7 +37,7 @@ The generator encodes fixture shards with its in-repo safetensors writer, so MLX
 of either fixture path. The Rust runner cross-validates that encoding through its safetensors crate.
 
 The historical singular-inverse probe records a process abort on MLX 0.30.6. On CPU,
-MLX 0.32.2 raises a catchable `RuntimeError` during evaluation. The replay preserves that
+MLX 0.32.4 raises a catchable `RuntimeError` during evaluation. The replay preserves that
 `error_behavior_changed` result against the historical reference. Running this probe on the
 default GPU instead would only observe an unsupported-operation `ValueError` at invocation.
 
