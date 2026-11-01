@@ -245,7 +245,7 @@ generate_builder! {
     #[buildable(root = crate)]
     #[builder(root = crate)]
     pub struct L1Loss {
-        /// Reduction type. Default to [`L1loss::DEFAULT_REDUCTION`]
+        /// Reduction type. Default to [`L1Loss::DEFAULT_REDUCTION`]
         #[builder(optional, default = L1Loss::DEFAULT_REDUCTION)]
         pub reduction: LossReduction,
     }

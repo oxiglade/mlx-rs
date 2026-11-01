@@ -12,7 +12,7 @@ generate_builder! {
     ///
     /// Please refer to the original paper for more details:
     ///
-    /// [1]: Duchi, J., Hazan, E. and Singer, Y., 2011. Adaptive subgradient methods for online
+    /// \[1\]: Duchi, J., Hazan, E. and Singer, Y., 2011. Adaptive subgradient methods for online
     ///     learning and stochastic optimization. JMLR 2011.
     #[derive(Debug, Clone, Buildable)]
     #[buildable(root = crate)]

@@ -118,9 +118,9 @@ fn build_dropout2d(builder: Dropout2dBuilder) -> Result<Dropout2d, DropoutBuildE
 /// which zeros individual entries, this layer zeros entire channels. This is
 /// beneficial for early convolution layers where adjacent pixels are
 /// correlated. In such case, traditional dropout may not effectively
-/// regularize activations. For more details, see [1].
+/// regularize activations. For more details, see \[1\].
 ///
-/// [1]: Thompson, J., Goroshin, R., Jain, A., LeCun, Y. and Bregler C., 2015.
+/// \[1\]: Thompson, J., Goroshin, R., Jain, A., LeCun, Y. and Bregler C., 2015.
 /// Efficient Object Localization Using Convolutional Networks. CVPR 2015.
 #[derive(Debug, Clone, ModuleParameters, Buildable)]
 #[module(root = crate)]

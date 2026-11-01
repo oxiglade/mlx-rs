@@ -203,7 +203,7 @@ where
 /// Returns a function which computes the gradient of `f` with the default
 /// argument numbers `&[0]`.
 ///
-/// See also [`grad_with_arg_nums`] for a version that allows specifying the
+/// See also [`grad_with_argnums`] for a version that allows specifying the
 /// argument numbers
 pub fn grad<'a, F, Args, Output, Err>(f: F) -> impl FnMut(Args) -> Result<Output> + 'a
 where

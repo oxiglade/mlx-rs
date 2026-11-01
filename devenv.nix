@@ -27,7 +27,7 @@
   };
 
   # Mirrors .github/workflows/validate.yml so a green local run means a green CI
-  # run. MLX is not thread safe, hence --test-threads=1.
+  # run. Tests change MLX's process-wide default device, hence --test-threads=1.
   scripts.validate.exec = ''
     set -e
     echo "=== fmt ==="

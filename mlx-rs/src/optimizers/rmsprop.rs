@@ -12,9 +12,9 @@ use crate::{error::RmsPropBuildError, utils::get_mut_or_insert_with};
 use super::*;
 
 generate_builder! {
-    /// The RMSprop optimizer [1].
+    /// The RMSprop optimizer \[1\].
     ///
-    /// [1]: Tieleman, T. and Hinton, G. 2012. Lecture 6.5-rmsprop, coursera: Neural networks for
+    /// \[1\]: Tieleman, T. and Hinton, G. 2012. Lecture 6.5-rmsprop, coursera: Neural networks for
     ///     machine learning
     #[derive(Debug, Clone, Buildable)]
     #[buildable(root = crate)]

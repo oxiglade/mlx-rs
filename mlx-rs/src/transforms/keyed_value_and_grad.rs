@@ -52,7 +52,7 @@ macro_rules! keyed_value_and_grad {
     };
 }
 
-/// Similar to [`IntoValueAndGrad`] but for functions that take a hashmap of parameters.
+/// Similar to [`super::IntoValueAndGrad`] but for functions that take a hashmap of parameters.
 pub trait IntoKeyedValueAndGrad<'a, Arr, Args, Err>
 where
     Arr: AsRef<Array>,

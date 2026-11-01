@@ -9,6 +9,9 @@ Changed
 
 Breaking
 
+- `Array` is no longer `Send`. MLX doesn't synchronize lazy graph state across
+  threads, so build arrays and models on the thread that uses them and send plain
+  data instead (#259).
 - `ModuleParametersExt::load_safetensors` rejects missing keys, unexpected keys,
   and shape mismatches before changing any parameters (#304, thanks @Vlad-Shcherbina).
 - Struct literals for `ConvTranspose*` layers and their 1D/3D builders must

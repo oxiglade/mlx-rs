@@ -3,19 +3,24 @@
 //!
 //! # Table of Contents
 //!
+//! - [Threading](#threading)
 //! - [Quick Start](#quick-start)
 //! - [Lazy Evaluation](#lazy-evaluation)
 //! - [Unified Memory](#unified-memory)
+//! - [Streams](#streams)
 //! - [Indexing Arrays](#indexing-arrays)
 //! - [Saving and Loading](#saving-and-loading)
+//! - [Function Transforms](#function-transforms)
+//! - [Compilation](#compilation)
 //!
 //! # Threading
 //!
-//! [`Array`] values may move between threads. MLX 0.32.2 keeps default streams per thread, so each
-//! worker must perform operations through its own default or thread-local scoped override.
-//! [`Stream`] and compiled closures are thread-affine and cannot move or be shared across threads.
-//! The scoped Rust override is thread-local, not asynchronous task-local, and does not propagate
-//! across `.await`.
+//! [`Array`] is `!Send + !Sync`. Build arrays and models on the thread that uses them; send
+//! plain data via [`Array::to_vec_exact`]/[`Array::from_slice`] or files between threads.
+//! MLX binds lazy arrays to their creator thread's streams and does not synchronize graph state,
+//! so evaluating or dropping shared lazy arrays across threads can crash
+//! ([upstream position](https://github.com/ml-explore/mlx/issues/3529)).
+//! [`Stream`] and compiled closures are also `!Send + !Sync`.
 //!
 //! # Quick Start
 //!
@@ -60,10 +65,9 @@
 //!
 //! ## Function and Graph Transformations
 //!
-//! TODO: https://github.com/oxiglade/mlx-rs/issues/214
-//!
-//! TODO: also document that all `Array` in the args for function
-//!       transformations
+//! [`transforms::grad`] differentiates with respect to argument 0 by default; use
+//! [`transforms::grad_with_argnums`] to select other arguments. Pass inputs as `&Array` or
+//! `&[Array]`; argument numbers index the slice.
 //!
 //! # Lazy Evaluation
 //!
@@ -248,10 +252,13 @@
 //!
 //! In the above, both the CPU and the GPU will perform the same add operation.
 //!
-//! TODO: The remaining python documentations states that the stream can be used
-//! to parallelize operations without worrying about racing conditions. We
-//! should check if this is true given that we've already observed data racing
-//! when executing unit tests in parallel.
+//! # Streams
+//!
+//! Use [`with_stream`] or [`with_device`] to select a stream for a synchronous scope.
+//! Scopes nest and restore the previous stream on return or panic; otherwise operations use
+//! MLX's per-thread defaults. These scopes do not propagate across `.await`.
+//! Within one thread, MLX orders work across streams by data dependencies. Arrays cannot move
+//! between threads; see [Threading](#threading).
 //!
 //! # Indexing Arrays
 //!
