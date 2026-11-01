@@ -5,6 +5,7 @@ use crate::{
     Config, ConfigError, InferenceError, LoadError, WeightError,
 };
 use mlx_rs::{utils::StateProjection, Array};
+pub(crate) mod gemma4;
 pub(crate) mod gguf;
 pub(crate) mod llama;
 pub(crate) mod qwen3;
@@ -51,20 +52,16 @@ pub(crate) trait DecoderModel {
 }
 /// Resolved public facts paired with architecture-private validated details.
 pub(crate) enum ParsedArchitecture {
+    Gemma4(gemma4::ParsedConfig),
     Llama(llama::ParsedConfig),
     Qwen3(qwen3::ParsedConfig),
 }
-macro_rules! architectures {
-    ($($module:ident::$factory:ident),+ $(,)?) => {
-        pub(crate) fn factory(model_type: &str) -> Result<&'static dyn ArchitectureFactory, ConfigError> {
-            match model_type {
-                $(stringify!($module) => Ok(&$module::$factory),)+
-                _ => Err(ConfigError::UnsupportedArchitecture(model_type.to_owned())),
-            }
-        }
-    };
-}
-architectures! {
-    llama::Factory,
-    qwen3::Factory,
+
+pub(crate) fn factory(model_type: &str) -> Result<&'static dyn ArchitectureFactory, ConfigError> {
+    match model_type {
+        "gemma4" | "gemma4_text" | "gemma4_unified" => Ok(&gemma4::Factory),
+        "llama" => Ok(&llama::Factory),
+        "qwen3" => Ok(&qwen3::Factory),
+        _ => Err(ConfigError::UnsupportedArchitecture(model_type.to_owned())),
+    }
 }
