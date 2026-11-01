@@ -283,6 +283,15 @@
 //! | [`module::Module`] | [`module::ModuleParametersExt::load_safetensors`] | [`module::ModuleParametersExt::save_safetensors`] |
 //! | [`optimizers::Optimizer`] | [`optimizers::OptimizerState::load_safetensors`] | [`optimizers::OptimizerState::save_safetensors`] |
 //!
+//! [`Array::load_safetensors`] and [`Array::save_safetensors`] read and write files through
+//! MLX; loading is lazy, so tensor data is read when the arrays are evaluated. With the
+//! `safetensors` feature, `Array` also converts to and from the `safetensors` crate's
+//! `TensorView`, for data you already hold: bytes, a memory-mapped file that crate parsed, or
+//! views from other crates. `Array::try_from(view)` copies the data; `TensorView::try_from(&array)`
+//! evaluates the array and borrows its data, and fails on empty or noncontiguous arrays. The
+//! conversions handle `F64` but not complex or float8 dtypes; MLX's file functions handle `C64`
+//! but not `F64`.
+//!
 //! # Function Transforms
 //!
 //! See also [MLX python
