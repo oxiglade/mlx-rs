@@ -215,7 +215,7 @@ jobs:
             echo "MLX_RS_BUMP_RUN=1"
             echo "MLX_LM_REAL_CHECKPOINTS=$RUNNER_TEMP/bump-checkpoints/reports/checkpoints/real-checkpoints.json"
           } >> "$GITHUB_ENV"
-      - uses: astral-sh/setup-uv@v10.3.2
+      - uses: astral-sh/setup-uv@v10.3.3
         if: ${{ !inputs.ordinary && matrix.configuration == 'macos-arm64-default' }}
         with:
           version: '0.13.5'
