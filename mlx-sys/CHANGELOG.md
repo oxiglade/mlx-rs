@@ -1,6 +1,10 @@
 # CHANGELOG
 
-## Unreleased
+## 0.8.0
+
+- Update the pinned native tuple to mlx-c `a26f2d58` (v0.8.0) and MLX `0.32.4`.
+  Distributed rank/size functions become status-returning getters, and
+  `mlx_gather_qmm` gains an optional global-scale array.
 
 - Build against an installed MLX with `MLX_SYS_PREBUILT`, set to its prefix: mlx-c is built
   against that MLX and linked to its `libmlx.dylib`, so a machine without Xcode's Metal compiler

@@ -108,14 +108,14 @@ pub enum GgufError {
         actual: GgufMetadataKind,
     },
 
-    /// The tensor dtype is not supported by the MLX 0.32.2 GGUF writer.
+    /// The tensor dtype is not supported by the MLX 0.32.4 GGUF writer.
     #[error("tensor dtype {dtype:?} cannot be written as GGUF")]
     UnsupportedTensorDtype {
         /// The rejected dtype.
         dtype: Dtype,
     },
 
-    /// The metadata-array dtype is not supported by the MLX 0.32.2 GGUF writer.
+    /// The metadata-array dtype is not supported by the MLX 0.32.4 GGUF writer.
     #[error("metadata array dtype {dtype:?} cannot be written as GGUF")]
     UnsupportedMetadataArrayDtype {
         /// The rejected dtype.
