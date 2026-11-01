@@ -24,6 +24,7 @@ pub(crate) fn load(file: GgufFile, tokenizer: Tokenizer) -> Result<Model, LoadEr
             .parse_gguf_config(&file, &weights)
             .map_err(external_load_error)?;
         let config = match &parsed {
+            ParsedArchitecture::Gemma4(parsed) => &parsed.config,
             ParsedArchitecture::Llama(parsed) => &parsed.config,
             ParsedArchitecture::Qwen3(parsed) => &parsed.config,
         };
