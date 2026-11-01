@@ -264,19 +264,49 @@ pub trait ModuleParametersExt: ModuleParameters {
     }
 
     /// Load module parameters from a `safetensors` file.
+    ///
+    /// Keys and shapes must match the module's parameters; dtypes may differ.
+    /// Validates and evaluates all loaded arrays before changing any parameters.
+    /// For partial loading, use [`Array::load_safetensors`] and [`update_parameters`].
     fn load_safetensors(&mut self, path: impl AsRef<Path>) -> Result<(), IoError> {
         let loaded = Array::load_safetensors(path)?;
-
-        // Load the parameters
         let mut params = self.parameters_mut().flatten();
-        for (key, value) in loaded {
-            if let Some(param) = params.get_mut(&*key) {
-                **param = value;
+
+        let mut unexpected: Vec<_> = loaded
+            .keys()
+            .filter(|key| !params.contains_key(key.as_str()))
+            .cloned()
+            .collect();
+        if !unexpected.is_empty() {
+            unexpected.sort();
+            return Err(IoError::UnexpectedParameters(unexpected));
+        }
+
+        let mut missing: Vec<_> = params
+            .keys()
+            .filter(|key| !loaded.contains_key(key.as_ref()))
+            .map(|key| key.to_string())
+            .collect();
+        if !missing.is_empty() {
+            missing.sort();
+            return Err(IoError::MissingParameters(missing));
+        }
+
+        for (key, param) in &params {
+            let value = &loaded[key.as_ref()];
+            if param.shape() != value.shape() {
+                return Err(IoError::ParameterShapeMismatch {
+                    key: key.to_string(),
+                    expected: param.shape().to_vec(),
+                    actual: value.shape().to_vec(),
+                });
             }
         }
 
-        // Loading is lazy, eval after loading
-        self.eval()?;
+        crate::transforms::eval(loaded.values())?;
+        for (key, value) in loaded {
+            **params.get_mut(key.as_str()).unwrap() = value;
+        }
 
         Ok(())
     }

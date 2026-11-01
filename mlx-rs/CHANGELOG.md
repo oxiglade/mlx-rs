@@ -4,6 +4,9 @@
 
 Breaking
 
+- `ModuleParametersExt::load_safetensors` rejects missing keys, unexpected keys,
+  and shape mismatches before changing any parameters (#304, thanks @Vlad-Shcherbina).
+
 - `quantize`, `dequantize`, `quantized_matmul`, and `gather_qmm` take options
   structs. `quantize` returns optional biases, present only for affine weights
   (#358, thanks @sergey-scherbina). Invalid mode/group/bit combinations return

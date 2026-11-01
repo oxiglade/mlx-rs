@@ -2,6 +2,18 @@
   "schema_version": 1,
   "admissions": [
     {
+      "feature": "strict-module-loading",
+      "canonical_path": "mlx_rs::module::ModuleParametersExt::load_safetensors",
+      "python_path": "mlx.nn.Module.load_weights(strict=True)",
+      "evidence": {
+        "api": "api:path:mlx_rs::error::IoError",
+        "python": "https://github.com/ml-explore/mlx/blob/v0.32.2/python/mlx/nn/layers/base.py#L163-L189",
+        "test": "mlx-tests/tests/test_module_parameters.rs#test_load_safetensors_validation_is_atomic and #test_module_safetensors_roundtrip",
+        "state": "Reject unexpected keys, missing keys, and shape mismatches before assignment; evaluate loaded arrays before replacing parameters. Dtypes may differ."
+      },
+      "ownership": "Uses existing owned Arrays and borrowed module parameters; no new FFI ownership or thread traits."
+    },
+    {
       "feature": "contiguous",
       "canonical_path": "mlx_rs::Array::contiguous",
       "symbols": {

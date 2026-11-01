@@ -40,6 +40,25 @@ pub enum IoError {
     #[error("Unable to open file")]
     UnableToOpenFile,
 
+    /// The checkpoint omits module parameters.
+    #[error("missing module parameters: {0:?}")]
+    MissingParameters(Vec<String>),
+
+    /// The checkpoint contains keys absent from the module.
+    #[error("unexpected module parameters: {0:?}")]
+    UnexpectedParameters(Vec<String>),
+
+    /// A checkpoint tensor has a different shape from its module parameter.
+    #[error("shape mismatch for {key}: expected {expected:?}, got {actual:?}")]
+    ParameterShapeMismatch {
+        /// The flattened parameter key.
+        key: String,
+        /// The module parameter's shape.
+        expected: Vec<i32>,
+        /// The checkpoint tensor's shape.
+        actual: Vec<i32>,
+    },
+
     /// Unable to allocate memory
     #[error("Unable to allocate memory")]
     AllocationError,
