@@ -9,6 +9,8 @@ Changed
 
 Breaking
 
+- `Device::set_default` is unsafe and returns `Result<()>`. Use `with_device` or
+  `with_stream` for safe device selection (#437).
 - `Array` is no longer `Send`. MLX doesn't synchronize lazy graph state across
   threads, so build arrays and models on the thread that uses them and send plain
   data instead (#259).

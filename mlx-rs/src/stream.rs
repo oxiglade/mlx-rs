@@ -130,8 +130,8 @@ impl StreamOrDevice {
 impl Default for StreamOrDevice {
     /// The default stream on the default device.
     ///
-    /// This will be [Device::gpu()] unless [Device::set_default()]
-    /// sets it otherwise.
+    /// Uses MLX's process-wide default device. For safe, thread-local operation
+    /// selection, use [with_device] or [with_stream].
     fn default() -> Self {
         Self {
             stream: Stream::new(),
@@ -329,17 +329,16 @@ mod tests {
     #[test]
     #[cfg(feature = "metal")]
     fn test_scoped_default_stream() {
-        // First set default stream to CPU
-        let cpu_device = Device::cpu();
-        Device::set_default(&cpu_device);
-        let cpu_stream = Stream::default();
-
-        let task_default_stream = Stream::gpu();
-        with_stream(&task_default_stream, || {
-            let task_local_stream_0 = Stream::thread_local_or_default();
-            let task_local_stream_1 = Stream::thread_local_or_default();
-            assert_eq!(task_local_stream_0, task_local_stream_1);
-            assert_ne!(task_local_stream_0, cpu_stream);
+        with_device(Device::cpu(), || {
+            let cpu_stream = Stream::thread_local_or_default();
+            let task_default_stream = Stream::gpu();
+            with_stream(&task_default_stream, || {
+                let task_local_stream_0 = Stream::thread_local_or_default();
+                let task_local_stream_1 = Stream::thread_local_or_default();
+                assert_eq!(task_local_stream_0, task_local_stream_1);
+                assert_ne!(task_local_stream_0, cpu_stream);
+            });
+            assert_eq!(Stream::thread_local_or_default(), cpu_stream);
         });
     }
 
@@ -370,18 +369,37 @@ mod tests {
     #[test]
     #[cfg(feature = "metal")]
     fn test_cpu_gpu_stream_not_equal() {
-        let cpu_device = Device::cpu();
-        let gpu_device = Device::gpu();
+        const CHILD: &str = "MLX_RS_DEFAULT_DEVICE_CHILD";
+        if std::env::var_os(CHILD).is_some() {
+            // SAFETY: This child runs only this test, with no other MLX threads.
+            unsafe { Device::set_default(&Device::cpu()).unwrap() };
+            assert_eq!(Device::default(), Device::cpu());
+            let cpu_stream = Stream::default();
 
-        // First set default stream to CPU
-        Device::set_default(&cpu_device);
-        let cpu_stream = Stream::default();
+            unsafe { Device::set_default(&Device::gpu()).unwrap() };
+            assert_eq!(Device::default(), Device::gpu());
+            let gpu_stream = Stream::default();
+            assert_ne!(cpu_stream, gpu_stream);
+            return;
+        }
 
-        // Then set default stream to GPU
-        Device::set_default(&gpu_device);
-        let gpu_stream = Stream::default();
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "stream::tests::test_cpu_gpu_stream_not_equal",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env(CHILD, "1")
+            .output()
+            .unwrap();
 
-        // Assert that CPU and GPU streams are not equal
-        assert_ne!(cpu_stream, gpu_stream);
+        assert!(
+            output.status.success(),
+            "child status: {:?}\nstdout:\n{}\nstderr:\n{}",
+            output.status,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 }

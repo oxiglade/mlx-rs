@@ -2,6 +2,19 @@
   "schema_version": 1,
   "admissions": [
     {
+      "feature": "unsafe-default-device",
+      "canonical_path": "mlx_rs::Device::set_default",
+      "symbols": {
+        "mlx_set_default_device": "mlx_rs::Device::set_default"
+      },
+      "evidence": {
+        "api": "api:path:mlx_rs::Device::set_default",
+        "test": "mlx-rs/src/stream.rs#test_cpu_gpu_stream_not_equal",
+        "thread": "Unsafe process-wide mutation requires no other thread to use MLX during the call; safe selection uses with_device or with_stream."
+      },
+      "ownership": "Borrows the device and checks the FFI status; no new ownership or thread traits."
+    },
+    {
       "feature": "strict-module-loading",
       "canonical_path": "mlx_rs::module::ModuleParametersExt::load_safetensors",
       "python_path": "mlx.nn.Module.load_weights(strict=True)",

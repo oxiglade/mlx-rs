@@ -13,10 +13,9 @@ fn checked_size(size: usize) -> Result<i32> {
 /// # Example
 ///
 /// ```rust
-/// use mlx_rs::{ops::windows::bartlett, Device, Dtype};
+/// use mlx_rs::{ops::windows::bartlett, with_device, Device, Dtype};
 ///
-/// Device::set_default(&Device::cpu());
-/// let window = bartlett(7).unwrap();
+/// let window = with_device(Device::cpu(), || bartlett(7)).unwrap();
 /// assert_eq!(window.shape(), &[7]);
 /// assert_eq!(window.dtype(), Dtype::Float32);
 /// ```
@@ -31,10 +30,9 @@ pub fn bartlett(size: usize) -> Result<Array> {
 /// # Example
 ///
 /// ```rust
-/// use mlx_rs::{ops::windows::blackman, Device, Dtype};
+/// use mlx_rs::{ops::windows::blackman, with_device, Device, Dtype};
 ///
-/// Device::set_default(&Device::cpu());
-/// let window = blackman(7).unwrap();
+/// let window = with_device(Device::cpu(), || blackman(7)).unwrap();
 /// assert_eq!(window.shape(), &[7]);
 /// assert_eq!(window.dtype(), Dtype::Float32);
 /// ```
@@ -49,10 +47,9 @@ pub fn blackman(size: usize) -> Result<Array> {
 /// # Example
 ///
 /// ```rust
-/// use mlx_rs::{ops::windows::hamming, Device, Dtype};
+/// use mlx_rs::{ops::windows::hamming, with_device, Device, Dtype};
 ///
-/// Device::set_default(&Device::cpu());
-/// let window = hamming(7).unwrap();
+/// let window = with_device(Device::cpu(), || hamming(7)).unwrap();
 /// assert_eq!(window.shape(), &[7]);
 /// assert_eq!(window.dtype(), Dtype::Float32);
 /// ```
@@ -67,10 +64,9 @@ pub fn hamming(size: usize) -> Result<Array> {
 /// # Example
 ///
 /// ```rust
-/// use mlx_rs::{ops::windows::hann, Device, Dtype};
+/// use mlx_rs::{ops::windows::hann, with_device, Device, Dtype};
 ///
-/// Device::set_default(&Device::cpu());
-/// let window = hann(7).unwrap();
+/// let window = with_device(Device::cpu(), || hann(7)).unwrap();
 /// assert_eq!(window.shape(), &[7]);
 /// assert_eq!(window.dtype(), Dtype::Float32);
 /// ```
