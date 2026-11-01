@@ -7,7 +7,7 @@ use mlx_rs::{
         indexing::{TryIndexUpdateOp, UpdateMode},
         CountNonzeroOptions, LinspaceOptions, LogCumsumExpOptions, TraceOptions,
     },
-    with_stream, Array, Axes, Device, Dtype, Stream,
+    with_device, Array, Axes, Device, Dtype, Stream,
 };
 use num_complex::Complex32;
 use safetensors::{tensor::Dtype as SafeDtype, SafeTensors};
@@ -355,14 +355,6 @@ impl HostTensor {
             TensorData::F64(values) => Array::from_slice_f64(values, &self.shape),
             TensorData::C64(values) => Array::from_slice(values, &self.shape),
         }
-    }
-}
-
-struct DeviceGuard(Device);
-
-impl Drop for DeviceGuard {
-    fn drop(&mut self) {
-        Device::set_default(&self.0);
     }
 }
 
@@ -1730,10 +1722,7 @@ fn run_case(
 }
 
 fn with_cpu_defaults<T>(f: impl FnOnce() -> T) -> T {
-    let previous = Device::try_default().expect("read default device");
-    let _guard = DeviceGuard(previous);
-    Device::set_default(&Device::cpu());
-    with_stream(&Stream::cpu(), f)
+    with_device(Device::cpu(), f)
 }
 
 fn assert_failures(mut failures: Vec<String>) {

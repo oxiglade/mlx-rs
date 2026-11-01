@@ -736,14 +736,14 @@ mod tests {
     #[test]
     #[cfg(feature = "metal")]
     fn sequential_threads_use_own_default_rng_stream() {
-        crate::Device::set_default(&crate::Device::gpu());
-
         for _ in 0..2 {
             std::thread::spawn(|| {
-                uniform::<_, f32>(0.0, 1.0, &[8], None)
-                    .unwrap()
-                    .eval()
-                    .unwrap();
+                crate::with_device(crate::Device::gpu(), || {
+                    uniform::<_, f32>(0.0, 1.0, &[8], None)
+                        .unwrap()
+                        .eval()
+                        .unwrap();
+                });
             })
             .join()
             .unwrap();

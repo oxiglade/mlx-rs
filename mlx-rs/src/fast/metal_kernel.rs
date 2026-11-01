@@ -469,15 +469,11 @@ mod tests {
             // SAFETY: One thread copies one f32 between single-element buffers.
             unsafe { kernel.apply(&[&a], &output, (1, 1, 1), (1, 1, 1), Default::default()) }
         };
-        assert_eq!(apply().unwrap()[0].to_vec_exact::<f32>().unwrap(), [3.0]);
-        let previous = crate::Device::default();
-        crate::Device::set_default(&crate::Device::cpu());
         let fallback = apply();
         let gpu_scope = crate::with_device(crate::Device::gpu(), apply);
         let cpu_scope = crate::with_device(crate::Device::cpu(), apply);
         let gpu_stream = crate::with_stream(&Stream::gpu(), apply);
         let cpu_stream = crate::with_stream(&Stream::cpu(), apply);
-        crate::Device::set_default(&previous);
         for outputs in [fallback, gpu_scope, gpu_stream] {
             assert_eq!(outputs.unwrap()[0].to_vec_exact::<f32>().unwrap(), [3.0]);
         }

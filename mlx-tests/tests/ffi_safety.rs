@@ -848,7 +848,6 @@ fn historical_shared_default_stream_abort_on_mlx_0_30_6() {
     const WORKERS: usize = 8;
     const OPERATIONS: usize = 100;
 
-    Device::set_default(&Device::gpu());
     let barrier = Arc::new(Barrier::new(WORKERS));
     let initialization = Arc::new(Mutex::new(()));
     let handles = (0..WORKERS)
@@ -856,16 +855,18 @@ fn historical_shared_default_stream_abort_on_mlx_0_30_6() {
             let barrier = Arc::clone(&barrier);
             let initialization = Arc::clone(&initialization);
             thread::spawn(move || {
-                let input = {
-                    let _guard = initialization.lock().unwrap();
-                    let input = Array::from_slice(&[1.0_f32; 4096], &[64, 64]);
-                    (&input + 1.0).eval().unwrap();
-                    input
-                };
-                for _ in 0..OPERATIONS {
-                    barrier.wait();
-                    (&input + 1.0).eval().unwrap();
-                }
+                mlx_rs::with_device(Device::gpu(), || {
+                    let input = {
+                        let _guard = initialization.lock().unwrap();
+                        let input = Array::from_slice(&[1.0_f32; 4096], &[64, 64]);
+                        (&input + 1.0).eval().unwrap();
+                        input
+                    };
+                    for _ in 0..OPERATIONS {
+                        barrier.wait();
+                        (&input + 1.0).eval().unwrap();
+                    }
+                })
             })
         })
         .collect::<Vec<_>>();

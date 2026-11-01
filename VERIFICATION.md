@@ -48,7 +48,7 @@ a 60-minute budget, each leak subprocess a 10-minute timeout, and each Guard Mal
 
 ## Conformance runner
 
-    cargo test -p mlx-tests --test conformance -- --test-threads=1
+    cargo test -p mlx-tests --test conformance
 
 The qualified strict comparator checks dtype, shape, output count/order, separate tolerances,
 non-finite values, and layout-sensitive observations. Regeneration uses Python 3.12.14,
@@ -92,7 +92,7 @@ Rust profile, toolchain, resolved backend features and native CMake settings. Ru
 Use the selected toolchain for the entire invocation; `macos-arm64-default-msrv` requires Rust
 1.88.0. Give each configuration a separate `MLX_RS_METAL_PATH` as well; JIT and non-JIT
 metallibs must not share a directory. Locally, substitute a scratch directory for `$RUNNER_TEMP`.
-The wrapper executes the ledger's Cargo test command once, including doctests, with serial tests
+The wrapper executes the ledger's Cargo test command once, including doctests, with parallel tests
 and captured test output.
 It writes a JSON report plus a sibling `.log` file and exits nonzero if Cargo fails,
 qualification fails, or the report cannot be written. A zero exit status means qualified execution.

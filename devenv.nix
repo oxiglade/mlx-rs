@@ -26,8 +26,7 @@
     LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
   };
 
-  # Mirrors .github/workflows/validate.yml so a green local run means a green CI
-  # run. Tests change MLX's process-wide default device, hence --test-threads=1.
+  # Mirrors .github/workflows/validate.yml so a green local run means a green CI run.
   scripts.validate.exec = ''
     set -e
     echo "=== fmt ==="
@@ -38,7 +37,7 @@
     echo "=== clippy ==="
     cargo clippy --all-targets -- -D warnings
     echo "=== tests ==="
-    cargo test --workspace -- --test-threads=1
+    cargo test --workspace
     echo ""
     echo "✅ Validation complete!"
   '';
@@ -51,7 +50,7 @@
     cargo fmt -- --check
     cargo clippy --all-targets -- -D warnings
     # Skip doctests: they dominate wall clock (196s of a ~220s run).
-    cargo test --workspace --lib --tests -- --test-threads=1
+    cargo test --workspace --lib --tests
   '';
 
   enterShell = ''

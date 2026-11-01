@@ -61,18 +61,26 @@ impl Device {
         DeviceType::try_from_op(|res| unsafe { mlx_sys::mlx_device_get_type(res, self.c_device) })
     }
 
-    /// Set the default device.
+    /// Set the process-wide default device.
     ///
-    /// # Example:
+    /// Prefer [with_device](crate::with_device) for safe, thread-local device selection.
+    ///
+    /// # Safety
+    ///
+    /// No other thread may be using MLX while this function runs. The change is visible
+    /// to every thread that has not scoped its own device or stream.
+    ///
+    /// # Example
     ///
     /// ```rust
-    /// use mlx_rs::{Device, DeviceType};
-    /// Device::set_default(&Device::new(DeviceType::Cpu, 1));
-    /// ```
+    /// use mlx_rs::Device;
     ///
-    /// By default, this is `gpu()`.
-    pub fn set_default(device: &Device) {
-        unsafe { mlx_sys::mlx_set_default_device(device.c_device) };
+    /// // SAFETY: No other thread is using MLX.
+    /// unsafe { Device::set_default(&Device::cpu())? };
+    /// # Ok::<(), mlx_rs::error::Exception>(())
+    /// ```
+    pub unsafe fn set_default(device: &Device) -> Result<()> {
+        <()>::try_from_op(|_| unsafe { mlx_sys::mlx_set_default_device(device.c_device) })
     }
 
     fn describe(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
