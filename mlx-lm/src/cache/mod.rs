@@ -311,6 +311,35 @@ impl Cache {
         }
         Ok(())
     }
+    pub(crate) fn supports_pipeline(&self) -> bool {
+        self.layers
+            .iter()
+            .all(|layer| layer.info(0).kind == CacheKind::Full)
+    }
+
+    pub(crate) fn speculative_step(&mut self, offset: usize) -> Result<CacheStep<'_>, CacheError> {
+        self.validate_ledger()?;
+        if !self.supports_pipeline() {
+            return Err(invalid("lookahead requires full caches"));
+        }
+        let mut step = self.begin_step()?;
+        for layer in &mut step.staged {
+            layer.set_length(offset)?;
+        }
+        Ok(step)
+    }
+
+    pub(crate) fn commit_input(&mut self, token: crate::TokenId) -> Result<(), CacheError> {
+        self.validate_ledger()?;
+        let pending = self.ledger.prepare(&[token])?;
+        let length = self.ledger.tokens().len() + 1;
+        for layer in &mut self.layers {
+            layer.set_length(length)?;
+        }
+        self.ledger.commit(pending);
+        Ok(())
+    }
+
     pub(crate) fn step_with_tokens(
         &mut self,
         tokens: &[crate::TokenId],
@@ -378,6 +407,9 @@ pub(crate) trait LayerCache: sealed::Sealed {
         self.clone_box()
     }
     fn rollback(&mut self, _staged: &mut dyn LayerCache) {}
+    fn set_length(&mut self, _length: usize) -> Result<(), CacheError> {
+        Err(invalid("length rollback requires a full cache"))
+    }
     fn take_buffer(&mut self) -> Option<Buffer> {
         None
     }
@@ -442,6 +474,16 @@ impl<'cache> CacheStep<'cache> {
                 .inspect_err(|_| self.cache.invalidate())
         })?;
         Ok((output, EvaluatedCacheStep { step: self }))
+    }
+    pub(crate) fn submit(mut self, outputs: &[&Array]) -> Result<(), crate::GenerationError> {
+        self.validate_complete()?;
+        if outputs.is_empty() {
+            return Ok(());
+        }
+        self.release_committed_buffers();
+        mlx_rs::transforms::async_eval(outputs.iter().copied())
+            .inspect_err(|_| self.cache.invalidate())?;
+        Ok(())
     }
     fn release_committed_buffers(&mut self) {
         for layer in &mut self.cache.layers {

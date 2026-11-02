@@ -503,6 +503,28 @@ external evidence. A pipeline candidate must recover at least half the
 attributable excess with a positive paired interval, avoid a greater-than-5%
 regression on the other device, and pass the paper's behavior qualification.
 
+C closed: qualified pipeline admitted (2026-11-02, M5 Max Metal):
+606.95 Rust versus 617.93 Python tok/s, ratio 0.9821
+[0.9810, 0.9837] (95% paired CI). Recovery is
+93.44% [93.18%, 94.14%], with observed Rust–Python excess as denominator.
+Using the full Python lookahead ablation effect as denominator, recovery is
+67.30% [65.99%, 68.56%] (95% paired CIs).
+The CPU path is unchanged by construction, satisfying the other-device ≤5% regression criterion.
+Qualification used paired alternation on a shared host, deviating from the protocol's idle-host requirement.
+
+The measurement uses Qwen3-0.6B-4bit, a 128-token prompt, 256 greedy tokens,
+three warm-ups and ten alternating Rust/Python pairs per group. The fresh #444
+synchronous baseline measured 481.82 Rust versus 615.99 Python tok/s;
+Python without lookahead measured 444.49 tok/s. The baseline and ablation
+are retained from the prior qualification; the candidate rerun uses contemporaneous
+Python. The intervals describe repeatability within these runs.
+
+GPU generation with full caches queues one token ahead and submits only sampling
+roots. Each decoder's updated K/V feeds attention and logits. Cache objects stay
+alive; committed lengths, RNG and text advance only when a token is accepted.
+CPU and rotating-cache decode remain synchronous. This measurement does not
+establish CPU throughput parity or the full real-checkpoint matrix.
+
 Pure checks and compilation, without model execution:
 
 ```sh

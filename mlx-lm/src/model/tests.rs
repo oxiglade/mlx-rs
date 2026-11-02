@@ -511,9 +511,11 @@ impl DecoderModel for ScriptedDecoder {
     ) -> Result<Array, InferenceError> {
         let call = self.calls;
         self.calls += 1;
+        let mut dependency = Array::from(0.0f32);
         for layer in 0..self.layout.len() {
             let values = tokens.as_dtype(Dtype::Float32)?.reshape(&[1, 1, -1, 1])?;
-            cache.update_and_fetch(layer, values.clone(), values)?;
+            let (keys, values) = cache.update_and_fetch(layer, values.clone(), values)?;
+            dependency = dependency.add(keys.sum(false)?)?.add(values.sum(false)?)?;
             if self.fail_at == Some(call) {
                 return Err(InferenceError::Exception(mlx_rs::error::Exception::from(
                     "injected forward failure",
@@ -522,7 +524,8 @@ impl DecoderModel for ScriptedDecoder {
         }
         if self.output[call.min(self.output.len() - 1)] == u32::MAX {
             return Ok(mlx_rs::ops::broadcast_to(
-                failing_row(self.config.dimensions.vocabulary_size)?,
+                failing_row(self.config.dimensions.vocabulary_size)?
+                    .add(dependency.multiply(Array::from(0.0f32))?)?,
                 &[
                     1,
                     tokens.dim(1),
@@ -534,7 +537,8 @@ impl DecoderModel for ScriptedDecoder {
         if self.empty_at != Some(call) {
             row[self.output[call.min(self.output.len() - 1)] as usize] = 0.0;
         }
-        let row = Array::from_slice(&row, &[1, 1, row.len() as i32]);
+        let row = Array::from_slice(&row, &[1, 1, row.len() as i32])
+            .add(dependency.multiply(Array::from(0.0f32))?)?;
         Ok(mlx_rs::ops::broadcast_to(
             row,
             &[
@@ -1315,3 +1319,5 @@ fn oracle_logprobs_capture_uses_the_same_generation_stream() -> TestResult {
         Ok(())
     })
 }
+
+mod pipeline;

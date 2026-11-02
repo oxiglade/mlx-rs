@@ -90,9 +90,17 @@ BrokenPipe. Process tests check the version-1 wire schema against
 [`hub_cases.json`](../conformance/mlx-lm/hub_cases.json). Inference tests need
 native MLX initialization, even for CPU execution.
 
-The [library README](../mlx-lm/README.md) records source profiles, ownership,
-errors, demand-gated capabilities and measured throughput: 38.2 tokens/s against
-upstream's 125.5 on the same machine and weights (Metal, Qwen3-0.6B-4bit,
-256 greedy tokens), a 3.3× gap under investigation in its own tranche. Report
-paths are in the [completed-wave record](../mlx-lm/SKELETON.md), and
+The [library README](../mlx-lm/README.md#throughput) records the current Metal
+measurement on Qwen3-0.6B-4bit, with a 128-token prompt and 256 greedy tokens.
+
+C closed: qualified pipeline admitted (2026-11-02, M5 Max Metal):
+606.95 Rust versus 617.93 Python tok/s, ratio 0.9821
+[0.9810, 0.9837] (95% paired CI). Recovery is
+93.44% [93.18%, 94.14%], with observed Rust–Python excess as denominator.
+Using the full Python lookahead ablation effect as denominator, recovery is
+67.30% [65.99%, 68.56%] (95% paired CIs).
+The CPU path is unchanged by construction, satisfying the other-device ≤5% regression criterion.
+Qualification used paired alternation on a shared host, deviating from the protocol's idle-host requirement.
+
+Measurement details and limitations are in the [completed-wave record](../mlx-lm/SKELETON.md), and
 [SUPPORT.md](../mlx-lm/SUPPORT.md) retains the release and performance decisions.

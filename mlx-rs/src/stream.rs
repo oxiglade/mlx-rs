@@ -253,6 +253,11 @@ impl Stream {
         })
     }
 
+    /// Returns the device this stream executes on.
+    pub fn device(&self) -> Result<Device> {
+        Device::try_from_op(|res| unsafe { mlx_sys::mlx_stream_get_device(res, self.c_stream) })
+    }
+
     /// Get the index of the stream.
     pub fn get_index(&self) -> Result<i32> {
         i32::try_from_op(|res| unsafe { mlx_sys::mlx_stream_get_index(res, self.c_stream) })
@@ -401,5 +406,30 @@ mod tests {
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr)
         );
+    }
+}
+
+#[cfg(test)]
+mod device_tests {
+    use super::*;
+
+    #[test]
+    fn stream_device_survives_stream_drop_and_respects_scopes() -> Result<()> {
+        for device in [
+            Device::cpu(),
+            #[cfg(feature = "metal")]
+            Device::gpu(),
+        ] {
+            let stream = Stream::new_with_device(&device);
+            let queried = stream.device()?;
+            assert_eq!(queried, device);
+            with_stream(&stream, || -> Result<()> {
+                assert_eq!(Stream::thread_local_or_default().device()?, device);
+                Ok(())
+            })?;
+            drop(stream);
+            assert_eq!(queried, device);
+        }
+        Ok(())
     }
 }
