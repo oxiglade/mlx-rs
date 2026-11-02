@@ -262,7 +262,7 @@ fn progress(model: &mut Model, fixture: &Fixture) -> Result<()> {
             }
         }
         ensure!(token_count == 1, "expected one sampled token");
-        actual.insert(name.clone(), json!({"ceiling": case["ceiling"], "token_ids": ids(generation.cache().tokens()), "pairs": pairs}));
+        actual.insert(name.clone(), json!({"ceiling": case["ceiling"], "token_ids": ids(generation.cache()?.tokens()?), "pairs": pairs}));
     }
     compare(
         "prefill.progress",
