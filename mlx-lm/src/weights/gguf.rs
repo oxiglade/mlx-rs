@@ -417,6 +417,7 @@ mod tests {
             crate::config::RawConfig::from_bytes(&serde_json::to_vec(&doc["config"]["bridge"])?)?;
         let factory = crate::arch::factory(&raw.model_type)?;
         let config = match factory.parse_config(&raw)? {
+            crate::arch::ParsedArchitecture::Gemma4(p) => p.config,
             crate::arch::ParsedArchitecture::Llama(p) => p.config,
             crate::arch::ParsedArchitecture::Qwen3(p) => p.config,
         };
