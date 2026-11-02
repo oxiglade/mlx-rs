@@ -37,10 +37,10 @@ placeholder rows.
   `cargo xtask verify-lm-features` compiles positive and negative
   external consumers; separate dependency-tree checks verify base-build isolation.
 
-The host's real-checkpoint inputs are
-`/Users/ci/hub/assets/mlx-lm-checkpoints/real-checkpoints.json`; `bound.json` in
-that directory binds `python-real-report.json`. The Rust result is
-`/Users/ci/hub/scratch/mlx-lm/t4/real-rust3.log`. It reports all six CPU cases
+A prior real-checkpoint run used a local `real-checkpoints.json` manifest.
+The accompanying `bound.json` bound `python-real-report.json` in the same
+directory. The Rust verification log recorded the comparison against that
+Python report: all six CPU cases passed
 with exact equality for 32 greedy IDs. Metal passed all six under ruling Q:
 Llama BF16 is tie-limited at step 13 (gap 0.125), Qwen3 BF16 at step 1
 (gap 0.125), and Qwen3 four-bit at step 1 (gap 0); Llama four-bit and both

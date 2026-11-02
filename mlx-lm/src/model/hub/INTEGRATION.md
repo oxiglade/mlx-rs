@@ -130,8 +130,7 @@ The SDK/compiler override used `/usr/bin`,
 `SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk`, and
 `DEVELOPER_DIR=/Library/Developer/CommandLineTools`. Native dependency fetching
 was unavailable, so the temporary copy's build script reused MLX archives and
-bindings from
-`/Users/ci/hub/scratch/verify-target-final/debug/build/mlx-sys-a2784c607c853d3e/out`.
+bindings from a prior mlx-sys build directory.
 No native build-script changes were made in the worktree. Native source rebuild,
 Metal execution, and Python MLX execution are not claimed.
 
