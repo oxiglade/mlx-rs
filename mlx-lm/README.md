@@ -108,6 +108,20 @@ tokens for prompt length `P`; it has not forwarded that final sampled token.
 Cache reuse requires the same model, compatible policy and an exact cached
 prompt prefix with a nonempty suffix.
 
+An abandoned step preserves committed tokens and K/V contents up to the committed
+length. Before evaluation or submission, it restores the original handles. After
+successful evaluation or submission, full caches keep the new buffers at the
+committed length. Unused tail contents and capacity may change. Rotating caches
+copy handles because they overwrite committed positions. Live snapshots can
+prevent buffer donation.
+
+Failed evaluation or submission invalidates only the cache involved. This includes
+failed speculative submission even if generation stops at the preceding token.
+Reads, updates, snapshots, restores and reuse return `CacheError::Invalidated`.
+Call `Cache::reset()` and prefill again. Reset discards all cached tokens and buffers.
+Existing snapshots and other caches restored from them remain valid.
+A sampling-only failure leaves an untouched cache valid.
+
 Rotation can retain capacity plus a prefill chunk until later updates; snapshots
 retain old storage. Streaming decoding retains generated IDs and emitted text.
 There is no constant-total-host-memory or zero-allocation guarantee. Chat

@@ -67,8 +67,8 @@ impl Footprint {
         })
     }
 
-    fn kv_bytes(&self, cache: &Cache) -> usize {
-        cache.info().map(|info| info.capacity).sum::<usize>() * self.kv_bytes_per_position
+    fn kv_bytes(&self, cache: &Cache) -> Result<usize> {
+        Ok(cache.info()?.map(|info| info.capacity).sum::<usize>() * self.kv_bytes_per_position)
     }
 }
 
@@ -85,14 +85,14 @@ impl MemoryGuard {
         Ok(Self {
             name: name.to_owned(),
             warm_active,
-            warm_kv: footprint.kv_bytes(cache),
+            warm_kv: footprint.kv_bytes(cache)?,
             first: None,
         })
     }
 
     fn checkpoint(&mut self, count: usize, footprint: &Footprint, cache: &Cache) -> Result<()> {
         let active = report(&self.name, "checkpoint", count, footprint, cache, 0)?;
-        let kv = footprint.kv_bytes(cache);
+        let kv = footprint.kv_bytes(cache)?;
         let expected_growth = kv as i128 - self.warm_kv as i128;
         let slack = 2 * kv + MIB;
         let envelope = self.warm_active as i128 + expected_growth + slack as i128;
@@ -128,7 +128,7 @@ fn report(
     let allocator = memory::cache_memory()?;
     eprintln!(
         "memory scenario={name} phase={phase} count={count} model_payload_bytes={} configured_kv_bytes={} active_bytes={active} allocator_cache_bytes={allocator} held_snapshots={snapshots} layers={:?}",
-        footprint.model_bytes, footprint.kv_bytes(cache), cache.info().collect::<Vec<_>>(),
+        footprint.model_bytes, footprint.kv_bytes(cache)?, cache.info()?.collect::<Vec<_>>(),
     );
     Ok(active)
 }
@@ -176,16 +176,16 @@ fn long_generation(
             guard = Some(MemoryGuard::warm(
                 &scenario,
                 &footprint,
-                generation.cache(),
+                generation.cache()?,
             )?);
         }
         if workload.measure_memory && CHECKPOINTS.contains(&updates) {
             guard
                 .as_mut()
                 .unwrap()
-                .checkpoint(updates, &footprint, generation.cache())?;
+                .checkpoint(updates, &footprint, generation.cache()?)?;
         }
-        for info in generation.cache().info() {
+        for info in generation.cache()?.info()? {
             ensure!(info.processed_tokens == prompt.len() + count - 1);
             if rotating {
                 ensure!(info.kind == CacheKind::Rotating && info.capacity == 32);
@@ -206,8 +206,8 @@ fn reuse_growth(name: &str, workload: Workload) -> Result<()> {
     let footprint = Footprint::read(name, &model)?;
     let options = options(1, CachePolicy::Full);
     let mut cache = model.new_cache(options.cache.clone())?;
-    ensure!(cache.info().all(|info| info.capacity == 16));
-    let mut capacities = vec![cache.info().next().unwrap().capacity];
+    ensure!(cache.info()?.all(|info| info.capacity == 16));
+    let mut capacities = vec![cache.info()?.next().unwrap().capacity];
     let mut full_prompt = Vec::new();
     let mut guard = None;
     for count in 1..=workload.samples {
@@ -216,13 +216,13 @@ fn reuse_growth(name: &str, workload: Workload) -> Result<()> {
             model.generate_with_cache(Prompt::Tokens(&full_prompt), options.clone(), &mut cache)?;
         ensure!(consume(&mut generation)? == (1, FinishReason::Length));
         drop(generation);
-        ensure!(cache.tokens() == full_prompt);
-        let capacity = cache.info().next().unwrap().capacity;
+        ensure!(cache.tokens()? == full_prompt);
+        let capacity = cache.info()?.next().unwrap().capacity;
         if capacities.last() != Some(&capacity) {
             capacities.push(capacity);
         }
         ensure!(cache
-            .info()
+            .info()?
             .all(|info| info.capacity == capacity && info.processed_tokens == count));
         if workload.measure_memory && count == 64 {
             guard = Some(MemoryGuard::warm(
@@ -275,7 +275,7 @@ fn sliding_prefill_and_snapshot(workload: Workload) -> Result<()> {
             GenerationEvent::Prefill {
                 processed, total, ..
             } if processed > 0 && processed < total => {
-                oversized |= generation.cache().info().any(|info| {
+                oversized |= generation.cache()?.info()?.any(|info| {
                     info.kind == CacheKind::Rotating
                         && info.retained_positions.len() > info.capacity
                 });
@@ -284,7 +284,7 @@ fn sliding_prefill_and_snapshot(workload: Workload) -> Result<()> {
                 count += 1;
                 ensure!(finish_reason == (count == samples).then_some(FinishReason::Length));
                 if count == 16 {
-                    saved_tokens = generation.cache().tokens().to_vec();
+                    saved_tokens = generation.cache()?.tokens()?.to_vec();
                     snapshot = Some(generation.snapshot()?);
                     if workload.measure_memory {
                         report(
@@ -292,13 +292,13 @@ fn sliding_prefill_and_snapshot(workload: Workload) -> Result<()> {
                             "snapshot-retained",
                             count,
                             &footprint,
-                            generation.cache(),
+                            generation.cache()?,
                             1,
                         )?;
                     }
                 }
                 if count > 1 {
-                    for info in generation.cache().info() {
+                    for info in generation.cache()?.info()? {
                         if info.kind == CacheKind::Rotating {
                             ensure!(info.capacity == 5 && info.retained_prefix.is_empty());
                             ensure!(info.retained_positions.len() <= 5);
@@ -312,9 +312,9 @@ fn sliding_prefill_and_snapshot(workload: Workload) -> Result<()> {
     ensure!(oversized && count == samples);
     drop(generation);
     cache.restore(snapshot.context("snapshot not captured")?)?;
-    ensure!(cache.tokens() == saved_tokens);
+    ensure!(cache.tokens()? == saved_tokens);
     ensure!(cache
-        .info()
+        .info()?
         .all(|info| info.processed_tokens == saved_tokens.len()));
     saved_tokens.push(TokenId::from(12));
     let mut generation = model.generate_with_cache(
@@ -407,8 +407,8 @@ fn completions_and_cancellation(model: &mut Model) -> Result<()> {
             }
         }
         drop(generation);
-        ensure!(cache.tokens() == &prompt[..expected]);
-        ensure!(cache.info().all(|info| info.processed_tokens == expected));
+        ensure!(cache.tokens()? == &prompt[..expected]);
+        ensure!(cache.info()?.all(|info| info.processed_tokens == expected));
     }
     Ok(())
 }
@@ -432,13 +432,13 @@ fn load_drop_cycles(workload: Workload) -> Result<()> {
                 model.generate(Prompt::Tokens(&prompt()), options(8, CachePolicy::Full))?;
             ensure!(consume(&mut generation)? == (8, FinishReason::Length));
             if workload.measure_memory {
-                slack = slack.max(2 * footprint.kv_bytes(generation.cache()) + MIB);
+                slack = slack.max(2 * footprint.kv_bytes(generation.cache()?)? + MIB);
                 report(
                     name,
                     "load-generate-drop",
                     cycle,
                     &footprint,
-                    generation.cache(),
+                    generation.cache()?,
                     0,
                 )?;
             }
