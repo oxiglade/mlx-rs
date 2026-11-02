@@ -1,6 +1,7 @@
 pub(crate) mod gguf;
 #[cfg(feature = "hf-hub")]
 mod hub;
+mod pipeline;
 pub use crate::error::GenerationError;
 use crate::{
     arch::DecoderModel, AdditivePenaltyOptions, Cache, CacheError, CacheOptions, CacheSnapshot,
@@ -139,6 +140,9 @@ impl Model {
         options: GenerationOptions,
         cache: Option<&'a mut Cache>,
     ) -> Result<Generation<'a>, GenerationError> {
+        if let Some(cache) = &cache {
+            cache.ensure_valid()?;
+        }
         let vocabulary_size = self.config.dimensions.vocabulary_size;
         let sampling = SamplingEngine::new(
             options.sampling,
@@ -211,6 +215,14 @@ impl Model {
                 Rc::clone(&self.identity),
             )?),
         };
+        let stream = mlx_rs::Stream::thread_local_or_default();
+        let pipeline_stream = if matches!(stream.device()?.get_type()?, mlx_rs::DeviceType::Gpu)
+            && cache.get().supports_pipeline()
+        {
+            Some(stream)
+        } else {
+            None
+        };
         Ok(Generation {
             decoder: self.decoder.as_mut(),
             cache,
@@ -232,6 +244,8 @@ impl Model {
             state: GenerationState::Start,
             capture_logprobs: false,
             first_logprobs: None,
+            pipeline_stream,
+            pending: None,
         })
     }
 }
@@ -448,11 +462,15 @@ pub struct Generation<'model> {
     state: GenerationState,
     capture_logprobs: bool,
     first_logprobs: Option<Array>,
+    pipeline_stream: Option<mlx_rs::Stream>,
+    pending: Option<Result<crate::sampling::SamplePlan, GenerationError>>,
 }
 impl<'model> Generation<'model> {
     /// Borrows the cache at the most recent completed event boundary.
-    pub fn cache(&self) -> &Cache {
-        self.cache.get()
+    /// Returns [`CacheError::Invalidated`] after cache evaluation or submission fails.
+    pub fn cache(&self) -> Result<&Cache, CacheError> {
+        self.cache.get().ensure_valid()?;
+        Ok(self.cache.get())
     }
     /// Captures cache state only, excluding RNG, detokenizer, and iterator state.
     pub fn snapshot(&mut self) -> Result<CacheSnapshot, CacheError> {
@@ -478,39 +496,15 @@ impl<'model> Generation<'model> {
                     total,
                 })
             }
-            GenerationState::Prefill => {
-                let remaining = total - self.processed;
-                let count = if remaining == 1 {
-                    1
-                } else {
-                    self.chunk.get().min(remaining - 1)
-                };
-                let start = self.cached + self.processed;
-                let ids = &self.prompt[start..start + count];
-                let tokens = token_array(ids)?;
-                let mut step = self.cache.get_mut().step_with_tokens(ids)?;
-                if let Some(capacity) = self.reserve {
-                    step.reserve(capacity)?;
-                }
-                let logits = self.decoder.forward(&tokens, &mut step)?;
-                let row = if remaining == 1 {
-                    Some(last_row(&logits)?)
-                } else {
-                    None
-                };
-                step.evaluate(&[row.as_ref().unwrap_or(&logits)])
-                    .map_err(evaluation_error)?
-                    .commit();
-                self.reserve = None;
-                self.processed += count;
-                self.state = match row {
-                    Some(row) => GenerationState::FirstSample(row),
-                    None => GenerationState::Prefill,
-                };
-                Ok(GenerationEvent::Prefill {
-                    processed: self.processed,
-                    total,
-                })
+            GenerationState::Prefill => match self.pipeline_stream.clone() {
+                Some(stream) => mlx_rs::with_stream(&stream, || self.prefill(total)),
+                None => self.prefill(total),
+            },
+            GenerationState::FirstSample(logits) if self.pipeline_stream.is_some() => {
+                self.first_pipelined(logits)
+            }
+            GenerationState::Decode(previous) if self.pipeline_stream.is_some() => {
+                self.next_pipelined(previous)
             }
             GenerationState::FirstSample(logits) => {
                 let sample = self.sampling.sample(
@@ -526,14 +520,18 @@ impl<'model> Generation<'model> {
                 let mut step = self.cache.get_mut().step_with_tokens(&[previous])?;
                 let logits = self.decoder.forward(&tokens, &mut step)?;
                 let row = last_row(&logits)?;
-                let sample = self
-                    .sampling
-                    .sample(&self.history, row, self.rng.as_ref(), false)?;
-                let mut outputs = vec![&logits, &sample.token];
-                if let Some(rng) = &sample.rng {
-                    outputs.push(rng.as_array());
-                }
-                let guard = step.evaluate(&outputs).map_err(evaluation_error)?;
+                let (sample, guard) = step.evaluate_outputs(|cache_arrays, evaluate| {
+                    let mut outputs = cache_arrays.to_vec();
+                    outputs.push(&logits);
+                    self.sampling.sample_with_evaluator(
+                        &self.history,
+                        row,
+                        self.rng.as_ref(),
+                        false,
+                        &outputs,
+                        &mut |arrays| evaluate(arrays),
+                    )
+                })?;
                 let token = sample_token(&sample)?;
                 let stop = self.stop_tokens.contains(&token);
                 let text = self
@@ -547,6 +545,41 @@ impl<'model> Generation<'model> {
             }
             GenerationState::Done => unreachable!("done is handled by next"),
         }
+    }
+
+    fn prefill(&mut self, total: usize) -> Result<GenerationEvent, GenerationError> {
+        let remaining = total - self.processed;
+        let count = if remaining == 1 {
+            1
+        } else {
+            self.chunk.get().min(remaining - 1)
+        };
+        let start = self.cached + self.processed;
+        let ids = &self.prompt[start..start + count];
+        let tokens = token_array(ids)?;
+        let mut step = self.cache.get_mut().step_with_tokens(ids)?;
+        if let Some(capacity) = self.reserve {
+            step.reserve(capacity)?;
+        }
+        let logits = self.decoder.forward(&tokens, &mut step)?;
+        let row = if remaining == 1 {
+            Some(last_row(&logits)?)
+        } else {
+            None
+        };
+        step.evaluate(&[row.as_ref().unwrap_or(&logits)])
+            .map_err(evaluation_error)?
+            .commit();
+        self.reserve = None;
+        self.processed += count;
+        self.state = match row {
+            Some(row) => GenerationState::FirstSample(row),
+            None => GenerationState::Prefill,
+        };
+        Ok(GenerationEvent::Prefill {
+            processed: self.processed,
+            total,
+        })
     }
 
     fn accept(&mut self, sample: PendingSample) -> Result<GenerationEvent, GenerationError> {
@@ -628,6 +661,7 @@ impl Iterator for Generation<'_> {
         let result = self.advance(state);
         if result.is_err() {
             self.text = None;
+            self.discard_pending();
         }
         Some(result)
     }

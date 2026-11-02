@@ -92,7 +92,7 @@ fn compare_cache(
     let states = doc["cache"][label].as_array().context("cache states")?;
     let views = cache.logical_layers()?;
     ensure!(views.len() == states.len(), "layer count");
-    for (info, view) in cache.info().zip(views) {
+    for (info, view) in cache.info()?.zip(views) {
         let state = &states[info.layer];
         ensure!(json!(info.processed_tokens) == state["offset"], "offset");
         ensure!(

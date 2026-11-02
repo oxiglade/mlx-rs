@@ -543,7 +543,8 @@ pub fn run_matrix(manifest: &Value) -> Result<()> {
                         }
                     }
                     ensure!(
-                        generation.cache().tokens().get(..prompt.len()) == Some(prompt.as_slice()),
+                        generation.cache()?.tokens()?.get(..prompt.len())
+                            == Some(prompt.as_slice()),
                         "generation's original-string prompt IDs differ"
                     );
                     ensure!(

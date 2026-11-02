@@ -5,6 +5,8 @@ use crate::{
     Config, ConfigError, InferenceError, LoadError, WeightError,
 };
 use mlx_rs::{utils::StateProjection, Array};
+mod activation;
+mod attention;
 pub(crate) mod gguf;
 pub(crate) mod llama;
 pub(crate) mod qwen3;
@@ -41,6 +43,7 @@ pub(crate) trait DecoderModel {
     /// Borrows layer cache requirements in decoder order.
     fn cache_layout(&self) -> &[LayerCacheSpec];
     /// Constructs full-position logits against a staged cache transaction.
+    /// Every staged K/V write must feed the logits: GPU decode submits only sampling roots.
     fn forward(
         &mut self,
         tokens: &Array,

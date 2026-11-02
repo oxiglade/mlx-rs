@@ -1,7 +1,7 @@
 # CLI implementation plan
 
-The approved design is item 4 and §2.8 of
-`/Users/ci/hub/scratch/mlx-lm/t4/position-astra.md`, overridden by DECISIONS A–M.
+The CLI grammar, output schema and supported loading behavior are documented in
+[README.md](README.md).
 Only `mlx-lm-cli/**` may change; no commits, downloads, Metal execution, or Python MLX.
 
 1. Add the unpublished binary manifest and `args.rs`. Test defaults, exact prompt/stop

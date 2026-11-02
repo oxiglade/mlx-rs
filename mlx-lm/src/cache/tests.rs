@@ -61,7 +61,10 @@ fn append(cache: &mut Cache, data: &[f32]) -> Result<(Array, Array), CacheError>
     result.ok_or_else(|| invalid("no test layers"))
 }
 fn first_info(cache: &Cache) -> Result<CacheInfo, CacheError> {
-    cache.info().next().ok_or_else(|| invalid("no test layers"))
+    cache
+        .info()?
+        .next()
+        .ok_or_else(|| invalid("no test layers"))
 }
 
 fn exact_contents(array: &Array) -> Result<Vec<f32>, CacheError> {
@@ -338,22 +341,14 @@ fn transaction_rollback_and_snapshot_restore() -> TestResult {
         ));
         assert!(matches!(step.commit(), Err(CacheError::InvalidState(_))));
     }
-    assert_eq!(first_info(&cache)?.capacity, 2);
+    assert_eq!(first_info(&cache)?.processed_tokens, 2);
     {
         let mut step = cache.step()?;
         for layer in 0..2 {
             step.update_and_fetch(layer, tokens(&[3.])?, tokens(&[-3.])?)?;
         }
         let output = tokens(&[99.])?;
-        let error = step.evaluate_with(&[&output], |arrays| {
-            assert_eq!(arrays.len(), 5);
-            assert_eq!(
-                arrays.last().map(|array| array.shape()),
-                Some(&[1, 1, 1, 1][..])
-            );
-            Err(invalid("injected evaluation failure"))
-        });
-        assert!(matches!(error, Err(CacheError::InvalidState(_))));
+        drop(step.evaluate(&[&output])?);
     }
     assert_eq!(first_info(&cache)?.processed_tokens, 2);
     let (keys, _) = append(&mut cache, &[4.])?;
@@ -675,8 +670,8 @@ fn cache_state(cache: &Cache) -> Result<CacheState, CacheError> {
             .layers
             .iter()
             .map(|layer| {
-                let (keys, values) = layer.arrays();
-                Ok((contents(keys)?, contents(values)?))
+                let (keys, values) = layer.arrays()?;
+                Ok((contents(&keys)?, contents(&values)?))
             })
             .collect::<Result<_, CacheError>>()?,
         temporal: cache
@@ -687,8 +682,20 @@ fn cache_state(cache: &Cache) -> Result<CacheState, CacheError> {
                 Ok((contents(&keys)?, contents(&values)?))
             })
             .collect::<Result<_, CacheError>>()?,
-        ids: cache.tokens().to_vec(),
+        ids: cache.tokens()?.to_vec(),
     })
+}
+
+fn assert_committed(cache: &Cache, before: &CacheState) -> TestResult {
+    let after = cache_state(cache)?;
+    assert_eq!(after.temporal, before.temporal);
+    assert_eq!(after.ids, before.ids);
+    for (after, before) in after.fingerprints.iter().zip(&before.fingerprints) {
+        assert_eq!(after.processed_tokens, before.processed_tokens);
+        assert_eq!(after.length, before.length);
+        assert_eq!(after.index, before.index);
+    }
+    Ok(())
 }
 
 #[test]
@@ -704,14 +711,7 @@ fn evaluated_guard_rolls_back_layers_and_ledger() -> TestResult {
     append_ids(&mut cache, &[1, 2])?;
     let snapshot = cache.snapshot()?;
     let before = cache_state(&cache)?;
-    for failure in [
-        "drop",
-        "evaluation",
-        "incomplete",
-        "count",
-        "layer",
-        "evaluated",
-    ] {
+    for failure in ["drop", "incomplete", "count", "layer", "evaluated"] {
         let mut step = cache.step_with_tokens(&[3.into()])?;
         step.reserve(nonzero(32)?)?;
         step.update_and_fetch(0, tokens(&[3.])?, tokens(&[-3.])?)?;
@@ -740,22 +740,10 @@ fn evaluated_guard_rolls_back_layers_and_ledger() -> TestResult {
             _ => {
                 step.update_and_fetch(1, tokens(&[3.])?, tokens(&[-3.])?)?;
                 let output = tokens(&[99.])?;
-                if failure == "evaluation" {
-                    assert!(matches!(
-                        step.evaluate_with(&[&output], |arrays| {
-                            assert_eq!(arrays.len(), 5);
-                            Err(invalid("injected evaluation failure"))
-                        }),
-                        Err(CacheError::InvalidState(_))
-                    ));
-                } else {
-                    let evaluated = step.evaluate(&[&output])?;
-                    assert_eq!(cache_state(evaluated.cache)?, before);
-                    drop(evaluated);
-                }
+                drop(step.evaluate(&[&output])?);
             }
         }
-        assert_eq!(cache_state(&cache)?, before);
+        assert_committed(&cache, &before)?;
         assert!(Rc::ptr_eq(&cache.ledger.ids, &snapshot.ledger.ids));
     }
     let mut step = cache.step_with_tokens(&[3.into(), 4.into()])?;
@@ -766,9 +754,9 @@ fn evaluated_guard_rolls_back_layers_and_ledger() -> TestResult {
         step.evaluate(&[]),
         Err(CacheError::InvalidState(_))
     ));
-    assert_eq!(cache_state(&cache)?, before);
+    assert_committed(&cache, &before)?;
     append_ids(&mut cache, &[5])?;
-    assert_eq!(cache.tokens(), &[1.into(), 2.into(), 5.into()]);
+    assert_eq!(cache.tokens()?, &[1.into(), 2.into(), 5.into()]);
     Ok(())
 }
 
@@ -880,7 +868,7 @@ fn reuse_rejects_before_mutation_and_reserves_staged_growth() -> Result<(), crat
     let mut step = cache.step_with_tokens(&prompt[2..])?;
     step.reserve(checked_capacity(prompt.len(), nonzero(20)?)?)?;
     assert_eq!(
-        step.cache.info().map(|i| i.capacity).collect::<Vec<_>>(),
+        step.cache.info()?.map(|i| i.capacity).collect::<Vec<_>>(),
         [2, 2]
     );
     for layer in 0..2 {
@@ -888,10 +876,10 @@ fn reuse_rejects_before_mutation_and_reserves_staged_growth() -> Result<(), crat
     }
     step.evaluate_and_commit(&[])?;
     assert_eq!(
-        cache.info().map(|i| i.capacity).collect::<Vec<_>>(),
+        cache.info()?.map(|i| i.capacity).collect::<Vec<_>>(),
         [32, 32]
     );
-    assert_eq!(cache.tokens(), prompt);
+    assert_eq!(cache.tokens()?, prompt);
     let fresh = Cache::new_for_model(
         architecture,
         &layout,
@@ -900,7 +888,7 @@ fn reuse_rejects_before_mutation_and_reserves_staged_growth() -> Result<(), crat
         identity,
     )?;
     assert_eq!(
-        fresh.info().map(|i| i.capacity).collect::<Vec<_>>(),
+        fresh.info()?.map(|i| i.capacity).collect::<Vec<_>>(),
         [23, 23]
     );
     Ok(())
@@ -968,9 +956,9 @@ fn fixture_trim_after_wrap_golden() -> TestResult {
         );
         let array =
             |name: &str| fixture_array(&tensors, &format!("cache.trim_after_wrap.{stage}.{name}"));
-        let raw = storage.arrays();
-        equal_array(raw.0, &array("raw_keys")?)?;
-        equal_array(raw.1, &array("raw_values")?)?;
+        let raw = storage.arrays()?;
+        equal_array(&raw.0, &array("raw_keys")?)?;
+        equal_array(&raw.1, &array("raw_values")?)?;
         let temporal = storage.logical_arrays()?;
         let expected = (array("temporal_keys")?, array("temporal_values")?);
         equal_array(&temporal.0, &expected.0)?;
@@ -1097,12 +1085,12 @@ fn fixture_reuse_matches_fresh_forward() -> Result<(), Box<dyn std::error::Error
             let full = forward_ids(decoder.as_mut(), &mut fresh, &prompt, None)?;
             let expected = full.try_index((.., dimension(start)?.., ..))?;
             close_array(&actual, &expected, &document["tolerances"]["logits"])?;
-            assert_eq!(reused.tokens(), prompt);
+            assert_eq!(reused.tokens()?, prompt);
             for id in &prompt[..4] {
                 let actual = forward_ids(decoder.as_mut(), &mut reused, &[*id], None)?;
                 let expected = forward_ids(decoder.as_mut(), &mut fresh, &[*id], None)?;
                 close_array(&actual, &expected, &document["tolerances"]["logits"])?;
-                assert_eq!(reused.tokens(), fresh.tokens());
+                assert_eq!(reused.tokens()?, fresh.tokens()?);
                 let actual = reused.logical_layers()?;
                 let expected = fresh.logical_layers()?;
                 assert_eq!(actual.len(), expected.len());
@@ -1172,4 +1160,335 @@ fn pure_resolved_policy_agreement() -> TestResult {
     layout.attention = crate::AttentionKind::Full;
     validate_policy(&fingerprint, &layout, &CachePolicy::ModelDefault)?;
     Ok(())
+}
+
+#[test]
+fn failed_lazy_append_invalidates_cache() -> Result<(), Box<dyn std::error::Error>> {
+    mlx_rs::with_device(
+        mlx_rs::Device::cpu(),
+        || -> Result<(), Box<dyn std::error::Error>> {
+            let mut cache = make_cache(CachePolicy::Full, 1, 16)?;
+            append(&mut cache, &[1., 2.])?;
+            let bad = mlx_rs::linalg::inv(Array::from_slice(&[0.0f32], &[1, 1]))?
+                .reshape(&[1, 1, 1, 1])?;
+            let mut step = cache.step()?;
+            step.update_and_fetch(0, bad, tokens(&[3.])?)?;
+            assert!(matches!(step.evaluate(&[]), Err(CacheError::Exception(_))));
+            assert_invalidated(&mut cache)?;
+            cache.reset()?;
+            let (keys, values) = append(&mut cache, &[4.])?;
+            assert_eq!(contents(&keys)?, [4.]);
+            assert_eq!(contents(&values)?, [-4.]);
+            Ok(())
+        },
+    )
+}
+
+#[test]
+fn abandoned_steps_preserve_committed_prefix_on_cpu_and_metal() -> TestResult {
+    for device in [mlx_rs::Device::cpu(), mlx_rs::Device::gpu()] {
+        mlx_rs::with_device(device, || -> TestResult {
+            for policy in [
+                CachePolicy::Full,
+                CachePolicy::Rotating {
+                    capacity: nonzero(5)?,
+                    keep_prefix: 2,
+                },
+            ] {
+                for count in [1, 2, 5, 16, 17, 32] {
+                    let mut cache = make_cache(policy.clone(), 2, 2)?;
+                    for index in 0..count {
+                        append(&mut cache, &[index as f32])?;
+                    }
+                    let before = cache_state(&cache)?;
+                    for evaluated in [false, true] {
+                        let mut step = cache.step()?;
+                        for layer in 0..2 {
+                            step.update_and_fetch(layer, tokens(&[999.])?, tokens(&[-999.])?)?;
+                        }
+                        if evaluated {
+                            drop(step.evaluate(&[])?);
+                        } else {
+                            drop(step);
+                        }
+                        assert_committed(&cache, &before)?;
+                    }
+                    let (keys, _) = append(&mut cache, &[123.])?;
+                    assert_eq!(contents(&keys)?.last(), Some(&123.));
+                }
+            }
+            Ok(())
+        })?;
+    }
+    Ok(())
+}
+
+#[test]
+fn failed_metal_append_does_not_retain_the_failed_graph() -> Result<(), Box<dyn std::error::Error>>
+{
+    use mlx_rs::fast::{
+        MetalKernel, MetalKernelApplyOptions, MetalKernelOptions, MetalKernelOutput,
+    };
+    mlx_rs::with_device(
+        mlx_rs::Device::gpu(),
+        || -> Result<(), Box<dyn std::error::Error>> {
+            for abandon_first in [false, true] {
+                let mut cache = make_cache(CachePolicy::Full, 1, 32)?;
+                for index in 0..17 {
+                    append(&mut cache, &[index as f32])?;
+                }
+                let kernel = MetalKernel::new(
+                    "cache_recovery_failure",
+                    &[],
+                    &["out"],
+                    "\n#error injected_cache_failure\nout[0] = 1.0f;",
+                    MetalKernelOptions::default(),
+                )?;
+                // SAFETY: Compilation fails; the body otherwise writes the sole f32 output once.
+                let mut outputs = unsafe {
+                    kernel.apply(
+                        &[] as &[Array],
+                        &[MetalKernelOutput {
+                            shape: vec![1, 1, 1, 1],
+                            dtype: Dtype::Float32,
+                        }],
+                        (1, 1, 1),
+                        (1, 1, 1),
+                        MetalKernelApplyOptions::default(),
+                    )?
+                };
+                let mut step = cache.step()?;
+                step.update_and_fetch(0, outputs.remove(0), tokens(&[99.])?)?;
+                if abandon_first {
+                    drop(step);
+                    let snapshot = cache.snapshot()?;
+                    let (keys, values) = append(&mut cache, &[123.])?;
+                    assert_eq!(contents(&keys)?.last(), Some(&123.));
+                    assert_eq!(contents(&values)?.last(), Some(&-123.));
+                    cache.reset()?;
+                    cache.restore(snapshot)?;
+                    assert_eq!(cache.info()?.next().unwrap().processed_tokens, 17);
+                } else {
+                    assert!(matches!(step.evaluate(&[]), Err(CacheError::Exception(_))));
+                    assert_invalidated(&mut cache)?;
+                }
+                cache.reset()?;
+                let (keys, values) = append(&mut cache, &[4.])?;
+                assert_eq!(contents(&keys)?, [4.]);
+                assert_eq!(contents(&values)?, [-4.]);
+            }
+            Ok(())
+        },
+    )
+}
+
+fn assert_invalidated(cache: &mut Cache) -> TestResult {
+    assert!(matches!(cache.info(), Err(CacheError::Invalidated)));
+    assert!(matches!(cache.tokens(), Err(CacheError::Invalidated)));
+    assert!(matches!(
+        cache.logical_layers(),
+        Err(CacheError::Invalidated)
+    ));
+    assert!(matches!(cache.snapshot(), Err(CacheError::Invalidated)));
+    assert!(matches!(cache.step(), Err(CacheError::Invalidated)));
+    assert!(matches!(
+        cache.step_with_tokens(&[1.into()]),
+        Err(CacheError::Invalidated)
+    ));
+    assert!(matches!(
+        cache.validate_reuse(
+            &cache.model_identity,
+            &cache.architecture,
+            &[spec()],
+            &CacheOptions::default(),
+            &[1.into()]
+        ),
+        Err(crate::GenerationError::Cache(CacheError::Invalidated))
+    ));
+    Ok(())
+}
+
+#[test]
+fn evaluation_failure_invalidates_full_and_rotating_caches() -> TestResult {
+    for device in [mlx_rs::Device::cpu(), mlx_rs::Device::gpu()] {
+        mlx_rs::with_device(device, || -> TestResult {
+            for policy in [
+                CachePolicy::Full,
+                CachePolicy::Rotating {
+                    capacity: nonzero(5)?,
+                    keep_prefix: 2,
+                },
+            ] {
+                for after_eval in [false, true] {
+                    let mut cache = make_cache(policy.clone(), 2, 2)?;
+                    append(&mut cache, &[1., 2., 3., 4., 5.])?;
+                    let before = cache_state(&cache)?;
+                    let snapshot = cache.snapshot()?;
+                    let mut step = cache.step()?;
+                    for layer in 0..2 {
+                        step.update_and_fetch(layer, tokens(&[99.])?, tokens(&[-99.])?)?;
+                    }
+                    let error = step
+                        .evaluate_with(&[], |arrays| {
+                            if after_eval {
+                                mlx_rs::transforms::eval(arrays.iter().copied())?;
+                            }
+                            Err(
+                                mlx_rs::error::Exception::from("injected evaluation failure")
+                                    .into(),
+                            )
+                        })
+                        .err()
+                        .expect("evaluation must fail");
+                    assert!(
+                        matches!(error, CacheError::Exception(source) if source.what() == "injected evaluation failure")
+                    );
+                    assert_invalidated(&mut cache)?;
+                    cache.reset()?;
+                    cache.restore(snapshot)?;
+                    assert_committed(&cache, &before)?;
+                    cache.reset()?;
+                    assert!(cache.tokens()?.is_empty());
+                    assert!(cache.info()?.all(|info| info.processed_tokens == 0));
+                    let (keys, _) = append(&mut cache, &[6., 7.])?;
+                    assert_eq!(contents(&keys)?, [6., 7.]);
+                }
+            }
+            Ok(())
+        })?;
+    }
+    Ok(())
+}
+
+#[test]
+fn failed_cache_does_not_invalidate_snapshot_siblings() -> TestResult {
+    mlx_rs::with_device(mlx_rs::Device::cpu(), || -> TestResult {
+        let mut source = make_cache(CachePolicy::Full, 1, 16)?;
+        append(&mut source, &[1., 2.])?;
+        let saved = source.snapshot()?;
+        let mut first = make_cache(CachePolicy::Full, 1, 16)?;
+        let mut second = make_cache(CachePolicy::Full, 1, 16)?;
+        first.model_identity = source.model_identity.clone();
+        second.model_identity = source.model_identity.clone();
+        first.restore(source.snapshot()?)?;
+        second.restore(source.snapshot()?)?;
+        let bad =
+            mlx_rs::linalg::inv(Array::from_slice(&[0.0f32], &[1, 1]))?.reshape(&[1, 1, 1, 1])?;
+        let mut step = first.step()?;
+        step.update_and_fetch(0, bad, tokens(&[3.])?)?;
+        assert!(matches!(step.evaluate(&[]), Err(CacheError::Exception(_))));
+        assert_invalidated(&mut first)?;
+        assert_eq!(contents(&append(&mut second, &[4.])?.0)?, [1., 2., 4.]);
+        assert_eq!(contents(&append(&mut source, &[5.])?.0)?, [1., 2., 5.]);
+        first.reset()?;
+        first.restore(saved)?;
+        assert_eq!(contents(&append(&mut first, &[6.])?.0)?, [1., 2., 6.]);
+        Ok(())
+    })
+}
+
+#[test]
+fn sampling_construction_failure_drops_unevaluated_cache_graph(
+) -> Result<(), Box<dyn std::error::Error>> {
+    mlx_rs::with_device(
+        mlx_rs::Device::cpu(),
+        || -> Result<(), Box<dyn std::error::Error>> {
+            let mut cache = make_cache(CachePolicy::Full, 1, 16)?;
+            append(&mut cache, &[1., 2.])?;
+            let bad = mlx_rs::linalg::inv(Array::from_slice(&[0.0f32], &[1, 1]))?
+                .reshape(&[1, 1, 1, 1])?;
+            let mut step = cache.step()?;
+            step.update_and_fetch(0, bad, tokens(&[3.])?)?;
+            let result =
+                step.evaluate_outputs::<()>(|_, _| Err(crate::SamplingError::EmptySupport.into()));
+            assert!(matches!(
+                result,
+                Err(crate::GenerationError::Sampling(
+                    crate::SamplingError::EmptySupport
+                ))
+            ));
+            drop(result);
+            let (keys, _) = append(&mut cache, &[4.])?;
+            assert_eq!(contents(&keys)?, [1., 2., 4.]);
+            Ok(())
+        },
+    )
+}
+
+#[test]
+fn sampling_roots_evaluate_every_decoder_cache_write() -> anyhow::Result<()> {
+    mlx_rs::with_device(mlx_rs::Device::gpu(), || -> anyhow::Result<()> {
+        for name in [
+            "llama-base",
+            "llama-sliding",
+            "llama-quant4",
+            "llama-sharded",
+            "qwen3-base",
+            "qwen3-quant4",
+        ] {
+            let directory = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../conformance/mlx-lm/fixtures")
+                .join(name);
+            let raw =
+                crate::config::RawConfig::from_bytes(&fs::read(directory.join("config.json"))?)?;
+            let factory = crate::arch::factory(&raw.model_type)?;
+            let weights = crate::weights::WeightManifest::discover(&directory)?;
+            let mut decoder = factory.build(factory.parse_config(&raw)?, &weights)?;
+            for temperature in [0.0, 0.7] {
+                for capture in [false, true] {
+                    let mut cache = Cache::new_for_model(
+                        crate::ModelType::new(raw.model_type.clone()),
+                        decoder.cache_layout(),
+                        &CacheOptions {
+                            policy: CachePolicy::Full,
+                        },
+                        Some(nonzero(2)?),
+                        Rc::new(()),
+                    )?;
+                    let prompt = [12.into(), 13.into()];
+                    let mut step = cache.step_with_tokens(&prompt)?;
+                    let logits =
+                        decoder.forward(&Array::from_slice(&[12u32, 13], &[1, 2]), &mut step)?;
+                    step.evaluate_and_commit(&[&logits])?;
+                    drop(logits);
+                    let engine = crate::sampling::SamplingEngine::new(
+                        crate::SamplerOptions {
+                            temperature,
+                            seed: Some(1729),
+                            ..Default::default()
+                        },
+                        decoder.config().dimensions.vocabulary_size,
+                        None,
+                        None,
+                        None,
+                    )?;
+                    for token in [14u32, 15, 16] {
+                        let offset = cache.tokens()?.len();
+                        let mut step = cache.speculative_step(offset)?;
+                        let logits =
+                            decoder.forward(&Array::from_slice(&[token], &[1, 1]), &mut step)?;
+                        let row = logits.reshape(&[1, -1])?;
+                        let plan = engine.prepare(&[], None, row, None, capture)?;
+                        drop(logits);
+                        step.submit(&plan.outputs(&[]))?;
+                        plan.finish()?;
+                        for (index, layer) in cache.layers.iter().enumerate() {
+                            let (keys, values) = layer.arrays()?;
+                            for (kind, array) in [("K", keys), ("V", values)] {
+                                let mut available = false;
+                                // SAFETY: Both pointers remain valid for this non-evaluating query.
+                                let status = unsafe {
+                                    mlx_sys::_mlx_array_is_available(&mut available, array.as_ptr())
+                                };
+                                assert_eq!(status, 0);
+                                assert!(available, "{name} layer {index} {kind} at {offset}, temperature={temperature}, capture={capture}");
+                            }
+                        }
+                        cache.commit_input(token.into())?;
+                    }
+                }
+            }
+        }
+        Ok(())
+    })
 }

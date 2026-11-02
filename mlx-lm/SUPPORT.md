@@ -10,7 +10,8 @@ Public helpers and new cache policies require an admitted model or consumer use.
 
 Generation exposes fallible prefill progress and token/text/finish events.
 Timing, process-global peak memory, logprobs and draft metadata are not public
-iterator output. There is no decode lookahead. Stop strings use exact UTF-8,
+iterator output. GPU full-cache generation queues one token ahead. CPU and
+rotating-cache generation remain synchronous. Stop strings use exact UTF-8,
 hold possible matching suffixes and exclude the match; a final-flush match wins
 over the length limit. Empty stop strings are errors. Text-delta parity covers
 named WordLevel fixtures, and an unstable final decode is `InvalidPrefix`.
@@ -24,6 +25,25 @@ is identity. Repetition penalties must be finite and positive. History
 starts at the final prompt token and includes accepted generated tokens, excluding
 earlier prompt tokens and any reused prefix. Presence deduplicates; frequency
 counts occurrences.
+
+Sampling checks raw, processed, filtered and scaled values in that order after a
+successful joint evaluation. Invalid values precede empty support within each
+stage. If evaluation fails, its original `GenerationError::Exception` wins over
+value errors. The failed graph is never inspected or evaluated again.
+
+An abandoned step preserves committed tokens and K/V contents up to the committed
+length. Before evaluation or submission, it restores the original handles. After
+successful evaluation or submission, full caches keep the new buffers at the
+committed length. Unused tail contents and capacity may change. Rotating caches
+copy handles because they overwrite committed positions. Live snapshots can
+prevent buffer donation.
+
+Failed evaluation or submission invalidates only the cache involved. This includes
+failed speculative submission even if generation stops at the preceding token.
+Reads, updates, snapshots, restores and reuse return `CacheError::Invalidated`.
+Call `Cache::reset()` and prefill again. Reset discards all cached tokens and buffers.
+Existing snapshots and other caches restored from them remain valid.
+A sampling-only failure leaves an untouched cache valid.
 
 Cache reuse requires the full intended prompt, an exact represented prefix,
 the same model instance and at least one uncached token. No public trim API is
@@ -57,9 +77,21 @@ Model diagnostics need a public statistics contract; process-wide resource
 controls need an explicit design. Arbitrary chat-template resource exhaustion
 remains unresolved.
 
-Ruling S closed ruling C as “gap attributed elsewhere; no pipeline”. The measured
-Metal throughput gap remains a separate investigation under ruling T; the
-[benchmark measurements](README.md#throughput) do not authorize a pipeline change
-or claim CPU throughput parity. Both packages retain `publish = false`.
-Publication requires David's authorization, MSRV qualification and verification
+C closed: qualified pipeline admitted (2026-11-02, M5 Max Metal):
+606.95 Rust versus 617.93 Python tok/s, ratio 0.9821
+[0.9810, 0.9837] (95% paired CI). Recovery is
+93.44% [93.18%, 94.14%], with observed Rust–Python excess as denominator.
+Using the full Python lookahead ablation effect as denominator, recovery is
+67.30% [65.99%, 68.56%] (95% paired CIs).
+The CPU path is unchanged by construction, satisfying the other-device ≤5% regression criterion.
+Qualification used paired alternation on a shared host, deviating from the protocol's idle-host requirement.
+
+GPU generation with full caches queues one token ahead and submits only sampling
+roots. Each decoder's updated K/V feeds attention and logits. Cache objects stay
+alive; committed lengths, RNG and text advance only when a token is accepted.
+CPU and rotating-cache decode remain synchronous. This measurement does not
+establish CPU throughput parity or the full real-checkpoint matrix.
+
+See the [measurement protocol](README.md#throughput). Both packages retain
+`publish = false`. Publication requires David's authorization, MSRV qualification and verification
 of packaged external consumers against the intended dependency archives.

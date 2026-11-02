@@ -178,8 +178,8 @@ impl LayerCache for RotatingCache {
     fn clone_box(&self) -> Box<dyn LayerCache> {
         Box::new(self.clone())
     }
-    fn arrays(&self) -> (&Array, &Array) {
-        (&self.buffer.keys, &self.buffer.values)
+    fn arrays(&self) -> Result<(Array, Array), CacheError> {
+        Ok((self.buffer.keys.clone(), self.buffer.values.clone()))
     }
     fn logical_arrays(&self) -> Result<(Array, Array), CacheError> {
         Ok((

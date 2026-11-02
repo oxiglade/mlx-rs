@@ -26,8 +26,7 @@ a sliding-window layer pattern and llama3 rope in the `llama-sliding` variant). 
 - RoPE llama3 smoothing follows mlx_lm 0.31.3 `rope_utils.py` exactly (angle = pos / f_i with
   f_i = theta^(2i/d); low band f_i *= factor; mid band f_i /= ((1-s)/factor + s)); both
   generators derive from that file's math, the NumPy one without importing it.
-- Affine dequant per /Users/ci/hub/scratch/mlx-lm/t1/affine-packing.md (recorded in-repo as
-  conformance/mlx-lm/numpy_reference/PACKING.md by the NumPy item).
+- Affine dequant follows [the packing contract](numpy_reference/PACKING.md).
 
 ## Array keys in expectations.safetensors
 - `prefill.full.logits` — `[1, T, V]` for the canonical prompt, one-shot prefill.

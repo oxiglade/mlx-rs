@@ -62,15 +62,19 @@ pub enum CacheKind {
     Rotating,
 }
 /// Thread-bound decoder cache with transactional layer state.
+/// Abandoned steps preserve committed tokens and K/V prefixes; spare storage may change.
+/// Evaluation failure invalidates the cache. Call [`Cache::reset`] and prefill again.
 pub struct Cache {
     architecture: crate::ModelType,
     model_identity: Rc<()>,
     ledger: TokenLedger,
     tracks_tokens: bool,
+    invalidated: bool,
     layers: Vec<Box<dyn LayerCache>>,
     _thread_bound: PhantomData<Rc<()>>,
 }
 /// Opaque thread-bound handles and metadata for restoring a cache.
+/// Snapshots remain valid if a cache restored from them fails.
 pub struct CacheSnapshot {
     architecture: crate::ModelType,
     model_identity: Rc<()>,
@@ -129,20 +133,59 @@ impl Cache {
             model_identity,
             ledger,
             tracks_tokens: true,
+            invalidated: false,
             layers,
             _thread_bound: PhantomData,
         })
     }
     /// Token IDs represented by committed cache state, including evicted positions.
-    pub fn tokens(&self) -> &[crate::TokenId] {
-        self.ledger.tokens()
+    /// Returns [`CacheError::Invalidated`] after cache evaluation or submission fails.
+    pub fn tokens(&self) -> Result<&[crate::TokenId], CacheError> {
+        self.ensure_valid()?;
+        Ok(self.ledger.tokens())
     }
     /// Returns logical metadata without evaluating or copying array buffers.
-    pub fn info(&self) -> impl ExactSizeIterator<Item = CacheInfo> + '_ {
-        self.layers
+    /// Returns [`CacheError::Invalidated`] after cache evaluation or submission fails.
+    pub fn info(&self) -> Result<impl ExactSizeIterator<Item = CacheInfo> + '_, CacheError> {
+        self.ensure_valid()?;
+        Ok(self
+            .layers
             .iter()
             .enumerate()
-            .map(|(layer, cache)| cache.info(layer))
+            .map(|(layer, cache)| cache.info(layer)))
+    }
+    pub(crate) fn ensure_valid(&self) -> Result<(), CacheError> {
+        if self.invalidated {
+            Err(CacheError::Invalidated)
+        } else {
+            Ok(())
+        }
+    }
+    pub(crate) fn invalidate(&mut self) {
+        self.invalidated = true;
+    }
+    /// Discards all tokens and buffers, including failed graphs. Prefill again before reuse.
+    pub fn reset(&mut self) -> Result<(), CacheError> {
+        let layers = self
+            .layers
+            .iter()
+            .map(|layer| {
+                let state = layer.fingerprint();
+                Ok(match state.kind {
+                    CacheKind::Full => Box::new(full::FullCache::new(&state.spec, state.capacity)?)
+                        as Box<dyn LayerCache>,
+                    CacheKind::Rotating => Box::new(rotating::RotatingCache::new(
+                        &state.spec,
+                        state.capacity,
+                        state.keep_prefix,
+                    )?),
+                })
+            })
+            .collect::<Result<_, CacheError>>()?;
+        self.layers = layers;
+        self.ledger = TokenLedger::default();
+        self.invalidated = false;
+        Ok(())
     }
     /// Returns temporal [batch, kv_heads, positions.len(), head_dim] arrays for
     /// exactly the positions `info` reports. Each layer yields its nonempty
@@ -150,6 +193,7 @@ impl Cache {
     /// Views are ordered by layer, then position.
     #[cfg_attr(not(feature = "oracle-hooks"), allow(dead_code))]
     pub(crate) fn logical_layers(&self) -> Result<Vec<LogicalLayerView>, CacheError> {
+        self.ensure_valid()?;
         let mut views = Vec::with_capacity(self.layers.len());
         for (layer, cache) in self.layers.iter().enumerate() {
             let info = cache.info(layer);
@@ -177,8 +221,10 @@ impl Cache {
         Ok(views)
     }
     /// Shares token storage and array handles, copying O(layer count) metadata.
-    /// Does not evaluate or copy tensor buffers.
+    /// Does not evaluate or copy tensor buffers. Live snapshots can prevent buffer donation.
+    /// Returns [`CacheError::Invalidated`] after an evaluation failure.
     pub fn snapshot(&mut self) -> Result<CacheSnapshot, CacheError> {
+        self.ensure_valid()?;
         Ok(CacheSnapshot {
             architecture: self.architecture.clone(),
             model_identity: Rc::clone(&self.model_identity),
@@ -195,6 +241,7 @@ impl Cache {
     }
     /// Restores compatible handles and absolute-position metadata.
     pub fn restore(&mut self, mut snapshot: CacheSnapshot) -> Result<(), CacheError> {
+        self.ensure_valid()?;
         if !Rc::ptr_eq(&self.model_identity, &snapshot.model_identity)
             || self.tracks_tokens != snapshot.tracks_tokens
             || self.architecture != snapshot.architecture
@@ -233,6 +280,7 @@ impl Cache {
         options: &CacheOptions,
         prompt: &[crate::TokenId],
     ) -> Result<usize, crate::GenerationError> {
+        self.ensure_valid()?;
         if !Rc::ptr_eq(&self.model_identity, model_identity)
             || &self.architecture != architecture
             || self.layers.len() != layout.len()
@@ -248,13 +296,14 @@ impl Cache {
             validate_policy(&layer.fingerprint(), spec, &options.policy)?;
         }
         self.validate_ledger()?;
-        validate_prefix(self.tokens(), prompt)
+        validate_prefix(self.tokens()?, prompt)
     }
     fn validate_ledger(&self) -> Result<(), CacheError> {
+        self.ensure_valid()?;
         if self.layers.is_empty()
             || self
-                .info()
-                .any(|info| info.processed_tokens != self.tokens().len())
+                .info()?
+                .any(|info| info.processed_tokens != self.ledger.tokens().len())
         {
             return Err(invalid(
                 "layer positions differ from represented token count",
@@ -262,6 +311,35 @@ impl Cache {
         }
         Ok(())
     }
+    pub(crate) fn supports_pipeline(&self) -> bool {
+        self.layers
+            .iter()
+            .all(|layer| layer.info(0).kind == CacheKind::Full)
+    }
+
+    pub(crate) fn speculative_step(&mut self, offset: usize) -> Result<CacheStep<'_>, CacheError> {
+        self.validate_ledger()?;
+        if !self.supports_pipeline() {
+            return Err(invalid("lookahead requires full caches"));
+        }
+        let mut step = self.begin_step()?;
+        for layer in &mut step.staged {
+            layer.set_length(offset)?;
+        }
+        Ok(step)
+    }
+
+    pub(crate) fn commit_input(&mut self, token: crate::TokenId) -> Result<(), CacheError> {
+        self.validate_ledger()?;
+        let pending = self.ledger.prepare(&[token])?;
+        let length = self.ledger.tokens().len() + 1;
+        for layer in &mut self.layers {
+            layer.set_length(length)?;
+        }
+        self.ledger.commit(pending);
+        Ok(())
+    }
+
     pub(crate) fn step_with_tokens(
         &mut self,
         tokens: &[crate::TokenId],
@@ -279,6 +357,7 @@ impl Cache {
     // Forward-only oracle sessions do not supply represented token IDs.
     #[cfg_attr(not(feature = "oracle-hooks"), allow(dead_code))]
     pub(crate) fn step(&mut self) -> Result<CacheStep<'_>, CacheError> {
+        self.ensure_valid()?;
         if self.tracks_tokens {
             return Err(invalid(
                 "model-bound steps must supply represented token IDs",
@@ -287,7 +366,8 @@ impl Cache {
         self.begin_step()
     }
     fn begin_step(&mut self) -> Result<CacheStep<'_>, CacheError> {
-        let staged = self.layers.iter().map(|layer| layer.clone_box()).collect();
+        self.ensure_valid()?;
+        let staged = self.layers.iter_mut().map(|layer| layer.stage()).collect();
         let updated = vec![false; self.layers.len()];
         Ok(CacheStep {
             cache: self,
@@ -323,12 +403,23 @@ pub(crate) trait LayerCache: sealed::Sealed {
     }
     fn info(&self, layer: usize) -> CacheInfo;
     fn clone_box(&self) -> Box<dyn LayerCache>;
+    fn stage(&mut self) -> Box<dyn LayerCache> {
+        self.clone_box()
+    }
+    fn rollback(&mut self, _staged: &mut dyn LayerCache) {}
+    fn set_length(&mut self, _length: usize) -> Result<(), CacheError> {
+        Err(invalid("length rollback requires a full cache"))
+    }
+    fn take_buffer(&mut self) -> Option<Buffer> {
+        None
+    }
     fn fingerprint(&self) -> LayerFingerprint;
-    fn arrays(&self) -> (&Array, &Array);
+    fn arrays(&self) -> Result<(Array, Array), CacheError>;
     #[cfg_attr(not(feature = "oracle-hooks"), allow(dead_code))]
     fn logical_arrays(&self) -> Result<(Array, Array), CacheError>;
 }
-/// A staged update whose state is committed only after successful evaluation.
+/// Appends full caches in place and stages rotating caches on copied handles.
+/// Drop preserves committed lengths and prefixes. Failed evaluation invalidates the cache.
 pub(crate) struct CacheStep<'cache> {
     cache: &'cache mut Cache,
     staged: Vec<Box<dyn LayerCache>>,
@@ -339,16 +430,23 @@ pub(crate) struct CacheStep<'cache> {
 }
 /// Evaluated state held until fallible token and text preparation succeeds.
 pub(crate) struct EvaluatedCacheStep<'cache> {
-    cache: &'cache mut Cache,
-    staged: Vec<Box<dyn LayerCache>>,
-    pending_tokens: Option<PendingTokens>,
+    step: CacheStep<'cache>,
 }
 impl EvaluatedCacheStep<'_> {
-    pub(crate) fn commit(self) {
-        if let Some(pending) = self.pending_tokens {
-            self.cache.ledger.commit(pending);
+    pub(crate) fn commit(mut self) {
+        if let Some(pending) = self.step.pending_tokens.take() {
+            self.step.cache.ledger.commit(pending);
         }
-        self.cache.layers = self.staged;
+        self.step.cache.layers = std::mem::take(&mut self.step.staged);
+    }
+}
+impl Drop for CacheStep<'_> {
+    fn drop(&mut self) {
+        if !self.cache.invalidated {
+            for (committed, staged) in self.cache.layers.iter_mut().zip(&mut self.staged) {
+                committed.rollback(staged.as_mut());
+            }
+        }
     }
 }
 impl<'cache> CacheStep<'cache> {
@@ -359,6 +457,46 @@ impl<'cache> CacheStep<'cache> {
         self.evaluate_with(outputs, |arrays| {
             mlx_rs::transforms::eval(arrays.iter().copied()).map_err(CacheError::from)
         })
+    }
+    pub(crate) fn evaluate_outputs<T>(
+        mut self,
+        evaluate: impl FnOnce(
+            &[&Array],
+            &mut dyn FnMut(&[&Array]) -> Result<(), mlx_rs::error::Exception>,
+        ) -> Result<T, crate::GenerationError>,
+    ) -> Result<(T, EvaluatedCacheStep<'cache>), crate::GenerationError> {
+        self.validate_complete()?;
+        let arrays = self.evaluation_arrays()?;
+        let references: Vec<_> = arrays.iter().collect();
+        let output = evaluate(&references, &mut |outputs| {
+            self.release_committed_buffers();
+            mlx_rs::transforms::eval(outputs.iter().copied())
+                .inspect_err(|_| self.cache.invalidate())
+        })?;
+        Ok((output, EvaluatedCacheStep { step: self }))
+    }
+    pub(crate) fn submit(mut self, outputs: &[&Array]) -> Result<(), crate::GenerationError> {
+        self.validate_complete()?;
+        if outputs.is_empty() {
+            return Ok(());
+        }
+        self.release_committed_buffers();
+        mlx_rs::transforms::async_eval(outputs.iter().copied())
+            .inspect_err(|_| self.cache.invalidate())?;
+        Ok(())
+    }
+    fn release_committed_buffers(&mut self) {
+        for layer in &mut self.cache.layers {
+            layer.take_buffer();
+        }
+    }
+    fn evaluation_arrays(&self) -> Result<Vec<Array>, CacheError> {
+        let mut arrays = Vec::with_capacity(self.staged.len() * 2);
+        for layer in &self.staged {
+            let (keys, values) = layer.arrays()?;
+            arrays.extend([keys, values]);
+        }
+        Ok(arrays)
     }
     pub(crate) fn reserve(&mut self, capacity: NonZeroUsize) -> Result<(), CacheError> {
         let result = self
@@ -433,10 +571,18 @@ impl<'cache> CacheStep<'cache> {
         Ok(())
     }
     fn evaluate_with(
-        self,
+        mut self,
         outputs: &[&Array],
         evaluate: impl FnOnce(&[&Array]) -> Result<(), CacheError>,
     ) -> Result<EvaluatedCacheStep<'cache>, CacheError> {
+        self.validate_complete()?;
+        let arrays = self.evaluation_arrays()?;
+        let references: Vec<_> = arrays.iter().chain(outputs.iter().copied()).collect();
+        self.release_committed_buffers();
+        evaluate(&references).inspect_err(|_| self.cache.invalidate())?;
+        Ok(EvaluatedCacheStep { step: self })
+    }
+    fn validate_complete(&self) -> Result<(), CacheError> {
         if self.failed || self.updated.iter().any(|updated| !updated) {
             return Err(invalid("cannot commit a failed or incomplete step"));
         }
@@ -454,7 +600,7 @@ impl<'cache> CacheStep<'cache> {
         if let Some(count) = self.token_count {
             let expected = self
                 .cache
-                .tokens()
+                .tokens()?
                 .len()
                 .checked_add(count)
                 .ok_or_else(|| invalid("token ledger overflow"))?;
@@ -464,19 +610,7 @@ impl<'cache> CacheStep<'cache> {
                 ));
             }
         }
-        let mut arrays = Vec::with_capacity(self.staged.len() * 2 + outputs.len());
-        for layer in &self.staged {
-            let (keys, values) = layer.arrays();
-            arrays.push(keys);
-            arrays.push(values);
-        }
-        arrays.extend(outputs.iter().copied());
-        evaluate(&arrays)?;
-        Ok(EvaluatedCacheStep {
-            cache: self.cache,
-            staged: self.staged,
-            pending_tokens: self.pending_tokens,
-        })
+        Ok(())
     }
 }
 
@@ -504,7 +638,7 @@ impl LayerFingerprint {
 }
 
 #[derive(Clone)]
-struct Buffer {
+pub(crate) struct Buffer {
     keys: Array,
     values: Array,
 }

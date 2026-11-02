@@ -48,7 +48,7 @@ Python dictionaries cannot exercise the Rust insertion API.
 To keep the pinned environment and both replay runs outside the checkout:
 
 ```sh
-export REPLAY_ROOT="$HOME/hub/scratch/replay-runner"
+export REPLAY_ROOT=/path/to/replay-runner
 mkdir -p "$REPLAY_ROOT"
 python3.12 -m venv "$REPLAY_ROOT/venv"
 "$REPLAY_ROOT/venv/bin/python" -m pip install --require-hashes -r conformance/requirements.lock
@@ -59,8 +59,11 @@ TMPDIR="$REPLAY_ROOT" "$REPLAY_ROOT/venv/bin/python" -B -m unittest discover \
 python3 -B -m unittest discover -s xtask -p 'test_*.py'
 ```
 
-The report hashes both complete runs and rejects nondeterminism. Its case verdicts compare against
-the committed corpus using the existing tolerance policies; the historical probes retain their
+The report records `venv: "pinned"` after checking the selected environment, alongside
+the Python, package and MLX runtime versions, architecture and device. It records no
+local environment path. The report hashes both complete runs and rejects nondeterminism.
+Its case verdicts compare against the committed corpus using the existing tolerance
+policies; the historical probes retain their
 0.30.6 reference environment. `--output-dir` leaves the historical committed replay reports intact.
 Replacing an existing report requires `--update`. The replay tests include pinned-environment
 worker regressions. The cheap suite-coverage check runs in the existing xtask Python test
