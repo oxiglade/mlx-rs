@@ -40,6 +40,7 @@ Added
 - `transforms::Function`, which both return: `apply` calls it, traced like any other
   operation under a transform. Its closures are `'static`, since a backward pass calls
   them again; an error they return reaches the caller, and a panic resumes there.
+- `Stream::device` returns the device a stream runs on (#445).
 
 Changed
 
