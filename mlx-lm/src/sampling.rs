@@ -246,79 +246,100 @@ impl SamplingEngine {
         rng: Option<&RandomState>,
         capture_logprobs: bool,
     ) -> Result<PendingSample, GenerationError> {
-        self.sample_with_evaluator(history, logits, rng, capture_logprobs, &mut |arrays| {
+        self.sample_with_evaluator(history, logits, rng, capture_logprobs, &[], &mut |arrays| {
             mlx_rs::transforms::eval(arrays.iter().copied())
         })
     }
 
-    fn sample_with_evaluator(
+    /// Evaluation exceptions take precedence over value errors; never replay a failed graph.
+    pub(crate) fn sample_with_evaluator(
         &self,
         history: &[TokenId],
         logits: Array,
         rng: Option<&RandomState>,
         capture_logprobs: bool,
+        extra_outputs: &[&Array],
         evaluate: &mut impl FnMut(&[&Array]) -> Result<(), Exception>,
     ) -> Result<PendingSample, GenerationError> {
         self.validate_row(&logits)?;
-        validate_values(&logits, evaluate)?;
-        let processed = self.process(history, logits)?;
-        validate_values(&processed, evaluate)?;
-        let greedy = self.options.temperature == 0.0;
-        let filtered = if !greedy || capture_logprobs {
-            let logprobs = processed
-                .logsumexp_axis(-1, true)
-                .and_then(|normalizer| processed.subtract(normalizer))
-                .map_err(SamplingError::from)?;
-            let filtered = if greedy {
-                logprobs
+        let mut checks = Vec::new();
+        let sample = (|| -> Result<PendingSample, GenerationError> {
+            checks.push(ValueCheck::new(&logits)?);
+            let processed = self.process(history, logits)?;
+            checks.push(ValueCheck::new(&processed)?);
+            let greedy = self.options.temperature == 0.0;
+            let filtered = if !greedy || capture_logprobs {
+                let logprobs = processed
+                    .logsumexp_axis(-1, true)
+                    .and_then(|normalizer| processed.subtract(normalizer))
+                    .map_err(SamplingError::from)?;
+                let filtered = if greedy {
+                    logprobs
+                } else {
+                    self.filter(logprobs)?
+                };
+                checks.push(ValueCheck::new(&filtered)?);
+                Some(filtered)
             } else {
-                self.filter(logprobs)?
+                None
             };
-            validate_values(&filtered, evaluate)?;
-            Some(filtered)
-        } else {
-            None
-        };
-        let (token, candidate_rng) = if greedy {
-            (
-                ops::indexing::argmax_axis(&processed, -1, false).map_err(SamplingError::from)?,
-                None,
-            )
-        } else {
-            let filtered = filtered.as_ref().ok_or(SamplingError::EmptySupport)?;
-            let scaled = scalar(
-                (1.0 / f64::from(self.options.temperature)) as f32,
-                filtered.dtype(),
-            )
-            .and_then(|reciprocal| filtered.multiply(reciprocal))
-            .map_err(SamplingError::from)?;
-            validate_values(&scaled, evaluate)?;
-            let mut candidate = match rng {
-                Some(state) => state.clone(),
-                None => match self.options.seed {
-                    Some(seed) => RandomState::with_seed(seed),
-                    None => RandomState::new(),
-                }
-                .map_err(SamplingError::from)?,
-            };
-            let key = candidate.next_key().map_err(SamplingError::from)?;
-            let token = mlx_rs::random::categorical(&scaled, -1, None, &key)
+            let (token, candidate_rng) = if greedy {
+                (
+                    ops::indexing::argmax_axis(&processed, -1, false)
+                        .map_err(SamplingError::from)?,
+                    None,
+                )
+            } else {
+                let filtered = filtered.as_ref().ok_or(SamplingError::EmptySupport)?;
+                let scaled = scalar(
+                    (1.0 / f64::from(self.options.temperature)) as f32,
+                    filtered.dtype(),
+                )
+                .and_then(|reciprocal| filtered.multiply(reciprocal))
                 .map_err(SamplingError::from)?;
-            (token, Some(candidate))
-        };
-        let mut outputs = vec![&token];
-        if let Some(state) = &candidate_rng {
-            outputs.push(state.as_array());
+                checks.push(ValueCheck::new(&scaled)?);
+                let mut candidate = match rng {
+                    Some(state) => state.clone(),
+                    None => match self.options.seed {
+                        Some(seed) => RandomState::with_seed(seed),
+                        None => RandomState::new(),
+                    }
+                    .map_err(SamplingError::from)?,
+                };
+                let key = candidate.next_key().map_err(SamplingError::from)?;
+                let token = mlx_rs::random::categorical(&scaled, -1, None, &key)
+                    .map_err(SamplingError::from)?;
+                (token, Some(candidate))
+            };
+            Ok(PendingSample {
+                token,
+                filtered_logprobs: if capture_logprobs { filtered } else { None },
+                rng: candidate_rng,
+            })
+        })();
+        let mut outputs: Vec<_> = checks
+            .iter()
+            .flat_map(|check| [&check.invalid, &check.support])
+            .collect();
+        if let Ok(sample) = &sample {
+            outputs.push(&sample.token);
+            if let Some(state) = &sample.rng {
+                outputs.push(state.as_array());
+            }
+            if let Some(row) = &sample.filtered_logprobs {
+                outputs.push(row);
+            }
         }
-        if let Some(row) = &filtered {
-            outputs.push(row);
+        if sample.is_ok() {
+            outputs.extend_from_slice(extra_outputs);
         }
-        evaluate(&outputs)?;
-        Ok(PendingSample {
-            token,
-            filtered_logprobs: if capture_logprobs { filtered } else { None },
-            rng: candidate_rng,
-        })
+        if !outputs.is_empty() {
+            evaluate(&outputs)?;
+        }
+        for check in checks {
+            check.validate()?;
+        }
+        sample
     }
 
     fn validate_row(&self, logits: &Array) -> Result<(), SamplingError> {
@@ -367,27 +388,36 @@ impl SamplingEngine {
     }
 }
 
-fn validate_values(
-    row: &Array,
-    evaluate: &mut impl FnMut(&[&Array]) -> Result<(), Exception>,
-) -> Result<(), GenerationError> {
-    let predicates = || -> Result<_, SamplingError> {
+struct ValueCheck {
+    invalid: Array,
+    support: Array,
+}
+impl ValueCheck {
+    fn new(row: &Array) -> Result<Self, SamplingError> {
         let invalid = row
             .is_nan()?
             .logical_or(row.eq(scalar(f32::INFINITY, row.dtype())?)?)?
             .any(false)?;
         let support = row.is_finite()?.any(false)?;
-        Ok((invalid, support))
-    };
-    let (invalid, support) = predicates()?;
-    evaluate(&[row, &invalid, &support])?;
-    if invalid.try_item_exact::<bool>().map_err(conversion_error)? {
-        return Err(SamplingError::InvalidLogitsValue.into());
+        Ok(Self { invalid, support })
     }
-    if !support.try_item_exact::<bool>().map_err(conversion_error)? {
-        return Err(SamplingError::EmptySupport.into());
+    fn validate(&self) -> Result<(), GenerationError> {
+        if self
+            .invalid
+            .try_item_exact::<bool>()
+            .map_err(conversion_error)?
+        {
+            return Err(SamplingError::InvalidLogitsValue.into());
+        }
+        if !self
+            .support
+            .try_item_exact::<bool>()
+            .map_err(conversion_error)?
+        {
+            return Err(SamplingError::EmptySupport.into());
+        }
+        Ok(())
     }
-    Ok(())
 }
 
 fn conversion_error(error: ConversionError) -> GenerationError {

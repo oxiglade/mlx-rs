@@ -360,6 +360,22 @@ impl<'cache> CacheStep<'cache> {
             mlx_rs::transforms::eval(arrays.iter().copied()).map_err(CacheError::from)
         })
     }
+    pub(crate) fn evaluate_outputs<T>(
+        self,
+        evaluate: impl FnOnce(&[&Array]) -> Result<T, crate::GenerationError>,
+    ) -> Result<(T, EvaluatedCacheStep<'cache>), crate::GenerationError> {
+        let arrays: Vec<_> = self
+            .staged
+            .iter()
+            .flat_map(|layer| {
+                let (keys, values) = layer.arrays();
+                [keys, values]
+            })
+            .collect();
+        let output = evaluate(&arrays)?;
+        let guard = self.evaluate_with(&[], |_| Ok(()))?;
+        Ok((output, guard))
+    }
     pub(crate) fn reserve(&mut self, capacity: NonZeroUsize) -> Result<(), CacheError> {
         let result = self
             .staged

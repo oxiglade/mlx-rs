@@ -526,14 +526,18 @@ impl<'model> Generation<'model> {
                 let mut step = self.cache.get_mut().step_with_tokens(&[previous])?;
                 let logits = self.decoder.forward(&tokens, &mut step)?;
                 let row = last_row(&logits)?;
-                let sample = self
-                    .sampling
-                    .sample(&self.history, row, self.rng.as_ref(), false)?;
-                let mut outputs = vec![&logits, &sample.token];
-                if let Some(rng) = &sample.rng {
-                    outputs.push(rng.as_array());
-                }
-                let guard = step.evaluate(&outputs).map_err(evaluation_error)?;
+                let (sample, guard) = step.evaluate_outputs(|cache_arrays| {
+                    let mut outputs = cache_arrays.to_vec();
+                    outputs.push(&logits);
+                    self.sampling.sample_with_evaluator(
+                        &self.history,
+                        row,
+                        self.rng.as_ref(),
+                        false,
+                        &outputs,
+                        &mut |arrays| mlx_rs::transforms::eval(arrays.iter().copied()),
+                    )
+                })?;
                 let token = sample_token(&sample)?;
                 let stop = self.stop_tokens.contains(&token);
                 let text = self

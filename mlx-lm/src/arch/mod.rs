@@ -5,6 +5,8 @@ use crate::{
     Config, ConfigError, InferenceError, LoadError, WeightError,
 };
 use mlx_rs::{utils::StateProjection, Array};
+mod activation;
+mod attention;
 pub(crate) mod gguf;
 pub(crate) mod llama;
 pub(crate) mod qwen3;
