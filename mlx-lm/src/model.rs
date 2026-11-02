@@ -139,6 +139,9 @@ impl Model {
         options: GenerationOptions,
         cache: Option<&'a mut Cache>,
     ) -> Result<Generation<'a>, GenerationError> {
+        if let Some(cache) = &cache {
+            cache.ensure_valid()?;
+        }
         let vocabulary_size = self.config.dimensions.vocabulary_size;
         let sampling = SamplingEngine::new(
             options.sampling,
@@ -451,8 +454,10 @@ pub struct Generation<'model> {
 }
 impl<'model> Generation<'model> {
     /// Borrows the cache at the most recent completed event boundary.
-    pub fn cache(&self) -> &Cache {
-        self.cache.get()
+    /// Returns [`CacheError::Invalidated`] after cache evaluation or submission fails.
+    pub fn cache(&self) -> Result<&Cache, CacheError> {
+        self.cache.get().ensure_valid()?;
+        Ok(self.cache.get())
     }
     /// Captures cache state only, excluding RNG, detokenizer, and iterator state.
     pub fn snapshot(&mut self) -> Result<CacheSnapshot, CacheError> {
@@ -526,7 +531,7 @@ impl<'model> Generation<'model> {
                 let mut step = self.cache.get_mut().step_with_tokens(&[previous])?;
                 let logits = self.decoder.forward(&tokens, &mut step)?;
                 let row = last_row(&logits)?;
-                let (sample, guard) = step.evaluate_outputs(|cache_arrays| {
+                let (sample, guard) = step.evaluate_outputs(|cache_arrays, evaluate| {
                     let mut outputs = cache_arrays.to_vec();
                     outputs.push(&logits);
                     self.sampling.sample_with_evaluator(
@@ -535,7 +540,7 @@ impl<'model> Generation<'model> {
                         self.rng.as_ref(),
                         false,
                         &outputs,
-                        &mut |arrays| mlx_rs::transforms::eval(arrays.iter().copied()),
+                        &mut |arrays| evaluate(arrays),
                     )
                 })?;
                 let token = sample_token(&sample)?;

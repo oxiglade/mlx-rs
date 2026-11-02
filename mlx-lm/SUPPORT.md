@@ -30,6 +30,20 @@ successful joint evaluation. Invalid values precede empty support within each
 stage. If evaluation fails, its original `GenerationError::Exception` wins over
 value errors. The failed graph is never inspected or evaluated again.
 
+An abandoned step preserves committed tokens and K/V contents up to the committed
+length. Before evaluation or submission, it restores the original handles. After
+successful evaluation or submission, full caches keep the new buffers at the
+committed length. Unused tail contents and capacity may change. Rotating caches
+copy handles because they overwrite committed positions. Live snapshots can
+prevent buffer donation.
+
+Failed evaluation or submission invalidates only the cache involved. This includes
+failed speculative submission even if generation stops at the preceding token.
+Reads, updates, snapshots, restores and reuse return `CacheError::Invalidated`.
+Call `Cache::reset()` and prefill again. Reset discards all cached tokens and buffers.
+Existing snapshots and other caches restored from them remain valid.
+A sampling-only failure leaves an untouched cache valid.
+
 Cache reuse requires the full intended prompt, an exact represented prefix,
 the same model instance and at least one uncached token. No public trim API is
 exposed; wrapped rotating caches reject trim without changing storage or position.

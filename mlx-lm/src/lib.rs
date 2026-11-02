@@ -96,6 +96,20 @@
 //! preparation succeeds. After token `j` (counted from 1), a prompt of length `P`
 //! has `P + j - 1` forwarded tokens in the cache. Reuse requires the same model,
 //! compatible policy, an exact cached prefix and a nonempty uncached suffix.
+//! An abandoned step preserves committed tokens and K/V contents up to the committed
+//! length. Before evaluation or submission, it restores the original handles. After
+//! successful evaluation or submission, full caches keep the new buffers at the
+//! committed length. Unused tail contents and capacity may change. Rotating caches
+//! copy handles because they overwrite committed positions. Live snapshots can
+//! prevent buffer donation.
+//!
+//! Failed evaluation or submission invalidates only the cache involved. This includes
+//! failed speculative submission even if generation stops at the preceding token.
+//! Reads, updates, snapshots, restores and reuse return `CacheError::Invalidated`.
+//! Call `Cache::reset()` and prefill again. Reset discards all cached tokens and buffers.
+//! Existing snapshots and other caches restored from them remain valid.
+//! A sampling-only failure leaves an untouched cache valid.
+//!
 //! Snapshots exclude RNG, decoder and iterator state. Rotation can retain capacity
 //! plus a prefill chunk, snapshots retain old storage, and decoding retains IDs and
 //! emitted text. Constant total host memory and zero allocation are not promised.
