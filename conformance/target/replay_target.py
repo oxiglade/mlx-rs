@@ -424,7 +424,7 @@ def check_environment():
     return mx, {
         "python": platform.python_version(),
         "architecture": platform.machine(),
-        "venv": str(VENV),
+        "venv": "pinned",
         **versions,
         "mlx_runtime": runtime,
         "device": "cpu",

@@ -363,7 +363,7 @@ the pinned Python environment, with no environment installation step:
 
 ```sh
 export T4_RUN="$(mktemp -d /private/tmp/mlx-lm-t4b.XXXXXX)"
-export T4_ASSETS=/Users/ci/hub/assets/mlx-lm-checkpoints/real-checkpoints.json
+export T4_ASSETS=/path/to/mlx-lm-checkpoints/real-checkpoints.json
 export T4_PYTHON="$PWD/conformance/.venv-mlx-lm/bin/python"
 
 "$T4_PYTHON" -B conformance/mlx-lm/real_checkpoints.py \
