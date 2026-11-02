@@ -13,8 +13,7 @@ own. No library source or public declarations were patched for verification.
 The first Cargo `--offline` build encountered CMake FetchContent, which attempted
 to clone MLX and failed on DNS. No download succeeded. Subsequent builds used
 CMake's `MLX_C_USE_SYSTEM_MLX=ON` and `FETCHCONTENT_FULLY_DISCONNECTED=ON`, with the
-existing local MLX v0.32.2 archive under
-`/Users/ci/hub/scratch/verify-target/debug/build/mlx-sys-a2784c607c853d3e/out/build`.
+existing local MLX v0.32.2 archive from a prior mlx-sys build directory.
 The MLX source tag was checked as `v0.32.2`. This worktree's C wrapper was compiled.
 CMake staged the native archives in the preset target directory. Its missing
 metallib warning was retained; no model initialization or Metal test was attempted.
