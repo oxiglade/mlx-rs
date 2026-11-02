@@ -139,7 +139,15 @@ impl LogitsProcessor for RepetitionPenaltyOptions {
         if history.is_empty() || self.penalty == 1.0 {
             return Ok(logits);
         }
-        let indices = history_indices(history, self.context_size).reshape(&[1, -1])?;
+        self.process_indices(history_indices(history, self.context_size), logits)
+    }
+}
+impl RepetitionPenaltyOptions {
+    fn process_indices(&self, indices: Array, logits: Array) -> Result<Array, SamplingError> {
+        if self.penalty == 1.0 {
+            return Ok(logits);
+        }
+        let indices = indices.reshape(&[1, -1])?;
         let selected = logits.take_along_axis(&indices, -1)?;
         let penalty = scalar(self.penalty, logits.dtype())?;
         let selected = ops::select(
@@ -157,7 +165,15 @@ impl LogitsProcessor for PresencePenalty {
         if history.is_empty() || self.0.penalty == 0.0 {
             return Ok(logits);
         }
-        let indices = history_indices(history, self.0.context_size).reshape(&[1, -1])?;
+        self.process_indices(history_indices(history, self.0.context_size), logits)
+    }
+}
+impl PresencePenalty {
+    fn process_indices(&self, indices: Array, logits: Array) -> Result<Array, SamplingError> {
+        if self.0.penalty == 0.0 {
+            return Ok(logits);
+        }
+        let indices = indices.reshape(&[1, -1])?;
         let selected = logits.take_along_axis(&indices, -1)?;
         let selected = selected.subtract(scalar(self.0.penalty, logits.dtype())?)?;
         Ok(logits.put_along_axis(indices, selected, -1)?)
@@ -170,7 +186,14 @@ impl LogitsProcessor for FrequencyPenalty {
         if history.is_empty() || self.0.penalty == 0.0 {
             return Ok(logits);
         }
-        let indices = history_indices(history, self.0.context_size);
+        self.process_indices(history_indices(history, self.0.context_size), logits)
+    }
+}
+impl FrequencyPenalty {
+    fn process_indices(&self, indices: Array, logits: Array) -> Result<Array, SamplingError> {
+        if self.0.penalty == 0.0 {
+            return Ok(logits);
+        }
         let updates = ops::broadcast_to(
             scalar(-self.0.penalty, logits.dtype())?,
             &[indices.dim(0), 1, 1],
@@ -261,11 +284,23 @@ impl SamplingEngine {
         extra_outputs: &[&Array],
         evaluate: &mut impl FnMut(&[&Array]) -> Result<(), Exception>,
     ) -> Result<PendingSample, GenerationError> {
+        self.prepare(history, None, logits, rng, capture_logprobs)?
+            .evaluate(extra_outputs, evaluate)
+    }
+
+    pub(crate) fn prepare(
+        &self,
+        history: &[TokenId],
+        previous: Option<&Array>,
+        logits: Array,
+        rng: Option<&RandomState>,
+        capture_logprobs: bool,
+    ) -> Result<SamplePlan, GenerationError> {
         self.validate_row(&logits)?;
         let mut checks = Vec::new();
         let sample = (|| -> Result<PendingSample, GenerationError> {
             checks.push(ValueCheck::new(&logits)?);
-            let processed = self.process(history, logits)?;
+            let processed = self.process_ahead(history, previous, logits)?;
             checks.push(ValueCheck::new(&processed)?);
             let greedy = self.options.temperature == 0.0;
             let filtered = if !greedy || capture_logprobs {
@@ -317,29 +352,7 @@ impl SamplingEngine {
                 rng: candidate_rng,
             })
         })();
-        let mut outputs: Vec<_> = checks
-            .iter()
-            .flat_map(|check| [&check.invalid, &check.support])
-            .collect();
-        if let Ok(sample) = &sample {
-            outputs.push(&sample.token);
-            if let Some(state) = &sample.rng {
-                outputs.push(state.as_array());
-            }
-            if let Some(row) = &sample.filtered_logprobs {
-                outputs.push(row);
-            }
-        }
-        if sample.is_ok() {
-            outputs.extend_from_slice(extra_outputs);
-        }
-        if !outputs.is_empty() {
-            evaluate(&outputs)?;
-        }
-        for check in checks {
-            check.validate()?;
-        }
-        sample
+        Ok(SamplePlan { sample, checks })
     }
 
     fn validate_row(&self, logits: &Array) -> Result<(), SamplingError> {
@@ -374,6 +387,32 @@ impl SamplingEngine {
         Ok(logits)
     }
 
+    fn process_ahead(
+        &self,
+        history: &[TokenId],
+        previous: Option<&Array>,
+        mut logits: Array,
+    ) -> Result<Array, SamplingError> {
+        let Some(previous) = previous else {
+            return self.process(history, logits);
+        };
+        let indices = |context: NonZeroUsize| -> Result<Array, SamplingError> {
+            let count = context.get().saturating_sub(1).min(history.len());
+            let history = history_indices(&history[history.len() - count..], context);
+            Ok(ops::concatenate(&[&history, &previous.reshape(&[1])?], 0)?)
+        };
+        if let Some(penalty) = &self.repetition {
+            logits = penalty.process_indices(indices(penalty.context_size)?, logits)?;
+        }
+        if let Some(penalty) = &self.presence {
+            logits = penalty.process_indices(indices(penalty.0.context_size)?, logits)?;
+        }
+        if let Some(penalty) = &self.frequency {
+            logits = penalty.process_indices(indices(penalty.0.context_size)?, logits)?;
+        }
+        Ok(logits)
+    }
+
     fn filter(&self, mut logprobs: Array) -> Result<Array, SamplingError> {
         if let Some(probability) = self.options.top_p {
             logprobs = top_p(&logprobs, probability)?;
@@ -385,6 +424,64 @@ impl SamplingEngine {
             logprobs = top_k(&logprobs, count.get())?;
         }
         Ok(logprobs)
+    }
+}
+
+pub(crate) struct SamplePlan {
+    sample: Result<PendingSample, GenerationError>,
+    checks: Vec<ValueCheck>,
+}
+impl SamplePlan {
+    pub(crate) fn candidate(&self) -> Option<&PendingSample> {
+        self.sample.as_ref().ok()
+    }
+
+    pub(crate) fn outputs<'a>(&'a self, extra: &[&'a Array]) -> Vec<&'a Array> {
+        let mut outputs: Vec<_> = self
+            .checks
+            .iter()
+            .flat_map(|check| [&check.invalid, &check.support])
+            .collect();
+        if let Ok(sample) = &self.sample {
+            outputs.push(&sample.token);
+            if let Some(state) = &sample.rng {
+                outputs.push(state.as_array());
+            }
+            if let Some(row) = &sample.filtered_logprobs {
+                outputs.push(row);
+            }
+            outputs.extend_from_slice(extra);
+        }
+        outputs
+    }
+
+    pub(crate) fn submit(&self) -> Result<(), GenerationError> {
+        let outputs = self.outputs(&[]);
+        if !outputs.is_empty() {
+            mlx_rs::transforms::async_eval(outputs)?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn finish(self) -> Result<PendingSample, GenerationError> {
+        self.evaluate(&[], &mut |arrays| {
+            mlx_rs::transforms::eval(arrays.iter().copied())
+        })
+    }
+
+    fn evaluate(
+        self,
+        extra: &[&Array],
+        evaluate: &mut impl FnMut(&[&Array]) -> Result<(), Exception>,
+    ) -> Result<PendingSample, GenerationError> {
+        let outputs = self.outputs(extra);
+        if !outputs.is_empty() {
+            evaluate(&outputs)?;
+        }
+        for check in self.checks {
+            check.validate()?;
+        }
+        self.sample
     }
 }
 

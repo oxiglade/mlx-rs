@@ -79,6 +79,13 @@ impl LayerCache for FullCache {
             self.buffer = staged.take_buffer();
         }
     }
+    fn set_length(&mut self, length: usize) -> Result<(), CacheError> {
+        if length > self.capacity {
+            return Err(invalid("length exceeds full cache capacity"));
+        }
+        self.processed_tokens = length;
+        Ok(())
+    }
     fn take_buffer(&mut self) -> Option<Buffer> {
         self.buffer.take()
     }
@@ -116,10 +123,10 @@ mod tests {
     use crate::cache::{Cache, CacheOptions};
 
     #[test]
-    fn ordinary_append_donates_full_cache_buffers() -> Result<(), Box<dyn std::error::Error>> {
+    fn empty_submission_preserves_committed_buffers() -> Result<(), Box<dyn std::error::Error>> {
         for device in [mlx_rs::Device::cpu(), mlx_rs::Device::gpu()] {
             mlx_rs::with_device(device, || -> Result<(), Box<dyn std::error::Error>> {
-                for mode in ["evaluate", "evaluate_outputs"] {
+                for capacity in [16, 512] {
                     let spec = LayerCacheSpec {
                         attention: crate::AttentionKind::Full,
                         batch_size: 1,
@@ -145,21 +152,88 @@ mod tests {
                         processed_tokens: 2,
                         capacity: 16,
                     });
-                    let mut step = cache.step()?;
+                    let pending = cache.ledger.prepare(&[1.into(), 2.into()])?;
+                    cache.ledger.commit(pending);
+                    let mut step = cache.speculative_step(2)?;
+                    step.reserve(std::num::NonZeroUsize::new(capacity).unwrap())?;
                     step.update_and_fetch(
+                        0,
+                        Array::from_slice(&[3.0f32], &[1, 1, 1, 1]),
+                        Array::from_slice(&[-3.0f32], &[1, 1, 1, 1]),
+                    )?;
+                    step.submit(&[])?;
+                    assert_eq!(cache.layers[0].info(0).capacity, 16);
+                    assert_eq!(cache.layers[0].info(0).processed_tokens, 2);
+                    assert_eq!(cache.tokens()?, &[1.into(), 2.into()]);
+                    let (keys, values) = cache.layers[0].arrays()?;
+                    assert_eq!(keys.as_slice::<f32>(), &[1.0; 16]);
+                    assert_eq!(values.as_slice::<f32>(), &[-1.0; 16]);
+                    assert_eq!(
+                        (
+                            keys.as_slice::<f32>().as_ptr(),
+                            values.as_slice::<f32>().as_ptr()
+                        ),
+                        before,
+                    );
+                }
+                Ok(())
+            })?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn ordinary_append_donates_full_cache_buffers() -> Result<(), Box<dyn std::error::Error>> {
+        for device in [mlx_rs::Device::cpu(), mlx_rs::Device::gpu()] {
+            mlx_rs::with_device(device, || -> Result<(), Box<dyn std::error::Error>> {
+                for mode in ["evaluate", "evaluate_outputs", "submit"] {
+                    let spec = LayerCacheSpec {
+                        attention: crate::AttentionKind::Full,
+                        batch_size: 1,
+                        kv_heads: 1,
+                        head_dim: 1,
+                        dtype: mlx_rs::Dtype::Float32,
+                    };
+                    let mut cache = Cache::new(
+                        crate::ModelType::new("llama"),
+                        std::slice::from_ref(&spec),
+                        &CacheOptions::default(),
+                        None,
+                    )?;
+                    let keys = Array::from_slice(&[1.0f32; 16], &[1, 1, 16, 1]);
+                    let values = Array::from_slice(&[-1.0f32; 16], &[1, 1, 16, 1]);
+                    let before = (
+                        keys.as_slice::<f32>().as_ptr(),
+                        values.as_slice::<f32>().as_ptr(),
+                    );
+                    cache.layers[0] = Box::new(FullCache {
+                        spec,
+                        buffer: Some(Buffer { keys, values }),
+                        processed_tokens: 2,
+                        capacity: 16,
+                    });
+                    let mut step = if mode == "submit" {
+                        let pending = cache.ledger.prepare(&[1.into(), 2.into()])?;
+                        cache.ledger.commit(pending);
+                        cache.speculative_step(2)?
+                    } else {
+                        cache.step()?
+                    };
+                    let (updated_keys, updated_values) = step.update_and_fetch(
                         0,
                         Array::from_slice(&[3.0f32], &[1, 1, 1, 1]),
                         Array::from_slice(&[-3.0f32], &[1, 1, 1, 1]),
                     )?;
                     match mode {
                         "evaluate" => step.evaluate(&[])?.commit(),
-                        _ => step
+                        "evaluate_outputs" => step
                             .evaluate_outputs(|arrays, evaluate| {
                                 evaluate(arrays)?;
                                 Ok(())
                             })?
                             .1
                             .commit(),
+                        _ => step.submit(&[&updated_keys, &updated_values])?,
                     }
                     let (keys, values) = cache.layers[0].arrays()?;
                     assert_eq!(

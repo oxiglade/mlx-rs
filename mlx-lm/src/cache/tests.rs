@@ -1414,3 +1414,81 @@ fn sampling_construction_failure_drops_unevaluated_cache_graph(
         },
     )
 }
+
+#[test]
+fn sampling_roots_evaluate_every_decoder_cache_write() -> anyhow::Result<()> {
+    mlx_rs::with_device(mlx_rs::Device::gpu(), || -> anyhow::Result<()> {
+        for name in [
+            "llama-base",
+            "llama-sliding",
+            "llama-quant4",
+            "llama-sharded",
+            "qwen3-base",
+            "qwen3-quant4",
+        ] {
+            let directory = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../conformance/mlx-lm/fixtures")
+                .join(name);
+            let raw =
+                crate::config::RawConfig::from_bytes(&fs::read(directory.join("config.json"))?)?;
+            let factory = crate::arch::factory(&raw.model_type)?;
+            let weights = crate::weights::WeightManifest::discover(&directory)?;
+            let mut decoder = factory.build(factory.parse_config(&raw)?, &weights)?;
+            for temperature in [0.0, 0.7] {
+                for capture in [false, true] {
+                    let mut cache = Cache::new_for_model(
+                        crate::ModelType::new(raw.model_type.clone()),
+                        decoder.cache_layout(),
+                        &CacheOptions {
+                            policy: CachePolicy::Full,
+                        },
+                        Some(nonzero(2)?),
+                        Rc::new(()),
+                    )?;
+                    let prompt = [12.into(), 13.into()];
+                    let mut step = cache.step_with_tokens(&prompt)?;
+                    let logits =
+                        decoder.forward(&Array::from_slice(&[12u32, 13], &[1, 2]), &mut step)?;
+                    step.evaluate_and_commit(&[&logits])?;
+                    drop(logits);
+                    let engine = crate::sampling::SamplingEngine::new(
+                        crate::SamplerOptions {
+                            temperature,
+                            seed: Some(1729),
+                            ..Default::default()
+                        },
+                        decoder.config().dimensions.vocabulary_size,
+                        None,
+                        None,
+                        None,
+                    )?;
+                    for token in [14u32, 15, 16] {
+                        let offset = cache.tokens()?.len();
+                        let mut step = cache.speculative_step(offset)?;
+                        let logits =
+                            decoder.forward(&Array::from_slice(&[token], &[1, 1]), &mut step)?;
+                        let row = logits.reshape(&[1, -1])?;
+                        let plan = engine.prepare(&[], None, row, None, capture)?;
+                        drop(logits);
+                        step.submit(&plan.outputs(&[]))?;
+                        plan.finish()?;
+                        for (index, layer) in cache.layers.iter().enumerate() {
+                            let (keys, values) = layer.arrays()?;
+                            for (kind, array) in [("K", keys), ("V", values)] {
+                                let mut available = false;
+                                // SAFETY: Both pointers remain valid for this non-evaluating query.
+                                let status = unsafe {
+                                    mlx_sys::_mlx_array_is_available(&mut available, array.as_ptr())
+                                };
+                                assert_eq!(status, 0);
+                                assert!(available, "{name} layer {index} {kind} at {offset}, temperature={temperature}, capture={capture}");
+                            }
+                        }
+                        cache.commit_input(token.into())?;
+                    }
+                }
+            }
+        }
+        Ok(())
+    })
+}

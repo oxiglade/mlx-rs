@@ -1157,3 +1157,84 @@ fn evaluation_failure_precedes_value_errors_without_replay() -> TestResult {
     }
     Ok(())
 }
+
+#[test]
+fn submitted_samples_match_every_synchronous_logprob_and_seeded_id() -> anyhow::Result<()> {
+    mlx_rs::with_device(mlx_rs::Device::gpu(), || {
+        for temperature in [0.0, 0.7] {
+            let engine = SamplingEngine::new(
+                SamplerOptions {
+                    temperature,
+                    seed: Some(1729),
+                    top_p: Some(0.9),
+                    top_k: NonZeroUsize::new(4),
+                    min_p: None,
+                },
+                6,
+                Some(RepetitionPenaltyOptions {
+                    penalty: 1.1,
+                    context_size: NonZeroUsize::new(4).unwrap(),
+                }),
+                Some(AdditivePenaltyOptions {
+                    penalty: 0.1,
+                    context_size: NonZeroUsize::MIN,
+                }),
+                Some(AdditivePenaltyOptions {
+                    penalty: -0.1,
+                    context_size: NonZeroUsize::new(6).unwrap(),
+                }),
+            )?;
+            let logits = Array::from_slice(&[-1.0f32, 0.5, 0.1, 0.9, -0.1, 0.2], &[1, 6]);
+            let mut history = vec![TokenId::from(3)];
+            let mut rng = None;
+            let mut plan = engine.prepare(&history, None, logits.clone(), None, true)?;
+            plan.submit()?;
+            for index in 0..16 {
+                let sample = plan.candidate().unwrap();
+                let next = if index < 15 {
+                    let next = engine.prepare(
+                        &history,
+                        Some(&sample.token),
+                        logits.clone(),
+                        sample.rng.as_ref(),
+                        true,
+                    )?;
+                    next.submit()?;
+                    Some(next)
+                } else {
+                    None
+                };
+                let submitted = plan.finish()?;
+                let synchronous = engine.sample(&history, logits.clone(), rng.as_ref(), true)?;
+                let token = submitted.token.try_item_exact::<u32>()?;
+                assert_eq!(token, synchronous.token.try_item_exact::<u32>()?);
+                assert_eq!(
+                    submitted.filtered_logprobs.unwrap().to_vec_exact::<f32>()?,
+                    synchronous
+                        .filtered_logprobs
+                        .unwrap()
+                        .to_vec_exact::<f32>()?
+                );
+                assert_eq!(
+                    submitted
+                        .rng
+                        .as_ref()
+                        .map(|r| r.as_array().to_vec_exact::<u32>())
+                        .transpose()?,
+                    synchronous
+                        .rng
+                        .as_ref()
+                        .map(|r| r.as_array().to_vec_exact::<u32>())
+                        .transpose()?
+                );
+                history.push(TokenId::from(token));
+                rng = synchronous.rng;
+                let Some(next) = next else {
+                    break;
+                };
+                plan = next;
+            }
+        }
+        Ok(())
+    })
+}
