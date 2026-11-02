@@ -131,6 +131,11 @@ non-exhaustive, so callers should include a fallback match arm.
 | `GenerationError` | Prompt/stop validation, reuse and sequence limits; wraps tokenizer, sampling, cache and inference failures. Runtime evaluation exceptions remain `GenerationError::Exception`. |
 | `HubError` | Repository/revision, missing assets, unsafe paths, receipt integrity, offline miss, transport or wrapped local loading. The type exists in base builds; its API-error variant requires `hf-hub`. |
 
+Sampling checks raw, processed, filtered and scaled values in that order after a
+successful joint evaluation. Invalid values precede empty support within each
+stage. If evaluation fails, its original `GenerationError::Exception` wins over
+value errors. The failed graph is never inspected or evaluated again.
+
 ## Throughput
 
 Measured on the same machine and weights with Metal, Qwen3-0.6B-4bit, a

@@ -119,6 +119,11 @@
 //! | [`GenerationError`] | Prompt/stop/reuse/length validation and typed runtime wrappers; evaluation exceptions stay `GenerationError::Exception`. |
 //! | [`HubError`] | Repository/revision, missing files, unsafe paths, receipt integrity, offline miss, transport and wrapped local load errors. The type exists without `hf-hub`; the API-error variant requires it. |
 //!
+//! Sampling checks raw, processed, filtered and scaled values in that order after a
+//! successful joint evaluation. Invalid values precede empty support within each
+//! stage. If evaluation fails, its original `GenerationError::Exception` wins over
+//! value errors. The failed graph is never inspected or evaluated again.
+//!
 //! # Throughput and open work
 //!
 //! On the same machine and weights (Metal, Qwen3-0.6B-4bit, 128-token prompt,

@@ -217,6 +217,7 @@ impl Matrix {
 }
 
 pub(super) struct Decoder {
+    swiglu: crate::arch::activation::SwiGlu,
     config: Config,
     layout: Vec<LayerCacheSpec>,
     matrices: BTreeMap<String, Matrix>,
@@ -279,6 +280,7 @@ impl Decoder {
             .collect::<Result<Vec<_>, WeightError>>()?;
         let rope = Rope::new(config.rope.clone())?;
         Ok(Self {
+            swiglu: crate::arch::activation::SwiGlu::default(),
             config,
             layout,
             matrices,
@@ -305,7 +307,7 @@ impl Decoder {
     }
 
     fn forward_with(
-        &self,
+        &mut self,
         tokens: &Array,
         offset: usize,
         mut update: impl FnMut(usize, Array, Array) -> Result<(Array, Array, Vec<usize>), CacheError>,
@@ -327,6 +329,7 @@ impl Decoder {
         let kv_heads = dimension(dims.kv_heads, "KV heads")
             .map_err(|e| InferenceError::UnsupportedArchitecture(e.to_string()))?;
         let mut hidden = self.matrix("model.embed_tokens")?.embed(tokens)?;
+        let mut masks = crate::arch::attention::AttentionMasks::default();
         for (layer, attention) in self.config.attention.iter().enumerate() {
             let prefix = format!("model.layers.{layer}");
             let normalized = self.norm(&hidden, &format!("{prefix}.input_layernorm.weight"))?;
@@ -347,13 +350,21 @@ impl Decoder {
                 )
                 .into());
             }
-            let mask = attention_mask(offset, *length as usize, &positions, attention)?;
+            let mask =
+                masks.get_or_create(offset, *length as usize, &positions, attention, || {
+                    Ok(attention_mask(
+                        offset,
+                        *length as usize,
+                        &positions,
+                        attention,
+                    )?)
+                })?;
             let output = fast::scaled_dot_product_attention(
                 queries,
                 keys,
                 values,
                 (dims.head_dim as f32).sqrt().recip(),
-                Some(fast::ScaledDotProductAttentionMask::Array(&mask)),
+                mask.map(fast::ScaledDotProductAttentionMask::Array),
                 None,
             )?
             .transpose_axes(&[0, 2, 1, 3])?
@@ -366,16 +377,16 @@ impl Decoder {
                 &hidden,
                 &format!("{prefix}.post_attention_layernorm.weight"),
             )?;
-            let gate = mlx_rs::nn::silu(
-                self.matrix(&format!("{prefix}.mlp.gate_proj"))?
-                    .linear(&normalized)?,
-            )?;
+            let gate = self
+                .matrix(&format!("{prefix}.mlp.gate_proj"))?
+                .linear(&normalized)?;
             let up = self
                 .matrix(&format!("{prefix}.mlp.up_proj"))?
                 .linear(&normalized)?;
+            let gated = self.swiglu.apply(&gate, &up)?;
             hidden = hidden.add(
                 self.matrix(&format!("{prefix}.mlp.down_proj"))?
-                    .linear(&gate.multiply(up)?)?,
+                    .linear(&gated)?,
             )?;
         }
         let output = self.norm(&hidden, "model.norm.weight")?;

@@ -25,6 +25,11 @@ starts at the final prompt token and includes accepted generated tokens, excludi
 earlier prompt tokens and any reused prefix. Presence deduplicates; frequency
 counts occurrences.
 
+Sampling checks raw, processed, filtered and scaled values in that order after a
+successful joint evaluation. Invalid values precede empty support within each
+stage. If evaluation fails, its original `GenerationError::Exception` wins over
+value errors. The failed graph is never inspected or evaluated again.
+
 Cache reuse requires the full intended prompt, an exact represented prefix,
 the same model instance and at least one uncached token. No public trim API is
 exposed; wrapped rotating caches reject trim without changing storage or position.
