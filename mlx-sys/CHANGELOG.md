@@ -9,6 +9,14 @@
 - Generate the bindings with bindgen 0.73; the system opaque types `_malloc_zone_t`
   and `__sFILEX` no longer derive `Copy` and `Clone`
 
+- `MLX_SYS_SYSTEM_SDK=1` builds MLX with the system Xcode's SDK, compilers and Metal
+  compiler in a separate CMake build directory, for environments such as Nix whose
+  SDK would otherwise turn off the M5 neural-accelerator kernels (#450)
+
+- Keep metallibs in `~/.mlx/lib/` per platform, deployment target, SDK and build
+  profile, so builds that differ in any of these no longer overwrite each other's
+  kernels; binaries built earlier keep loading the old directory (#450)
+
 ## 0.7.0
 
 - Update the pinned native tuple to mlx-c `a341b49` (v0.7.0); MLX stays at `0.32.2`.
