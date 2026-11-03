@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Publish the native compilation database and Metal feature state as
+  `DEP_MLX_COMPILE_COMMANDS` and `DEP_MLX_METAL`, so dependent build scripts can
+  match MLX's compiler, SDK and target flags
+
 - Generate the bindings with bindgen 0.73; the system opaque types `_malloc_zone_t`
   and `__sFILEX` no longer derive `Copy` and `Clone`
 

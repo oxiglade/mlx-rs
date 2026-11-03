@@ -53,21 +53,151 @@ fn mlx_c_key(mlx_c_root: &Path) -> String {
 }
 
 #[cfg(feature = "metal")]
-fn metallib_dir(mlx_c_root: &Path) -> PathBuf {
+fn configure_metallib(config: &mut Config, mlx_c_root: &Path) {
+    let hook = Path::new("metallib.cmake")
+        .canonicalize()
+        .expect("Unable to locate the metallib configuration");
+    config.define("CMAKE_PROJECT_mlx_INCLUDE", hook);
     if let Some(path) = env::var_os("MLX_RS_METAL_PATH") {
-        return PathBuf::from(path);
+        config.define("MLX_RS_METAL_BASE", "");
+        config.define("MLX_METAL_PATH", path);
+        return;
     }
 
     let home =
         env::var_os("HOME").expect("HOME must be set when MLX_RS_METAL_PATH is not provided");
-    // A JIT metallib holds only a few kernels; sharing the directory would break
-    // non-JIT builds of the same mlx-c.
+    // A JIT metallib cannot supply the kernels needed by a non-JIT build.
     let key = if cfg!(feature = "metal-jit") {
         format!("{}-jit", mlx_c_key(mlx_c_root))
     } else {
         mlx_c_key(mlx_c_root)
     };
-    PathBuf::from(home).join(".mlx").join("lib").join(key)
+    config.define(
+        "MLX_RS_METAL_BASE",
+        PathBuf::from(home).join(".mlx").join("lib").join(key),
+    );
+}
+
+fn system_sdk_enabled() -> bool {
+    // Cargo tracks option_env! without adding rerun directives to the default build.
+    option_env!("MLX_SYS_SYSTEM_SDK") == Some("1")
+        && env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos")
+}
+
+fn native_out_dir() -> PathBuf {
+    let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
+    if system_sdk_enabled() {
+        out.join("system-sdk")
+    } else {
+        out
+    }
+}
+
+fn cache_value<'a>(cache: &'a str, key: &str) -> Option<&'a str> {
+    cache.lines().find_map(|line| {
+        let (name, entry) = line.split_once(':')?;
+        let (_, value) = entry.split_once('=')?;
+        (name == key).then_some(value)
+    })
+}
+
+fn host_macos_version() -> String {
+    xcode_path(
+        Command::new("/usr/bin/sw_vers").arg("-productVersion"),
+        "cannot determine the host macOS version",
+    )
+    .expect("Unable to select the macOS deployment target")
+}
+
+fn deployment_target() -> String {
+    env::var("MACOSX_DEPLOYMENT_TARGET")
+        .ok()
+        .filter(|target| !target.is_empty())
+        .unwrap_or_else(host_macos_version)
+}
+
+fn xcode_path(command: &mut Command, missing: &str) -> Result<String, String> {
+    let output = command.output().map_err(|_| missing.to_owned())?;
+    let path = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+    if !output.status.success() || path.is_empty() {
+        return Err(missing.to_owned());
+    }
+    Ok(path)
+}
+
+fn configure_macos(config: &mut Config) -> Result<(), String> {
+    println!("cargo:rerun-if-env-changed=MACOSX_DEPLOYMENT_TARGET");
+    let developer = xcode_path(
+        Command::new("/usr/bin/xcode-select")
+            .arg("-p")
+            .env_remove("DEVELOPER_DIR"),
+        "system Xcode developer directory is missing; select an Xcode installation with xcode-select",
+    )?;
+    let query = |args: &[&str], missing: &str| {
+        xcode_path(
+            Command::new("/usr/bin/xcrun")
+                .args(["--sdk", "macosx"])
+                .args(args)
+                .env("DEVELOPER_DIR", &developer)
+                .env_remove("SDKROOT"),
+            missing,
+        )
+    };
+    let sdk = query(
+        &["--show-sdk-path"],
+        "macOS SDK is missing from system Xcode",
+    )?;
+    let cc = query(&["--find", "clang"], "clang is missing from system Xcode")?;
+    let cxx = query(
+        &["--find", "clang++"],
+        "clang++ is missing from system Xcode",
+    )?;
+    #[cfg(feature = "metal")]
+    query(
+        &["metal", "--version"],
+        "Metal compiler is missing; select a full Xcode installation with the Metal toolchain",
+    )?;
+    let mut paths = vec![PathBuf::from("/usr/bin")];
+    paths.extend(env::split_paths(&env::var_os("PATH").unwrap_or_default()));
+    config.env("PATH", env::join_paths(paths).map_err(|e| e.to_string())?);
+    config.env("DEVELOPER_DIR", developer);
+    config.env("SDKROOT", &sdk);
+    if Path::new(&sdk).join("SDKSettings.json").is_file() {
+        println!("cargo:rerun-if-changed={sdk}/SDKSettings.json");
+    }
+    let out = native_out_dir();
+    let build = out.join("build");
+    let target = deployment_target();
+    if let Ok(cache) = fs::read_to_string(build.join("CMakeCache.txt")) {
+        if [
+            ("CMAKE_C_COMPILER", &cc),
+            ("CMAKE_CXX_COMPILER", &cxx),
+            ("CMAKE_OSX_SYSROOT", &sdk),
+            ("CMAKE_OSX_DEPLOYMENT_TARGET", &target),
+        ]
+        .iter()
+        .any(|(key, value)| cache_value(&cache, key) != Some(value.as_str()))
+        {
+            // CMake drops -D options on compiler changes; Metal AIR rules ignore target changes.
+            fs::remove_dir_all(&build)
+                .map_err(|e| format!("cannot reset {}: {e}", build.display()))?;
+        }
+    }
+    config.out_dir(out);
+    config.define("CMAKE_OSX_SYSROOT", &sdk);
+    // Dependents replay compile_commands.json outside CMake's environment.
+    config.define("CMAKE_C_COMPILER", &cc);
+    config.define("CMAKE_CXX_COMPILER", &cxx);
+    config.define("CMAKE_OSX_DEPLOYMENT_TARGET", target);
+
+    // CMake owns the SDK and deployment target; cc's defaults come from Nix.
+    config.no_default_flags(true);
+    let mut c = cc::Build::new();
+    c.compiler(cc);
+    let mut cpp = cc::Build::new();
+    cpp.compiler(cxx);
+    config.init_c_cfg(c).init_cxx_cfg(cpp);
+    Ok(())
 }
 
 fn build_and_link_mlx_c() {
@@ -75,10 +205,17 @@ fn build_and_link_mlx_c() {
     let mut config = Config::new(mlx_c_root);
     config.very_verbose(true);
     config.define("CMAKE_INSTALL_PREFIX", ".");
+    config.define("CMAKE_EXPORT_COMPILE_COMMANDS", "ON");
 
     // Use Xcode's clang to ensure compatibility with the macOS SDK
     config.define("CMAKE_C_COMPILER", "/usr/bin/cc");
     config.define("CMAKE_CXX_COMPILER", "/usr/bin/c++");
+    if system_sdk_enabled() {
+        if let Err(error) = configure_macos(&mut config) {
+            eprintln!("mlx-sys: cannot configure the system SDK: {error}");
+            std::process::exit(1);
+        }
+    }
 
     #[cfg(debug_assertions)]
     {
@@ -98,9 +235,7 @@ fn build_and_link_mlx_c() {
         config.define("MLX_BUILD_METAL", "ON");
         #[cfg(feature = "metal-jit")]
         config.define("MLX_METAL_JIT", "ON");
-        let metallib_dir = metallib_dir(mlx_c_root);
-        fs::create_dir_all(&metallib_dir).expect("Unable to create the MLX metallib directory");
-        config.define("MLX_METAL_PATH", &metallib_dir);
+        configure_metallib(&mut config, mlx_c_root);
     }
 
     #[cfg(feature = "accelerate")]
@@ -137,7 +272,9 @@ fn build_and_link_mlx_c() {
     #[cfg(feature = "metal")]
     {
         println!("cargo:rustc-link-lib=framework=Metal");
-        let metallib = metallib_dir(mlx_c_root).join("mlx.metallib");
+        let directory = fs::read_to_string(dst.join("build/mlx-metal-path.txt"))
+            .expect("Unable to read the configured metallib directory");
+        let metallib = Path::new(&directory).join("mlx.metallib");
         if !metallib.exists() {
             println!(
                 "cargo:warning=mlx.metallib was not created at {}; Metal operations may fail at runtime",
@@ -173,6 +310,11 @@ fn publish_native_sources(dst: &Path, mlx_c_root: &Path) {
         .expect("MLX include directories must not contain the path-list separator");
     println!("cargo::metadata=include={}", include.display());
     println!("cargo::metadata=defines=MLX_STATIC");
+    println!(
+        "cargo::metadata=compile_commands={}",
+        dst.join("build/compile_commands.json").display()
+    );
+    println!("cargo::metadata=metal={}", cfg!(feature = "metal"));
     let version = fs::read_to_string(mlx_c_root.join("CMakeLists.txt"))
         .ok()
         .and_then(|cmake| {
@@ -191,6 +333,7 @@ fn publish_native_sources(dst: &Path, mlx_c_root: &Path) {
 fn main() {
     println!("cargo:rerun-if-env-changed=MLX_RS_METAL_PATH");
     println!("cargo:rerun-if-changed=native-libraries.txt");
+    println!("cargo:rerun-if-changed=metallib.cmake");
     println!("cargo:rerun-if-changed=src/native_link.rs");
     build_and_link_mlx_c();
 

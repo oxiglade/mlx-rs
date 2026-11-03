@@ -114,18 +114,29 @@ An abandoned step preserves committed tokens and K/V contents up to the committe
 length. Before evaluation or submission, it restores the original handles. After
 successful evaluation or submission, full caches keep the new buffers at the
 committed length. Unused tail contents and capacity may change. Rotating caches
-copy handles because they overwrite committed positions. Live snapshots can
-prevent buffer donation.
+copy handles because they overwrite committed positions. Full caches append in
+place on GPU streams. Reusing a rolled-back suffix or changing streams waits for
+pending readers. Full-cache snapshots evaluate the source arrays, allocate full-capacity K/V
+storage for each full layer with spare capacity, and copy only the committed prefixes.
+Full layers without spare capacity and rotating layers may share storage until an
+update replaces it. Copies for all layers are evaluated together. For copied layers,
+allocation and initialization scale with capacity; prefix copying scales with committed
+length. Restore consumes snapshot storage
+without copying or evaluating it. CPU and rotating caches use `slice_update`.
+
+On an M5 Max, measured decode throughput is level at 128 tokens, about 7% higher
+at ~4k and 0.4% lower at ~16k.
 
 Failed evaluation or submission invalidates only the cache involved. This includes
 failed speculative submission even if generation stops at the preceding token.
 Reads, updates, snapshots, restores and reuse return `CacheError::Invalidated`.
 Call `Cache::reset()` and prefill again. Reset discards all cached tokens and buffers.
 Existing snapshots and other caches restored from them remain valid.
-A sampling-only failure leaves an untouched cache valid.
+A sampling-only failure leaves an untouched cache valid. A snapshot copy failure
+also leaves the source valid; a failure evaluating the source graph invalidates it.
 
 Rotation can retain capacity plus a prefill chunk until later updates; snapshots
-retain old storage. Streaming decoding retains generated IDs and emitted text.
+retain independent full-cache storage or old rotating storage. Streaming decoding retains generated IDs and emitted text.
 There is no constant-total-host-memory or zero-allocation guarantee. Chat
 templates have an unresolved resource-exhaustion limitation: arbitrary model
 templates are not safely sandboxed. Arbitrary cache mutation is not exposed.
@@ -175,6 +186,14 @@ roots. Each decoder's updated K/V feeds attention and logits. Cache objects stay
 alive; committed lengths, RNG and text advance only when a token is accepted.
 CPU and rotating-cache decode remain synchronous. This measurement does not
 establish CPU throughput parity or the full real-checkpoint matrix.
+
+`MLX_MAX_MB_PER_BUFFER=32` makes MLX commit Metal command buffers sooner, which
+can let long-context K/V updates reuse their buffers instead of copying them.
+On an M5 Max it raised Qwen3-0.6B-4bit decode at about 4k cached tokens from
+353 to 397 tok/s and Llama-3.2-1B-4bit at about 16k from 252 to 314; other
+measured cases moved by about 1% either way, because the setting shifts where
+command buffers end.
+The setting is process-wide and read when MLX starts.
 
 ## Demand-gated work
 

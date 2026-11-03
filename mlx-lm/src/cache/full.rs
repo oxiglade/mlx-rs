@@ -37,11 +37,21 @@ impl LayerCache for FullCache {
             .checked_add(length)
             .ok_or_else(|| invalid("position overflow"))?;
         self.reserve(end)?;
-        let buffer =
-            self.buffer
-                .as_ref()
-                .unwrap()
-                .replace(self.processed_tokens, &keys, &values)?;
+        let previous = self.buffer.as_ref().unwrap();
+        let stream = mlx_rs::Stream::thread_local_or_default();
+        let buffer = if matches!(stream.device()?.get_type()?, mlx_rs::DeviceType::Gpu) {
+            Buffer {
+                keys: super::append::append(&previous.keys, &keys, self.processed_tokens, &stream)?,
+                values: super::append::append(
+                    &previous.values,
+                    &values,
+                    self.processed_tokens,
+                    &stream,
+                )?,
+            }
+        } else {
+            previous.replace(self.processed_tokens, &keys, &values)?
+        };
         let logical = buffer.slice(0..end)?;
         self.buffer = Some(buffer);
         self.processed_tokens = end;
@@ -72,6 +82,15 @@ impl LayerCache for FullCache {
     }
     fn clone_box(&self) -> Box<dyn LayerCache> {
         Box::new(self.clone())
+    }
+    fn snapshot_box(&self) -> Result<Box<dyn LayerCache>, CacheError> {
+        let (keys, values) = self.logical_arrays()?;
+        Ok(Box::new(Self {
+            spec: self.spec.clone(),
+            buffer: Some(Buffer::new(&self.spec, self.capacity)?.replace(0, &keys, &values)?),
+            processed_tokens: self.processed_tokens,
+            capacity: self.capacity,
+        }))
     }
     fn rollback(&mut self, staged: &mut dyn LayerCache) {
         if self.buffer.is_none() {
@@ -121,6 +140,59 @@ impl LayerCache for FullCache {
 mod tests {
     use super::*;
     use crate::cache::{Cache, CacheOptions};
+
+    #[test]
+    fn snapshot_failure_only_invalidates_failed_source_graphs(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        mlx_rs::with_device(
+            mlx_rs::Device::cpu(),
+            || -> Result<(), Box<dyn std::error::Error>> {
+                let spec = LayerCacheSpec {
+                    attention: crate::AttentionKind::Full,
+                    batch_size: 1,
+                    kv_heads: 1,
+                    head_dim: 1,
+                    dtype: mlx_rs::Dtype::Float32,
+                };
+                let mut cache = Cache::new(
+                    crate::ModelType::new("llama"),
+                    std::slice::from_ref(&spec),
+                    &CacheOptions::default(),
+                    None,
+                )?;
+                for failed_source in [false, true] {
+                    let keys = if failed_source {
+                        mlx_rs::linalg::inv(Array::from_slice(&[0.0f32], &[1, 1]))?
+                            .reshape(&[1, 1, 1, 1])?
+                    } else {
+                        Array::from_slice(&[3.0f32], &[1, 1, 1, 1])
+                    };
+                    cache.layers[0] = Box::new(FullCache {
+                        spec: spec.clone(),
+                        buffer: Some(Buffer {
+                            keys,
+                            values: Array::from_slice(&[4.0f32], &[1, 1, 1, 1]),
+                        }),
+                        processed_tokens: 1,
+                        // Force copy construction to fail without an actual oversized allocation.
+                        capacity: if failed_source {
+                            1
+                        } else {
+                            i32::MAX as usize + 1
+                        },
+                    });
+                    assert!(cache.snapshot().is_err());
+                    assert_eq!(cache.invalidated, failed_source);
+                    if !failed_source {
+                        let (keys, values) = cache.layers[0].logical_arrays()?;
+                        assert_eq!(keys.to_vec_exact::<f32>()?, [3.]);
+                        assert_eq!(values.to_vec_exact::<f32>()?, [4.]);
+                    }
+                }
+                Ok(())
+            },
+        )
+    }
 
     #[test]
     fn empty_submission_preserves_committed_buffers() -> Result<(), Box<dyn std::error::Error>> {

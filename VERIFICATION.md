@@ -318,6 +318,30 @@ case on CPU and Metal. The Rust harness hashes the files and compares inference 
 Python results. Missing input, incomplete execution or a failed comparison fails the job.
 Other configurations remove the checkpoint manifest from their test environment.
 
+Before admitting an MLX bump, check the private K/V append shim in `mlx-lm` on the
+new runtime. Use the pinned Qwen3-0.6B-4bit and Llama-3.2-1B-Instruct-4bit checkpoints
+from the checkpoint contract. For each model, repeat its prompt IDs to 3,968 tokens,
+use prefill chunks of 512, and greedily generate 2,048 tokens. Compare the primitive
+with the previous release built at the same MLX version (`v0.33.0` is the current
+`slice_update` reference). Rebind that release's mlx-c pin to the target runtime
+before building. Record both source commits and verify both builds use the
+same native tuple. Run each pair under default scheduling and with
+`MLX_MAX_MB_PER_BUFFER` set to 16 and 64 in separate processes before device
+initialization.
+
+For both models, also run a stop-then-reuse pair with `MLX_MAX_MB_PER_BUFFER=16`:
+stop generation while a lookahead step is pending, drop the generation, then start
+a request on that cache with its exact committed token prefix and a different
+nonempty suffix beginning at the abandoned position. Compare the continuation
+with the reference build using the same stop boundary and request.
+
+Require identical generated IDs and bitwise-equal full decode logits for all eight
+pairs. Retain logits during generation and compare them afterwards so observation
+does not synchronize every step. Record the checkpoint revisions, runtime commits,
+environment and comparison results. Run the cache tests too, including rollback
+with pending readers, stream handoff and snapshot sibling growth. A compile-only
+check of new headers does not qualify the runtime's ownership or scheduling behavior.
+
 The Cargo-archive canary runs in `checks` on ordinary PRs and bumps, reusing clippy's native build:
 
     cargo clippy --locked --message-format=json-render-diagnostics -- -D warnings \
