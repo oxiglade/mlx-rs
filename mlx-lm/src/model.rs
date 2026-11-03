@@ -203,15 +203,14 @@ impl Model {
             )?,
             None => 0,
         };
-        let capacity = crate::cache::checked_capacity(prompt.len(), options.max_tokens)?;
-        let reserve = cache.as_ref().map(|_| capacity);
+        crate::cache::checked_capacity(prompt.len(), options.max_tokens)?;
         let cache = match cache {
             Some(cache) => GenerationCache::Borrowed(cache),
             None => GenerationCache::Owned(Cache::new_for_model(
                 self.config.model_type.clone(),
                 self.decoder.cache_layout(),
                 &options.cache,
-                Some(capacity),
+                None,
                 Rc::clone(&self.identity),
             )?),
         };
@@ -231,7 +230,6 @@ impl Model {
             processed: 0,
             chunk: options.prefill_chunk_size,
             max_tokens: options.max_tokens,
-            reserve,
             sampling,
             rng: None,
             history: vec![last],
@@ -452,7 +450,6 @@ pub struct Generation<'model> {
     processed: usize,
     chunk: NonZeroUsize,
     max_tokens: NonZeroUsize,
-    reserve: Option<NonZeroUsize>,
     sampling: SamplingEngine,
     rng: Option<RandomState>,
     history: Vec<TokenId>,
@@ -562,9 +559,6 @@ impl<'model> Generation<'model> {
         let ids = &self.prompt[start..start + count];
         let tokens = token_array(ids)?;
         let mut step = self.cache.get_mut().step_with_tokens(ids)?;
-        if let Some(capacity) = self.reserve {
-            step.reserve(capacity)?;
-        }
         let logits = self.decoder.forward(&tokens, &mut step)?;
         let row = if remaining == 1 {
             Some(last_row(&logits)?)
@@ -574,7 +568,6 @@ impl<'model> Generation<'model> {
         drop(logits);
         let outputs: Vec<_> = row.iter().collect();
         step.evaluate(&outputs).map_err(evaluation_error)?.commit();
-        self.reserve = None;
         self.processed += count;
         self.state = match row {
             Some(row) => GenerationState::FirstSample(row),

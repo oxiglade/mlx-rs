@@ -180,12 +180,14 @@ fn pure_policy_validation() -> TestResult {
 }
 #[test]
 fn pure_growth_boundaries() -> TestResult {
-    assert_eq!(grown_capacity(4, 4)?, 4);
-    assert_eq!(grown_capacity(4, 5)?, 8);
-    assert_eq!(grown_capacity(4, 17)?, 32);
-    assert_eq!(grown_capacity(0, 1)?, 1);
+    assert_eq!(grown_capacity(256, 255, 256)?, 256);
+    assert_eq!(grown_capacity(256, 256, 257)?, 512);
+    assert_eq!(grown_capacity(256, 255, 257)?, 511);
+    assert_eq!(grown_capacity(256, 255, 555)?, 767);
+    assert_eq!(grown_capacity(0, 0, 1)?, 256);
+    assert_eq!(grown_capacity(0, 0, i32::MAX as usize)?, i32::MAX as usize);
     assert!(matches!(
-        grown_capacity(4, usize::MAX),
+        grown_capacity(4, 4, usize::MAX),
         Err(CacheError::InvalidState(_))
     ));
     assert!(matches!(
@@ -202,11 +204,11 @@ fn full_append_and_growth() -> TestResult {
     assert_eq!(contents(&values)?, [0., -1.]);
     assert_eq!(first_info(&cache)?.capacity, 2);
     append(&mut cache, &[2.])?;
-    assert_eq!(first_info(&cache)?.capacity, 4);
+    assert_eq!(first_info(&cache)?.capacity, 258);
     let (keys, _) = append(&mut cache, &[3., 4., 5., 6., 7., 8.])?;
     assert_eq!(contents(&keys)?, [0., 1., 2., 3., 4., 5., 6., 7., 8.]);
     let info = first_info(&cache)?;
-    assert_eq!(info.capacity, 16);
+    assert_eq!(info.capacity, 258);
     assert_eq!(info.processed_tokens, 9);
     assert_eq!(info.retained_positions, 0..9);
     Ok(())
@@ -877,7 +879,7 @@ fn reuse_rejects_before_mutation_and_reserves_staged_growth() -> Result<(), crat
     step.evaluate_and_commit(&[])?;
     assert_eq!(
         cache.info()?.map(|i| i.capacity).collect::<Vec<_>>(),
-        [32, 32]
+        [258, 258]
     );
     assert_eq!(cache.tokens()?, prompt);
     let fresh = Cache::new_for_model(
@@ -1587,4 +1589,145 @@ fn rolled_back_gpu_suffix_can_be_reused_with_pending_readers(
         }
     }
     Ok(())
+}
+
+#[test]
+fn full_growth_uses_256_token_updates_for_prefill_and_decode() -> TestResult {
+    for device in [mlx_rs::Device::cpu(), mlx_rs::Device::gpu()] {
+        mlx_rs::with_device(device, || -> TestResult {
+            for chunks in [
+                vec![(255, 256), (1, 256), (1, 512), (255, 512), (1, 768)],
+                vec![(255, 256), (2, 511), (300, 769), (2048, 2605), (1, 2861)],
+                vec![(2048, 2048), (2048, 4096), (1, 4352)],
+            ] {
+                let mut cache = make_cache(CachePolicy::Full, 2, 256)?;
+                let mut expected = Vec::new();
+                for (count, capacity) in chunks {
+                    let start = expected.len();
+                    let update: Vec<_> = (start..start + count).map(|n| n as f32).collect();
+                    expected.extend_from_slice(&update);
+                    let (keys, values) = append(&mut cache, &update)?;
+                    assert_eq!(contents(&keys)?, expected);
+                    assert_eq!(
+                        contents(&values)?,
+                        expected.iter().map(|v| -v).collect::<Vec<_>>()
+                    );
+                    assert!(cache.info()?.all(|info| info.capacity == capacity));
+                }
+            }
+            Ok(())
+        })?;
+    }
+    Ok(())
+}
+
+#[test]
+fn full_growth_rollback_preserves_boundary_prefix() -> Result<(), Box<dyn std::error::Error>> {
+    for device in [mlx_rs::Device::cpu(), mlx_rs::Device::gpu()] {
+        mlx_rs::with_device(device, || -> Result<(), Box<dyn std::error::Error>> {
+            for mode in ["drop", "evaluate", "submit"] {
+                let ids = vec![crate::TokenId::from(1); 256];
+                let expected: Vec<_> = (0..256).map(|n| n as f32).collect();
+                let mut cache = Cache::new_for_model(
+                    crate::ModelType::new("llama"),
+                    &[spec()],
+                    &CacheOptions::default(),
+                    Some(nonzero(256)?),
+                    Rc::new(()),
+                )?;
+                let mut step = cache.step_with_tokens(&ids)?;
+                step.update_and_fetch(0, tokens(&expected)?, tokens(&expected)?)?;
+                step.evaluate(&[])?.commit();
+                let mut step = cache.speculative_step(256)?;
+                let (keys, values) =
+                    step.update_and_fetch(0, tokens(&[999.])?, tokens(&[999.])?)?;
+                assert_eq!(step.info(0)?.capacity, 512);
+                match mode {
+                    "drop" => drop(step),
+                    "evaluate" => drop(step.evaluate(&[])?),
+                    _ => step.submit(&[&keys, &values])?,
+                }
+                assert_eq!(cache.tokens()?, ids);
+                assert_eq!(first_info(&cache)?.processed_tokens, 256);
+                assert_eq!(
+                    first_info(&cache)?.capacity,
+                    if mode == "drop" { 256 } else { 512 }
+                );
+                if mode != "submit" {
+                    assert_eq!(contents(&cache.logical_layers()?[0].keys)?, expected);
+                }
+                let mut step = cache.step_with_tokens(&[2.into()])?;
+                let (keys, _) = step.update_and_fetch(0, tokens(&[256.])?, tokens(&[256.])?)?;
+                step.evaluate(&[])?.commit();
+                assert_eq!(
+                    contents(&keys)?,
+                    (0..257).map(|n| n as f32).collect::<Vec<_>>()
+                );
+                assert_eq!(cache.tokens()?[256], 2.into());
+            }
+            Ok(())
+        })?;
+    }
+    Ok(())
+}
+
+#[test]
+fn full_snapshots_restore_across_growth() -> TestResult {
+    for device in [mlx_rs::Device::cpu(), mlx_rs::Device::gpu()] {
+        mlx_rs::with_device(device, || -> TestResult {
+            let mut cache = make_cache(CachePolicy::Full, 2, 256)?;
+            let prefix: Vec<_> = (0..255).map(|n| n as f32).collect();
+            append(&mut cache, &prefix)?;
+            let before = cache.snapshot()?;
+            append(&mut cache, &[255., 256.])?;
+            assert_eq!(first_info(&cache)?.capacity, 511);
+            let after = cache.snapshot()?;
+            cache.restore(before)?;
+            assert_eq!(first_info(&cache)?.capacity, 256);
+            for view in cache.logical_layers()? {
+                assert_eq!(contents(&view.keys)?, prefix);
+            }
+            append(&mut cache, &[999., 998.])?;
+            cache.restore(after)?;
+            assert_eq!(first_info(&cache)?.capacity, 511);
+            for view in cache.logical_layers()? {
+                assert_eq!(
+                    contents(&view.keys)?,
+                    (0..257).map(|n| n as f32).collect::<Vec<_>>()
+                );
+            }
+            let (keys, _) = append(&mut cache, &[257.])?;
+            assert_eq!(
+                contents(&keys)?,
+                (0..258).map(|n| n as f32).collect::<Vec<_>>()
+            );
+            Ok(())
+        })?;
+    }
+    Ok(())
+}
+
+#[test]
+fn failed_growth_invalidates_cache_but_not_snapshot() -> Result<(), Box<dyn std::error::Error>> {
+    mlx_rs::with_device(
+        mlx_rs::Device::cpu(),
+        || -> Result<(), Box<dyn std::error::Error>> {
+            let mut cache = make_cache(CachePolicy::Full, 1, 256)?;
+            let prefix: Vec<_> = (0..256).map(|n| n as f32).collect();
+            append(&mut cache, &prefix)?;
+            let snapshot = cache.snapshot()?;
+            let bad = mlx_rs::linalg::inv(Array::from_slice(&[0.0f32], &[1, 1]))?
+                .reshape(&[1, 1, 1, 1])?;
+            let mut step = cache.step()?;
+            step.update_and_fetch(0, bad, tokens(&[256.])?)?;
+            assert_eq!(step.info(0)?.capacity, 512);
+            assert!(matches!(step.evaluate(&[]), Err(CacheError::Exception(_))));
+            assert_invalidated(&mut cache)?;
+            cache.reset()?;
+            cache.restore(snapshot)?;
+            assert_eq!(first_info(&cache)?.capacity, 256);
+            assert_eq!(contents(&cache.logical_layers()?[0].keys)?, prefix);
+            Ok(())
+        },
+    )
 }
