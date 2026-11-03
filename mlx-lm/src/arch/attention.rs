@@ -1,5 +1,5 @@
-use crate::{AttentionKind, InferenceError};
-use mlx_rs::Array;
+use crate::{AttentionKind, CacheKind, InferenceError};
+use mlx_rs::{fast::ScaledDotProductAttentionMask, Array};
 
 #[derive(Default)]
 pub(super) struct AttentionMasks {
@@ -19,13 +19,25 @@ impl AttentionMasks {
         length: usize,
         positions: &[usize],
         attention: &AttentionKind,
+        kind: CacheKind,
         create: impl FnOnce() -> Result<Array, InferenceError>,
-    ) -> Result<Option<&Array>, InferenceError> {
+    ) -> Result<Option<ScaledDotProductAttentionMask<'_>>, InferenceError> {
         if length == 1
             && *attention == AttentionKind::Full
             && positions.iter().all(|&position| position <= offset)
         {
             return Ok(None);
+        }
+        if *attention == AttentionKind::Full
+            && kind == CacheKind::Full
+            && length > 1
+            && positions.len() >= length
+            && positions.last().copied() == offset.checked_add(length - 1)
+            && positions
+                .windows(2)
+                .all(|pair| pair[0].checked_add(1) == Some(pair[1]))
+        {
+            return Ok(Some(ScaledDotProductAttentionMask::Causal));
         }
         let index = self.entries.iter().position(|mask| {
             mask.length == length
@@ -46,7 +58,9 @@ impl AttentionMasks {
                 self.entries.len() - 1
             }
         };
-        Ok(Some(&self.entries[index].array))
+        Ok(Some(ScaledDotProductAttentionMask::Array(
+            &self.entries[index].array,
+        )))
     }
 }
 
@@ -56,13 +70,115 @@ mod tests {
     use std::num::NonZeroUsize;
 
     #[test]
+    fn causal_requires_full_contiguous_query_suffix() -> Result<(), InferenceError> {
+        let sliding = AttentionKind::Sliding {
+            window: NonZeroUsize::new(3).unwrap(),
+        };
+        for (offset, length, positions, attention, kind, causal) in [
+            (
+                0,
+                3,
+                vec![0, 1, 2],
+                &AttentionKind::Full,
+                CacheKind::Full,
+                true,
+            ),
+            (
+                2,
+                2,
+                vec![0, 1, 2, 3],
+                &AttentionKind::Full,
+                CacheKind::Full,
+                true,
+            ),
+            (
+                8,
+                2,
+                vec![6, 7, 8, 9],
+                &AttentionKind::Full,
+                CacheKind::Full,
+                true,
+            ),
+            (
+                8,
+                2,
+                vec![0, 7, 8, 9],
+                &AttentionKind::Full,
+                CacheKind::Full,
+                false,
+            ),
+            (2, 2, vec![0, 1, 2, 3], &sliding, CacheKind::Full, false),
+            (
+                2,
+                2,
+                vec![0, 1, 2, 3],
+                &AttentionKind::Full,
+                CacheKind::Rotating,
+                false,
+            ),
+            (
+                8,
+                2,
+                vec![0, 7, 8, 9],
+                &AttentionKind::Full,
+                CacheKind::Rotating,
+                false,
+            ),
+            (
+                8,
+                2,
+                vec![6, 7, 8],
+                &AttentionKind::Full,
+                CacheKind::Full,
+                false,
+            ),
+            (
+                8,
+                2,
+                vec![7, 8, 9, 10],
+                &AttentionKind::Full,
+                CacheKind::Full,
+                false,
+            ),
+            (8, 2, vec![9], &AttentionKind::Full, CacheKind::Full, false),
+            (
+                8,
+                2,
+                vec![7, 9, 8, 9],
+                &AttentionKind::Full,
+                CacheKind::Full,
+                false,
+            ),
+            (8, 2, vec![], &AttentionKind::Full, CacheKind::Full, false),
+        ] {
+            let mut masks = AttentionMasks::default();
+            let mut created = false;
+            let mask = masks.get_or_create(offset, length, &positions, attention, kind, || {
+                created = true;
+                Ok(Array::from(true))
+            })?;
+            assert_eq!(
+                matches!(mask, Some(ScaledDotProductAttentionMask::Causal)),
+                causal
+            );
+            assert_eq!(created, !causal);
+        }
+        Ok(())
+    }
+
+    #[test]
     fn full_decode_omits_masks_and_other_steps_share_by_positions_and_policy(
     ) -> Result<(), InferenceError> {
         let mut masks = AttentionMasks::default();
         assert!(masks
-            .get_or_create(8, 1, &[0, 6, 7, 8], &AttentionKind::Full, || panic!(
-                "full decode needs no mask"
-            ))?
+            .get_or_create(
+                8,
+                1,
+                &[0, 6, 7, 8],
+                &AttentionKind::Full,
+                CacheKind::Full,
+                || panic!("full decode needs no mask")
+            )?
             .is_none());
         let mut calls = 0;
         let sliding = AttentionKind::Sliding {
@@ -75,7 +191,7 @@ mod tests {
         ] {
             for _ in 0..3 {
                 masks
-                    .get_or_create(8, length, positions, attention, || {
+                    .get_or_create(8, length, positions, attention, CacheKind::Full, || {
                         calls += 1;
                         Ok(Array::from(true))
                     })?
@@ -84,9 +200,9 @@ mod tests {
         }
         assert_eq!(calls, 3);
         assert!(masks
-            .get_or_create(8, 1, &[8, 9], &AttentionKind::Full, || Ok(Array::from(
-                false
-            )))?
+            .get_or_create(8, 1, &[8, 9], &AttentionKind::Full, CacheKind::Full, || Ok(
+                Array::from(false)
+            ))?
             .is_some());
         Ok(())
     }

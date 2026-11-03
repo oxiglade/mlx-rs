@@ -257,6 +257,7 @@ impl DecoderModel for Decoder {
                 length as usize,
                 &positions,
                 &spec.attention,
+                info.kind,
                 || attention_mask(offset, length, &positions, &spec.attention),
             )?;
             let attended = fast::scaled_dot_product_attention(
@@ -264,7 +265,7 @@ impl DecoderModel for Decoder {
                 keys,
                 values,
                 (self.head_dim as f32).sqrt().recip(),
-                mask.map(fast::ScaledDotProductAttentionMask::Array),
+                mask,
                 None,
             )?
             .transpose_axes(&[0, 2, 1, 3])?

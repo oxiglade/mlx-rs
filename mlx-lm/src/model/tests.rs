@@ -1081,6 +1081,30 @@ fn evaluation_error_mapping_preserves_source() {
     ));
 }
 
+#[test]
+fn intermediate_prefill_does_not_evaluate_logits() -> TestResult {
+    with_device(Device::cpu(), || {
+        let mut model = scripted(vec![u32::MAX, u32::MAX, 12], None, None, None)?;
+        let prompt = [12.into(), 13.into(), 14.into(), 15.into(), 16.into()];
+        let mut options = length_options(1);
+        options.prefill_chunk_size = nz(2);
+        let mut generation = model.generate(Prompt::Tokens(&prompt), options)?;
+        for processed in [0, 2, 4, 5] {
+            assert!(matches!(
+                generation.next().transpose()?,
+                Some(GenerationEvent::Prefill { processed: n, total: 5 }) if n == processed
+            ));
+            assert_eq!(generation.cache()?.tokens()?, &prompt[..processed]);
+        }
+        assert!(matches!(
+            generation.next().transpose()?,
+            Some(GenerationEvent::Token { token_id, .. }) if token_id == TokenId::from(12)
+        ));
+        assert!(generation.next().is_none());
+        Ok(())
+    })
+}
+
 fn failing_row(vocabulary: usize) -> Result<Array, mlx_rs::error::Exception> {
     let singular = Array::from_slice(&[0.0f32], &[1, 1]);
     mlx_rs::ops::broadcast_to(mlx_rs::linalg::inv(singular)?, &[1, vocabulary as i32])
