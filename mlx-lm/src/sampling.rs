@@ -1,5 +1,5 @@
 pub use crate::error::SamplingError;
-use std::num::NonZeroUsize;
+use std::{cell::RefCell, num::NonZeroUsize};
 
 use crate::{GenerationError, RepetitionPenaltyOptions, TokenId};
 use mlx_rs::{
@@ -301,7 +301,13 @@ impl SamplingEngine {
         let sample = (|| -> Result<PendingSample, GenerationError> {
             checks.push(ValueCheck::new(&logits)?);
             let processed = self.process_ahead(history, previous, logits)?;
-            checks.push(ValueCheck::new(&processed)?);
+            if (previous.is_some() || !history.is_empty())
+                && (self.repetition.as_ref().is_some_and(|p| p.penalty != 1.0)
+                    || self.presence.as_ref().is_some_and(|p| p.0.penalty != 0.0)
+                    || self.frequency.as_ref().is_some_and(|p| p.0.penalty != 0.0))
+            {
+                checks.push(ValueCheck::new(&processed)?);
+            }
             let greedy = self.options.temperature == 0.0;
             let filtered = if !greedy || capture_logprobs {
                 let logprobs = processed
@@ -437,11 +443,7 @@ impl SamplePlan {
     }
 
     pub(crate) fn outputs<'a>(&'a self, extra: &[&'a Array]) -> Vec<&'a Array> {
-        let mut outputs: Vec<_> = self
-            .checks
-            .iter()
-            .flat_map(|check| [&check.invalid, &check.support])
-            .collect();
+        let mut outputs: Vec<_> = self.checks.iter().map(|check| &check.status).collect();
         if let Ok(sample) = &self.sample {
             outputs.push(&sample.token);
             if let Some(state) = &sample.rng {
@@ -485,35 +487,57 @@ impl SamplePlan {
     }
 }
 
+type ValueClassifier = dyn FnMut(&Array) -> Result<Array, Exception>;
+
+thread_local! {
+    static VALUE_CLASSIFIER: RefCell<Option<(mlx_rs::Stream, Box<ValueClassifier>)>> = const { RefCell::new(None) };
+}
+
 struct ValueCheck {
-    invalid: Array,
-    support: Array,
+    status: Array,
 }
 impl ValueCheck {
     fn new(row: &Array) -> Result<Self, SamplingError> {
-        let invalid = row
-            .is_nan()?
-            .logical_or(row.eq(scalar(f32::INFINITY, row.dtype())?)?)?
-            .any(false)?;
-        let support = row.is_finite()?.any(false)?;
-        Ok(Self { invalid, support })
+        let stream = mlx_rs::Stream::thread_local_or_default();
+        let status = VALUE_CLASSIFIER.with_borrow_mut(|cached| {
+            // MLX's compile cache does not key on Rust's scoped stream.
+            if cached
+                .as_ref()
+                .is_none_or(|(previous, _)| *previous != stream)
+            {
+                *cached = Some((
+                    stream,
+                    Box::new(mlx_rs::transforms::compile::compile(
+                        |row: &Array| {
+                            let invalid = row
+                                .is_nan()?
+                                .logical_or(row.eq(scalar(f32::INFINITY, row.dtype())?)?)?;
+                            // Max preserves invalid-before-empty precedence: 2 > 1 > 0.
+                            ops::select(
+                                invalid,
+                                Array::from(2i32),
+                                row.is_finite()?.as_dtype(Dtype::Int32)?,
+                            )?
+                            .max(true)
+                        },
+                        true,
+                    )),
+                ));
+            }
+            cached.as_mut().unwrap().1(row)
+        })?;
+        Ok(Self { status })
     }
     fn validate(&self) -> Result<(), GenerationError> {
-        if self
-            .invalid
-            .try_item_exact::<bool>()
+        match self
+            .status
+            .try_item_exact::<i32>()
             .map_err(conversion_error)?
         {
-            return Err(SamplingError::InvalidLogitsValue.into());
+            2 => Err(SamplingError::InvalidLogitsValue.into()),
+            0 => Err(SamplingError::EmptySupport.into()),
+            _ => Ok(()),
         }
-        if !self
-            .support
-            .try_item_exact::<bool>()
-            .map_err(conversion_error)?
-        {
-            return Err(SamplingError::EmptySupport.into());
-        }
-        Ok(())
     }
 }
 
