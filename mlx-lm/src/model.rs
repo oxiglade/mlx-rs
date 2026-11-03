@@ -473,6 +473,10 @@ impl<'model> Generation<'model> {
         Ok(self.cache.get())
     }
     /// Captures cache state only, excluding RNG, detokenizer, and iterator state.
+    /// Evaluates source arrays and copies full-cache prefixes with spare capacity into
+    /// full-capacity allocations, evaluating all layer copies together. Full layers without
+    /// spare capacity and rotating layers may share storage. Restore consumes the snapshot.
+    /// Source evaluation failure invalidates the cache; copy failure leaves it valid.
     pub fn snapshot(&mut self) -> Result<CacheSnapshot, CacheError> {
         self.cache.get_mut().snapshot()
     }

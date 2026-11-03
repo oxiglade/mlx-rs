@@ -75,6 +75,7 @@ fn build_and_link_mlx_c() {
     let mut config = Config::new(mlx_c_root);
     config.very_verbose(true);
     config.define("CMAKE_INSTALL_PREFIX", ".");
+    config.define("CMAKE_EXPORT_COMPILE_COMMANDS", "ON");
 
     // Use Xcode's clang to ensure compatibility with the macOS SDK
     config.define("CMAKE_C_COMPILER", "/usr/bin/cc");
@@ -173,6 +174,11 @@ fn publish_native_sources(dst: &Path, mlx_c_root: &Path) {
         .expect("MLX include directories must not contain the path-list separator");
     println!("cargo::metadata=include={}", include.display());
     println!("cargo::metadata=defines=MLX_STATIC");
+    println!(
+        "cargo::metadata=compile_commands={}",
+        dst.join("build/compile_commands.json").display()
+    );
+    println!("cargo::metadata=metal={}", cfg!(feature = "metal"));
     let version = fs::read_to_string(mlx_c_root.join("CMakeLists.txt"))
         .ok()
         .and_then(|cmake| {

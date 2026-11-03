@@ -29,13 +29,18 @@ so if you set it, point JIT and non-JIT builds at different directories.
 
 ## Build metadata for dependents
 
+`DEP_MLX_INCLUDE`, `DEP_MLX_DEFINES` and `DEP_MLX_VERSION` are emitted since 0.7.0.
+`DEP_MLX_COMPILE_COMMANDS` and `DEP_MLX_METAL` are unreleased additions after 0.7.0.
+
 `mlx-sys` declares `links = "mlx"`, so Cargo runs a dependent's build script after this one and
 passes it the locations of the native sources this build compiled:
 
 | Variable | Value |
 |---|---|
 | `DEP_MLX_INCLUDE` | every directory the include path needs, as a path list: the MLX source tree (`mlx/...`), metal-cpp with the `metal` feature, and mlx-c (`mlx/c/...`) |
-| `DEP_MLX_DEFINES` | whitespace-separated `NAME` or `NAME=VALUE` definitions MLX was built with |
+| `DEP_MLX_DEFINES` | common header definitions, currently `MLX_STATIC` |
+| `DEP_MLX_COMPILE_COMMANDS` | CMake compilation database with the native compiler, include paths, definitions, SDK and target flags |
+| `DEP_MLX_METAL` | `true` when the native build enables Metal, otherwise `false` |
 | `DEP_MLX_VERSION` | the MLX version mlx-c pins, when it can be read |
 
 C++ that extends MLX, such as a custom `mlx::core::Primitive`, must compile against the same
@@ -55,3 +60,9 @@ for define in std::env::var("DEP_MLX_DEFINES").unwrap().split_whitespace() {
     };
 }
 ```
+
+For an exact match to the native compiler settings, use the `mlx/array.cpp` entry in
+`DEP_MLX_COMPILE_COMMANDS`. Keep its compiler and flags, replacing only the source and output
+arguments. Add the mlx-c include directory from `DEP_MLX_INCLUDE` when using its private bridge.
+Run the compiler in the entry's `directory` to preserve relative arguments. Compilation databases
+require a Makefiles or Ninja CMake generator.
