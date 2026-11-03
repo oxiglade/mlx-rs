@@ -310,7 +310,11 @@ impl Decoder {
         &mut self,
         tokens: &Array,
         offset: usize,
-        mut update: impl FnMut(usize, Array, Array) -> Result<(Array, Array, Vec<usize>), CacheError>,
+        mut update: impl FnMut(
+            usize,
+            Array,
+            Array,
+        ) -> Result<(Array, Array, crate::CacheInfo), CacheError>,
     ) -> Result<Array, InferenceError> {
         let [batch, length] = tokens.shape() else {
             return Err(
@@ -343,28 +347,38 @@ impl Decoder {
             let queries = self.rope.apply(&project("q_proj", heads)?, offset)?;
             let keys = self.rope.apply(&project("k_proj", kv_heads)?, offset)?;
             let values = project("v_proj", kv_heads)?;
-            let (keys, values, positions) = update(layer, keys, values)?;
+            let (keys, values, info) = update(layer, keys, values)?;
+            let positions: Vec<_> = info
+                .retained_prefix
+                .chain(info.retained_positions)
+                .collect();
             if keys.shape().get(2).copied() != i32::try_from(positions.len()).ok() {
                 return Err(CacheError::InvalidState(
                     "cache positions disagree with returned keys".into(),
                 )
                 .into());
             }
-            let mask =
-                masks.get_or_create(offset, *length as usize, &positions, attention, || {
+            let mask = masks.get_or_create(
+                offset,
+                *length as usize,
+                &positions,
+                attention,
+                info.kind,
+                || {
                     Ok(attention_mask(
                         offset,
                         *length as usize,
                         &positions,
                         attention,
                     )?)
-                })?;
+                },
+            )?;
             let output = fast::scaled_dot_product_attention(
                 queries,
                 keys,
                 values,
                 (dims.head_dim as f32).sqrt().recip(),
-                mask.map(fast::ScaledDotProductAttentionMask::Array),
+                mask,
                 None,
             )?
             .transpose_axes(&[0, 2, 1, 3])?
@@ -462,11 +476,7 @@ impl DecoderModel for Decoder {
             }
             let (keys, values) = cache.update_and_fetch(layer, keys, values)?;
             let info = cache.info(layer)?;
-            let positions = info
-                .retained_prefix
-                .chain(info.retained_positions)
-                .collect();
-            Ok((keys, values, positions))
+            Ok((keys, values, info))
         })
     }
 

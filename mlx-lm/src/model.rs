@@ -571,9 +571,9 @@ impl<'model> Generation<'model> {
         } else {
             None
         };
-        step.evaluate(&[row.as_ref().unwrap_or(&logits)])
-            .map_err(evaluation_error)?
-            .commit();
+        drop(logits);
+        let outputs: Vec<_> = row.iter().collect();
+        step.evaluate(&outputs).map_err(evaluation_error)?.commit();
         self.reserve = None;
         self.processed += count;
         self.state = match row {
