@@ -61,6 +61,9 @@ Add this to your `Cargo.toml`:
 mlx-rs = "0.33.0"
 ```
 
+See [mlx-sys build configuration](../mlx-sys/README.md#macos-sdk-and-deployment-target)
+for system Xcode opt-in, deployment targets and NAX kernel requirements.
+
 ## Feature Flags
 
 * `metal` - enables metal (GPU) usage in MLX
