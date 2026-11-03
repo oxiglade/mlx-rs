@@ -19,6 +19,7 @@ oracle-hooks = []
 
 [dependencies]
 mlx-rs = { workspace = true, default-features = true }
+mlx-sys.workspace = true
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror.workspace = true
@@ -29,8 +30,12 @@ minijinja-contrib = { version = "2", features = ["pycompat"] }
 hf-hub = { version = "0.4", optional = true, default-features = false, features = ["ureq"] }
 sha2 = { version = "0.10", optional = true }
 
+[build-dependencies]
+cc.workspace = true
+serde_json = "1"
+shlex = "1"
+
 [dev-dependencies]
-mlx-sys.workspace = true
 anyhow = "1"
 tempfile.workspace = true
 

@@ -1492,3 +1492,99 @@ fn sampling_roots_evaluate_every_decoder_cache_write() -> anyhow::Result<()> {
         Ok(())
     })
 }
+
+#[test]
+fn append_snapshot_storage_is_independent_on_metal() -> TestResult {
+    mlx_rs::with_device(mlx_rs::Device::gpu(), || -> TestResult {
+        for capacity in [2, 16, 512] {
+            let mut source = make_cache(CachePolicy::Full, 1, capacity)?;
+            append(&mut source, &[1., 2.])?;
+            let before = source.layers[0].arrays()?.0.to_vec_exact::<f32>().unwrap();
+            let saved = source.snapshot()?;
+            let source_ptr = source.layers[0].arrays()?.0.as_slice::<f32>().as_ptr();
+            let saved_ptr = saved.layers[&0].arrays()?.0.as_slice::<f32>().as_ptr();
+            if capacity > 2 {
+                assert_ne!(source_ptr, saved_ptr);
+            }
+            let mut sibling = make_cache(CachePolicy::Full, 1, capacity)?;
+            sibling.model_identity = source.model_identity.clone();
+            sibling.restore(saved)?;
+            assert_eq!(
+                sibling.layers[0].arrays()?.0.as_slice::<f32>().as_ptr(),
+                saved_ptr
+            );
+            for i in 0..32 {
+                append(&mut source, &[10. + i as f32])?;
+                append(&mut sibling, &[-10. - i as f32])?;
+            }
+            let left = contents(&source.layers[0].logical_arrays()?.0)?;
+            let right = contents(&sibling.layers[0].logical_arrays()?.0)?;
+            assert_eq!(&left[..2], &before[..2]);
+            assert_eq!(&right[..2], &before[..2]);
+            assert_eq!(left[33], 41.);
+            assert_eq!(right[33], -41.);
+        }
+        Ok(())
+    })
+}
+
+#[test]
+fn rolled_back_gpu_suffix_can_be_reused_with_pending_readers(
+) -> Result<(), Box<dyn std::error::Error>> {
+    if std::env::var("MLX_LM_ROLLBACK_CHILD").is_err() {
+        let status = std::process::Command::new(std::env::current_exe()?)
+            .args([
+                "--exact",
+                "cache::tests::rolled_back_gpu_suffix_can_be_reused_with_pending_readers",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env("MLX_LM_ROLLBACK_CHILD", "1")
+            .env("MLX_MAX_MB_PER_BUFFER", "16")
+            .status()?;
+        assert!(status.success());
+        return Ok(());
+    }
+    let first = mlx_rs::Stream::new_with_device(&mlx_rs::Device::gpu());
+    let second = mlx_rs::Stream::new_with_device(&mlx_rs::Device::gpu());
+    for reuse in [&first, &second] {
+        for _ in 0..4 {
+            let (mut cache, reader) =
+                mlx_rs::with_stream(&first, || -> Result<_, Box<dyn std::error::Error>> {
+                    let mut cache = make_cache(CachePolicy::Full, 1, 16)?;
+                    append(&mut cache, &[1., 2.])?;
+                    let mut step = cache.step()?;
+                    let (keys, _) = step.update_and_fetch(0, tokens(&[9.])?, tokens(&[-9.])?)?;
+                    step.submit(&[&keys])?;
+                    // A separate evaluation prevents the append graph's fences from ordering reuse.
+                    let matrix = mlx_rs::ops::ones::<f32>(&[2048, 2048])?;
+                    let mut slow = matrix.clone();
+                    for _ in 0..8 {
+                        slow = slow.matmul(&matrix)?.divide(Array::from(2048.0f32))?;
+                    }
+                    let suffix = keys.try_index((0, 0, 2, 0))?;
+                    let reader = slow.add(&suffix)?.sum(false)?;
+                    mlx_rs::transforms::async_eval([&reader])?;
+                    let mut available = false;
+                    assert_eq!(
+                        unsafe {
+                            mlx_sys::_mlx_array_is_available(&mut available, reader.as_ptr())
+                        },
+                        0
+                    );
+                    assert!(
+                        !available,
+                        "reader must still be running before suffix reuse"
+                    );
+                    Ok((cache, reader))
+                })?;
+            mlx_rs::with_stream(reuse, || -> TestResult {
+                let (keys, _) = append(&mut cache, &[17.])?;
+                assert_eq!(contents(&keys)?, [1., 2., 17.]);
+                Ok(())
+            })?;
+            assert_eq!(reader.try_item_exact::<f32>()?, 10. * 2048. * 2048.);
+        }
+    }
+    Ok(())
+}
