@@ -122,7 +122,15 @@ We are actively working on improving this API to make it more ergonomic and clos
 
 ## Versioning
 
-For simplicity, the main crate `mls-rs` follows MLX’s versioning, allowing you to easily see which MLX version you’re using under the hood. The `mlx-sys` crate follows the versioning of `mlx-c`, as that is the version from which the API is generated.
+`mlx-rs` follows semver on its own schedule, so a breaking change gets a new minor version whether or not MLX moved. Each release's changelog entry names the MLX version it builds:
+
+| mlx-rs | MLX |
+|---|---|
+| 0.34 | 0.32.2 |
+| 0.33 | 0.32.2 |
+| 0.32 | 0.32.2 |
+
+`mlx-sys` follows the version of `mlx-c` it binds.
 
 ## Community
 
