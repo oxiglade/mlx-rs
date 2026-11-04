@@ -6,7 +6,7 @@
 //! or Metal through `mlx-rs` on the owning thread. Features do not select devices,
 //! and CPU execution can still require Metal during native initialization.
 //! Python MLX is an oracle dependency, not a runtime dependency of this crate.
-//! Version 0.33.0 remains unpublished pending David's explicit go.
+//! Version 0.34.0 remains unpublished pending David's explicit go.
 //!
 //! # Supported sources
 //!

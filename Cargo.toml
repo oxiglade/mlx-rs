@@ -1,5 +1,5 @@
 [workspace.package]
-version = "0.33.0"
+version = "0.34.0"
 edition = "2021"
 authors = [
     "Minghua Wu <michael.wu1107@gmail.com>",
@@ -30,10 +30,10 @@ resolver = "2"
 [workspace.dependencies]
 # workspace local dependencies
 mlx-sys = { version = "=0.7.0", path = "mlx-sys", default-features = false }
-mlx-macros = { version = "0.33", path = "mlx-macros" }
-mlx-internal-macros = { version = "0.33", path = "mlx-internal-macros" }
-mlx-rs = { version = "0.33", path = "mlx-rs", default-features = false }
-mlx-lm = { version = "0.33", path = "mlx-lm" }
+mlx-macros = { version = "0.34", path = "mlx-macros" }
+mlx-internal-macros = { version = "0.34", path = "mlx-internal-macros" }
+mlx-rs = { version = "0.34", path = "mlx-rs", default-features = false }
+mlx-lm = { version = "0.34", path = "mlx-lm" }
 
 # external dependencies
 thiserror = "2"

@@ -4,7 +4,7 @@
 Qwen3 using MLX. It includes strict checkpoint loading, tokenization and textual
 chat templates, greedy and filtered sampling, streaming text, and model-bound KV
 caches with snapshots and exact-prefix reuse. The library and its separate
-[`mlx-lm` CLI](../mlx-lm-cli/README.md) are version 0.33.0 and remain
+[`mlx-lm` CLI](../mlx-lm-cli/README.md) are version 0.34.0 and remain
 `publish = false`. Publication requires David's explicit go.
 
 The supported runtime is macOS on Apple silicon with a working native MLX
