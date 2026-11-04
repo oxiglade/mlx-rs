@@ -124,7 +124,7 @@ impl Cache {
             layers.push(match policy {
                 None => Box::new(full::FullCache::new(
                     spec,
-                    capacity.map_or(16, NonZeroUsize::get),
+                    capacity.map_or(256, NonZeroUsize::get),
                 )?),
                 Some((capacity, keep)) => {
                     Box::new(rotating::RotatingCache::new(spec, capacity, keep)?)
@@ -440,6 +440,9 @@ pub(crate) trait LayerCache: sealed::Sealed {
     fn set_length(&mut self, _length: usize) -> Result<(), CacheError> {
         Err(invalid("length rollback requires a full cache"))
     }
+    fn take_growth(&mut self) -> Option<Buffer> {
+        None
+    }
     fn take_buffer(&mut self) -> Option<Buffer> {
         None
     }
@@ -499,7 +502,7 @@ impl<'cache> CacheStep<'cache> {
         let arrays = self.evaluation_arrays()?;
         let references: Vec<_> = arrays.iter().collect();
         let output = evaluate(&references, &mut |outputs| {
-            self.release_committed_buffers();
+            self.prepare_evaluation()?;
             mlx_rs::transforms::eval(outputs.iter().copied())
                 .inspect_err(|_| self.cache.invalidate())
         })?;
@@ -510,12 +513,12 @@ impl<'cache> CacheStep<'cache> {
         if outputs.is_empty() {
             return Ok(());
         }
-        self.release_committed_buffers();
+        self.prepare_evaluation()?;
         mlx_rs::transforms::async_eval(outputs.iter().copied())
             .inspect_err(|_| self.cache.invalidate())?;
         Ok(())
     }
-    fn release_committed_buffers(&mut self) {
+    fn prepare_evaluation(&mut self) -> Result<(), mlx_rs::error::Exception> {
         self.cache.last_submission = self.staged.first().map(|layer| {
             (
                 layer.info(0).processed_tokens,
@@ -525,6 +528,17 @@ impl<'cache> CacheStep<'cache> {
         for layer in &mut self.cache.layers {
             layer.take_buffer();
         }
+        let growth: Vec<_> = self
+            .staged
+            .iter_mut()
+            .filter_map(|layer| layer.take_growth())
+            .collect();
+        // Bound overlapping old and new storage to one layer during growth.
+        for buffer in growth {
+            mlx_rs::transforms::eval([&buffer.keys, &buffer.values])
+                .inspect_err(|_| self.cache.invalidate())?;
+        }
+        Ok(())
     }
     fn evaluation_arrays(&self) -> Result<Vec<Array>, CacheError> {
         let mut arrays = Vec::with_capacity(self.staged.len() * 2);
@@ -534,6 +548,7 @@ impl<'cache> CacheStep<'cache> {
         }
         Ok(arrays)
     }
+    #[cfg(test)]
     pub(crate) fn reserve(&mut self, capacity: NonZeroUsize) -> Result<(), CacheError> {
         let result = self
             .staged
@@ -614,7 +629,7 @@ impl<'cache> CacheStep<'cache> {
         self.validate_complete()?;
         let arrays = self.evaluation_arrays()?;
         let references: Vec<_> = arrays.iter().chain(outputs.iter().copied()).collect();
-        self.release_committed_buffers();
+        self.prepare_evaluation()?;
         evaluate(&references).inspect_err(|_| self.cache.invalidate())?;
         Ok(EvaluatedCacheStep { step: self })
     }
@@ -789,12 +804,13 @@ fn validate_rotation(capacity: usize, keep: usize) -> Result<(), CacheError> {
     }
     Ok(())
 }
-fn grown_capacity(current: usize, required: usize) -> Result<usize, CacheError> {
+fn grown_capacity(current: usize, offset: usize, required: usize) -> Result<usize, CacheError> {
     dimension(required)?;
-    let mut capacity = current.max(1);
-    while capacity < required {
-        capacity = capacity.saturating_mul(2).min(i32::MAX as usize);
-    }
+    let capacity = if required <= current {
+        current
+    } else {
+        (offset + (required - offset).div_ceil(256) * 256).min(i32::MAX as usize)
+    };
     dimension(capacity)?;
     Ok(capacity)
 }

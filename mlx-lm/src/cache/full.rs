@@ -2,12 +2,13 @@ use super::{
     grown_capacity, invalid, sealed, shape, validate, Buffer, CacheError, CacheInfo, CacheKind,
     LayerCache, LayerCacheSpec, LayerFingerprint,
 };
-use mlx_rs::Array;
+use mlx_rs::{ops, Array};
 
 #[derive(Clone)]
 pub(crate) struct FullCache {
     spec: LayerCacheSpec,
     buffer: Option<Buffer>,
+    growth: Option<Buffer>,
     processed_tokens: usize,
     capacity: usize,
 }
@@ -19,6 +20,7 @@ impl FullCache {
         Ok(Self {
             spec: spec.clone(),
             buffer: Some(Buffer::new(spec, capacity)?),
+            growth: None,
             processed_tokens: 0,
             capacity,
         })
@@ -58,14 +60,21 @@ impl LayerCache for FullCache {
         Ok(logical)
     }
     fn reserve(&mut self, required: usize) -> Result<(), CacheError> {
-        let capacity = grown_capacity(self.capacity, required)?;
+        let capacity = grown_capacity(self.capacity, self.processed_tokens, required)?;
         if capacity != self.capacity {
             let (keys, values) = self
                 .buffer
                 .as_ref()
                 .unwrap()
                 .slice(0..self.processed_tokens)?;
-            self.buffer = Some(Buffer::new(&self.spec, capacity)?.replace(0, &keys, &values)?);
+            let tail = Buffer::new(&self.spec, capacity - self.processed_tokens)?;
+            self.buffer = Some(Buffer {
+                keys: ops::concatenate(&[&keys, &tail.keys], 2)?,
+                values: ops::concatenate(&[&values, &tail.values], 2)?,
+            });
+            if required - self.processed_tokens == 1 {
+                self.growth = self.buffer.clone();
+            }
             self.capacity = capacity;
         }
         Ok(())
@@ -88,6 +97,7 @@ impl LayerCache for FullCache {
         Ok(Box::new(Self {
             spec: self.spec.clone(),
             buffer: Some(Buffer::new(&self.spec, self.capacity)?.replace(0, &keys, &values)?),
+            growth: None,
             processed_tokens: self.processed_tokens,
             capacity: self.capacity,
         }))
@@ -104,6 +114,9 @@ impl LayerCache for FullCache {
         }
         self.processed_tokens = length;
         Ok(())
+    }
+    fn take_growth(&mut self) -> Option<Buffer> {
+        self.growth.take()
     }
     fn take_buffer(&mut self) -> Option<Buffer> {
         self.buffer.take()
@@ -169,6 +182,7 @@ mod tests {
                     };
                     cache.layers[0] = Box::new(FullCache {
                         spec: spec.clone(),
+                        growth: None,
                         buffer: Some(Buffer {
                             keys,
                             values: Array::from_slice(&[4.0f32], &[1, 1, 1, 1]),
@@ -189,6 +203,56 @@ mod tests {
                         assert_eq!(values.to_vec_exact::<f32>()?, [4.]);
                     }
                 }
+                Ok(())
+            },
+        )
+    }
+
+    #[test]
+    fn growth_evaluation_failure_invalidates_before_forward(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        mlx_rs::with_device(
+            mlx_rs::Device::cpu(),
+            || -> Result<(), Box<dyn std::error::Error>> {
+                let spec = LayerCacheSpec {
+                    attention: crate::AttentionKind::Full,
+                    batch_size: 1,
+                    kv_heads: 1,
+                    head_dim: 1,
+                    dtype: mlx_rs::Dtype::Float32,
+                };
+                let mut cache = Cache::new(
+                    crate::ModelType::new("llama"),
+                    std::slice::from_ref(&spec),
+                    &CacheOptions::default(),
+                    None,
+                )?;
+                cache.layers[0] = Box::new(FullCache {
+                    spec,
+                    buffer: Some(Buffer {
+                        keys: mlx_rs::linalg::inv(Array::from_slice(&[0.0f32], &[1, 1]))?
+                            .reshape(&[1, 1, 1, 1])?,
+                        values: Array::from_slice(&[1.0f32], &[1, 1, 1, 1]),
+                    }),
+                    growth: None,
+                    processed_tokens: 1,
+                    capacity: 1,
+                });
+                let pending = cache.ledger.prepare(&[1.into()])?;
+                cache.ledger.commit(pending);
+                let mut step = cache.step_with_tokens(&[2.into()])?;
+                step.update_and_fetch(
+                    0,
+                    Array::from_slice(&[2.0f32], &[1, 1, 1, 1]),
+                    Array::from_slice(&[2.0f32], &[1, 1, 1, 1]),
+                )?;
+                assert!(matches!(
+                    step.evaluate_with(&[], |_| panic!(
+                        "forward evaluation ran after failed growth"
+                    )),
+                    Err(CacheError::Exception(_))
+                ));
+                assert!(matches!(cache.ensure_valid(), Err(CacheError::Invalidated)));
                 Ok(())
             },
         )
@@ -220,6 +284,7 @@ mod tests {
                     );
                     cache.layers[0] = Box::new(FullCache {
                         spec,
+                        growth: None,
                         buffer: Some(Buffer { keys, values }),
                         processed_tokens: 2,
                         capacity: 16,
@@ -280,6 +345,7 @@ mod tests {
                     );
                     cache.layers[0] = Box::new(FullCache {
                         spec,
+                        growth: None,
                         buffer: Some(Buffer { keys, values }),
                         processed_tokens: 2,
                         capacity: 16,

@@ -187,14 +187,6 @@ alive; committed lengths, RNG and text advance only when a token is accepted.
 CPU and rotating-cache decode remain synchronous. This measurement does not
 establish CPU throughput parity or the full real-checkpoint matrix.
 
-`MLX_MAX_MB_PER_BUFFER=32` makes MLX commit Metal command buffers sooner, which
-can let long-context K/V updates reuse their buffers instead of copying them.
-On an M5 Max it raised Qwen3-0.6B-4bit decode at about 4k cached tokens from
-353 to 397 tok/s and Llama-3.2-1B-4bit at about 16k from 252 to 314; other
-measured cases moved by about 1% either way, because the setting shifts where
-command buffers end.
-The setting is process-wide and read when MLX starts.
-
 ## Demand-gated work
 
 These capabilities require a separate approved design and qualification:

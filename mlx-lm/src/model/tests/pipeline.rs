@@ -537,3 +537,52 @@ fn failing_metal_value() -> Result<Array, mlx_rs::error::Exception> {
     };
     Ok(outputs.remove(0))
 }
+
+#[test]
+fn generation_grows_at_boundary_and_abandons_lookahead() -> TestResult {
+    for device in [Device::cpu(), Device::gpu()] {
+        let gpu = matches!(device.get_type()?, mlx_rs::DeviceType::Gpu);
+        with_device(device, || -> TestResult {
+            for borrowed in [false, true] {
+                let mut model = scripted(vec![12], None, None, None)?;
+                let mut cache = model.new_cache(Default::default())?;
+                let prompt = vec![TokenId::from(20); 256];
+                let mut options = length_options(4096);
+                options.prefill_chunk_size = nz(128);
+                let mut generation = if borrowed {
+                    model.generate_with_cache(Prompt::Tokens(&prompt), options, &mut cache)?
+                } else {
+                    model.generate(Prompt::Tokens(&prompt), options)?
+                };
+                assert!(generation.cache()?.info()?.all(|info| info.capacity == 256));
+                while generation.accepted == 0 {
+                    generation
+                        .next()
+                        .expect("generation ended before its first token")?;
+                }
+                assert_eq!(generation.cache()?.tokens()?, prompt);
+                assert!(generation
+                    .cache()?
+                    .info()?
+                    .all(|info| info.capacity == if gpu { 512 } else { 256 }));
+                drop(generation);
+                if borrowed {
+                    assert_eq!(cache.tokens()?, prompt);
+                    let mut extension = prompt.clone();
+                    extension.push(25.into());
+                    let mut retry = model.generate_with_cache(
+                        Prompt::Tokens(&extension),
+                        length_options(2),
+                        &mut cache,
+                    )?;
+                    collect_tokens(&mut retry)?;
+                    drop(retry);
+                    assert_eq!(cache.tokens()?[256], 25.into());
+                    assert_scripted_prefix(&cache, cache.tokens()?)?;
+                }
+            }
+            Ok(())
+        })?;
+    }
+    Ok(())
+}

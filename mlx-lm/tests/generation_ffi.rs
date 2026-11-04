@@ -192,7 +192,10 @@ fn long_generation(
                 ensure!(info.retained_prefix == (0..4));
                 ensure!(info.retained_prefix.len() + info.retained_positions.len() <= 32);
             } else {
-                ensure!(info.kind == CacheKind::Full && info.capacity == prompt.len() + samples);
+                let written = info.processed_tokens + usize::from(count < samples);
+                ensure!(
+                    info.kind == CacheKind::Full && info.capacity == written.div_ceil(256) * 256
+                );
             }
         }
     }
@@ -206,7 +209,7 @@ fn reuse_growth(name: &str, workload: Workload) -> Result<()> {
     let footprint = Footprint::read(name, &model)?;
     let options = options(1, CachePolicy::Full);
     let mut cache = model.new_cache(options.cache.clone())?;
-    ensure!(cache.info()?.all(|info| info.capacity == 16));
+    ensure!(cache.info()?.all(|info| info.capacity == 256));
     let mut capacities = vec![cache.info()?.next().unwrap().capacity];
     let mut full_prompt = Vec::new();
     let mut guard = None;
@@ -238,12 +241,10 @@ fn reuse_growth(name: &str, workload: Workload) -> Result<()> {
                 .checkpoint(count, &footprint, &cache)?;
         }
     }
-    let expected_capacities: &[usize] = if workload.measure_memory {
-        &[16, 32, 64, 128, 256, 512]
-    } else {
-        &[16, 32, 64]
-    };
-    ensure!(capacities.starts_with(expected_capacities));
+    let expected_capacities: Vec<_> = (256..=workload.samples.div_ceil(256) * 256)
+        .step_by(256)
+        .collect();
+    ensure!(capacities == expected_capacities);
     eprintln!(
         "reuse scenario={name} calls={} capacities={capacities:?}",
         workload.samples
