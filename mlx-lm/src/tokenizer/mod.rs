@@ -1,6 +1,6 @@
 mod gguf;
 pub use crate::error::{ChatTemplateError, TokenizerError};
-use minijinja::{context, Environment};
+use minijinja::{context, syntax::SyntaxConfig, value::Serde, Environment};
 use serde::Serialize;
 use serde_json::Value;
 use std::path::Path;
@@ -248,8 +248,13 @@ pub struct ChatTemplateOptions {
 }
 fn environment() -> Environment<'static> {
     let mut env = Environment::new();
-    env.set_trim_blocks(true);
-    env.set_lstrip_blocks(true);
+    env.set_syntax(
+        SyntaxConfig::builder()
+            .trim_blocks(true)
+            .lstrip_blocks(true)
+            .build()
+            .expect("default delimiters are valid"),
+    );
     env.set_unknown_method_callback(minijinja_contrib::pycompat::unknown_method_callback);
     env.add_function(
         "raise_exception",
@@ -323,11 +328,11 @@ fn render_chat(
         variables.insert("enable_thinking".into(), enable_thinking.into());
     }
     let mut rendered = env.get_template("chat")?.render(context! {
-        messages => messages,
+        messages => Serde(messages),
         tools => Option::<bool>::None,
         documents => Option::<bool>::None,
         add_generation_prompt => matches!(options.continuation, ChatContinuation::StartAssistant),
-        ..minijinja::Value::from_serialize(variables)
+        ..Serde(variables)
     })?;
     if let Some(message) = final_message {
         if !rendered.contains(message.trim()) {
