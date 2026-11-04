@@ -76,8 +76,15 @@ it still precompiles and for the JIT sources' preamble. Set `MLX_SYS_PREBUILT` t
 installed MLX to build mlx-c against that MLX and link its shared library instead. The prefix holds
 `lib/libmlx.dylib` with `lib/mlx.metallib` beside it, `include/` and `share/cmake/MLX/`; the
 `mlx-metal` wheel on PyPI is a zip archive whose `mlx/` directory is such a prefix. Use the MLX
-version mlx-c pins, named above: the build warns when the two differ, and mlx-c may not compile
-against another version's headers.
+version mlx-c pins, named above: a different or unreadable version stops the build. The
+prebuilt library must have Metal enabled and JIT disabled, as the wheel does. Builds without
+the `metal` feature or with `metal-jit` are rejected.
+
+Prebuilt builds leave `mlx.metallib` beside `libmlx.dylib`. `MLX_RS_METAL_PATH` and the
+source build's platform/SDK/profile directories do not affect this location.
+With `MLX_SYS_SYSTEM_SDK=1`, the selected system SDK and compilers apply only to mlx-c;
+MLX is not rebuilt and no Metal compiler is required. Prebuilt and source builds use separate
+CMake directories, including when the system SDK opt-in is enabled.
 
 `libmlx.dylib`'s install name is `@rpath/libmlx.dylib`, and MLX loads `mlx.metallib` from beside it,
 so binaries need an rpath to the prefix's `lib/`. A build script cannot add one to another
@@ -117,7 +124,11 @@ passes it the locations of the native sources this build compiled:
 
 With `MLX_SYS_PREBUILT`, `DEP_MLX_INCLUDE` holds the prefix's `include/` (and `include/metal_cpp`
 with the `metal` feature) and mlx-c, `DEP_MLX_DEFINES` is empty, since MLX is then a shared library
-(no `MLX_STATIC`), and `DEP_MLX_VERSION` is the installed MLX's version.
+(no `MLX_STATIC`), and `DEP_MLX_VERSION` is the installed MLX's version. `DEP_MLX_METAL`
+is `true`. `DEP_MLX_COMPILE_COMMANDS` is absent: an installed MLX has no compilation database.
+The wheel ships the headers for mlx-lm's private K/V append shim, but its shared library does
+not export `copy_gpu_inplace`. In prebuilt mode mlx-lm skips that shim and uses `slice_update`
+for full caches, preserving cache and generation semantics.
 
 C++ that extends MLX, such as a custom `mlx::core::Primitive`, must compile against the same
 headers `libmlx` was built from. A dependent can use these with the `cc` crate. Passing the

@@ -84,8 +84,11 @@ fn system_sdk_enabled() -> bool {
         && env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos")
 }
 
-fn native_out_dir() -> PathBuf {
-    let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
+fn native_out_dir(prebuilt: bool) -> PathBuf {
+    let mut out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
+    if prebuilt {
+        out = out.join("prebuilt");
+    }
     if system_sdk_enabled() {
         out.join("system-sdk")
     } else {
@@ -125,7 +128,7 @@ fn xcode_path(command: &mut Command, missing: &str) -> Result<String, String> {
     Ok(path)
 }
 
-fn configure_macos(config: &mut Config) -> Result<(), String> {
+fn configure_macos(config: &mut Config, prebuilt: bool) -> Result<(), String> {
     println!("cargo:rerun-if-env-changed=MACOSX_DEPLOYMENT_TARGET");
     let developer = xcode_path(
         Command::new("/usr/bin/xcode-select")
@@ -153,10 +156,12 @@ fn configure_macos(config: &mut Config) -> Result<(), String> {
         "clang++ is missing from system Xcode",
     )?;
     #[cfg(feature = "metal")]
-    query(
-        &["metal", "--version"],
-        "Metal compiler is missing; select a full Xcode installation with the Metal toolchain",
-    )?;
+    if !prebuilt {
+        query(
+            &["metal", "--version"],
+            "Metal compiler is missing; select a full Xcode installation with the Metal toolchain",
+        )?;
+    }
     let mut paths = vec![PathBuf::from("/usr/bin")];
     paths.extend(env::split_paths(&env::var_os("PATH").unwrap_or_default()));
     config.env("PATH", env::join_paths(paths).map_err(|e| e.to_string())?);
@@ -165,7 +170,7 @@ fn configure_macos(config: &mut Config) -> Result<(), String> {
     if Path::new(&sdk).join("SDKSettings.json").is_file() {
         println!("cargo:rerun-if-changed={sdk}/SDKSettings.json");
     }
-    let out = native_out_dir();
+    let out = native_out_dir(prebuilt);
     let build = out.join("build");
     let target = deployment_target();
     if let Ok(cache) = fs::read_to_string(build.join("CMakeCache.txt")) {
@@ -183,7 +188,6 @@ fn configure_macos(config: &mut Config) -> Result<(), String> {
                 .map_err(|e| format!("cannot reset {}: {e}", build.display()))?;
         }
     }
-    config.out_dir(out);
     config.define("CMAKE_OSX_SYSROOT", &sdk);
     // Dependents replay compile_commands.json outside CMake's environment.
     config.define("CMAKE_C_COMPILER", &cc);
@@ -201,9 +205,22 @@ fn configure_macos(config: &mut Config) -> Result<(), String> {
 }
 
 fn build_and_link_mlx_c() {
+    println!("cargo:rerun-if-env-changed=MLX_SYS_PREBUILT");
+    let prebuilt = env::var_os("MLX_SYS_PREBUILT");
+    if prebuilt.is_some() {
+        assert!(
+            cfg!(feature = "metal"),
+            "MLX_SYS_PREBUILT requires the metal feature; the prebuilt MLX has Metal enabled"
+        );
+        assert!(
+            !cfg!(feature = "metal-jit"),
+            "MLX_SYS_PREBUILT does not support metal-jit; the prebuilt MLX uses compiled kernels"
+        );
+    }
     let mlx_c_root = Path::new("src/mlx-c");
     let mut config = Config::new(mlx_c_root);
     config.very_verbose(true);
+    config.out_dir(native_out_dir(prebuilt.is_some()));
     config.define("CMAKE_INSTALL_PREFIX", ".");
     config.define("CMAKE_EXPORT_COMPILE_COMMANDS", "ON");
 
@@ -211,7 +228,7 @@ fn build_and_link_mlx_c() {
     config.define("CMAKE_C_COMPILER", "/usr/bin/cc");
     config.define("CMAKE_CXX_COMPILER", "/usr/bin/c++");
     if system_sdk_enabled() {
-        if let Err(error) = configure_macos(&mut config) {
+        if let Err(error) = configure_macos(&mut config, prebuilt.is_some()) {
             eprintln!("mlx-sys: cannot configure the system SDK: {error}");
             std::process::exit(1);
         }
@@ -227,9 +244,7 @@ fn build_and_link_mlx_c() {
         config.define("CMAKE_BUILD_TYPE", "Release");
     }
 
-    // With `MLX_SYS_PREBUILT`, mlx-c is built against an installed MLX instead (`link_prebuilt_mlx`).
-    println!("cargo:rerun-if-env-changed=MLX_SYS_PREBUILT");
-    if let Some(prefix) = env::var_os("MLX_SYS_PREBUILT") {
+    if let Some(prefix) = prebuilt {
         link_prebuilt_mlx(config, Path::new(&prefix), mlx_c_root);
         return;
     }
@@ -327,7 +342,6 @@ fn publish_native_sources(dst: &Path, mlx_c_root: &Path) {
     }
 }
 
-/// The MLX version mlx-c's CMake configuration pins (`GIT_TAG v<version>`), when it can be read.
 fn pinned_mlx_version(mlx_c_root: &Path) -> Option<String> {
     let cmake = fs::read_to_string(mlx_c_root.join("CMakeLists.txt")).ok()?;
     cmake.lines().find_map(|line| {
@@ -338,12 +352,13 @@ fn pinned_mlx_version(mlx_c_root: &Path) -> Option<String> {
     })
 }
 
-/// Builds mlx-c against the installed MLX at `prefix` (`MLX_SYS_PREBUILT`) and links MLX's shared
-/// library, instead of building MLX from source, which compiles its Metal kernels ahead of time
-/// with Xcode's Metal compiler (the Command Line Tools do not include it). The prefix holds
-/// `lib/libmlx.dylib` with `lib/mlx.metallib` beside it, `include/` and `share/cmake/MLX/`, as the
-/// `mlx/` directory of the `mlx-metal` wheel does.
 fn link_prebuilt_mlx(mut config: Config, prefix: &Path, mlx_c_root: &Path) {
+    let prefix = prefix.canonicalize().unwrap_or_else(|error| {
+        panic!(
+            "MLX_SYS_PREBUILT: cannot resolve {}: {error}",
+            prefix.display()
+        )
+    });
     let lib_dir = prefix.join("lib");
     for file in ["libmlx.dylib", "mlx.metallib"] {
         assert!(
@@ -351,22 +366,25 @@ fn link_prebuilt_mlx(mut config: Config, prefix: &Path, mlx_c_root: &Path) {
             "MLX_SYS_PREBUILT: no {file} in {}",
             lib_dir.display()
         );
+        println!("cargo:rerun-if-changed={}", lib_dir.join(file).display());
     }
     let cmake_dir = prefix.join("share").join("cmake").join("MLX");
-    let version = prebuilt_version(&cmake_dir);
-    if let (Some(found), Some(pinned)) = (&version, pinned_mlx_version(mlx_c_root)) {
-        if *found != pinned {
-            println!(
-                "cargo:warning=MLX_SYS_PREBUILT holds MLX {found}, but mlx-c is written against MLX {pinned}; mlx-c may not compile against it"
-            );
-        }
-    }
+    println!(
+        "cargo:rerun-if-changed={}",
+        cmake_dir.join("MLXConfigVersion.cmake").display()
+    );
+    let version = prebuilt_version(&cmake_dir)
+        .expect("MLX_SYS_PREBUILT: cannot read the MLX version from MLXConfigVersion.cmake");
+    let pinned = pinned_mlx_version(mlx_c_root)
+        .expect("MLX_SYS_PREBUILT: cannot read the MLX version pinned by mlx-c");
+    assert_eq!(
+        version, pinned,
+        "MLX_SYS_PREBUILT holds MLX {version}, but mlx-c requires MLX {pinned}"
+    );
     config.define("MLX_C_USE_SYSTEM_MLX", "ON");
     config.define("MLX_DIR", &cmake_dir);
     let dst = config.build();
 
-    // The same metadata as a build from source (`publish_native_sources`), for this MLX: its
-    // installed headers, and no definitions, since it is a shared library (no `MLX_STATIC`).
     let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let include = [
         Some(prefix.join("include")),
@@ -377,12 +395,9 @@ fn link_prebuilt_mlx(mut config: Config, prefix: &Path, mlx_c_root: &Path) {
         .expect("MLX include directories must not contain the path-list separator");
     println!("cargo::metadata=include={}", include.display());
     println!("cargo::metadata=defines=");
-    if let Some(version) = version {
-        println!("cargo::metadata=version={version}");
-    }
-    // libmlx.dylib's install name is `@rpath/libmlx.dylib`, and MLX loads `mlx.metallib` from
-    // beside it. A build script cannot add an rpath to another package's binaries, so the
-    // directory goes to dependents, as `DEP_MLX_LIB_DIR`.
+    println!("cargo::metadata=metal=true");
+    println!("cargo::metadata=version={version}");
+    // Dependents must add their own rpath for the wheel's @rpath/libmlx.dylib.
     println!("cargo::metadata=lib_dir={}", lib_dir.display());
 
     println!("cargo:rustc-link-search=native={}/build/lib", dst.display());
@@ -398,8 +413,6 @@ fn link_prebuilt_mlx(mut config: Config, prefix: &Path, mlx_c_root: &Path) {
     }
 }
 
-/// The version of the MLX CMake package in `cmake_dir` (`PACKAGE_VERSION` in
-/// `MLXConfigVersion.cmake`), when it can be read.
 fn prebuilt_version(cmake_dir: &Path) -> Option<String> {
     let text = fs::read_to_string(cmake_dir.join("MLXConfigVersion.cmake")).ok()?;
     text.lines().find_map(|line| {

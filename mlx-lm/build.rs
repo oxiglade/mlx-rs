@@ -1,6 +1,13 @@
 use std::{env, fs, path::Path, process::Command};
 
 fn main() {
+    println!("cargo:rustc-check-cfg=cfg(mlx_lm_kv_append)");
+    println!("cargo:rerun-if-changed=build.rs");
+    // Shared MLX does not export copy_gpu_inplace, which the append shim needs.
+    if env::var_os("DEP_MLX_LIB_DIR").is_some() {
+        return;
+    }
+    println!("cargo:rustc-cfg=mlx_lm_kv_append");
     let database = env::var("DEP_MLX_COMPILE_COMMANDS").expect("MLX compilation database");
     let commands: Vec<serde_json::Value> =
         serde_json::from_str(&fs::read_to_string(&database).expect("Read MLX compiler settings"))
