@@ -4,13 +4,13 @@ fn main() {
     println!("cargo:rustc-check-cfg=cfg(mlx_lm_kv_append)");
     println!("cargo:rerun-if-changed=build.rs");
     // Shared MLX does not export copy_gpu_inplace, which the append shim needs.
-    if env::var_os("DEP_MLX_LIB_DIR").is_some() {
+    let Some(database) = env::var_os("DEP_MLX_COMPILE_COMMANDS") else {
         return;
-    }
+    };
     println!("cargo:rustc-cfg=mlx_lm_kv_append");
-    let database = env::var("DEP_MLX_COMPILE_COMMANDS").expect("MLX compilation database");
+    let database = Path::new(&database);
     let commands: Vec<serde_json::Value> =
-        serde_json::from_str(&fs::read_to_string(&database).expect("Read MLX compiler settings"))
+        serde_json::from_str(&fs::read_to_string(database).expect("Read MLX compiler settings"))
             .expect("Parse MLX compiler settings");
     let command = commands
         .iter()
@@ -54,5 +54,5 @@ fn main() {
         .object(object)
         .compile("mlx_lm_kv_append");
     println!("cargo:rerun-if-changed=src/cache/kv_append.cpp");
-    println!("cargo:rerun-if-changed={database}");
+    println!("cargo:rerun-if-changed={}", database.display());
 }

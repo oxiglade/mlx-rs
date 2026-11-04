@@ -206,7 +206,14 @@ fn configure_macos(config: &mut Config, prebuilt: bool) -> Result<(), String> {
 
 fn build_and_link_mlx_c() {
     println!("cargo:rerun-if-env-changed=MLX_SYS_PREBUILT");
-    let prebuilt = env::var_os("MLX_SYS_PREBUILT");
+    let prebuilt = env::var_os("MLX_SYS_PREBUILT").filter(|value| !value.is_empty());
+    if let Some(prefix) = &prebuilt {
+        assert!(
+            Path::new(prefix).is_absolute(),
+            "MLX_SYS_PREBUILT must be an absolute path: {}",
+            Path::new(prefix).display()
+        );
+    }
     if prebuilt.is_some() && !cfg!(feature = "metal") {
         panic!("MLX_SYS_PREBUILT requires the metal feature; the prebuilt MLX has Metal enabled");
     }
@@ -351,7 +358,7 @@ fn pinned_mlx_version(mlx_c_root: &Path) -> Option<String> {
 }
 
 fn link_prebuilt_mlx(mut config: Config, prefix: &Path, mlx_c_root: &Path) {
-    let prefix = prefix.canonicalize().unwrap_or_else(|error| {
+    let resolved = prefix.canonicalize().unwrap_or_else(|error| {
         panic!(
             "MLX_SYS_PREBUILT: cannot resolve {}: {error}",
             prefix.display()
@@ -364,13 +371,8 @@ fn link_prebuilt_mlx(mut config: Config, prefix: &Path, mlx_c_root: &Path) {
             "MLX_SYS_PREBUILT: no {file} in {}",
             lib_dir.display()
         );
-        println!("cargo:rerun-if-changed={}", lib_dir.join(file).display());
     }
     let cmake_dir = prefix.join("share").join("cmake").join("MLX");
-    println!(
-        "cargo:rerun-if-changed={}",
-        cmake_dir.join("MLXConfigVersion.cmake").display()
-    );
     let version = prebuilt_version(&cmake_dir)
         .expect("MLX_SYS_PREBUILT: cannot read the MLX version from MLXConfigVersion.cmake");
     let pinned = pinned_mlx_version(mlx_c_root)
@@ -379,6 +381,38 @@ fn link_prebuilt_mlx(mut config: Config, prefix: &Path, mlx_c_root: &Path) {
         version, pinned,
         "MLX_SYS_PREBUILT holds MLX {version}, but mlx-c requires MLX {pinned}"
     );
+    for file in [
+        "lib/libmlx.dylib",
+        "lib/libjaccl.dylib",
+        "lib/mlx.metallib",
+        "include/mlx/version.h",
+        "share/cmake/MLX/MLXConfig.cmake",
+        "share/cmake/MLX/MLXConfigVersion.cmake",
+        "share/cmake/MLX/MLXTargets.cmake",
+        "share/cmake/MLX/MLXTargets-release.cmake",
+    ] {
+        let path = prefix.join(file);
+        if path.is_file() {
+            println!("cargo:rerun-if-changed={}", path.display());
+        }
+    }
+    // Wheel upgrades remove the old metadata even when library mtimes are preserved.
+    let metadata = prefix
+        .join("..")
+        .join(format!("mlx_metal-{version}.dist-info"));
+    for file in ["METADATA", "RECORD"] {
+        let path = metadata.join(file);
+        if path.is_file() {
+            println!("cargo:rerun-if-changed={}", path.display());
+        }
+    }
+    println!(
+        "cargo:rerun-if-changed={}",
+        mlx_c_root.join("CMakeLists.txt").display()
+    );
+    let prefix = resolved;
+    let lib_dir = prefix.join("lib");
+    let cmake_dir = prefix.join("share/cmake/MLX");
     config.define("MLX_C_USE_SYSTEM_MLX", "ON");
     config.define("MLX_DIR", &cmake_dir);
     let dst = config.build();
