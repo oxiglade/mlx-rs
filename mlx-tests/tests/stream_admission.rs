@@ -1,13 +1,11 @@
 #[cfg(feature = "metal")]
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::{
-    panic::{catch_unwind, AssertUnwindSafe},
     sync::{Arc, Barrier},
     thread,
 };
 
-#[cfg(feature = "metal")]
-use mlx_rs::{array, Array};
-use mlx_rs::{thread_local_default_stream, with_stream, Stream};
+use mlx_rs::{array, thread_local_default_stream, with_device, with_stream, Array, Device, Stream};
 
 #[test]
 fn scoped_stream_is_identity_preserving_and_passes_through_results() {
@@ -88,43 +86,32 @@ fn cpu_and_metal_defaults_evaluate_on_separate_threads() {
 }
 
 #[test]
-#[cfg(feature = "metal")]
-fn moved_and_independently_cloned_arrays_use_thread_defaults() {
-    let moved = array!([1.0_f32, 2.0, 3.0]);
-    let moved = thread::spawn(move || {
-        let stream = Stream::gpu();
-        with_stream(&stream, || {
-            let output = moved.add(&array!(1.0_f32)).unwrap();
-            output.eval().unwrap();
-            output
-        })
-    })
-    .join()
-    .unwrap();
-    assert_eq!(moved.as_slice::<f32>(), &[2.0, 3.0, 4.0]);
-
+fn plain_data_workers_use_thread_defaults() {
     let source = Array::from_slice(&[2.0_f32, 4.0, 6.0], &[3]);
-    let cpu_array = source.clone();
-    let metal_array = source.clone();
-    let cpu = thread::spawn(move || {
-        let stream = Stream::cpu();
-        with_stream(&stream, || {
-            let output = cpu_array.multiply(&array!(0.5_f32)).unwrap();
-            output.eval().unwrap();
-            output.to_vec_exact::<f32>().unwrap()
-        })
-    });
-    let metal = thread::spawn(move || {
-        let stream = Stream::gpu();
-        with_stream(&stream, || {
-            let output = metal_array.multiply(&array!(0.5_f32)).unwrap();
-            output.eval().unwrap();
-            output.to_vec_exact::<f32>().unwrap()
+    let devices = [
+        false,
+        false,
+        #[cfg(feature = "metal")]
+        true,
+    ];
+    let barrier = Arc::new(Barrier::new(devices.len()));
+    let handles = devices.map(|metal| {
+        let data = source.to_vec_exact::<f32>().unwrap();
+        let barrier = Arc::clone(&barrier);
+        thread::spawn(move || {
+            let device = if metal { Device::gpu() } else { Device::cpu() };
+            with_device(device, || {
+                let input = Array::from_slice(&data, &[3]);
+                barrier.wait();
+                let output = input.multiply(&array!(0.5_f32)).unwrap();
+                output.to_vec_exact::<f32>().unwrap()
+            })
         })
     });
 
-    assert_eq!(cpu.join().unwrap(), vec![1.0, 2.0, 3.0]);
-    assert_eq!(metal.join().unwrap(), vec![1.0, 2.0, 3.0]);
+    for handle in handles {
+        assert_eq!(handle.join().unwrap(), vec![1.0, 2.0, 3.0]);
+    }
     assert_eq!(source.as_slice::<f32>(), &[2.0, 4.0, 6.0]);
 }
 

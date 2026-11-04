@@ -4,7 +4,7 @@
 Qwen3 using MLX. It includes strict checkpoint loading, tokenization and textual
 chat templates, greedy and filtered sampling, streaming text, and model-bound KV
 caches with snapshots and exact-prefix reuse. The library and its separate
-[`mlx-lm` CLI](../mlx-lm-cli/README.md) are version 0.33.0 and remain
+[`mlx-lm` CLI](../mlx-lm-cli/README.md) are version 0.34.0 and remain
 `publish = false`. Publication requires David's explicit go.
 
 The supported runtime is macOS on Apple silicon with a working native MLX
@@ -100,7 +100,9 @@ cargo run -p mlx-lm --release --example worker -- /path/to/checkpoint
 ```
 
 Generation emits prefill progress and token events containing the raw token ID,
-text delta and optional finish reason. Drop performs no further inference.
+text delta and optional finish reason. Drop queues no further inference; an already
+queued GPU step still finishes, and a later cache read waits for it.
+Pipelined generation runs on the stream current at `generate()`.
 An error is yielded once and fuses the iterator. Successful steps publish cache,
 RNG and accepted history only after evaluation and text preparation succeed.
 After generated token `j` (counted from 1), the cache represents `P + j - 1`
@@ -108,8 +110,33 @@ tokens for prompt length `P`; it has not forwarded that final sampled token.
 Cache reuse requires the same model, compatible policy and an exact cached
 prompt prefix with a nonempty suffix.
 
+An abandoned step preserves committed tokens and K/V contents up to the committed
+length. Before evaluation or submission, it restores the original handles. After
+successful evaluation or submission, full caches keep the new buffers at the
+committed length. Unused tail contents and capacity may change. Rotating caches
+copy handles because they overwrite committed positions. Full caches append in
+place on GPU streams. Reusing a rolled-back suffix or changing streams waits for
+pending readers. Full-cache snapshots evaluate the source arrays, allocate full-capacity K/V
+storage for each full layer with spare capacity, and copy only the committed prefixes.
+Full layers without spare capacity and rotating layers may share storage until an
+update replaces it. Copies for all layers are evaluated together. For copied layers,
+allocation and initialization scale with capacity; prefix copying scales with committed
+length. Restore consumes snapshot storage
+without copying or evaluating it. CPU and rotating caches use `slice_update`.
+
+On an M5 Max, measured decode throughput is level at 128 tokens, about 7% higher
+at ~4k and 0.4% lower at ~16k.
+
+Failed evaluation or submission invalidates only the cache involved. This includes
+failed speculative submission even if generation stops at the preceding token.
+Reads, updates, snapshots, restores and reuse return `CacheError::Invalidated`.
+Call `Cache::reset()` and prefill again. Reset discards all cached tokens and buffers.
+Existing snapshots and other caches restored from them remain valid.
+A sampling-only failure leaves an untouched cache valid. A snapshot copy failure
+also leaves the source valid; a failure evaluating the source graph invalidates it.
+
 Rotation can retain capacity plus a prefill chunk until later updates; snapshots
-retain old storage. Streaming decoding retains generated IDs and emitted text.
+retain independent full-cache storage or old rotating storage. Streaming decoding retains generated IDs and emitted text.
 There is no constant-total-host-memory or zero-allocation guarantee. Chat
 templates have an unresolved resource-exhaustion limitation: arbitrary model
 templates are not safely sandboxed. Arbitrary cache mutation is not exposed.
@@ -131,20 +158,34 @@ non-exhaustive, so callers should include a fallback match arm.
 | `GenerationError` | Prompt/stop validation, reuse and sequence limits; wraps tokenizer, sampling, cache and inference failures. Runtime evaluation exceptions remain `GenerationError::Exception`. |
 | `HubError` | Repository/revision, missing assets, unsafe paths, receipt integrity, offline miss, transport or wrapped local loading. The type exists in base builds; its API-error variant requires `hf-hub`. |
 
+Sampling checks raw, processed, filtered and scaled values in that order after a
+successful joint evaluation. Invalid values precede empty support within each
+stage. If evaluation fails, its original `GenerationError::Exception` wins over
+value errors. The failed graph is never inspected or evaluated again.
+
 ## Throughput
 
-Measured on the same machine and weights with Metal, Qwen3-0.6B-4bit, a
-128-token prompt and 256 greedy tokens, Rust produced **38.2 tokens/s** against
-upstream Python's **125.5 tokens/s**: a **3.3× gap**. The gap is under investigation
-in its own throughput tranche. Reports are
-`/Users/ci/hub/scratch/mlx-lm/t4/bench/c-baseline-metal.json` and
-`/Users/ci/hub/scratch/mlx-lm/t4/bench/c-ablation-metal.json`. The retained
-[decision](SUPPORT.md#deferred-work-and-release-decisions) keeps this investigation
-separate from supported generation behavior.
+C closed: qualified pipeline admitted (2026-11-02, M5 Max Metal):
+606.95 Rust versus 617.93 Python tok/s, ratio 0.9821
+[0.9810, 0.9837] (95% paired CI). Recovery is
+93.44% [93.18%, 94.14%], with observed Rust–Python excess as denominator.
+Using the full Python lookahead ablation effect as denominator, recovery is
+67.30% [65.99%, 68.56%] (95% paired CIs).
+The CPU path is unchanged by construction, satisfying the other-device ≤5% regression criterion.
+Qualification used paired alternation on a shared host, deviating from the protocol's idle-host requirement.
 
-Ruling C is closed as “gap attributed elsewhere; no pipeline”. The no-lookahead
-ablation measured 103.0 tokens/s and explained 9.6% of the excess time per token.
-No pipeline change was admitted.
+The measurement uses Qwen3-0.6B-4bit, a 128-token prompt, 256 greedy tokens,
+three warm-ups and ten alternating Rust/Python pairs per group. The fresh #444
+synchronous baseline measured 481.82 Rust versus 615.99 Python tok/s;
+Python without lookahead measured 444.49 tok/s. The baseline and ablation
+are retained from the prior qualification; the candidate rerun uses contemporaneous
+Python. The intervals describe repeatability within these runs.
+
+GPU generation with full caches queues one token ahead and submits only sampling
+roots. Each decoder's updated K/V feeds attention and logits. Cache objects stay
+alive; committed lengths, RNG and text advance only when a token is accepted.
+CPU and rotating-cache decode remain synchronous. This measurement does not
+establish CPU throughput parity or the full real-checkpoint matrix.
 
 ## Demand-gated work
 

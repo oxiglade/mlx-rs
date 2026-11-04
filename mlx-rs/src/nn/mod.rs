@@ -2,8 +2,23 @@
 
 //! Neural network support for MLX
 //!
-//! All modules provide a `new()` function that take mandatory parameters and other methods
-//! to set optional parameters.
+//! Layers with builders use `Layer::new(required_args)` for defaults and
+//! `LayerBuilder::new(required_args).optional(value).build()` to override them;
+//! some layers, such as [`Embedding`] and the pooling layers, have only direct constructors.
+//! Import [`Builder`](crate::builder::Builder) to call `build()`, which returns a `Result`.
+//! `Layer::new` returns either the layer or a `Result`, depending on the layer.
+//! Defaults are documented on builder fields, often as associated `DEFAULT_*` constants
+//! such as [`Linear::DEFAULT_BIAS`].
+//!
+//! ```rust
+//! use mlx_rs::{builder::Builder, nn::{Linear, LinearBuilder}};
+//!
+//! let with_bias = Linear::new(8, 4)?;
+//! let without_bias = LinearBuilder::new(8, 4).bias(false).build()?;
+//! assert!(with_bias.bias.is_some());
+//! assert!(without_bias.bias.is_none());
+//! # Ok::<(), mlx_rs::error::Exception>(())
+//! ```
 
 mod activation;
 mod container;

@@ -12,12 +12,12 @@ use crate::{
 use super::*;
 
 generate_builder! {
-    /// The Adamax optimizer, a variant of Adam based on the infinity norm [1].
+    /// The Adamax optimizer, a variant of Adam based on the infinity norm \[1\].
     ///
     /// Our Adam implementation follows the original paper and omits the bias
     /// correction in the first and second moment estimates. In detail,
     ///
-    /// [1]: Kingma, D.P. and Ba, J., 2015. Adam: A method for stochastic optimization. ICLR 2015.
+    /// \[1\]: Kingma, D.P. and Ba, J., 2015. Adam: A method for stochastic optimization. ICLR 2015.
     #[derive(Debug, Clone, Buildable)]
     #[buildable(root = crate)]
     #[builder(

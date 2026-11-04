@@ -1,7 +1,8 @@
 use mlx_rs::{
     array,
+    error::IoError,
     macros::ModuleParameters,
-    module::{ModuleParameters, Param, Parameter},
+    module::{ModuleParameters, ModuleParametersExt, Param, Parameter},
     test_utils::{assert_array_eq, tolerances},
     Array,
 };
@@ -31,6 +32,97 @@ struct NestedStructModule {
 
     #[param]
     nested_no_param: UnitStructModule,
+}
+
+#[test]
+fn test_load_safetensors_validation_is_atomic() {
+    let cases = [
+        (
+            vec![
+                ("a", array!([10.0f32, 20.0])),
+                ("b", array!([30.0f32, 40.0])),
+                ("z", array!(50.0f32)),
+                ("c", array!(60.0f32)),
+            ],
+            IoError::UnexpectedParameters(vec!["c".into(), "z".into()]),
+        ),
+        (
+            vec![("a", array!([10.0f32, 20.0]))],
+            IoError::MissingParameters(vec!["b".into()]),
+        ),
+        (
+            vec![
+                ("a", array!([10.0f32, 20.0])),
+                ("b", array!([[30.0f32, 40.0]])),
+            ],
+            IoError::ParameterShapeMismatch {
+                key: "b".into(),
+                expected: vec![2],
+                actual: vec![1, 2],
+            },
+        ),
+    ];
+    let tmp_dir = tempfile::tempdir().unwrap();
+    let path = tmp_dir.path().join("module.safetensors");
+    for (weights, expected_error) in cases {
+        let mut module = StructModule {
+            a: Param::new(array!([1.0f32, 2.0])),
+            b: Param::new(array!([3.0f32, 4.0])),
+            c: Param::new(None),
+        };
+        let original: Vec<_> = module
+            .parameters()
+            .flatten()
+            .into_iter()
+            .map(|(key, value)| (key, value.clone()))
+            .collect();
+        Array::save_safetensors(weights, None, &path).unwrap();
+
+        assert_eq!(module.load_safetensors(&path), Err(expected_error));
+
+        let params = module.parameters().flatten();
+        assert_eq!(params.len(), original.len());
+        for (key, value) in original {
+            assert!(params[&key].eq_exact(value).unwrap());
+        }
+        assert!(module.c.value.is_none());
+    }
+}
+
+#[test]
+fn test_module_safetensors_roundtrip() {
+    let source = NestedStructModule {
+        a: Param::new(array!(10i32)),
+        nested: StructModule {
+            a: Param::new(array!([20i32, 30])),
+            b: Param::new(array!([[40i32, 50]])),
+            c: Param::new(Some(array!(60i32))),
+        },
+        nested_no_param: UnitStructModule,
+    };
+    let mut target = NestedStructModule {
+        a: Param::new(array!(0.0f32)),
+        nested: StructModule {
+            a: Param::new(array!([0.0f32, 0.0])),
+            b: Param::new(array!([[0.0f32, 0.0]])),
+            c: Param::new(Some(array!(0.0f32))),
+        },
+        nested_no_param: UnitStructModule,
+    };
+    target.freeze_parameters(true);
+    let tmp_dir = tempfile::tempdir().unwrap();
+    let path = tmp_dir.path().join("module.safetensors");
+    source.save_safetensors(&path).unwrap();
+
+    target.load_safetensors(&path).unwrap();
+
+    let expected = source.parameters().flatten();
+    let actual = target.parameters().flatten();
+    assert_eq!(actual.len(), expected.len());
+    for (key, value) in expected {
+        assert!(actual[&key].eq_exact(value).unwrap());
+    }
+    assert_eq!(target.all_frozen(), Some(true));
 }
 
 #[test]

@@ -189,6 +189,22 @@ class ReplayIntegrityTests(unittest.TestCase):
 
 
 class ReplayWorkerTests(unittest.TestCase):
+    def test_environment_provenance_is_independent_of_venv_location(self):
+        environments = []
+        with tempfile.TemporaryDirectory() as directory:
+            for name in ("first", "second"):
+                prefix = Path(directory) / name
+                with patch.object(sys, "prefix", str(prefix)), patch.object(
+                    replay_target, "VENV", prefix
+                ):
+                    _, environment = replay_target.check_environment()
+                self.assertNotIn(directory, json.dumps(environment))
+                environments.append(environment)
+        self.assertEqual(environments[0], environments[1])
+        self.assertEqual(environments[0]["python"], "3.12.14")
+        self.assertEqual(environments[0]["mlx"], "0.32.2")
+        self.assertEqual(environments[0]["numpy"], "2.2.6")
+
     def replay(self, kind, suite=None):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "suite.json"

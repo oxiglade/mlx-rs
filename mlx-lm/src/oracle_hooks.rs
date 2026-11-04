@@ -205,7 +205,7 @@ mod tests {
             .context("missing cache tolerance")?;
         let view = session.cache_view()?;
         assert_eq!(view.layers.len(), states.len());
-        for ((layer, state), info) in view.layers.iter().zip(states).zip(session.cache.info()) {
+        for ((layer, state), info) in view.layers.iter().zip(states).zip(session.cache.info()?) {
             assert_eq!(layer.layer, info.layer);
             assert_eq!(info.processed_tokens, state.offset);
             let [start, end] = state.retained_range;

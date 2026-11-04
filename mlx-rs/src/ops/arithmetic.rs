@@ -270,7 +270,7 @@ impl Array {
         })
     }
 
-    /// Compatibility shim for [`nan_to_num`].
+    /// Compatibility shim for [`Array::nan_to_num`].
     #[deprecated(
         since = "0.26.0",
         note = "use `with_stream` or `with_device` around `nan_to_num`"
@@ -590,7 +590,7 @@ impl Array {
         })
     }
 
-    /// Compatibility shim for [`is_nan`].
+    /// Compatibility shim for [`Array::is_nan`].
     #[deprecated(
         since = "0.26.0",
         note = "use `with_stream` or `with_device` around `is_nan`"
@@ -610,7 +610,7 @@ impl Array {
         })
     }
 
-    /// Compatibility shim for [`is_inf`].
+    /// Compatibility shim for [`Array::is_inf`].
     #[deprecated(
         since = "0.26.0",
         note = "use `with_stream` or `with_device` around `is_inf`"
@@ -630,7 +630,7 @@ impl Array {
         })
     }
 
-    /// Compatibility shim for [`is_finite`].
+    /// Compatibility shim for [`Array::is_finite`].
     #[deprecated(
         since = "0.26.0",
         note = "use `with_stream` or `with_device` around `is_finite`"
@@ -650,7 +650,7 @@ impl Array {
         })
     }
 
-    /// Compatibility shim for [`is_neg_inf`].
+    /// Compatibility shim for [`Array::is_neg_inf`].
     #[deprecated(
         since = "0.26.0",
         note = "use `with_stream` or `with_device` around `is_neg_inf`"
@@ -670,7 +670,7 @@ impl Array {
         })
     }
 
-    /// Compatibility shim for [`is_pos_inf`].
+    /// Compatibility shim for [`Array::is_pos_inf`].
     #[deprecated(
         since = "0.26.0",
         note = "use `with_stream` or `with_device` around `is_pos_inf`"
@@ -2142,7 +2142,7 @@ pub fn subtract_device(
     crate::with_stream(stream.as_ref(), || subtract(a, b))
 }
 
-/// See [`Array::tan`].
+/// Element-wise tangent.
 pub fn tan(a: impl AsRef<Array>) -> Result<Array> {
     let stream = Stream::thread_local_or_default();
     Array::try_from_op(|res| unsafe {

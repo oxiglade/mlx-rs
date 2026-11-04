@@ -13,10 +13,9 @@ fn checked_length(n: usize) -> Result<i32> {
 /// # Example
 ///
 /// ```rust
-/// use mlx_rs::{fft::fftfreq, Device, Dtype};
+/// use mlx_rs::{fft::fftfreq, with_device, Device, Dtype};
 ///
-/// Device::set_default(&Device::cpu());
-/// let frequencies = fftfreq(4, 1.0).unwrap();
+/// let frequencies = with_device(Device::cpu(), || fftfreq(4, 1.0)).unwrap();
 /// assert_eq!(frequencies.shape(), &[4]);
 /// assert_eq!(frequencies.dtype(), Dtype::Float32);
 /// ```
@@ -33,10 +32,9 @@ pub fn fftfreq(n: usize, d: f64) -> Result<Array> {
 /// # Example
 ///
 /// ```rust
-/// use mlx_rs::{fft::rfftfreq, Device, Dtype};
+/// use mlx_rs::{fft::rfftfreq, with_device, Device, Dtype};
 ///
-/// Device::set_default(&Device::cpu());
-/// let frequencies = rfftfreq(4, 0.5).unwrap();
+/// let frequencies = with_device(Device::cpu(), || rfftfreq(4, 0.5)).unwrap();
 /// assert_eq!(frequencies.shape(), &[3]);
 /// assert_eq!(frequencies.dtype(), Dtype::Float32);
 /// ```

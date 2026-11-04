@@ -1260,7 +1260,7 @@ pub fn std(
     })
 }
 
-/// Compatibility shim for [`std`].
+/// Compatibility shim for [`std()`].
 #[generate_macro(customize(forwarding_shim = true))]
 #[deprecated(
     since = "0.26.0",

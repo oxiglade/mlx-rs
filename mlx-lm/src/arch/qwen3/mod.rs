@@ -5,7 +5,7 @@ use crate::{
     weights::{WeightDisposition, WeightManifest},
     AttentionKind, CacheError, Config, ConfigError, InferenceError, LoadError, WeightError,
 };
-use mlx_rs::{fast, nn, ops, utils::StateProjection, Array, Dtype};
+use mlx_rs::{fast, ops, utils::StateProjection, Array, Dtype};
 
 mod config;
 mod rope;
@@ -115,6 +115,7 @@ impl Layer {
 }
 
 struct Decoder {
+    swiglu: super::activation::SwiGlu,
     config: Config,
     layout: Vec<LayerCacheSpec>,
     embedding: Embedding,
@@ -161,6 +162,7 @@ impl Decoder {
         let kv_heads = config::dimension("num_key_value_heads", d.kv_heads)?;
         let head_dim = config::dimension("head_dim", d.head_dim)?;
         Ok(Self {
+            swiglu: super::activation::SwiGlu::default(),
             config,
             layout,
             embedding,
@@ -211,6 +213,7 @@ impl DecoderModel for Decoder {
         }
         let mut x = self.embedding.forward(tokens)?;
         let eps = self.config.dimensions.rms_norm_epsilon;
+        let mut masks = super::attention::AttentionMasks::default();
         for (index, (layer, spec)) in self.layers.iter_mut().zip(&self.layout).enumerate() {
             let offset = cache.info(index)?.processed_tokens;
             let h = fast::rms_norm(&x, Some(&layer.input_norm), eps)?;
@@ -249,21 +252,29 @@ impl DecoderModel for Decoder {
                 )
                 .into());
             }
-            let mask = attention_mask(offset, length, &positions, &spec.attention)?;
+            let mask = masks.get_or_create(
+                offset,
+                length as usize,
+                &positions,
+                &spec.attention,
+                info.kind,
+                || attention_mask(offset, length, &positions, &spec.attention),
+            )?;
             let attended = fast::scaled_dot_product_attention(
                 &queries,
                 keys,
                 values,
                 (self.head_dim as f32).sqrt().recip(),
-                &mask,
+                mask,
                 None,
             )?
             .transpose_axes(&[0, 2, 1, 3])?
             .reshape(&[batch, length, -1])?;
             x = x.add(layer.o_proj.forward(&attended)?)?;
             let h = fast::rms_norm(&x, Some(&layer.post_norm), eps)?;
-            let gated =
-                nn::silu(layer.gate_proj.forward(&h)?)?.multiply(layer.up_proj.forward(&h)?)?;
+            let gated = self
+                .swiglu
+                .apply(&layer.gate_proj.forward(&h)?, &layer.up_proj.forward(&h)?)?;
             x = x.add(layer.down_proj.forward(&gated)?)?;
         }
         let x = fast::rms_norm(x, Some(&self.norm), eps)?;

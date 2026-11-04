@@ -590,10 +590,10 @@ fn compare_cache(
     label: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let states = metadata["cache"][label].as_array().ok_or("cache states")?;
-    assert_eq!(cache.info().len(), states.len());
+    assert_eq!(cache.info()?.len(), states.len());
     let views = cache.logical_layers()?;
     assert_eq!(views.len(), states.len());
-    for (info, view) in cache.info().zip(views) {
+    for (info, view) in cache.info()?.zip(views) {
         let state = &states[info.layer];
         assert_eq!(view.layer, info.layer);
         assert!(info.retained_prefix.is_empty());

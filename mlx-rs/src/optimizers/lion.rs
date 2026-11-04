@@ -9,14 +9,14 @@ use crate::{
 use super::*;
 
 generate_builder! {
-    /// The Lion optimizer [1].
+    /// The Lion optimizer \[1\].
     ///
     /// Since updates are computed through the sign operation, they tend to have larger norm than
     /// for other optimizers such as SGD and Adam. We recommend a learning rate that is 3-10x
     /// smaller than AdamW and a weight decay 3-10x larger than AdamW to maintain the strength `(lr
     /// * wd)`. Our Lion implementation follows the original paper. In detail,
     ///
-    /// [1]: Chen, X. Symbolic Discovery of Optimization Algorithms. arXiv preprint
+    /// \[1\]: Chen, X. Symbolic Discovery of Optimization Algorithms. arXiv preprint
     ///     arXiv:2302.06675.
     #[derive(Debug, Clone, Buildable)]
     #[buildable(root = crate)]

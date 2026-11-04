@@ -1746,6 +1746,437 @@
         "diagnostic": "[broadcast_shapes] Shapes (2) and (3) cannot be broadcast.",
         "rust_error_variant": "exception"
       }
+    },
+    {
+      "id": "indexing.036",
+      "semantic_op": "index",
+      "recipe": "index",
+      "rust_call": "array.index.list",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "indexing.036.input.0"
+        },
+        {
+          "name": "index",
+          "kind": "index",
+          "value": "integer_list"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "indexing.036.output.0",
+            "dtype": "I32",
+            "shape": [
+              2,
+              4
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "indexing.037",
+      "semantic_op": "index",
+      "recipe": "index",
+      "rust_call": "array.index.list",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "indexing.037.input.0"
+        },
+        {
+          "name": "index",
+          "kind": "index",
+          "value": "negative_list"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "indexing.037.output.0",
+            "dtype": "I32",
+            "shape": [
+              2,
+              4
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "indexing.038",
+      "semantic_op": "index",
+      "recipe": "index",
+      "rust_call": "array.index.list",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "indexing.038.input.0"
+        },
+        {
+          "name": "index",
+          "kind": "index",
+          "value": "empty_list"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "indexing.038.output.0",
+            "dtype": "I32",
+            "shape": [
+              0,
+              4
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "indexing.039",
+      "semantic_op": "index",
+      "recipe": "index",
+      "rust_call": "array.index.list",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "indexing.039.input.0"
+        },
+        {
+          "name": "index",
+          "kind": "index",
+          "value": "list_slice"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "indexing.039.output.0",
+            "dtype": "I32",
+            "shape": [
+              2,
+              2
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "indexing.040",
+      "semantic_op": "index",
+      "recipe": "index",
+      "rust_call": "array.index.list",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "indexing.040.input.0"
+        },
+        {
+          "name": "index",
+          "kind": "index",
+          "value": "slice_list"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "indexing.040.output.0",
+            "dtype": "I32",
+            "shape": [
+              2,
+              2
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "indexing.041",
+      "semantic_op": "index",
+      "recipe": "index",
+      "rust_call": "array.index.list",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "indexing.041.input.0"
+        },
+        {
+          "name": "index",
+          "kind": "index",
+          "value": "list_new_axis"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "indexing.041.output.0",
+            "dtype": "I32",
+            "shape": [
+              2,
+              1,
+              4
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "indexing.042",
+      "semantic_op": "index_update",
+      "recipe": "index_update",
+      "rust_call": "array.try_index_update",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "indexing.042.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "indexing.042.input.1"
+        },
+        {
+          "name": "index",
+          "kind": "index",
+          "value": "negative_list"
+        },
+        {
+          "name": "mode",
+          "kind": "update_mode",
+          "value": "add"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "indexing.042.output.0",
+            "dtype": "I32",
+            "shape": [
+              3,
+              4
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "indexing.043",
+      "semantic_op": "index_update",
+      "recipe": "index_update",
+      "rust_call": "array.try_index_update",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "indexing.043.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "indexing.043.input.1"
+        },
+        {
+          "name": "index",
+          "kind": "index",
+          "value": "empty_list"
+        },
+        {
+          "name": "mode",
+          "kind": "update_mode",
+          "value": "add"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "indexing.043.output.0",
+            "dtype": "I32",
+            "shape": [
+              3,
+              4
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "indexing.044",
+      "semantic_op": "index_update",
+      "recipe": "index_update",
+      "rust_call": "array.try_index_update",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "indexing.044.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "indexing.044.input.1"
+        },
+        {
+          "name": "index",
+          "kind": "index",
+          "value": "list_slice"
+        },
+        {
+          "name": "mode",
+          "kind": "update_mode",
+          "value": "add"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "indexing.044.output.0",
+            "dtype": "I32",
+            "shape": [
+              3,
+              4
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
+    },
+    {
+      "id": "indexing.045",
+      "semantic_op": "index_update",
+      "recipe": "index_update",
+      "rust_call": "array.try_index_update",
+      "args": [
+        {
+          "name": "input0",
+          "kind": "tensor",
+          "ref": "indexing.045.input.0"
+        },
+        {
+          "name": "input1",
+          "kind": "tensor",
+          "ref": "indexing.045.input.1"
+        },
+        {
+          "name": "index",
+          "kind": "index",
+          "value": "list_new_axis"
+        },
+        {
+          "name": "mode",
+          "kind": "update_mode",
+          "value": "add"
+        },
+        {
+          "name": "execution",
+          "kind": "execution",
+          "target": "default_cpu"
+        }
+      ],
+      "expected": {
+        "status": "success",
+        "provenance": "mlx_python",
+        "outputs": [
+          {
+            "name": "output0",
+            "ref": "indexing.045.output.0",
+            "dtype": "I32",
+            "shape": [
+              3,
+              4
+            ],
+            "policy": "exact_numeric"
+          }
+        ]
+      }
     }
   ]
 }

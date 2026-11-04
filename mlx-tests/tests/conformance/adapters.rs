@@ -123,6 +123,7 @@ pub(super) const ADAPTERS: &[&str] = &[
     "array.try_index_update",
     "array.try_index_update.source_unchanged",
     "array.try_index_mut.compatibility",
+    "array.index.list",
     "gguf.load",
     "gguf.load_error",
     "gguf.absence",
@@ -188,6 +189,14 @@ fn dispatch_index_update(case: &Case, args: &mut Args<'_>) -> Result<Vec<Array>,
             source.try_index_update((&indices, -1), &update, mode)
         }
         IndexRecipe::ZeroStride => source.try_index_update((..).stride_by(0), &update, mode),
+        IndexRecipe::IntegerList => source.try_index_update([0, 2], &update, mode),
+        IndexRecipe::NegativeList => source.try_index_update(vec![-1, 0], &update, mode),
+        IndexRecipe::EmptyList => source.try_index_update(&[] as &[i32], &update, mode),
+        IndexRecipe::ListSlice => source.try_index_update(([2, 0], 1..3), &update, mode),
+        IndexRecipe::SliceList => source.try_index_update((1..3, vec![-1, 0]), &update, mode),
+        IndexRecipe::ListNewAxis => {
+            source.try_index_update((&[2, 0][..], NewAxis, ..), &update, mode)
+        }
     };
     let result = index_update_error(result)?;
     if case.rust_call == "array.try_index_update.source_unchanged" {
@@ -1246,6 +1255,20 @@ pub(super) fn dispatch(case: &Case, safe: &SafeTensors<'_>) -> Result<Vec<Array>
             let axis = args.axis("axis")?;
             args.execution()?;
             vec![mlx_error(ops::vecdot(&lhs, &rhs, axis))?]
+        }
+        "array.index.list" => {
+            let source = args.tensor("input0")?;
+            let index = args.index("index")?;
+            args.execution()?;
+            vec![match index {
+                IndexRecipe::IntegerList => source.index([0, 2]),
+                IndexRecipe::NegativeList => source.index(vec![-1, 0]),
+                IndexRecipe::EmptyList => source.index(&[] as &[i32]),
+                IndexRecipe::ListSlice => source.index((&[2, 0][..], 1..3)),
+                IndexRecipe::SliceList => source.index((1..3, [-1, 0])),
+                IndexRecipe::ListNewAxis => source.index((vec![2, 0], NewAxis, ..)),
+                _ => return Err("expected list index".into()),
+            }]
         }
         "array.try_index_update"
         | "array.try_index_update.source_unchanged"

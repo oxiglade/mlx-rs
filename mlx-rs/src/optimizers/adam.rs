@@ -15,7 +15,7 @@ generate_builder! {
     ///
     /// Please refer to the original paper for more details:
     ///
-    /// [1]: Kingma, D.P. and Ba, J., 2015. Adam: A method for stochastic optimization. ICLR 2015.
+    /// \[1\]: Kingma, D.P. and Ba, J., 2015. Adam: A method for stochastic optimization. ICLR 2015.
     #[derive(Debug, Clone, Buildable)]
     #[buildable(root = crate)]
     #[builder(

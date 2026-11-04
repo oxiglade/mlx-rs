@@ -13,6 +13,7 @@
 //! | [`i32`] | An integer index |
 //! | [`Array`] | Use an array to index another array |
 //! | `&Array` | Use a reference to an array to index another array |
+//! | `&[i32]`, `Vec<i32>`, `[i32; N]` | Copy integer indices into a one-dimensional index array |
 //! | [`std::ops::Range<i32>`] | A range index |
 //! | [`std::ops::RangeFrom<i32>`] | A range index |
 //! | [`std::ops::RangeFull`] | A range index |
@@ -22,6 +23,9 @@
 //! | [`StrideBy`] | A range index with stride |
 //! | [`NewAxis`] | Add a new axis |
 //! | [`Ellipsis`] | Consume all axes |
+//!
+//! Integer lists use `i32` indices, including when empty. An empty list selects no elements,
+//! like `mx.array([], dtype=mx.int32)` in Python; Python MLX 0.32.2 rejects an untyped `[]` index.
 //!
 //! # Single axis indexing
 //!
@@ -103,7 +107,7 @@ use mlx_internal_macros::generate_macro;
 use crate::{
     error::{Exception, Result},
     utils::guard::Guarded,
-    Array, Stream, StreamOrDevice,
+    Array, Stream,
 };
 
 pub(crate) mod index_impl;
@@ -345,7 +349,7 @@ pub trait TryIndexOp<Idx> {
 
     /// Try to index the array with the given index.
     fn try_index(&self, i: Idx) -> Result<Array> {
-        self.try_index_device(i, StreamOrDevice::default())
+        self.try_index_device(i, Stream::thread_local_or_default())
     }
 }
 
@@ -373,7 +377,7 @@ pub trait TryIndexMutOp<Idx, Val> {
 
     /// Try to index the array with the given index and set the value.
     fn try_index_mut(&mut self, i: Idx, val: Val) -> Result<()> {
-        self.try_index_mut_device(i, val, StreamOrDevice::default())
+        self.try_index_mut_device(i, val, Stream::thread_local_or_default())
     }
 }
 
@@ -427,7 +431,7 @@ impl Array {
     /// The elements are taken from `indices` along the specified axis. If the axis is not specified
     /// the array is treated as a flattened 1-D array prior to performing the take.
     ///
-    /// See [`Array::take_all`] for the flattened array.
+    /// See [`Array::take`] for the flattened array.
     ///
     /// # Params
     ///
@@ -599,7 +603,7 @@ impl Array {
 
 /// Indices of the maximum values along the axis.
 ///
-/// See [`argmax_all`] for the flattened array.
+/// See [`argmax`] for the flattened array.
 ///
 /// # Params
 ///
@@ -676,7 +680,7 @@ pub fn argmax_device(
 
 /// Indices of the minimum values along the axis.
 ///
-/// See [`argmin_all`] for the flattened array.
+/// See [`argmin`] for the flattened array.
 ///
 /// # Params
 ///
@@ -821,7 +825,7 @@ pub fn take_axis_device(
     crate::with_stream(stream.as_ref(), || take_axis(a, indices, axis))
 }
 
-/// See [`Array::take_all`]
+/// See [`Array::take`]
 pub fn take(a: impl AsRef<Array>, indices: impl AsRef<Array>) -> Result<Array> {
     a.as_ref().take(indices)
 }
@@ -844,7 +848,7 @@ pub fn take_device(
 ///
 /// The elements will not necessarily be in sorted order.
 ///
-/// See [`topk_all`] for the flattened array.
+/// See [`topk`] for the flattened array.
 ///
 /// # Params
 ///
@@ -1260,6 +1264,57 @@ fn expand_ellipsis_operations<'a>(
 mod tests {
     use super::*;
     use crate::{array, ops::reshape, Array};
+
+    struct StreamCheckedArray {
+        array: Array,
+        expected: Stream,
+    }
+
+    impl TryIndexOp<i32> for StreamCheckedArray {
+        fn try_index_device(&self, i: i32, stream: impl AsRef<Stream>) -> Result<Array> {
+            assert_eq!(stream.as_ref(), &self.expected);
+            self.array.try_index_device(i, stream)
+        }
+    }
+
+    impl TryIndexMutOp<i32, Array> for StreamCheckedArray {
+        fn try_index_mut_device(
+            &mut self,
+            i: i32,
+            val: Array,
+            stream: impl AsRef<Stream>,
+        ) -> Result<()> {
+            assert_eq!(stream.as_ref(), &self.expected);
+            self.array.try_index_mut_device(i, val, stream)
+        }
+    }
+
+    #[test]
+    fn indexed_read_uses_scoped_stream() {
+        let stream = Stream::new_with_device(&crate::Device::cpu());
+        assert_ne!(stream, Stream::default());
+        crate::with_stream(&stream, || {
+            let input = StreamCheckedArray {
+                array: array!([1, 2, 3]),
+                expected: stream.clone(),
+            };
+            assert_eq!(input.try_index(1).unwrap().item_exact::<i32>(), 2);
+        });
+    }
+
+    #[test]
+    fn indexed_write_uses_scoped_stream() {
+        let stream = Stream::new_with_device(&crate::Device::cpu());
+        assert_ne!(stream, Stream::default());
+        crate::with_stream(&stream, || {
+            let mut input = StreamCheckedArray {
+                array: array!([1, 2, 3]),
+                expected: stream.clone(),
+            };
+            input.try_index_mut(1, array!(7)).unwrap();
+            assert_eq!(input.array.as_slice::<i32>(), &[1, 7, 3]);
+        });
+    }
 
     // Tests adapted from C++ `ops_tests.cpp/test scatter`
     #[test]

@@ -480,7 +480,7 @@ fn run(path: &Path) -> Result<()> {
         }
     }
     ensure!(
-        generated.cache().tokens().len() == prompt.len() + 7,
+        generated.cache()?.tokens()?.len() == prompt.len() + 7,
         "generation one-token lag"
     );
     observed.greedy_ids = Some(greedy);

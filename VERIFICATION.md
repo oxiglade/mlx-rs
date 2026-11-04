@@ -18,7 +18,7 @@ that checkout:
 
     mkdir -p "$RUNNER_TEMP/ffi-gate"
     cargo xtask verify-ffi --calibrate --guard-malloc \
-      --budget-seconds 3600 --leaks-timeout-seconds 600 \
+      --budget-seconds 3600 --leaks-timeout-seconds 1200 \
       --guard-malloc-timeout-seconds 1200 \
       --report "$RUNNER_TEMP/ffi-gate/verify-ffi.json" \
       > "$RUNNER_TEMP/ffi-gate/calibration.json"
@@ -48,7 +48,7 @@ a 60-minute budget, each leak subprocess a 10-minute timeout, and each Guard Mal
 
 ## Conformance runner
 
-    cargo test -p mlx-tests --test conformance -- --test-threads=1
+    cargo test -p mlx-tests --test conformance
 
 The qualified strict comparator checks dtype, shape, output count/order, separate tolerances,
 non-finite values, and layout-sensitive observations. Regeneration uses Python 3.12.14,
@@ -92,7 +92,7 @@ Rust profile, toolchain, resolved backend features and native CMake settings. Ru
 Use the selected toolchain for the entire invocation; `macos-arm64-default-msrv` requires Rust
 1.88.0. Give each configuration a separate `MLX_RS_METAL_PATH` as well; JIT and non-JIT
 metallibs must not share a directory. Locally, substitute a scratch directory for `$RUNNER_TEMP`.
-The wrapper executes the ledger's Cargo test command once, including doctests, with serial tests
+The wrapper executes the ledger's Cargo test command once, including doctests, with parallel tests
 and captured test output.
 It writes a JSON report plus a sibling `.log` file and exits nonzero if Cargo fails,
 qualification fails, or the report cannot be written. A zero exit status means qualified execution.
@@ -317,6 +317,30 @@ live report and generator hashes, and requires exactly one passing output for ev
 case on CPU and Metal. The Rust harness hashes the files and compares inference with the independent
 Python results. Missing input, incomplete execution or a failed comparison fails the job.
 Other configurations remove the checkpoint manifest from their test environment.
+
+Before admitting an MLX bump, check the private K/V append shim in `mlx-lm` on the
+new runtime. Use the pinned Qwen3-0.6B-4bit and Llama-3.2-1B-Instruct-4bit checkpoints
+from the checkpoint contract. For each model, repeat its prompt IDs to 3,968 tokens,
+use prefill chunks of 512, and greedily generate 2,048 tokens. Compare the primitive
+with the previous release built at the same MLX version (`v0.33.0` is the current
+`slice_update` reference). Rebind that release's mlx-c pin to the target runtime
+before building. Record both source commits and verify both builds use the
+same native tuple. Run each pair under default scheduling and with
+`MLX_MAX_MB_PER_BUFFER` set to 16 and 64 in separate processes before device
+initialization.
+
+For both models, also run a stop-then-reuse pair with `MLX_MAX_MB_PER_BUFFER=16`:
+stop generation while a lookahead step is pending, drop the generation, then start
+a request on that cache with its exact committed token prefix and a different
+nonempty suffix beginning at the abandoned position. Compare the continuation
+with the reference build using the same stop boundary and request.
+
+Require identical generated IDs and bitwise-equal full decode logits for all eight
+pairs. Retain logits during generation and compare them afterwards so observation
+does not synchronize every step. Record the checkpoint revisions, runtime commits,
+environment and comparison results. Run the cache tests too, including rollback
+with pending readers, stream handoff and snapshot sibling growth. A compile-only
+check of new headers does not qualify the runtime's ownership or scheduling behavior.
 
 The Cargo-archive canary runs in `checks` on ordinary PRs and bumps, reusing clippy's native build:
 

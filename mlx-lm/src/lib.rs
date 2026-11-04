@@ -6,7 +6,7 @@
 //! or Metal through `mlx-rs` on the owning thread. Features do not select devices,
 //! and CPU execution can still require Metal during native initialization.
 //! Python MLX is an oracle dependency, not a runtime dependency of this crate.
-//! Version 0.33.0 remains unpublished pending David's explicit go.
+//! Version 0.34.0 remains unpublished pending David's explicit go.
 //!
 //! # Supported sources
 //!
@@ -96,6 +96,20 @@
 //! preparation succeeds. After token `j` (counted from 1), a prompt of length `P`
 //! has `P + j - 1` forwarded tokens in the cache. Reuse requires the same model,
 //! compatible policy, an exact cached prefix and a nonempty uncached suffix.
+//! An abandoned step preserves committed tokens and K/V contents up to the committed
+//! length. Before evaluation or submission, it restores the original handles. After
+//! successful evaluation or submission, full caches keep the new buffers at the
+//! committed length. Unused tail contents and capacity may change. Rotating caches
+//! copy handles because they overwrite committed positions. Live snapshots can
+//! prevent buffer donation.
+//!
+//! Failed evaluation or submission invalidates only the cache involved. This includes
+//! failed speculative submission even if generation stops at the preceding token.
+//! Reads, updates, snapshots, restores and reuse return `CacheError::Invalidated`.
+//! Call `Cache::reset()` and prefill again. Reset discards all cached tokens and buffers.
+//! Existing snapshots and other caches restored from them remain valid.
+//! A sampling-only failure leaves an untouched cache valid.
+//!
 //! Snapshots exclude RNG, decoder and iterator state. Rotation can retain capacity
 //! plus a prefill chunk, snapshots retain old storage, and decoding retains IDs and
 //! emitted text. Constant total host memory and zero allocation are not promised.
@@ -119,15 +133,35 @@
 //! | [`GenerationError`] | Prompt/stop/reuse/length validation and typed runtime wrappers; evaluation exceptions stay `GenerationError::Exception`. |
 //! | [`HubError`] | Repository/revision, missing files, unsafe paths, receipt integrity, offline miss, transport and wrapped local load errors. The type exists without `hf-hub`; the API-error variant requires it. |
 //!
+//! Sampling checks raw, processed, filtered and scaled values in that order after a
+//! successful joint evaluation. Invalid values precede empty support within each
+//! stage. If evaluation fails, its original `GenerationError::Exception` wins over
+//! value errors. The failed graph is never inspected or evaluated again.
+//!
 //! # Throughput and open work
 //!
-//! On the same machine and weights (Metal, Qwen3-0.6B-4bit, 128-token prompt,
-//! 256 greedy tokens), Rust measured **38.2 tokens/s** against upstream Python's
-//! **125.5 tokens/s**, a **3.3× gap** under investigation in its own throughput
-//! tranche. Reports: `/Users/ci/hub/scratch/mlx-lm/t4/bench/c-baseline-metal.json`
-//! and `/Users/ci/hub/scratch/mlx-lm/t4/bench/c-ablation-metal.json`.
-//! Ruling C is closed as “gap attributed elsewhere; no pipeline”; the no-lookahead
-//! ablation measured 103.0 tokens/s and explained 9.6% of the excess time per token.
+//! C closed: qualified pipeline admitted (2026-11-02, M5 Max Metal):
+//! 606.95 Rust versus 617.93 Python tok/s, ratio 0.9821
+//! [0.9810, 0.9837] (95% paired CI). Recovery is
+//! 93.44% [93.18%, 94.14%], with observed Rust–Python excess as denominator.
+//! Using the full Python lookahead ablation effect as denominator, recovery is
+//! 67.30% [65.99%, 68.56%] (95% paired CIs).
+//! The CPU path is unchanged by construction, satisfying the other-device ≤5% regression criterion.
+//! Qualification used paired alternation on a shared host, deviating from the protocol's idle-host requirement.
+//!
+//! The measurement uses Qwen3-0.6B-4bit, a 128-token prompt, 256 greedy tokens,
+//! three warm-ups and ten alternating Rust/Python pairs per group. The fresh #444
+//! synchronous baseline measured 481.82 Rust versus 615.99 Python tok/s;
+//! Python without lookahead measured 444.49 tok/s. The baseline and ablation
+//! are retained from the prior qualification; the candidate rerun uses contemporaneous
+//! Python. The intervals describe repeatability within these runs.
+//!
+//! GPU generation with full caches queues one token ahead and submits only sampling
+//! roots. Pipelined generation runs on the stream current at `generate()`.
+//! Each decoder's updated K/V feeds attention and logits. Cache objects stay
+//! alive; committed lengths, RNG and text advance only when a token is accepted.
+//! CPU and rotating-cache decode remain synchronous. This measurement does not
+//! establish CPU throughput parity or the full real-checkpoint matrix.
 //!
 //! Demand-gated capabilities include vision/images/audio and other multimodal
 //! inputs; training, adapters, LoRA and distributed execution; batching, continuous

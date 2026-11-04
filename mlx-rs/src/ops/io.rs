@@ -35,7 +35,7 @@ impl Array {
         .map_err(Into::into)
     }
 
-    /// Compatibility shim for [`load_numpy`].
+    /// Compatibility shim for [`Array::load_numpy`].
     #[deprecated(
         since = "0.26.0",
         note = "use `with_stream` or `with_device` around `load_numpy`"
@@ -61,7 +61,7 @@ impl Array {
         Ok(data)
     }
 
-    /// Compatibility shim for [`load_safetensors`].
+    /// Compatibility shim for [`Array::load_safetensors`].
     #[deprecated(
         since = "0.26.0",
         note = "use `with_stream` or `with_device` around `load_safetensors`"
@@ -91,7 +91,7 @@ impl Array {
         Ok((data, metadata))
     }
 
-    /// Compatibility shim for [`load_safetensors_with_metadata`].
+    /// Compatibility shim for [`Array::load_safetensors_with_metadata`].
     #[allow(clippy::type_complexity)]
     #[deprecated(
         since = "0.26.0",
@@ -140,8 +140,7 @@ impl Array {
         S: AsRef<str>,
         V: AsRef<Array>,
     {
-        crate::error::INIT_ERR_HANDLER
-            .with(|init| init.call_once(crate::error::setup_mlx_error_handler));
+        crate::error::ensure_mlx_error_handler();
 
         let path = path.as_ref();
 

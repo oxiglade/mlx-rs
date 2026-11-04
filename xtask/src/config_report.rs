@@ -188,7 +188,7 @@ fn test_command(c: &Configuration) -> Vec<String> {
     if c.profile != "debug" {
         cmd.extend(["--profile".into(), c.profile.clone()]);
     }
-    cmd.extend(["--".into(), "--test-threads=1".into(), "--nocapture".into()]);
+    cmd.extend(["--".into(), "--nocapture".into()]);
     cmd
 }
 

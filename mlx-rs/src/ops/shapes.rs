@@ -299,7 +299,7 @@ impl Array {
         self.split_at_indices(indices, axis)
     }
 
-    /// Compatibility shim for [`split_axis`].
+    /// Compatibility shim for [`Array::split_axis`].
     #[deprecated(
         since = "0.26.0",
         note = "use `with_stream` or `with_device` around `split_at_indices`"

@@ -139,7 +139,7 @@ fn tokenizer(model: &mut Model, fixture: &Fixture) -> Result<Value> {
                     other => bail!("token before final prompt prefill: {other:?}"),
                 }
             }
-            encodings.insert(name.into(), json!(ids(generation.cache().tokens())));
+            encodings.insert(name.into(), json!(ids(generation.cache()?.tokens()?)));
         }
         observed["prompt_encoding"] = Value::Object(encodings);
     }

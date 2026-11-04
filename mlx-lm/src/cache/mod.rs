@@ -9,6 +9,7 @@ use mlx_rs::{
 };
 use std::collections::BTreeMap;
 use std::{marker::PhantomData, num::NonZeroUsize, ops::Range, rc::Rc};
+mod append;
 mod full;
 mod ledger;
 use ledger::{PendingTokens, TokenLedger};
@@ -62,15 +63,23 @@ pub enum CacheKind {
     Rotating,
 }
 /// Thread-bound decoder cache with transactional layer state.
+/// GPU full caches append in place; CPU and rotating caches use `slice_update`.
+/// On an M5 Max, decode throughput is level at 128 tokens, about 7% higher at ~4k
+/// and 0.4% lower at ~16k than `slice_update`.
+/// Abandoned steps preserve committed tokens and K/V prefixes; spare storage may change.
+/// Evaluation failure invalidates the cache. Call [`Cache::reset`] and prefill again.
 pub struct Cache {
     architecture: crate::ModelType,
     model_identity: Rc<()>,
     ledger: TokenLedger,
     tracks_tokens: bool,
+    invalidated: bool,
+    last_submission: Option<(usize, mlx_rs::Stream)>,
     layers: Vec<Box<dyn LayerCache>>,
     _thread_bound: PhantomData<Rc<()>>,
 }
 /// Opaque thread-bound handles and metadata for restoring a cache.
+/// Snapshots remain valid if a cache restored from them fails.
 pub struct CacheSnapshot {
     architecture: crate::ModelType,
     model_identity: Rc<()>,
@@ -115,7 +124,7 @@ impl Cache {
             layers.push(match policy {
                 None => Box::new(full::FullCache::new(
                     spec,
-                    capacity.map_or(16, NonZeroUsize::get),
+                    capacity.map_or(256, NonZeroUsize::get),
                 )?),
                 Some((capacity, keep)) => {
                     Box::new(rotating::RotatingCache::new(spec, capacity, keep)?)
@@ -129,20 +138,61 @@ impl Cache {
             model_identity,
             ledger,
             tracks_tokens: true,
+            invalidated: false,
+            last_submission: None,
             layers,
             _thread_bound: PhantomData,
         })
     }
     /// Token IDs represented by committed cache state, including evicted positions.
-    pub fn tokens(&self) -> &[crate::TokenId] {
-        self.ledger.tokens()
+    /// Returns [`CacheError::Invalidated`] after cache evaluation or submission fails.
+    pub fn tokens(&self) -> Result<&[crate::TokenId], CacheError> {
+        self.ensure_valid()?;
+        Ok(self.ledger.tokens())
     }
     /// Returns logical metadata without evaluating or copying array buffers.
-    pub fn info(&self) -> impl ExactSizeIterator<Item = CacheInfo> + '_ {
-        self.layers
+    /// Returns [`CacheError::Invalidated`] after cache evaluation or submission fails.
+    pub fn info(&self) -> Result<impl ExactSizeIterator<Item = CacheInfo> + '_, CacheError> {
+        self.ensure_valid()?;
+        Ok(self
+            .layers
             .iter()
             .enumerate()
-            .map(|(layer, cache)| cache.info(layer))
+            .map(|(layer, cache)| cache.info(layer)))
+    }
+    pub(crate) fn ensure_valid(&self) -> Result<(), CacheError> {
+        if self.invalidated {
+            Err(CacheError::Invalidated)
+        } else {
+            Ok(())
+        }
+    }
+    pub(crate) fn invalidate(&mut self) {
+        self.invalidated = true;
+    }
+    /// Discards all tokens and buffers, including failed graphs. Prefill again before reuse.
+    pub fn reset(&mut self) -> Result<(), CacheError> {
+        let layers = self
+            .layers
+            .iter()
+            .map(|layer| {
+                let state = layer.fingerprint();
+                Ok(match state.kind {
+                    CacheKind::Full => Box::new(full::FullCache::new(&state.spec, state.capacity)?)
+                        as Box<dyn LayerCache>,
+                    CacheKind::Rotating => Box::new(rotating::RotatingCache::new(
+                        &state.spec,
+                        state.capacity,
+                        state.keep_prefix,
+                    )?),
+                })
+            })
+            .collect::<Result<_, CacheError>>()?;
+        self.layers = layers;
+        self.ledger = TokenLedger::default();
+        self.invalidated = false;
+        self.last_submission = None;
+        Ok(())
     }
     /// Returns temporal [batch, kv_heads, positions.len(), head_dim] arrays for
     /// exactly the positions `info` reports. Each layer yields its nonempty
@@ -150,6 +200,7 @@ impl Cache {
     /// Views are ordered by layer, then position.
     #[cfg_attr(not(feature = "oracle-hooks"), allow(dead_code))]
     pub(crate) fn logical_layers(&self) -> Result<Vec<LogicalLayerView>, CacheError> {
+        self.ensure_valid()?;
         let mut views = Vec::with_capacity(self.layers.len());
         for (layer, cache) in self.layers.iter().enumerate() {
             let info = cache.info(layer);
@@ -176,25 +227,43 @@ impl Cache {
         }
         Ok(views)
     }
-    /// Shares token storage and array handles, copying O(layer count) metadata.
-    /// Does not evaluate or copy tensor buffers.
+    /// Evaluates source arrays, then copies committed prefixes of full layers with spare
+    /// capacity into full-capacity allocations. All layer copies are evaluated together.
+    /// Full layers without spare capacity and rotating layers may share storage until an
+    /// update replaces it. Restore consumes the snapshot.
+    /// A source evaluation failure invalidates this cache; a copy failure leaves it valid.
     pub fn snapshot(&mut self) -> Result<CacheSnapshot, CacheError> {
+        self.ensure_valid()?;
+        let source = self
+            .layers
+            .iter()
+            .map(|layer| layer.arrays().map(|(keys, values)| [keys, values]))
+            .collect::<Result<Vec<_>, _>>()?;
+        mlx_rs::transforms::eval(source.iter().flatten()).inspect_err(|_| self.invalidate())?;
+        let layers = self
+            .layers
+            .iter()
+            .enumerate()
+            .map(|(i, layer)| Ok((i, layer.snapshot_box()?)))
+            .collect::<Result<BTreeMap<_, _>, CacheError>>()?;
+        let copies = layers
+            .values()
+            .map(|layer| layer.arrays().map(|(keys, values)| [keys, values]))
+            .collect::<Result<Vec<_>, _>>()?;
+        mlx_rs::transforms::eval(copies.iter().flatten())?;
         Ok(CacheSnapshot {
             architecture: self.architecture.clone(),
             model_identity: Rc::clone(&self.model_identity),
             ledger: self.ledger.clone(),
             tracks_tokens: self.tracks_tokens,
-            layers: self
-                .layers
-                .iter()
-                .enumerate()
-                .map(|(i, layer)| (i, layer.clone_box()))
-                .collect(),
+            layers,
             _thread_bound: PhantomData,
         })
     }
-    /// Restores compatible handles and absolute-position metadata.
-    pub fn restore(&mut self, mut snapshot: CacheSnapshot) -> Result<(), CacheError> {
+    /// Adopts compatible snapshot storage and restores absolute-position metadata.
+    /// Consumes the snapshot without copying or evaluating its arrays.
+    pub fn restore(&mut self, snapshot: CacheSnapshot) -> Result<(), CacheError> {
+        self.ensure_valid()?;
         if !Rc::ptr_eq(&self.model_identity, &snapshot.model_identity)
             || self.tracks_tokens != snapshot.tracks_tokens
             || self.architecture != snapshot.architecture
@@ -211,18 +280,10 @@ impl Cache {
                 return Err(CacheError::FingerprintMismatch);
             }
         }
-        let mut restored = Vec::with_capacity(self.layers.len());
-        for i in 0..self.layers.len() {
-            restored.push(
-                snapshot
-                    .layers
-                    .remove(&i)
-                    .ok_or(CacheError::FingerprintMismatch)?,
-            );
-        }
-        self.layers = restored;
+        self.layers = snapshot.layers.into_values().collect();
         self.ledger = snapshot.ledger;
         self.model_identity = snapshot.model_identity;
+        self.last_submission = None;
         Ok(())
     }
     pub(crate) fn validate_reuse(
@@ -233,6 +294,7 @@ impl Cache {
         options: &CacheOptions,
         prompt: &[crate::TokenId],
     ) -> Result<usize, crate::GenerationError> {
+        self.ensure_valid()?;
         if !Rc::ptr_eq(&self.model_identity, model_identity)
             || &self.architecture != architecture
             || self.layers.len() != layout.len()
@@ -248,13 +310,14 @@ impl Cache {
             validate_policy(&layer.fingerprint(), spec, &options.policy)?;
         }
         self.validate_ledger()?;
-        validate_prefix(self.tokens(), prompt)
+        validate_prefix(self.tokens()?, prompt)
     }
     fn validate_ledger(&self) -> Result<(), CacheError> {
+        self.ensure_valid()?;
         if self.layers.is_empty()
             || self
-                .info()
-                .any(|info| info.processed_tokens != self.tokens().len())
+                .info()?
+                .any(|info| info.processed_tokens != self.ledger.tokens().len())
         {
             return Err(invalid(
                 "layer positions differ from represented token count",
@@ -262,6 +325,36 @@ impl Cache {
         }
         Ok(())
     }
+    pub(crate) fn supports_pipeline(&self) -> bool {
+        self.layers
+            .iter()
+            .all(|layer| layer.info(0).kind == CacheKind::Full)
+    }
+
+    pub(crate) fn speculative_step(&mut self, offset: usize) -> Result<CacheStep<'_>, CacheError> {
+        self.validate_ledger()?;
+        if !self.supports_pipeline() {
+            return Err(invalid("lookahead requires full caches"));
+        }
+        self.prepare_append(offset)?;
+        let mut step = self.begin_step()?;
+        for layer in &mut step.staged {
+            layer.set_length(offset)?;
+        }
+        Ok(step)
+    }
+
+    pub(crate) fn commit_input(&mut self, token: crate::TokenId) -> Result<(), CacheError> {
+        self.validate_ledger()?;
+        let pending = self.ledger.prepare(&[token])?;
+        let length = self.ledger.tokens().len() + 1;
+        for layer in &mut self.layers {
+            layer.set_length(length)?;
+        }
+        self.ledger.commit(pending);
+        Ok(())
+    }
+
     pub(crate) fn step_with_tokens(
         &mut self,
         tokens: &[crate::TokenId],
@@ -271,6 +364,7 @@ impl Cache {
             return Err(invalid("cache step must represent input tokens"));
         }
         let pending = self.ledger.prepare(tokens)?;
+        self.prepare_append(self.ledger.tokens().len())?;
         let mut step = self.begin_step()?;
         step.token_count = Some(tokens.len());
         step.pending_tokens = Some(pending);
@@ -279,15 +373,28 @@ impl Cache {
     // Forward-only oracle sessions do not supply represented token IDs.
     #[cfg_attr(not(feature = "oracle-hooks"), allow(dead_code))]
     pub(crate) fn step(&mut self) -> Result<CacheStep<'_>, CacheError> {
+        self.ensure_valid()?;
         if self.tracks_tokens {
             return Err(invalid(
                 "model-bound steps must supply represented token IDs",
             ));
         }
+        self.prepare_append(self.layers[0].info(0).processed_tokens)?;
         self.begin_step()
     }
+    fn prepare_append(&mut self, offset: usize) -> Result<(), CacheError> {
+        if let Some((end, stream)) = &self.last_submission {
+            if offset < *end || *stream != mlx_rs::Stream::thread_local_or_default() {
+                // Rolled-back suffixes can still have attention readers in flight.
+                append::synchronize(stream).inspect_err(|_| self.invalidated = true)?;
+                self.last_submission = None;
+            }
+        }
+        Ok(())
+    }
     fn begin_step(&mut self) -> Result<CacheStep<'_>, CacheError> {
-        let staged = self.layers.iter().map(|layer| layer.clone_box()).collect();
+        self.ensure_valid()?;
+        let staged = self.layers.iter_mut().map(|layer| layer.stage()).collect();
         let updated = vec![false; self.layers.len()];
         Ok(CacheStep {
             cache: self,
@@ -323,12 +430,29 @@ pub(crate) trait LayerCache: sealed::Sealed {
     }
     fn info(&self, layer: usize) -> CacheInfo;
     fn clone_box(&self) -> Box<dyn LayerCache>;
+    fn snapshot_box(&self) -> Result<Box<dyn LayerCache>, CacheError> {
+        Ok(self.clone_box())
+    }
+    fn stage(&mut self) -> Box<dyn LayerCache> {
+        self.clone_box()
+    }
+    fn rollback(&mut self, _staged: &mut dyn LayerCache) {}
+    fn set_length(&mut self, _length: usize) -> Result<(), CacheError> {
+        Err(invalid("length rollback requires a full cache"))
+    }
+    fn take_growth(&mut self) -> Option<Buffer> {
+        None
+    }
+    fn take_buffer(&mut self) -> Option<Buffer> {
+        None
+    }
     fn fingerprint(&self) -> LayerFingerprint;
-    fn arrays(&self) -> (&Array, &Array);
+    fn arrays(&self) -> Result<(Array, Array), CacheError>;
     #[cfg_attr(not(feature = "oracle-hooks"), allow(dead_code))]
     fn logical_arrays(&self) -> Result<(Array, Array), CacheError>;
 }
-/// A staged update whose state is committed only after successful evaluation.
+/// Appends full caches in place and stages rotating caches on copied handles.
+/// Drop preserves committed lengths and prefixes. Failed evaluation invalidates the cache.
 pub(crate) struct CacheStep<'cache> {
     cache: &'cache mut Cache,
     staged: Vec<Box<dyn LayerCache>>,
@@ -339,16 +463,23 @@ pub(crate) struct CacheStep<'cache> {
 }
 /// Evaluated state held until fallible token and text preparation succeeds.
 pub(crate) struct EvaluatedCacheStep<'cache> {
-    cache: &'cache mut Cache,
-    staged: Vec<Box<dyn LayerCache>>,
-    pending_tokens: Option<PendingTokens>,
+    step: CacheStep<'cache>,
 }
 impl EvaluatedCacheStep<'_> {
-    pub(crate) fn commit(self) {
-        if let Some(pending) = self.pending_tokens {
-            self.cache.ledger.commit(pending);
+    pub(crate) fn commit(mut self) {
+        if let Some(pending) = self.step.pending_tokens.take() {
+            self.step.cache.ledger.commit(pending);
         }
-        self.cache.layers = self.staged;
+        self.step.cache.layers = std::mem::take(&mut self.step.staged);
+    }
+}
+impl Drop for CacheStep<'_> {
+    fn drop(&mut self) {
+        if !self.cache.invalidated {
+            for (committed, staged) in self.cache.layers.iter_mut().zip(&mut self.staged) {
+                committed.rollback(staged.as_mut());
+            }
+        }
     }
 }
 impl<'cache> CacheStep<'cache> {
@@ -360,6 +491,64 @@ impl<'cache> CacheStep<'cache> {
             mlx_rs::transforms::eval(arrays.iter().copied()).map_err(CacheError::from)
         })
     }
+    pub(crate) fn evaluate_outputs<T>(
+        mut self,
+        evaluate: impl FnOnce(
+            &[&Array],
+            &mut dyn FnMut(&[&Array]) -> Result<(), mlx_rs::error::Exception>,
+        ) -> Result<T, crate::GenerationError>,
+    ) -> Result<(T, EvaluatedCacheStep<'cache>), crate::GenerationError> {
+        self.validate_complete()?;
+        let arrays = self.evaluation_arrays()?;
+        let references: Vec<_> = arrays.iter().collect();
+        let output = evaluate(&references, &mut |outputs| {
+            self.prepare_evaluation()?;
+            mlx_rs::transforms::eval(outputs.iter().copied())
+                .inspect_err(|_| self.cache.invalidate())
+        })?;
+        Ok((output, EvaluatedCacheStep { step: self }))
+    }
+    pub(crate) fn submit(mut self, outputs: &[&Array]) -> Result<(), crate::GenerationError> {
+        self.validate_complete()?;
+        if outputs.is_empty() {
+            return Ok(());
+        }
+        self.prepare_evaluation()?;
+        mlx_rs::transforms::async_eval(outputs.iter().copied())
+            .inspect_err(|_| self.cache.invalidate())?;
+        Ok(())
+    }
+    fn prepare_evaluation(&mut self) -> Result<(), mlx_rs::error::Exception> {
+        self.cache.last_submission = self.staged.first().map(|layer| {
+            (
+                layer.info(0).processed_tokens,
+                mlx_rs::Stream::thread_local_or_default(),
+            )
+        });
+        for layer in &mut self.cache.layers {
+            layer.take_buffer();
+        }
+        let growth: Vec<_> = self
+            .staged
+            .iter_mut()
+            .filter_map(|layer| layer.take_growth())
+            .collect();
+        // Bound overlapping old and new storage to one layer during growth.
+        for buffer in growth {
+            mlx_rs::transforms::eval([&buffer.keys, &buffer.values])
+                .inspect_err(|_| self.cache.invalidate())?;
+        }
+        Ok(())
+    }
+    fn evaluation_arrays(&self) -> Result<Vec<Array>, CacheError> {
+        let mut arrays = Vec::with_capacity(self.staged.len() * 2);
+        for layer in &self.staged {
+            let (keys, values) = layer.arrays()?;
+            arrays.extend([keys, values]);
+        }
+        Ok(arrays)
+    }
+    #[cfg(test)]
     pub(crate) fn reserve(&mut self, capacity: NonZeroUsize) -> Result<(), CacheError> {
         let result = self
             .staged
@@ -433,10 +622,18 @@ impl<'cache> CacheStep<'cache> {
         Ok(())
     }
     fn evaluate_with(
-        self,
+        mut self,
         outputs: &[&Array],
         evaluate: impl FnOnce(&[&Array]) -> Result<(), CacheError>,
     ) -> Result<EvaluatedCacheStep<'cache>, CacheError> {
+        self.validate_complete()?;
+        let arrays = self.evaluation_arrays()?;
+        let references: Vec<_> = arrays.iter().chain(outputs.iter().copied()).collect();
+        self.prepare_evaluation()?;
+        evaluate(&references).inspect_err(|_| self.cache.invalidate())?;
+        Ok(EvaluatedCacheStep { step: self })
+    }
+    fn validate_complete(&self) -> Result<(), CacheError> {
         if self.failed || self.updated.iter().any(|updated| !updated) {
             return Err(invalid("cannot commit a failed or incomplete step"));
         }
@@ -454,7 +651,7 @@ impl<'cache> CacheStep<'cache> {
         if let Some(count) = self.token_count {
             let expected = self
                 .cache
-                .tokens()
+                .tokens()?
                 .len()
                 .checked_add(count)
                 .ok_or_else(|| invalid("token ledger overflow"))?;
@@ -464,19 +661,7 @@ impl<'cache> CacheStep<'cache> {
                 ));
             }
         }
-        let mut arrays = Vec::with_capacity(self.staged.len() * 2 + outputs.len());
-        for layer in &self.staged {
-            let (keys, values) = layer.arrays();
-            arrays.push(keys);
-            arrays.push(values);
-        }
-        arrays.extend(outputs.iter().copied());
-        evaluate(&arrays)?;
-        Ok(EvaluatedCacheStep {
-            cache: self.cache,
-            staged: self.staged,
-            pending_tokens: self.pending_tokens,
-        })
+        Ok(())
     }
 }
 
@@ -504,7 +689,7 @@ impl LayerFingerprint {
 }
 
 #[derive(Clone)]
-struct Buffer {
+pub(crate) struct Buffer {
     keys: Array,
     values: Array,
 }
@@ -619,12 +804,13 @@ fn validate_rotation(capacity: usize, keep: usize) -> Result<(), CacheError> {
     }
     Ok(())
 }
-fn grown_capacity(current: usize, required: usize) -> Result<usize, CacheError> {
+fn grown_capacity(current: usize, offset: usize, required: usize) -> Result<usize, CacheError> {
     dimension(required)?;
-    let mut capacity = current.max(1);
-    while capacity < required {
-        capacity = capacity.saturating_mul(2).min(i32::MAX as usize);
-    }
+    let capacity = if required <= current {
+        current
+    } else {
+        (offset + (required - offset).div_ceil(256) * 256).min(i32::MAX as usize)
+    };
     dimension(capacity)?;
     Ok(capacity)
 }

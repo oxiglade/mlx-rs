@@ -1,9 +1,23 @@
 # Changelog
 
-## Unreleased
+## 0.34.0
+
+This release stays on MLX 0.32.2. `Array` is no longer `Send` and `Device::set_default`
+is unsafe, closing two ways safe code could race MLX across threads. It also makes
+`load_safetensors` strict and adds quantization modes, `checkpoint`/`custom_vjp` and list
+indexing.
 
 Breaking
 
+- `Device::set_default` is unsafe and returns `Result<()>`. Use `with_device` or
+  `with_stream` for safe device selection (#437).
+- `Array` is no longer `Send`. MLX doesn't synchronize lazy graph state across
+  threads, so build arrays and models on the thread that uses them and send plain
+  data instead (#259).
+- `ModuleParametersExt::load_safetensors` rejects missing keys, unexpected keys,
+  and shape mismatches before changing any parameters (#304, thanks @Vlad-Shcherbina).
+- Struct literals for `ConvTranspose*` layers and their 1D/3D builders must
+  supply `dilation` (#203).
 - `quantize`, `dequantize`, `quantized_matmul`, and `gather_qmm` take options
   structs. `quantize` returns optional biases, present only for affine weights
   (#358, thanks @sergey-scherbina). Invalid mode/group/bit combinations return
@@ -11,10 +25,35 @@ Breaking
 
 Added
 
+- Indexing with `&[i32]`, `Vec<i32>`, and `[i32; N]` (#211).
+- Dilation for `nn::ConvTranspose1d`, `ConvTranspose2d`, and `ConvTranspose3d`,
+  matching Python MLX 0.32.2 (#203).
 - `QuantizationMode::{Affine, Mxfp4, Mxfp8, Nvfp4}` with mode-dependent defaults
   and CPU/Metal conformance for packing, round trips, matmul, and indexed gather
   (#358, thanks @sergey-scherbina). Global scales remain private; nn quantized
   modules remain affine-only.
+- `transforms::checkpoint`: a function whose intermediate arrays are computed again in
+  the backward pass instead of kept (the Rust counterpart of `mx.checkpoint`) (#422,
+  thanks @bayanasar).
+- `transforms::custom_vjp`: a function with a written-out backward pass, called with the
+  primals, the cotangents and the outputs (`mx.custom_function` with a `vjp`) (#422).
+- `transforms::Function`, which both return: `apply` calls it, traced like any other
+  operation under a transform. Its closures are `'static`, since a backward pass calls
+  them again; an error they return reaches the caller, and a panic resumes there.
+- `Stream::device` returns the device a stream runs on (#445).
+
+Changed
+
+- Repeat operations and `QuantizedEmbeddingBuilder::build_with_weight` accept
+  borrowed arrays through `AsRef<Array>` (#110, source compatible).
+
+Fixed
+
+- Honor the scoped stream for indexed reads, indexed writes, and RNN activations (#425).
+- Install the MLX error handler before the first fallible native call, including
+  infallible constructors, which panic with the MLX error instead of exiting (#426).
+- Preserve activation input precision for float16 and bfloat16, match Python MLX
+  integer promotion and step thresholds, and use 1.702 for fast approximate GELU (#420).
 
 ## 0.33.0
 

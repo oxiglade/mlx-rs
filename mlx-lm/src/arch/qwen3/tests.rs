@@ -398,7 +398,7 @@ fn prefill_fixture(name: &str) -> Result<(), Box<dyn std::error::Error>> {
             &expectations["tolerances"]["logits"],
             "prefill.full.logits",
         )?;
-        for info in cache.info() {
+        for info in cache.info()? {
             let expected = &expectations["cache"]["after_prefill"][info.layer];
             assert_eq!(info.processed_tokens, expected["offset"]);
             assert_eq!(info.retained_positions.start, expected["retained_range"][0]);

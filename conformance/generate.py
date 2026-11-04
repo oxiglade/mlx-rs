@@ -529,6 +529,19 @@ def build_specs():
             spec["error"] = ("invoke_or_eval", "update cannot broadcast to selected slice", "ValueError", "indexing.002")
         specs.append(spec)
 
+    list_source = source("I32", [3, 4], list(range(12)))
+    for index, kind in enumerate(("integer_list", "negative_list", "empty_list", "list_slice", "slice_list", "list_new_axis"), len(indexing_specs) + 1):
+        specs.append(case(
+            f"indexing.{index:03d}", "indexing", "index", "array.index.list",
+            [list_source], extra_args=[index_recipe(kind)],
+        ))
+    for index, kind in enumerate(("negative_list", "empty_list", "list_slice", "list_new_axis"), len(indexing_specs) + 7):
+        specs.append(case(
+            f"indexing.{index:03d}", "indexing", "index_update", "array.try_index_update",
+            [list_source, source("I32", [], [20])],
+            extra_args=[index_recipe(kind), update_mode("add")],
+        ))
+
     errors = [
         case("errors.001", "errors", "add", "ops.add.array_array", [source("F32", [2]), source("F32", [3])]),
         case("errors.002", "errors", "reshape", "ops.reshape", [source("F32", [6])], extra_args=[shape([4, 2])]),
@@ -786,7 +799,7 @@ def call_recipe(mx, op, arrays, extra, execution_target):
         return list(mx.unstack(arrays[0], axis=by_name["axis"]["value"], **kwargs))
     if op == "vecdot":
         return [mx.vecdot(arrays[0], arrays[1], axis=by_name["axis"]["value"], **kwargs)]
-    if op == "index_update":
+    if op in ("index", "index_update"):
         kind = by_name["index"]["value"]
         if kind in ("advanced", "duplicate_advanced"):
             index = arrays[2]
@@ -805,7 +818,15 @@ def call_recipe(mx, op, arrays, extra, execution_target):
                 "clipped": slice(-100, 100),
                 "noop": slice(100, 200),
                 "negative_bounds": slice(-4, -1),
+                "integer_list": [0, 2],
+                "negative_list": [-1, 0],
+                "empty_list": mx.array([], dtype=mx.int32),
+                "list_slice": ([2, 0], slice(1, 3)),
+                "slice_list": (slice(1, 3), [-1, 0]),
+                "list_new_axis": ([2, 0], None, slice(None)),
             }.get(kind)
+        if op == "index":
+            return [arrays[0][index]]
         if by_name["index"]["value"] == "zero_stride":
             raise ValueError("zero stride is rejected before FFI")
         base = mx.add(arrays[0], mx.zeros_like(arrays[0]), **kwargs)

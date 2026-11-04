@@ -412,6 +412,7 @@ fn runtime_failures_keep_the_original_exception_at_the_sampling_boundary() -> Te
                     Array::from_slice(&[0.0f32, 1.0, 2.0], &[1, 3]),
                     None,
                     false,
+                    &[],
                     &mut evaluate,
                 )
                 .err()
@@ -991,4 +992,329 @@ fn filtered_empty_support_and_scaled_nan_are_rejected() -> TestResult {
         assert_eq!(values(&rescued), values(&row));
         Ok(())
     })
+}
+
+#[test]
+fn every_sampling_path_evaluates_once() -> TestResult {
+    with_device(Device::cpu(), || {
+        for temperature in [0.0, 0.7] {
+            for capture in [false, true] {
+                let sampler = SamplingEngine::new(
+                    SamplerOptions {
+                        temperature,
+                        top_p: Some(0.9),
+                        top_k: Some(nz(2)),
+                        min_p: Some(MinPOptions {
+                            probability: 0.1,
+                            min_tokens_to_keep: nz(1),
+                        }),
+                        seed: Some(1729),
+                    },
+                    3,
+                    None,
+                    None,
+                    None,
+                )?;
+                let mut evaluations = 0;
+                sampler.sample_with_evaluator(
+                    &[],
+                    Array::from_slice(&[0.0f32, 1.0, 2.0], &[1, 3]),
+                    None,
+                    capture,
+                    &[],
+                    &mut |arrays| {
+                        evaluations += 1;
+                        mlx_rs::transforms::eval(arrays.iter().copied())
+                    },
+                )?;
+                assert_eq!(evaluations, 1);
+            }
+        }
+        Ok(())
+    })
+}
+
+#[test]
+fn value_errors_keep_stage_order_after_joint_evaluation() -> TestResult {
+    with_device(Device::cpu(), || {
+        for capture in [false, true] {
+            let sampler = SamplingEngine::new(
+                SamplerOptions {
+                    temperature: 1.0,
+                    seed: Some(7),
+                    ..Default::default()
+                },
+                2,
+                None,
+                Some(AdditivePenaltyOptions {
+                    penalty: -f32::MAX,
+                    context_size: nz(2),
+                }),
+                None,
+            )?;
+            let row =
+                Array::from_slice(&[f32::NEG_INFINITY; 2], &[1, 2]).as_dtype(Dtype::Float16)?;
+            let processed = sampler.process(&[0.into(), 1.into()], row.clone())?;
+            assert!(values(&processed).iter().all(|value| value.is_nan()));
+            assert!(matches!(
+                sampler.sample(&[0.into(), 1.into()], row, None, capture),
+                Err(GenerationError::Sampling(SamplingError::EmptySupport))
+            ));
+
+            let sampler = SamplingEngine::new(
+                SamplerOptions {
+                    temperature: 1.0,
+                    seed: Some(7),
+                    ..Default::default()
+                },
+                2,
+                Some(RepetitionPenaltyOptions {
+                    penalty: 2.0,
+                    context_size: nz(2),
+                }),
+                None,
+                None,
+            )?;
+            let row = Array::from_slice(&[-65504.0f32; 2], &[1, 2]).as_dtype(Dtype::Float16)?;
+            assert!(matches!(
+                sampler.sample(&[0.into(), 1.into()], row, None, capture),
+                Err(GenerationError::Sampling(SamplingError::EmptySupport))
+            ));
+        }
+        for (top_p, entries, invalid) in [
+            (None, [0.0, f32::NEG_INFINITY], true),
+            (None, [0.0, 0.0], false),
+            (Some(f32::MIN_POSITIVE), [0.0, 0.0], false),
+        ] {
+            let sampler = SamplingEngine::new(
+                SamplerOptions {
+                    temperature: f32::from_bits(1),
+                    top_p,
+                    seed: Some(7),
+                    ..Default::default()
+                },
+                2,
+                None,
+                None,
+                None,
+            )?;
+            let error = sampler
+                .sample(&[], Array::from_slice(&entries, &[1, 2]), None, false)
+                .err()
+                .unwrap();
+            if invalid {
+                assert!(matches!(
+                    error,
+                    GenerationError::Sampling(SamplingError::InvalidLogitsValue)
+                ));
+            } else {
+                assert!(matches!(
+                    error,
+                    GenerationError::Sampling(SamplingError::EmptySupport)
+                ));
+            }
+        }
+        Ok(())
+    })
+}
+
+#[test]
+fn evaluation_failure_precedes_value_errors_without_replay() -> TestResult {
+    for device in [Device::cpu(), Device::gpu()] {
+        with_device(device, || -> TestResult {
+            for row in [
+                [f32::NEG_INFINITY; 2],
+                [f32::NAN, 0.0],
+                [f32::INFINITY, 0.0],
+            ] {
+                let sampler = SamplingEngine::new(SamplerOptions::default(), 2, None, None, None)?;
+                let mut evaluations = 0;
+                let error = sampler
+                    .sample_with_evaluator(
+                        &[],
+                        Array::from_slice(&row, &[1, 2]),
+                        None,
+                        false,
+                        &[],
+                        &mut |arrays| {
+                            evaluations += 1;
+                            if arrays.iter().any(|array| array.dtype() == Dtype::Uint32) {
+                                Err(Exception::from("token evaluation failed"))
+                            } else {
+                                mlx_rs::transforms::eval(arrays.iter().copied())
+                            }
+                        },
+                    )
+                    .err()
+                    .unwrap();
+                assert!(
+                    matches!(error, GenerationError::Exception(source) if source.what() == "token evaluation failed")
+                );
+                assert_eq!(evaluations, 1);
+            }
+            Ok(())
+        })?;
+    }
+    Ok(())
+}
+
+#[test]
+fn submitted_samples_match_every_synchronous_logprob_and_seeded_id() -> anyhow::Result<()> {
+    mlx_rs::with_device(mlx_rs::Device::gpu(), || {
+        for temperature in [0.0, 0.7] {
+            let engine = SamplingEngine::new(
+                SamplerOptions {
+                    temperature,
+                    seed: Some(1729),
+                    top_p: Some(0.9),
+                    top_k: NonZeroUsize::new(4),
+                    min_p: None,
+                },
+                6,
+                Some(RepetitionPenaltyOptions {
+                    penalty: 1.1,
+                    context_size: NonZeroUsize::new(4).unwrap(),
+                }),
+                Some(AdditivePenaltyOptions {
+                    penalty: 0.1,
+                    context_size: NonZeroUsize::MIN,
+                }),
+                Some(AdditivePenaltyOptions {
+                    penalty: -0.1,
+                    context_size: NonZeroUsize::new(6).unwrap(),
+                }),
+            )?;
+            let logits = Array::from_slice(&[-1.0f32, 0.5, 0.1, 0.9, -0.1, 0.2], &[1, 6]);
+            let mut history = vec![TokenId::from(3)];
+            let mut rng = None;
+            let mut plan = engine.prepare(&history, None, logits.clone(), None, true)?;
+            plan.submit()?;
+            for index in 0..16 {
+                let sample = plan.candidate().unwrap();
+                let next = if index < 15 {
+                    let next = engine.prepare(
+                        &history,
+                        Some(&sample.token),
+                        logits.clone(),
+                        sample.rng.as_ref(),
+                        true,
+                    )?;
+                    next.submit()?;
+                    Some(next)
+                } else {
+                    None
+                };
+                let submitted = plan.finish()?;
+                let synchronous = engine.sample(&history, logits.clone(), rng.as_ref(), true)?;
+                let token = submitted.token.try_item_exact::<u32>()?;
+                assert_eq!(token, synchronous.token.try_item_exact::<u32>()?);
+                assert_eq!(
+                    submitted.filtered_logprobs.unwrap().to_vec_exact::<f32>()?,
+                    synchronous
+                        .filtered_logprobs
+                        .unwrap()
+                        .to_vec_exact::<f32>()?
+                );
+                assert_eq!(
+                    submitted
+                        .rng
+                        .as_ref()
+                        .map(|r| r.as_array().to_vec_exact::<u32>())
+                        .transpose()?,
+                    synchronous
+                        .rng
+                        .as_ref()
+                        .map(|r| r.as_array().to_vec_exact::<u32>())
+                        .transpose()?
+                );
+                history.push(TokenId::from(token));
+                rng = synchronous.rng;
+                let Some(next) = next else {
+                    break;
+                };
+                plan = next;
+            }
+        }
+        Ok(())
+    })
+}
+
+#[test]
+fn greedy_identity_checks_have_two_compute_nodes() -> TestResult {
+    use std::{
+        io::{Read, Seek, SeekFrom},
+        os::fd::{AsRawFd, IntoRawFd},
+    };
+
+    with_device(Device::gpu(), || {
+        let sampler = SamplingEngine::new(SamplerOptions::default(), 3, None, None, None)?;
+        let plan = sampler.prepare(
+            &[],
+            None,
+            Array::from_slice(&[0.0f32, 1.0, -1.0], &[1, 3]),
+            None,
+            false,
+        )?;
+        let outputs = plan.outputs(&[]);
+        let checks = &outputs[..outputs.len() - 1];
+        let handles: Vec<_> = checks.iter().map(|array| array.as_ptr()).collect();
+        let mut file = tempfile::tempfile()?;
+        unsafe {
+            let writer = file.try_clone()?;
+            let stream = mlx_sys::fdopen(writer.as_raw_fd(), c"w".as_ptr());
+            assert!(!stream.is_null());
+            let _ = writer.into_raw_fd();
+            let namer = mlx_sys::mlx_node_namer_new();
+            let arrays = mlx_sys::mlx_vector_array_new_data(handles.as_ptr(), handles.len());
+            let status = mlx_sys::mlx_export_to_dot(stream, namer, arrays);
+            let free_arrays = mlx_sys::mlx_vector_array_free(arrays);
+            let free_namer = mlx_sys::mlx_node_namer_free(namer);
+            let close = mlx_sys::fclose(stream);
+            assert_eq!((status, free_arrays, free_namer, close), (0, 0, 0, 0));
+        }
+        file.seek(SeekFrom::Start(0))?;
+        let mut graph = String::new();
+        file.read_to_string(&mut graph)?;
+        let nodes = graph
+            .lines()
+            .filter(|line| line.contains("shape=rectangle") && !line.contains("->"))
+            .count();
+        assert_eq!(nodes, 2, "{graph}");
+        Ok(())
+    })
+}
+
+#[test]
+fn value_check_nonfinite_precedence_across_dtypes_and_streams() -> TestResult {
+    for device in [Device::gpu(), Device::cpu(), Device::gpu()] {
+        with_device(device, || -> TestResult {
+            for dtype in [Dtype::Float32, Dtype::Float16, Dtype::Bfloat16] {
+                for (entries, expected) in [
+                    ([f32::NEG_INFINITY, f32::NEG_INFINITY], 0),
+                    ([f32::NEG_INFINITY, -0.0], 1),
+                    ([-1.0, 1.0], 1),
+                    ([f32::NAN, f32::NEG_INFINITY], 2),
+                    ([f32::INFINITY, f32::NEG_INFINITY], 2),
+                    ([f32::NAN, 1.0], 2),
+                    ([f32::INFINITY, 1.0], 2),
+                ] {
+                    let row = Array::from_slice(&entries, &[1, 2]).as_dtype(dtype)?;
+                    let result = ValueCheck::new(&row)?.validate();
+                    match expected {
+                        0 => assert!(matches!(
+                            result,
+                            Err(GenerationError::Sampling(SamplingError::EmptySupport))
+                        )),
+                        1 => result?,
+                        _ => assert!(matches!(
+                            result,
+                            Err(GenerationError::Sampling(SamplingError::InvalidLogitsValue))
+                        )),
+                    }
+                }
+            }
+            Ok(())
+        })?;
+    }
+    Ok(())
 }

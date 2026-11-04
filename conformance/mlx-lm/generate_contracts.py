@@ -57,8 +57,8 @@ def hub_contract():
         selected = sorted(['config.json', 'tokenizer.json', *weights]
                           + ([] if absent else SIDECARS)
                           + (['model.safetensors.index.json'] if sharded else []))
-        absences = (SIDECARS[:] if absent else []) + ([] if sharded else ['model.safetensors.index.json'])
-        siblings = sorted(selected + ['README.md', 'custom.py', 'pytorch_model.bin', 'chat_template.jinja'])
+        absences = ['chat_template.jinja'] + (SIDECARS[:] if absent else []) + ([] if sharded else ['model.safetensors.index.json'])
+        siblings = sorted(selected + ['README.md', 'custom.py', 'pytorch_model.bin'])
         order = (['model.safetensors.index.json'] if sharded else [])
         order += [f for f in selected if f not in order]
         calls = [{'operation': 'info', 'repo': REPO, 'revision': revision}]
@@ -132,9 +132,16 @@ def hub_contract():
         reject(c, 'HubError::SnapshotIntegrity', path='snapshot/' + sidecar)
     c = case('hash_changed', offline=True)
     c['setup']['mutations'] = [{'at': 'before_validation', 'operation': 'flip_byte', 'path': 'model.safetensors', 'offset': 128}]
+    c['note'] = 'Receipts record hashes at download time only, so a same-size content change is not detected offline; see size_changed for the detection the receipt does provide.'
+    c = case('size_changed', offline=True)
+    c['note'] = 'Recorded size differs, which validation checks without reading contents.'
+    c['setup']['mutations'] = [{'at': 'before_validation', 'operation': 'truncate',
+                               'path': 'model.safetensors', 'size': 1024}]
     reject(c, 'HubError::SnapshotIntegrity', path='snapshot/model.safetensors')
     c = case('unreceipted_cache', offline=True)
+    c['note'] = 'An offline miss writes nothing; the cache stays unreceipted.'
     c['setup']['receipt'] = None
+    c['expected']['receipt'] = None
     reject(c, 'HubError::OfflineCacheMiss', repo=REPO, revision='main')
     case('public_offline_sha_without_refs_entry', offline=True, revision=COMMIT)
     case('public_offline_named_ref', offline=True)

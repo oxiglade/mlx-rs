@@ -2,6 +2,31 @@
   "schema_version": 1,
   "admissions": [
     {
+      "feature": "unsafe-default-device",
+      "canonical_path": "mlx_rs::Device::set_default",
+      "symbols": {
+        "mlx_set_default_device": "mlx_rs::Device::set_default"
+      },
+      "evidence": {
+        "api": "api:path:mlx_rs::Device::set_default",
+        "test": "mlx-rs/src/stream.rs#test_cpu_gpu_stream_not_equal",
+        "thread": "Unsafe process-wide mutation requires no other thread to use MLX during the call; safe selection uses with_device or with_stream."
+      },
+      "ownership": "Borrows the device and checks the FFI status; no new ownership or thread traits."
+    },
+    {
+      "feature": "strict-module-loading",
+      "canonical_path": "mlx_rs::module::ModuleParametersExt::load_safetensors",
+      "python_path": "mlx.nn.Module.load_weights(strict=True)",
+      "evidence": {
+        "api": "api:path:mlx_rs::error::IoError",
+        "python": "https://github.com/ml-explore/mlx/blob/v0.32.2/python/mlx/nn/layers/base.py#L163-L189",
+        "test": "mlx-tests/tests/test_module_parameters.rs#test_load_safetensors_validation_is_atomic and #test_module_safetensors_roundtrip",
+        "state": "Reject unexpected keys, missing keys, and shape mismatches before assignment; evaluate loaded arrays before replacing parameters. Dtypes may differ."
+      },
+      "ownership": "Uses existing owned Arrays and borrowed module parameters; no new FFI ownership or thread traits."
+    },
+    {
       "feature": "contiguous",
       "canonical_path": "mlx_rs::Array::contiguous",
       "symbols": {
@@ -88,6 +113,17 @@
         "guard_malloc": "mlx-tests/tests/ffi_safety.rs",
         "qualification": "conformance/qualification.json rms_norm_weight_ignored and rms_norm_eps_ignored"
       }
+    },
+    {
+      "feature": "integer-list-indexing",
+      "canonical_path": "mlx_rs::ops::indexing::ArrayIndex",
+      "python_path": "mlx.core.array.__getitem__",
+      "evidence": {
+        "api": "api:path:mlx_rs::ops::indexing::ArrayIndex",
+        "conformance": "conformance/suites/indexing.json indexing.036 through indexing.045",
+        "test": "mlx-rs/src/ops/indexing/index_impl.rs#test_integer_list_forms"
+      },
+      "ownership": "Copies i32 indices into an owned Array and uses existing array indexing; no new FFI ownership or thread traits."
     },
     {
       "feature": "slice-update",
@@ -220,6 +256,74 @@
         "stream": "Explicit CPU and GPU scopes in every mode; no new global state.",
         "limitations": "Global scales remain absent; nn quantized modules remain affine-only. qqmm is unchanged and outside the supported macOS surface."
       }
+    },
+    {
+      "feature": "checkpoint",
+      "canonical_path": "mlx_rs::transforms::checkpoint",
+      "symbols": {
+        "mlx_checkpoint": "mlx_rs::transforms::checkpoint"
+      },
+      "evidence": {
+        "api": "mlx-rs/src/transforms/custom.rs",
+        "test": "mlx-rs/src/transforms/custom.rs#test_checkpoint_gives_the_function_and_its_gradients and #test_checkpoint_runs_the_function_again_in_the_backward_pass (named invariants: the checkpointed function's outputs and gradients equal the function's, which runs once forward and again backward; not conformance oracle evidence)",
+        "deferred_errors": "mlx-rs/src/transforms/custom.rs#test_closure_errors_are_returned",
+        "panics": "mlx-rs/src/transforms/custom.rs#test_closure_panics_resume_with_their_payload",
+        "leaks": "mlx-tests/tests/ffi_safety.rs",
+        "guard_malloc": "mlx-tests/tests/ffi_safety.rs",
+        "thread": "mlx-tests/tests/ffi_safety.rs: Function is not Clone, Send or Sync"
+      },
+      "python_path": "mlx.core.checkpoint",
+      "ownership": "Function owns the closure handle mlx_checkpoint returns; the handle wrapping the Rust closure is freed once MLX holds its copy, and the closure's payload is freed by its destructor callback."
+    },
+    {
+      "feature": "custom-vjp",
+      "canonical_path": "mlx_rs::transforms::custom_vjp",
+      "symbols": {
+        "mlx_closure_custom_free": "mlx_rs::transforms::custom_vjp",
+        "mlx_closure_custom_new_func_payload": "mlx_rs::transforms::custom_vjp",
+        "mlx_custom_vjp": "mlx_rs::transforms::custom_vjp"
+      },
+      "evidence": {
+        "api": "mlx-rs/src/transforms/custom.rs",
+        "test": "mlx-rs/src/transforms/custom.rs#test_custom_vjp_uses_the_written_backward_pass and #test_custom_vjp_under_value_and_grad (named invariant: the gradient is the written-out backward pass's, which receives the primals, the cotangents and the outputs; not conformance oracle evidence)",
+        "deferred_errors": "mlx-rs/src/transforms/custom.rs#test_closure_errors_are_returned",
+        "panics": "mlx-rs/src/transforms/custom.rs#test_closure_panics_resume_with_their_payload",
+        "leaks": "mlx-tests/tests/ffi_safety.rs",
+        "guard_malloc": "mlx-tests/tests/ffi_safety.rs",
+        "thread": "mlx-tests/tests/ffi_safety.rs: Function is not Clone, Send or Sync"
+      },
+      "python_path": "mlx.core.custom_function",
+      "ownership": "Function owns the closure handle mlx_custom_vjp returns; the forward and custom closure handles are freed once MLX holds their copies, and each Rust closure's payload is freed by its destructor callback."
+    },
+    {
+      "feature": "conv-transpose-dilation",
+      "canonical_path": [
+        "mlx_rs::nn::ConvTranspose1d",
+        "mlx_rs::nn::ConvTranspose2d",
+        "mlx_rs::nn::ConvTranspose3d"
+      ],
+      "python_path": [
+        "mlx.nn.ConvTranspose1d",
+        "mlx.nn.ConvTranspose2d",
+        "mlx.nn.ConvTranspose3d"
+      ],
+      "symbols": {
+        "mlx_conv_transpose1d": "mlx_rs::ops::conv_transpose1d",
+        "mlx_conv_transpose2d": "mlx_rs::ops::conv_transpose2d",
+        "mlx_conv_transpose3d": "mlx_rs::ops::conv_transpose3d"
+      },
+      "evidence": {
+        "api": "mlx-rs/src/nn/convolution_transpose.rs",
+        "python": "https://github.com/ml-explore/mlx/blob/v0.32.2/python/mlx/nn/layers/convolution_transpose.py",
+        "test": [
+          "mlx-rs/src/nn/convolution_transpose.rs#test_conv_transpose1d_dilation_matches_mlx",
+          "mlx-rs/src/nn/convolution_transpose.rs#test_conv_transpose2d_dilation_matches_mlx",
+          "mlx-rs/src/nn/convolution_transpose.rs#test_conv_transpose3d_dilation_matches_mlx"
+        ],
+        "property": "Default and non-unit dilation preserve Python weight shapes; output shapes follow the transposed convolution size formula. Values match MLX transpose ops with the same stride, padding, dilation, output padding and bias.",
+        "state": "Dilation is non-parameter configuration; weights and optional bias retain their existing Param traversal and training behavior."
+      },
+      "ownership": "Layers retain owned weight and bias Arrays. Forward borrows inputs and parameters through the existing transpose ops; dilation adds no handles or thread traits."
     }
   ],
   "builds": [

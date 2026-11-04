@@ -69,7 +69,7 @@ impl Array {
         self.as_dtype(T::DTYPE)
     }
 
-    /// Compatibility shim for [`as_type`].
+    /// Compatibility shim for [`Array::as_type`].
     #[deprecated(
         since = "0.26.0",
         note = "use `with_stream` or `with_device` around `as_type`"
@@ -86,7 +86,7 @@ impl Array {
         })
     }
 
-    /// Compatibility shim for [`as_dtype`].
+    /// Compatibility shim for [`Array::as_dtype`].
     #[deprecated(
         since = "0.26.0",
         note = "use `with_stream` or `with_device` around `as_dtype`"
@@ -108,7 +108,7 @@ impl Array {
         self.view_dtype(T::DTYPE)
     }
 
-    /// Compatibility shim for [`view`].
+    /// Compatibility shim for [`Array::view`].
     #[deprecated(
         since = "0.26.0",
         note = "use `with_stream` or `with_device` around `view`"
@@ -125,7 +125,7 @@ impl Array {
         })
     }
 
-    /// Compatibility shim for [`view_dtype`].
+    /// Compatibility shim for [`Array::view_dtype`].
     #[deprecated(
         since = "0.26.0",
         note = "use `with_stream` or `with_device` around `view_dtype`"

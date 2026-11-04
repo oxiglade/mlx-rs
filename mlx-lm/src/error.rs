@@ -241,6 +241,9 @@ pub enum ChatTemplateError {
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum CacheError {
+    /// Cache evaluation or submission failed; reset and prefill again before reuse.
+    #[error("this cache failed during evaluation or submission; reset and prefill it again")]
+    Invalidated,
     /// The snapshot belongs to an incompatible cache.
     #[error("cache fingerprint mismatch")]
     FingerprintMismatch,

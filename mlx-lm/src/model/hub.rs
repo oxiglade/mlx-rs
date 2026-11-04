@@ -18,7 +18,11 @@ use snapshot::{CacheLayout, Receipt, WeightMode};
 const INDEX: &str = "model.safetensors.index.json";
 const SINGLE: &str = "model.safetensors";
 const REQUIRED: [&str; 2] = ["config.json", "tokenizer.json"];
-const OPTIONAL: [&str; 2] = ["tokenizer_config.json", "generation_config.json"];
+const OPTIONAL: [&str; 3] = [
+    "tokenizer_config.json",
+    "generation_config.json",
+    "chat_template.jinja",
+];
 
 trait HubTransport {
     fn info(&self, repo: &str, revision: &str) -> Result<SnapshotInfo, HubError>;

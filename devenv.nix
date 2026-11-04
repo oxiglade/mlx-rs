@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, lib, ... }:
 
 {
   # rust-version in Cargo.toml is 1.85.0; CI builds both that and stable.
@@ -26,8 +26,7 @@
     LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
   };
 
-  # Mirrors .github/workflows/validate.yml so a green local run means a green CI
-  # run. MLX is not thread safe, hence --test-threads=1.
+  # Mirrors .github/workflows/validate.yml so a green local run means a green CI run.
   scripts.validate.exec = ''
     set -e
     echo "=== fmt ==="
@@ -38,7 +37,7 @@
     echo "=== clippy ==="
     cargo clippy --all-targets -- -D warnings
     echo "=== tests ==="
-    cargo test --workspace -- --test-threads=1
+    cargo test --workspace
     echo ""
     echo "✅ Validation complete!"
   '';
@@ -51,46 +50,57 @@
     cargo fmt -- --check
     cargo clippy --all-targets -- -D warnings
     # Skip doctests: they dominate wall clock (196s of a ~220s run).
-    cargo test --workspace --lib --tests -- --test-threads=1
+    cargo test --workspace --lib --tests
   '';
 
-  enterShell = ''
+  enterShell = lib.optionalString pkgs.stdenv.isDarwin ''
+    # nixpkgs supplies 14.0; target the host for Rust and MLX.
+    # Outside devenv, only MLX defaults to the host.
+    export MLX_SYS_SYSTEM_SDK=1
+    export MACOSX_DEPLOYMENT_TARGET="$(/usr/bin/sw_vers -productVersion)"
+
     # `xcrun metal` does not work from a devenv shell by default: nixpkgs points
     # DEVELOPER_DIR at its own apple-sdk and puts its own xcrun ahead of the system
     # one, and that combination resolves metal to a stub which exits with "missing
     # Metal Toolchain". The real compiler ships as a separate Xcode component in a
     # cryptex mount only the system Xcode can find.
     #
-    # Keep the override inside the shim below. Exporting SDKROOT shell-wide makes
-    # nix's clang++ mix nix libcxx headers with the system SDK, which breaks
-    # esaxx-rs via tokenizers.
-    system_developer_dir="$(readlink /var/db/xcode_select_link 2>/dev/null || true)"
-    if [ -z "$system_developer_dir" ]; then
-      system_developer_dir="$(DEVELOPER_DIR= /usr/bin/xcode-select -p 2>/dev/null || true)"
-    fi
-
+    # mlx-sys bypasses this shim for its CMake build and uses the system SDK for
+    # both C++ and Metal. Other crates keep Nix's SDK.
+    # Exporting SDKROOT shell-wide mixes Nix libcxx headers with the system SDK,
+    # which breaks esaxx-rs via tokenizers.
     xcrun_shim_dir="$DEVENV_STATE/system-xcrun"
     mkdir -p "$xcrun_shim_dir"
-    cat > "$xcrun_shim_dir/xcrun" <<SHIM
+    cat > "$xcrun_shim_dir/xcrun" <<'SHIM'
 #!/bin/sh
 # Defer to the system Xcode so the Metal toolchain is visible. Scoped to this
 # process: the surrounding shell keeps devenv's SDK for everything else.
 #
 # SDK-version queries are the exception: they must describe the headers the
-# nix compiler actually uses, or version-gated upstream code (MLX's jaccl,
-# SDK >= 26.2) enables against headers that lack it.
-case " \$* " in
+# nix compiler actually uses, or SDK-gated code enables against missing headers.
+case " $* " in
   *" --show-sdk-version "*|*" --show-sdk-platform-version "*)
-    exec /usr/bin/xcrun "\$@" ;;
+    exec /usr/bin/xcrun "$@" ;;
 esac
-DEVELOPER_DIR="$system_developer_dir"
+DEVELOPER_DIR="$(env -u DEVELOPER_DIR /usr/bin/xcode-select -p)"
 export DEVELOPER_DIR
 unset SDKROOT
-exec /usr/bin/xcrun "\$@"
+exec /usr/bin/xcrun "$@"
 SHIM
     chmod +x "$xcrun_shim_dir/xcrun"
-    # MLX's CMakeLists invokes `xcrun` through /bin/sh, so the shim has to win
-    # on PATH rather than merely be called by absolute path here.
+
+    # Nix's linker and SDK cannot resolve the newer symbols in system-built MLX.
+    # Rust links with system libc++ and ignores NIX_LDFLAGS; native builds keep Nix.
+    cat > "$xcrun_shim_dir/rust-linker" <<'SHIM'
+#!/bin/sh
+export DEVELOPER_DIR="$(env -u DEVELOPER_DIR /usr/bin/xcode-select -p)"
+unset SDKROOT
+exec /usr/bin/clang "$@"
+SHIM
+    chmod +x "$xcrun_shim_dir/rust-linker"
+    export CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER="$xcrun_shim_dir/rust-linker"
+    export CARGO_TARGET_X86_64_APPLE_DARWIN_LINKER="$xcrun_shim_dir/rust-linker"
+
     export PATH="$xcrun_shim_dir:$PATH"
 
     # Probe by *running* metal, not by locating it: the stub above resolves
@@ -103,6 +113,7 @@ SHIM
       echo "    xcodebuild -downloadComponent MetalToolchain" >&2
     fi
 
+  '' + ''
     # To stderr, not stdout: `xtask verify-ffi` writes JSON to stdout and a
     # banner in front of it makes the output unparseable.
     echo "mlx-rs — Rust bindings for MLX" >&2

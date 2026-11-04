@@ -581,7 +581,7 @@
       "fixtures/llama-sharded/model.safetensors.index.json": "cf5619c08e82fd693d65b7f51b8f867fb6ba44c055f5f9abdccd13fd4eb1ccd6",
       "fixtures/llama-sharded/tokenizer.json": "d3f6e27c58186b601192ffef2c870af3877a3ec271c53468a3368977e07f75ba",
       "fixtures/llama-sharded/tokenizer_config.json": "1c1ae680e1825af8207f707a0950e175fb3f1bbd3ca9537f337f4d4bf3066a5d",
-      "generate_contracts.py": "bb919b99d83332767f86ed14325f754ea685206c8ed6d56f3a2cd38c209ad5a4",
+      "generate_contracts.py": "143c6c26c9c412ea37b3e131015389d5b240754bf9e44dfb072acfce7b992e4d",
       "manifest.json": "344b1795ac8a61520cdcc28042d769570c354ff9ce62958461501df32b719f07",
       "requirements.lock": "94537fca297d4e6dacb5ea901cd5dd7ef0e297a6e1ec426c1922c74fa0f5cf6d",
       "test_contracts.py": "1e8756d42191069ea58c29eab1d30d8021321e85089b3018ff5da9fe3fd2d24c"

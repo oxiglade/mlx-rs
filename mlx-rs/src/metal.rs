@@ -37,7 +37,7 @@ impl Drop for StringHandle {
 }
 
 fn install_error_handler() {
-    crate::error::INIT_ERR_HANDLER.call_once(crate::error::setup_mlx_error_handler);
+    crate::error::ensure_mlx_error_handler();
 }
 
 fn status_result(status: i32, operation: &str) -> Result<()> {

@@ -10,7 +10,7 @@ use mlx_rs::{
         },
         ContiguousOptions, CountNonzeroOptions, TraceOptions,
     },
-    transforms::{fallible_jvp, jvp},
+    transforms::{self, fallible_jvp, fallible_vjp, jvp},
     with_stream, Array, Axes, Dtype, Stream,
 };
 use std::any::Any;
@@ -44,7 +44,9 @@ macro_rules! assert_not_impl_any {
     };
 }
 
+assert_not_impl_any!(Array: Send, Sync);
 assert_not_impl_any!(GgufFile: Clone, Send, Sync);
+assert_not_impl_any!(transforms::Function: Clone, Send, Sync);
 #[cfg(feature = "metal")]
 assert_not_impl_any!(fast::MetalKernel: Clone, Send, Sync);
 
@@ -362,6 +364,74 @@ fn rms_norm_absence_handles_are_freed_after_each_call() {
     }
 }
 
+#[test]
+fn checkpoint_and_custom_vjp_handles_are_released_on_every_path() {
+    use mlx_rs::error::{Exception, Result};
+
+    for _ in 0..200 {
+        let x = Array::from_slice(&[1.0_f32, 2.0, 3.0], &[3]);
+        let cotangent = Array::from_slice(&[1.0_f32, 1.0, 1.0], &[3]);
+
+        let recomputed = transforms::checkpoint(|x: &[Array]| -> Result<Vec<Array>> {
+            Ok(vec![x[0].exp()?.multiply(&x[0])?])
+        })
+        .unwrap();
+        let (_, recomputed_grads) = fallible_vjp(
+            |x: &[Array]| recomputed.apply(x),
+            std::slice::from_ref(&x),
+            std::slice::from_ref(&cotangent),
+        )
+        .unwrap();
+
+        let square = transforms::custom_vjp(
+            |x: &[Array]| -> Result<Vec<Array>> { Ok(vec![x[0].multiply(&x[0])?]) },
+            |x: &[Array], cotangents: &[Array], _: &[Array]| -> Result<Vec<Array>> {
+                Ok(vec![cotangents[0]
+                    .multiply(&x[0])?
+                    .multiply(Array::from_f32(2.0))?])
+            },
+        )
+        .unwrap();
+        let (_, square_grads) = fallible_vjp(
+            |x: &[Array]| square.apply(x),
+            std::slice::from_ref(&x),
+            std::slice::from_ref(&cotangent),
+        )
+        .unwrap();
+
+        // Each closure failing: the forward pass, and the backward pass under a transform.
+        let failing = transforms::checkpoint(|_: &[Array]| -> Result<Vec<Array>> {
+            Err(Exception::custom("forward failed"))
+        })
+        .unwrap();
+        assert!(failing.apply(std::slice::from_ref(&x)).is_err());
+        let backward_fails = transforms::custom_vjp(
+            |x: &[Array]| -> Result<Vec<Array>> { Ok(vec![x[0].clone()]) },
+            |_: &[Array], _: &[Array], _: &[Array]| -> Result<Vec<Array>> {
+                Err(Exception::custom("backward failed"))
+            },
+        )
+        .unwrap();
+        assert!(fallible_vjp(
+            |x: &[Array]| backward_fails.apply(x),
+            std::slice::from_ref(&x),
+            std::slice::from_ref(&cotangent),
+        )
+        .is_err());
+
+        drop(recomputed);
+        drop(square);
+        drop(failing);
+        drop(backward_fails);
+        drop(x);
+        assert_eq!(
+            square_grads[0].to_vec_exact::<f32>().unwrap(),
+            [2.0, 4.0, 6.0]
+        );
+        recomputed_grads[0].eval().unwrap();
+    }
+}
+
 #[cfg(feature = "metal")]
 #[test]
 fn metal_kernel_handles_are_released_on_every_path() {
@@ -592,6 +662,40 @@ fn float64_is_float_and_inexact() {
 }
 
 #[test]
+fn first_array_constructor_installs_error_handler() {
+    const CHILD: &str = "MLX_RS_FIRST_ARRAY_CHILD";
+    if std::env::var_os(CHILD).is_some() {
+        let array = Array::from_slice(&[1_i32, 2], &[2]);
+        let mut value = 0;
+        let status = unsafe { mlx_sys::mlx_array_item_int32(&mut value, array.as_ptr()) };
+        assert_ne!(status, 0);
+        return;
+    }
+
+    assert_subprocess_success("first_array_constructor_installs_error_handler", CHILD);
+}
+
+#[test]
+fn first_infallible_constructor_error_is_a_rust_panic() {
+    const CHILD: &str = "MLX_RS_FIRST_CONSTRUCTOR_ERROR_CHILD";
+    if std::env::var_os(CHILD).is_some() {
+        unsafe {
+            let device = mlx_sys::mlx_device_new_type(mlx_sys::mlx_device_type__MLX_CPU, i32::MAX);
+            assert_eq!(mlx_sys::mlx_set_default_device(device), 0);
+            assert_eq!(mlx_sys::mlx_device_free(device), 0);
+        }
+        let panic = catch_unwind(Stream::new)
+            .expect_err("an unavailable default device must panic at construction");
+        let message = panic_message(panic).expect("a string panic payload");
+        assert!(message.contains("vector"), "{message}");
+        assert_eq!(Array::from_int(42).item_exact::<i32>(), 42);
+        return;
+    }
+
+    assert_subprocess_success("first_infallible_constructor_error_is_a_rust_panic", CHILD);
+}
+
+#[test]
 fn first_contact_error_registration_is_thread_safe() {
     if std::env::var_os(ERROR_REGISTRATION_CHILD).is_some() {
         run_first_contact_error_registration_child();
@@ -605,17 +709,13 @@ fn first_contact_error_registration_is_thread_safe() {
 }
 
 fn run_first_contact_error_registration_child() {
-    let arrays = (0..ERROR_WORKERS)
-        .map(mismatched_arrays)
-        .collect::<Vec<_>>();
     let barrier = Arc::new(Barrier::new(ERROR_WORKERS));
-    let handles = arrays
-        .into_iter()
-        .enumerate()
-        .map(|(worker, (lhs, rhs, lhs_len, rhs_len))| {
+    let handles = (0..ERROR_WORKERS)
+        .map(|worker| {
             let barrier = Arc::clone(&barrier);
             thread::spawn(move || {
                 barrier.wait();
+                let (lhs, rhs, lhs_len, rhs_len) = mismatched_arrays(worker);
                 assert_own_broadcast_error(lhs.add(&rhs), worker, lhs_len, rhs_len);
             })
         })
@@ -748,7 +848,6 @@ fn historical_shared_default_stream_abort_on_mlx_0_30_6() {
     const WORKERS: usize = 8;
     const OPERATIONS: usize = 100;
 
-    Device::set_default(&Device::gpu());
     let barrier = Arc::new(Barrier::new(WORKERS));
     let initialization = Arc::new(Mutex::new(()));
     let handles = (0..WORKERS)
@@ -756,16 +855,18 @@ fn historical_shared_default_stream_abort_on_mlx_0_30_6() {
             let barrier = Arc::clone(&barrier);
             let initialization = Arc::clone(&initialization);
             thread::spawn(move || {
-                let input = {
-                    let _guard = initialization.lock().unwrap();
-                    let input = Array::from_slice(&[1.0_f32; 4096], &[64, 64]);
-                    (&input + 1.0).eval().unwrap();
-                    input
-                };
-                for _ in 0..OPERATIONS {
-                    barrier.wait();
-                    (&input + 1.0).eval().unwrap();
-                }
+                mlx_rs::with_device(Device::gpu(), || {
+                    let input = {
+                        let _guard = initialization.lock().unwrap();
+                        let input = Array::from_slice(&[1.0_f32; 4096], &[64, 64]);
+                        (&input + 1.0).eval().unwrap();
+                        input
+                    };
+                    for _ in 0..OPERATIONS {
+                        barrier.wait();
+                        (&input + 1.0).eval().unwrap();
+                    }
+                })
             })
         })
         .collect::<Vec<_>>();

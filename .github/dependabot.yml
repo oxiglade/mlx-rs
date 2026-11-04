@@ -4,11 +4,13 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # parking_lot 0.13 needs Rust 1.95; the workspace MSRV is 1.88.
+      - dependency-name: parking_lot
+        versions: [">=0.13"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
-  - package-ecosystem: gitsubmodule
-    directory: /
-    schedule:
-      interval: weekly
+  # No gitsubmodule updates: an mlx-c bump needs regenerated bindings and ABI
+  # ledger entries (VERIFICATION.md), so it is done by hand.

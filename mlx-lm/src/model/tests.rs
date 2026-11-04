@@ -287,13 +287,13 @@ fn collect_tokens(generation: &mut Generation<'_>) -> anyhow::Result<Vec<Generat
         } = &event
         {
             let expected = generation.prompt.len() + tokens.len();
-            assert_eq!(generation.cache().tokens().len(), expected);
+            assert_eq!(generation.cache()?.tokens()?.len(), expected);
             assert!(generation
-                .cache()
-                .info()
+                .cache()?
+                .info()?
                 .all(|info| info.processed_tokens == expected));
             assert_eq!(
-                &generation.cache().tokens()[..generation.prompt.len()],
+                &generation.cache()?.tokens()?[..generation.prompt.len()],
                 &generation.prompt
             );
             for (offset, previous) in tokens.iter().enumerate() {
@@ -301,7 +301,7 @@ fn collect_tokens(generation: &mut Generation<'_>) -> anyhow::Result<Vec<Generat
                     unreachable!()
                 };
                 assert_eq!(
-                    generation.cache().tokens()[generation.prompt.len() + offset],
+                    generation.cache()?.tokens()?[generation.prompt.len() + offset],
                     *token_id
                 );
             }
@@ -478,11 +478,11 @@ fn fixture_prefill_progress_and_drop_boundaries() -> TestResult {
                             total: prompt.len()
                         })
                     );
-                    assert_eq!(generation.cache().tokens(), &prompt[..represented]);
+                    assert_eq!(generation.cache()?.tokens()?, &prompt[..represented]);
                     assert!(generation.rng.is_none());
                 }
                 drop(generation);
-                assert_eq!(cache.tokens(), &prompt[..represented]);
+                assert_eq!(cache.tokens()?, &prompt[..represented]);
             }
         }
         Ok(())
@@ -511,9 +511,11 @@ impl DecoderModel for ScriptedDecoder {
     ) -> Result<Array, InferenceError> {
         let call = self.calls;
         self.calls += 1;
+        let mut dependency = Array::from(0.0f32);
         for layer in 0..self.layout.len() {
             let values = tokens.as_dtype(Dtype::Float32)?.reshape(&[1, 1, -1, 1])?;
-            cache.update_and_fetch(layer, values.clone(), values)?;
+            let (keys, values) = cache.update_and_fetch(layer, values.clone(), values)?;
+            dependency = dependency.add(keys.sum(false)?)?.add(values.sum(false)?)?;
             if self.fail_at == Some(call) {
                 return Err(InferenceError::Exception(mlx_rs::error::Exception::from(
                     "injected forward failure",
@@ -522,7 +524,8 @@ impl DecoderModel for ScriptedDecoder {
         }
         if self.output[call.min(self.output.len() - 1)] == u32::MAX {
             return Ok(mlx_rs::ops::broadcast_to(
-                failing_row(self.config.dimensions.vocabulary_size)?,
+                failing_row(self.config.dimensions.vocabulary_size)?
+                    .add(dependency.multiply(Array::from(0.0f32))?)?,
                 &[
                     1,
                     tokens.dim(1),
@@ -534,7 +537,8 @@ impl DecoderModel for ScriptedDecoder {
         if self.empty_at != Some(call) {
             row[self.output[call.min(self.output.len() - 1)] as usize] = 0.0;
         }
-        let row = Array::from_slice(&row, &[1, 1, row.len() as i32]);
+        let row = Array::from_slice(&row, &[1, 1, row.len() as i32])
+            .add(dependency.multiply(Array::from(0.0f32))?)?;
         Ok(mlx_rs::ops::broadcast_to(
             row,
             &[
@@ -607,7 +611,7 @@ fn cache_evidence(cache: &Cache) -> anyhow::Result<Value> {
         ]));
     }
     let info: Vec<_> = cache
-        .info()
+        .info()?
         .map(|i| {
             json!([
                 i.processed_tokens,
@@ -618,7 +622,7 @@ fn cache_evidence(cache: &Cache) -> anyhow::Result<Value> {
         })
         .collect();
     Ok(
-        json!({"tokens": cache.tokens().iter().copied().map(u32::from).collect::<Vec<_>>(), "layers": layers, "info": info}),
+        json!({"tokens": cache.tokens()?.iter().copied().map(u32::from).collect::<Vec<_>>(), "layers": layers, "info": info}),
     )
 }
 #[test]
@@ -639,11 +643,11 @@ fn forward_failure_after_prefill_chunk_restores_boundary() -> TestResult {
             generation.next().transpose()?,
             Some(GenerationEvent::Prefill { processed: 3, .. })
         ));
-        let before = cache_evidence(generation.cache())?;
+        let before = cache_evidence(generation.cache()?)?;
         assert!(
             matches!(generation.next(), Some(Err(GenerationError::Inference(InferenceError::Exception(source)))) if source.what() == "injected forward failure")
         );
-        assert_eq!(cache_evidence(generation.cache())?, before);
+        assert_eq!(cache_evidence(generation.cache()?)?, before);
         assert_eq!(generation.accepted, 0);
         assert!(generation.next().is_none());
         assert!(generation.next().is_none());
@@ -666,7 +670,7 @@ fn empty_support_at_first_sample_and_decode_preserves_boundary() -> TestResult {
             if fail_at == 1 {
                 generation.next().transpose()?;
             }
-            let before = cache_evidence(generation.cache())?;
+            let before = cache_evidence(generation.cache()?)?;
             let rng = generation
                 .rng
                 .as_ref()
@@ -676,7 +680,7 @@ fn empty_support_at_first_sample_and_decode_preserves_boundary() -> TestResult {
                 generation.next(),
                 Some(Err(GenerationError::Sampling(SamplingError::EmptySupport)))
             ));
-            assert_eq!(cache_evidence(generation.cache())?, before);
+            assert_eq!(cache_evidence(generation.cache()?)?, before);
             assert_eq!(generation.history, history);
             assert_eq!(generation.accepted, fail_at);
             assert_eq!(
@@ -709,7 +713,7 @@ fn tokenizer_failure_after_evaluation_rolls_back_decode() -> TestResult {
         for _ in 0..output.len() - 1 {
             generation.next().transpose()?;
         }
-        let before = cache_evidence(generation.cache())?;
+        let before = cache_evidence(generation.cache()?)?;
         let Some(Err(GenerationError::Tokenizer(TokenizerError::Tokenizer(source)))) =
             generation.next()
         else {
@@ -731,7 +735,7 @@ fn tokenizer_failure_after_evaluation_rolls_back_decode() -> TestResult {
             .map(|b| format!("{b:02x}"))
             .collect();
         assert_eq!(hex, case["decoded_utf8_hex"]);
-        assert_eq!(cache_evidence(generation.cache())?, before);
+        assert_eq!(cache_evidence(generation.cache()?)?, before);
         assert_eq!(generation.accepted, output.len() - 1);
         assert!(generation.next().is_none());
         assert!(generation.next().is_none());
@@ -848,7 +852,7 @@ fn reuse_strict_extension_matches_fresh_generation() -> TestResult {
                 let events = collect_tokens(&mut generation)?;
                 let snapshot = generation.snapshot()?;
                 drop(generation);
-                let old_len = cache.tokens().len();
+                let old_len = cache.tokens()?.len();
                 prompt.extend(token_ids(&events));
                 prompt.extend([TokenId::from(12), TokenId::from(13)]);
                 let fresh =
@@ -869,7 +873,7 @@ fn reuse_strict_extension_matches_fresh_generation() -> TestResult {
                 assert_eq!(collect_tokens(&mut reused)?, fresh, "{name}");
                 drop(reused);
                 cache.restore(snapshot)?;
-                assert_eq!(cache.tokens(), &prompt[..old_len]);
+                assert_eq!(cache.tokens()?, &prompt[..old_len]);
             }
         }
         Ok(())
@@ -1058,7 +1062,7 @@ fn text_prompt_bos_rule_uses_original_string() -> TestResult {
             let mut model = scripted(vec![12], None, None, None)?;
             let generation = model.generate(Prompt::Text(&text), length_options(1))?;
             assert_eq!(generation.prompt, ids(&cases[name]));
-            assert!(generation.cache().tokens().is_empty());
+            assert!(generation.cache()?.tokens()?.is_empty());
         }
         Ok(())
     })
@@ -1075,6 +1079,30 @@ fn evaluation_error_mapping_preserves_source() {
         evaluation_error(CacheError::FingerprintMismatch),
         GenerationError::Cache(CacheError::FingerprintMismatch)
     ));
+}
+
+#[test]
+fn intermediate_prefill_does_not_evaluate_logits() -> TestResult {
+    with_device(Device::cpu(), || {
+        let mut model = scripted(vec![u32::MAX, u32::MAX, 12], None, None, None)?;
+        let prompt = [12.into(), 13.into(), 14.into(), 15.into(), 16.into()];
+        let mut options = length_options(1);
+        options.prefill_chunk_size = nz(2);
+        let mut generation = model.generate(Prompt::Tokens(&prompt), options)?;
+        for processed in [0, 2, 4, 5] {
+            assert!(matches!(
+                generation.next().transpose()?,
+                Some(GenerationEvent::Prefill { processed: n, total: 5 }) if n == processed
+            ));
+            assert_eq!(generation.cache()?.tokens()?, &prompt[..processed]);
+        }
+        assert!(matches!(
+            generation.next().transpose()?,
+            Some(GenerationEvent::Token { token_id, .. }) if token_id == TokenId::from(12)
+        ));
+        assert!(generation.next().is_none());
+        Ok(())
+    })
 }
 
 fn failing_row(vocabulary: usize) -> Result<Array, mlx_rs::error::Exception> {
@@ -1096,9 +1124,9 @@ fn runtime_evaluation_failures_at_prefill_first_sample_and_decode() -> TestResul
             .to_owned();
         for boundary in ["prefill", "first_sample", "decode"] {
             let output = if boundary == "prefill" {
-                vec![12, u32::MAX]
+                vec![12, u32::MAX, 12]
             } else if boundary == "decode" {
-                vec![12, 12, u32::MAX]
+                vec![12, 12, u32::MAX, 12]
             } else {
                 vec![12]
             };
@@ -1107,9 +1135,11 @@ fn runtime_evaluation_failures_at_prefill_first_sample_and_decode() -> TestResul
             options.prefill_chunk_size = nz(1);
             options.sampling.temperature = 0.7;
             options.sampling.seed = Some(1729);
-            let mut generation = model.generate(
+            let mut cache = model.new_cache(Default::default())?;
+            let mut generation = model.generate_with_cache(
                 Prompt::Tokens(&[TokenId::from(12), TokenId::from(13)]),
                 options,
+                &mut cache,
             )?;
             generation.next().transpose()?;
             generation.next().transpose()?;
@@ -1122,7 +1152,6 @@ fn runtime_evaluation_failures_at_prefill_first_sample_and_decode() -> TestResul
             if boundary == "decode" {
                 generation.next().transpose()?;
             }
-            let before = cache_evidence(generation.cache())?;
             let accepted = generation.accepted;
             let history = generation.history.clone();
             let rng = generation
@@ -1133,7 +1162,19 @@ fn runtime_evaluation_failures_at_prefill_first_sample_and_decode() -> TestResul
                 matches!(generation.next(), Some(Err(GenerationError::Exception(source))) if source.what().starts_with(&original)),
                 "{boundary}"
             );
-            assert_eq!(cache_evidence(generation.cache())?, before, "{boundary}");
+            if boundary == "first_sample" {
+                assert_eq!(generation.cache()?.tokens()?, &[12.into(), 13.into()]);
+                generation.snapshot()?;
+            } else {
+                assert!(
+                    matches!(generation.cache(), Err(CacheError::Invalidated)),
+                    "{boundary}"
+                );
+                assert!(matches!(
+                    generation.snapshot(),
+                    Err(CacheError::Invalidated)
+                ));
+            }
             assert_eq!(generation.accepted, accepted);
             assert_eq!(generation.history, history);
             assert_eq!(
@@ -1145,6 +1186,32 @@ fn runtime_evaluation_failures_at_prefill_first_sample_and_decode() -> TestResul
             );
             assert!(generation.next().is_none());
             assert!(generation.next().is_none());
+            drop(generation);
+            if boundary == "first_sample" {
+                collect_tokens(&mut model.generate_with_cache(
+                    Prompt::Tokens(&[12.into(), 13.into(), 14.into()]),
+                    length_options(1),
+                    &mut cache,
+                )?)?;
+            } else {
+                assert!(matches!(
+                    model.generate_with_cache(
+                        Prompt::Tokens(&[12.into(), 13.into(), 14.into()]),
+                        length_options(1),
+                        &mut cache
+                    ),
+                    Err(GenerationError::Cache(CacheError::Invalidated))
+                ));
+            }
+            cache.reset()?;
+            for event in model.generate_with_cache(
+                Prompt::Tokens(&[14.into()]),
+                length_options(1),
+                &mut cache,
+            )? {
+                event?;
+            }
+            assert_eq!(cache.tokens()?, &[14.into()]);
         }
         Ok(())
     })
@@ -1276,3 +1343,5 @@ fn oracle_logprobs_capture_uses_the_same_generation_stream() -> TestResult {
         Ok(())
     })
 }
+
+mod pipeline;

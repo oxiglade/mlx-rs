@@ -91,7 +91,7 @@ impl Drop for VectorArray {
 }
 
 /// A helper trait that is just like `Into<Option<T>>` but improves ergonomics by allowing
-/// implicit conversion from &[T; N] to &[T].
+/// implicit conversion from `&[T; N]` to `&[T]`.
 pub trait IntoOption<T> {
     /// Convert into an [`Option`].
     fn into_option(self) -> Option<T>;
@@ -214,22 +214,26 @@ impl<'a> Closure<'a> {
     where
         F: FnMut(&[Array]) -> Vec<Array> + 'a,
     {
-        let c_closure = new_mlx_closure(closure);
-        Self {
-            c_closure,
-            lt_marker: PhantomData,
-        }
+        crate::error::infallible(|| {
+            let c_closure = new_mlx_closure(closure);
+            Self {
+                c_closure,
+                lt_marker: PhantomData,
+            }
+        })
     }
 
     pub(crate) fn new_fallible<F>(closure: F) -> Self
     where
         F: FnMut(&[Array]) -> Result<Vec<Array>, Exception> + 'a,
     {
-        let c_closure = new_mlx_fallible_closure(closure);
-        Self {
-            c_closure,
-            lt_marker: PhantomData,
-        }
+        crate::error::infallible(|| {
+            let c_closure = new_mlx_fallible_closure(closure);
+            Self {
+                c_closure,
+                lt_marker: PhantomData,
+            }
+        })
     }
 }
 

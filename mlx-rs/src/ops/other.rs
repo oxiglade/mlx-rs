@@ -177,7 +177,7 @@ impl Array {
         })
     }
 
-    /// Compatibility shim for [`hadamard_transform`].
+    /// Compatibility shim for [`Array::hadamard_transform`].
     #[deprecated(
         since = "0.26.0",
         note = "use `with_stream` or `with_device` around `hadamard_transform`"

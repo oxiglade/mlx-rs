@@ -130,8 +130,8 @@ impl StreamOrDevice {
 impl Default for StreamOrDevice {
     /// The default stream on the default device.
     ///
-    /// This will be [Device::gpu()] unless [Device::set_default()]
-    /// sets it otherwise.
+    /// Uses MLX's process-wide default device. For safe, thread-local operation
+    /// selection, use [with_device] or [with_stream].
     fn default() -> Self {
         Self {
             stream: Stream::new(),
@@ -216,18 +216,7 @@ impl Stream {
 
     /// Create a new stream on the default device. Panics if fails.
     pub fn new() -> Stream {
-        unsafe {
-            let mut dev = mlx_sys::mlx_device_new();
-            // SAFETY: mlx_get_default_device internally never throws an error
-            mlx_sys::mlx_get_default_device(&mut dev as *mut _);
-
-            let mut c_stream = mlx_sys::mlx_stream_new();
-            // SAFETY: mlx_get_default_stream internally never throws if dev is valid
-            mlx_sys::mlx_get_default_stream(&mut c_stream as *mut _, dev);
-
-            mlx_sys::mlx_device_free(dev);
-            Stream { c_stream }
-        }
+        Self::try_default_on_device(&Device::default()).expect("Failed to create stream")
     }
 
     /// Try to get the default stream on the given device.
@@ -237,10 +226,10 @@ impl Stream {
 
     /// Create a new stream on the given device
     pub fn new_with_device(device: &Device) -> Stream {
-        unsafe {
+        crate::error::infallible(|| unsafe {
             let c_stream = mlx_sys::mlx_stream_new_device(device.c_device);
             Stream { c_stream }
-        }
+        })
     }
 
     /// Get the underlying C pointer.
@@ -250,18 +239,23 @@ impl Stream {
 
     /// Current default CPU stream.
     pub fn cpu() -> Self {
-        unsafe {
+        crate::error::infallible(|| unsafe {
             let c_stream = mlx_sys::mlx_default_cpu_stream_new();
             Stream { c_stream }
-        }
+        })
     }
 
     /// Current default GPU stream.
     pub fn gpu() -> Self {
-        unsafe {
+        crate::error::infallible(|| unsafe {
             let c_stream = mlx_sys::mlx_default_gpu_stream_new();
             Stream { c_stream }
-        }
+        })
+    }
+
+    /// Returns the device this stream executes on.
+    pub fn device(&self) -> Result<Device> {
+        Device::try_from_op(|res| unsafe { mlx_sys::mlx_stream_get_device(res, self.c_stream) })
     }
 
     /// Get the index of the stream.
@@ -340,17 +334,16 @@ mod tests {
     #[test]
     #[cfg(feature = "metal")]
     fn test_scoped_default_stream() {
-        // First set default stream to CPU
-        let cpu_device = Device::cpu();
-        Device::set_default(&cpu_device);
-        let cpu_stream = Stream::default();
-
-        let task_default_stream = Stream::gpu();
-        with_stream(&task_default_stream, || {
-            let task_local_stream_0 = Stream::thread_local_or_default();
-            let task_local_stream_1 = Stream::thread_local_or_default();
-            assert_eq!(task_local_stream_0, task_local_stream_1);
-            assert_ne!(task_local_stream_0, cpu_stream);
+        with_device(Device::cpu(), || {
+            let cpu_stream = Stream::thread_local_or_default();
+            let task_default_stream = Stream::gpu();
+            with_stream(&task_default_stream, || {
+                let task_local_stream_0 = Stream::thread_local_or_default();
+                let task_local_stream_1 = Stream::thread_local_or_default();
+                assert_eq!(task_local_stream_0, task_local_stream_1);
+                assert_ne!(task_local_stream_0, cpu_stream);
+            });
+            assert_eq!(Stream::thread_local_or_default(), cpu_stream);
         });
     }
 
@@ -381,18 +374,62 @@ mod tests {
     #[test]
     #[cfg(feature = "metal")]
     fn test_cpu_gpu_stream_not_equal() {
-        let cpu_device = Device::cpu();
-        let gpu_device = Device::gpu();
+        const CHILD: &str = "MLX_RS_DEFAULT_DEVICE_CHILD";
+        if std::env::var_os(CHILD).is_some() {
+            // SAFETY: This child runs only this test, with no other MLX threads.
+            unsafe { Device::set_default(&Device::cpu()).unwrap() };
+            assert_eq!(Device::default(), Device::cpu());
+            let cpu_stream = Stream::default();
 
-        // First set default stream to CPU
-        Device::set_default(&cpu_device);
-        let cpu_stream = Stream::default();
+            unsafe { Device::set_default(&Device::gpu()).unwrap() };
+            assert_eq!(Device::default(), Device::gpu());
+            let gpu_stream = Stream::default();
+            assert_ne!(cpu_stream, gpu_stream);
+            return;
+        }
 
-        // Then set default stream to GPU
-        Device::set_default(&gpu_device);
-        let gpu_stream = Stream::default();
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "stream::tests::test_cpu_gpu_stream_not_equal",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env(CHILD, "1")
+            .output()
+            .unwrap();
 
-        // Assert that CPU and GPU streams are not equal
-        assert_ne!(cpu_stream, gpu_stream);
+        assert!(
+            output.status.success(),
+            "child status: {:?}\nstdout:\n{}\nstderr:\n{}",
+            output.status,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
+
+#[cfg(test)]
+mod device_tests {
+    use super::*;
+
+    #[test]
+    fn stream_device_survives_stream_drop_and_respects_scopes() -> Result<()> {
+        for device in [
+            Device::cpu(),
+            #[cfg(feature = "metal")]
+            Device::gpu(),
+        ] {
+            let stream = Stream::new_with_device(&device);
+            let queried = stream.device()?;
+            assert_eq!(queried, device);
+            with_stream(&stream, || -> Result<()> {
+                assert_eq!(Stream::thread_local_or_default().device()?, device);
+                Ok(())
+            })?;
+            drop(stream);
+            assert_eq!(queried, device);
+        }
+        Ok(())
     }
 }

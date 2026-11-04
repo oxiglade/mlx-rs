@@ -1,2 +1,7 @@
 [alias]
 xtask = "run --locked --manifest-path xtask/Cargo.toml --"
+
+# MLX runs float32 matmuls, convolutions and attention in TF32 on GPUs with matrix
+# units; tests compare against full-precision float32, as upstream MLX's own suite does.
+[env]
+MLX_ENABLE_TF32 = "0"

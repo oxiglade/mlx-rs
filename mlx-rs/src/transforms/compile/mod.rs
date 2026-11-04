@@ -165,18 +165,16 @@ pub use compile_with_state::*;
 ///
 /// Default is enabled.
 pub fn enable_compile() {
-    unsafe {
-        mlx_sys::mlx_enable_compile();
-    }
+    <() as Guarded>::try_from_op(|_| unsafe { mlx_sys::mlx_enable_compile() })
+        .expect("Failed to enable compilation");
 }
 
 /// Globally disable the compilation of functions.
 ///
 /// Default is enabled.
 pub fn disable_compile() {
-    unsafe {
-        mlx_sys::mlx_disable_compile();
-    }
+    <() as Guarded>::try_from_op(|_| unsafe { mlx_sys::mlx_disable_compile() })
+        .expect("Failed to disable compilation");
 }
 
 /// Clear the memory cache.
@@ -207,7 +205,7 @@ impl std::fmt::Debug for CompileCache {
 
 impl CompileCache {
     fn current() -> Result<Self, Exception> {
-        crate::error::INIT_ERR_HANDLER.call_once(crate::error::setup_mlx_error_handler);
+        crate::error::ensure_mlx_error_handler();
         let mut cache = Self {
             handle: unsafe { mlx_sys::mlx_compile_cache_new() },
         };

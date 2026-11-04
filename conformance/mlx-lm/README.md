@@ -363,7 +363,7 @@ the pinned Python environment, with no environment installation step:
 
 ```sh
 export T4_RUN="$(mktemp -d /private/tmp/mlx-lm-t4b.XXXXXX)"
-export T4_ASSETS=/Users/ci/hub/assets/mlx-lm-checkpoints/real-checkpoints.json
+export T4_ASSETS=/path/to/mlx-lm-checkpoints/real-checkpoints.json
 export T4_PYTHON="$PWD/conformance/.venv-mlx-lm/bin/python"
 
 "$T4_PYTHON" -B conformance/mlx-lm/real_checkpoints.py \
@@ -503,6 +503,28 @@ external evidence. A pipeline candidate must recover at least half the
 attributable excess with a positive paired interval, avoid a greater-than-5%
 regression on the other device, and pass the paper's behavior qualification.
 
+C closed: qualified pipeline admitted (2026-11-02, M5 Max Metal):
+606.95 Rust versus 617.93 Python tok/s, ratio 0.9821
+[0.9810, 0.9837] (95% paired CI). Recovery is
+93.44% [93.18%, 94.14%], with observed Rust–Python excess as denominator.
+Using the full Python lookahead ablation effect as denominator, recovery is
+67.30% [65.99%, 68.56%] (95% paired CIs).
+The CPU path is unchanged by construction, satisfying the other-device ≤5% regression criterion.
+Qualification used paired alternation on a shared host, deviating from the protocol's idle-host requirement.
+
+The measurement uses Qwen3-0.6B-4bit, a 128-token prompt, 256 greedy tokens,
+three warm-ups and ten alternating Rust/Python pairs per group. The fresh #444
+synchronous baseline measured 481.82 Rust versus 615.99 Python tok/s;
+Python without lookahead measured 444.49 tok/s. The baseline and ablation
+are retained from the prior qualification; the candidate rerun uses contemporaneous
+Python. The intervals describe repeatability within these runs.
+
+GPU generation with full caches queues one token ahead and submits only sampling
+roots. Each decoder's updated K/V feeds attention and logits. Cache objects stay
+alive; committed lengths, RNG and text advance only when a token is accepted.
+CPU and rotating-cache decode remain synchronous. This measurement does not
+establish CPU throughput parity or the full real-checkpoint matrix.
+
 Pure checks and compilation, without model execution:
 
 ```sh
@@ -531,3 +553,20 @@ with the pinned Python environment to generate expectations on the runner.
 Rust compares all six checkpoint cases on CPU and Metal against that live report.
 See [the bump playbook](../../VERIFICATION.md#repeatable-mlx-c-bump-playbook)
 for provisioning and execution commands.
+
+## Standalone chat templates
+
+`chat_template_reference.py` generates `chat-template-fixtures/` with the pinned
+Transformers `AutoTokenizer.from_pretrained` and `apply_chat_template`. The tiny
+WordLevel Qwen3 fixtures model the 2507 layout and non-thinking textual delimiters:
+`chat_template.jinja` without a config key, and both sources with a deliberately
+different config template. The Llama fixture uses its existing textual template.
+All three record bytes and token IDs for closed, assistant-start and continued
+messages. These are synthetic tokenizer fixtures, not checkpoint inference claims.
+
+Transformers 5.17.0 loads the standalone Jinja file over the config key. It also
+loads named `additional_chat_templates/*.jinja` files (including a `default.jinja` override),
+but its tokenizer loader does not read `chat_template.json`. Named template
+directories and processor templates are outside this fix's admitted profile.
+Regenerate twice with `--output-dir PATH` and compare the trees before replacing
+the committed fixtures; the generator checks the full pinned environment.
