@@ -253,9 +253,11 @@ jobs:
           path: ${{ runner.temp }}/bump-checkpoints/reports/
 
   prebuilt:
-    if: ${{ inputs.ordinary }}
     needs: dependencies
     runs-on: macos-26
+    env:
+      DEVELOPER_DIR: /Library/Developer/CommandLineTools
+      MLX_SYS_SYSTEM_SDK: "0"
     steps:
       - uses: actions/checkout@v7
         with:
@@ -268,6 +270,15 @@ jobs:
           cache: false
           rustflags: ""
           build-warnings: ""
+      - name: Require Command Line Tools without Metal compilers
+        run: |
+          xcrun --sdk macosx --find clang++
+          for tool in metal metallib; do
+            if xcrun --sdk macosx "$tool" --version; then
+              echo "The prebuilt lane must run without $tool" >&2
+              exit 1
+            fi
+          done
       - name: Extract the pinned MLX wheel
         run: |
           curl --fail --location --retry 3 \
@@ -291,7 +302,6 @@ jobs:
       - name: Require every job
         env:
           RESULTS: ${{ toJSON(needs) }}
-          ORDINARY: ${{ inputs.ordinary }}
         shell: python3 {0}
         run: |
           import json
@@ -300,7 +310,5 @@ jobs:
           results = json.loads(os.environ["RESULTS"])
           required = {"dependencies", "checks", "ffi-gate", "configurations", "prebuilt"}
           expected = {name: "success" for name in required}
-          if os.environ["ORDINARY"] != "true":
-              expected["prebuilt"] = "skipped"
           if {name: job["result"] for name, job in results.items()} != expected:
               raise SystemExit(f"Required validation jobs did not all succeed: {results}")

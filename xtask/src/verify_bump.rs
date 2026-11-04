@@ -44,12 +44,36 @@ fn verify_tuple(repo_root: &Path) -> Result<(), String> {
     let current = git(&mlx_c, &["rev-parse", "HEAD"])?;
     let pin =
         nested_pin(&fs::read_to_string(mlx_c.join("CMakeLists.txt")).map_err(|e| e.to_string())?)?;
+    let workflow = fs::read_to_string(repo_root.join(".github/workflows/bump-admission.yml"))
+        .map_err(|e| e.to_string())?;
+    validate_prebuilt_wheel(&pin, &workflow)?;
     validate_tuple_values(&current, &pin)?;
     let classification = read_json(&repo_root.join("ledger/target-delta-classification.json"))?;
     if classification["old_source_commit"] != OLD_COMMIT
         || classification["target_source_commit"] != TARGET_COMMIT
     {
         return Err("ABI classification does not match the bump tuple".into());
+    }
+    Ok(())
+}
+
+fn validate_prebuilt_wheel(pin: &str, workflow: &str) -> Result<(), String> {
+    let version = workflow
+        .split_whitespace()
+        .filter(|word| {
+            word.starts_with("https://files.pythonhosted.org/") && word.ends_with(".whl")
+        })
+        .find_map(|url| {
+            url.rsplit_once("/mlx_metal-")?
+                .1
+                .split_once('-')
+                .map(|pair| pair.0)
+        })
+        .ok_or("prebuilt wheel pin is missing from bump-admission.yml")?;
+    if version != pin {
+        return Err(format!(
+            "prebuilt wheel pins MLX {version}, but mlx-c requires MLX {pin}; update its URL and SHA-256 in bump-admission.yml"
+        ));
     }
     Ok(())
 }
@@ -1506,6 +1530,20 @@ mod tests {
                 .unwrap_err()
                 .contains("not tracked")
         );
+    }
+
+    #[test]
+    fn prebuilt_wheel_must_match_the_nested_mlx_pin() {
+        let workflow = include_str!("../../.github/workflows/bump-admission.yml");
+        validate_prebuilt_wheel(TARGET_MLX, workflow).unwrap();
+        let error = validate_prebuilt_wheel("0.0.0", workflow).unwrap_err();
+        assert!(error.contains("prebuilt wheel"), "{error}");
+        assert!(error.contains("0.0.0"), "{error}");
+    }
+
+    #[test]
+    fn prebuilt_wheel_pin_must_be_present() {
+        assert!(validate_prebuilt_wheel(TARGET_MLX, "jobs: {}").is_err());
     }
 
     #[test]
