@@ -207,13 +207,11 @@ fn configure_macos(config: &mut Config, prebuilt: bool) -> Result<(), String> {
 fn build_and_link_mlx_c() {
     println!("cargo:rerun-if-env-changed=MLX_SYS_PREBUILT");
     let prebuilt = env::var_os("MLX_SYS_PREBUILT");
-    if prebuilt.is_some() {
-        assert!(
-            cfg!(feature = "metal"),
-            "MLX_SYS_PREBUILT requires the metal feature; the prebuilt MLX has Metal enabled"
-        );
-        assert!(
-            !cfg!(feature = "metal-jit"),
+    if prebuilt.is_some() && !cfg!(feature = "metal") {
+        panic!("MLX_SYS_PREBUILT requires the metal feature; the prebuilt MLX has Metal enabled");
+    }
+    if prebuilt.is_some() && cfg!(feature = "metal-jit") {
+        panic!(
             "MLX_SYS_PREBUILT does not support metal-jit; the prebuilt MLX uses compiled kernels"
         );
     }
