@@ -35,14 +35,17 @@ An abandoned step preserves committed tokens and K/V contents up to the committe
 length. Before evaluation or submission, it restores the original handles. After
 successful evaluation or submission, full caches keep the new buffers at the
 committed length. Unused tail contents and capacity may change. Rotating caches
-copy handles because they overwrite committed positions. Full caches append in
-place on GPU streams. Reusing a rolled-back suffix or changing streams waits for
-pending readers. Full-cache snapshots evaluate and copy committed prefixes when
+copy handles because they overwrite committed positions. With a source build of
+MLX, full caches append in place on GPU streams. Reusing a rolled-back suffix or
+changing streams waits for pending readers on that path. Full-cache snapshots evaluate and copy committed prefixes when
 needed to separate writable spare capacity. Restore consumes snapshot storage
 without copying or evaluating it. CPU and rotating caches use `slice_update`.
+With a prebuilt MLX, full GPU caches also use `slice_update`, which handles
+pending readers without the append shim's explicit wait.
 
-On an M5 Max, measured decode throughput is level at 128 tokens, about 7% higher
-at ~4k and 0.4% lower at ~16k.
+With a source build on an M5 Max, in-place GPU append has level decode
+throughput at 128 tokens, about 7% higher at ~4k and 0.4% lower at ~16k, compared
+with `slice_update`. These figures do not apply to prebuilt MLX.
 
 Failed evaluation or submission invalidates only the cache involved. This includes
 failed speculative submission even if generation stops at the preceding token.

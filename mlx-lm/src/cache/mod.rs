@@ -454,7 +454,7 @@ pub(crate) trait LayerCache: sealed::Sealed {
     #[cfg_attr(not(feature = "oracle-hooks"), allow(dead_code))]
     fn logical_arrays(&self) -> Result<(Array, Array), CacheError>;
 }
-/// Appends full caches in place and stages rotating caches on copied handles.
+/// Stages cache updates until evaluation and commit.
 /// Drop preserves committed lengths and prefixes. Failed evaluation invalidates the cache.
 pub(crate) struct CacheStep<'cache> {
     cache: &'cache mut Cache,

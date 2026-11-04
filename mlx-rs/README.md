@@ -63,6 +63,7 @@ mlx-rs = "0.34.0"
 
 See [mlx-sys build configuration](../mlx-sys/README.md#macos-sdk-and-deployment-target)
 for system Xcode opt-in, deployment targets and NAX kernel requirements.
+Use a [prebuilt MLX](../mlx-sys/README.md#a-prebuilt-mlx) to build with Command Line Tools alone.
 
 ## Feature Flags
 
