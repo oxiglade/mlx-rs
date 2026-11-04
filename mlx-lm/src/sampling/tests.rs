@@ -1238,3 +1238,83 @@ fn submitted_samples_match_every_synchronous_logprob_and_seeded_id() -> anyhow::
         Ok(())
     })
 }
+
+#[test]
+fn greedy_identity_checks_have_two_compute_nodes() -> TestResult {
+    use std::{
+        io::{Read, Seek, SeekFrom},
+        os::fd::{AsRawFd, IntoRawFd},
+    };
+
+    with_device(Device::gpu(), || {
+        let sampler = SamplingEngine::new(SamplerOptions::default(), 3, None, None, None)?;
+        let plan = sampler.prepare(
+            &[],
+            None,
+            Array::from_slice(&[0.0f32, 1.0, -1.0], &[1, 3]),
+            None,
+            false,
+        )?;
+        let outputs = plan.outputs(&[]);
+        let checks = &outputs[..outputs.len() - 1];
+        let handles: Vec<_> = checks.iter().map(|array| array.as_ptr()).collect();
+        let mut file = tempfile::tempfile()?;
+        unsafe {
+            let writer = file.try_clone()?;
+            let stream = mlx_sys::fdopen(writer.as_raw_fd(), c"w".as_ptr());
+            assert!(!stream.is_null());
+            let _ = writer.into_raw_fd();
+            let namer = mlx_sys::mlx_node_namer_new();
+            let arrays = mlx_sys::mlx_vector_array_new_data(handles.as_ptr(), handles.len());
+            let status = mlx_sys::mlx_export_to_dot(stream, namer, arrays);
+            let free_arrays = mlx_sys::mlx_vector_array_free(arrays);
+            let free_namer = mlx_sys::mlx_node_namer_free(namer);
+            let close = mlx_sys::fclose(stream);
+            assert_eq!((status, free_arrays, free_namer, close), (0, 0, 0, 0));
+        }
+        file.seek(SeekFrom::Start(0))?;
+        let mut graph = String::new();
+        file.read_to_string(&mut graph)?;
+        let nodes = graph
+            .lines()
+            .filter(|line| line.contains("shape=rectangle") && !line.contains("->"))
+            .count();
+        assert_eq!(nodes, 2, "{graph}");
+        Ok(())
+    })
+}
+
+#[test]
+fn value_check_nonfinite_precedence_across_dtypes_and_streams() -> TestResult {
+    for device in [Device::gpu(), Device::cpu(), Device::gpu()] {
+        with_device(device, || -> TestResult {
+            for dtype in [Dtype::Float32, Dtype::Float16, Dtype::Bfloat16] {
+                for (entries, expected) in [
+                    ([f32::NEG_INFINITY, f32::NEG_INFINITY], 0),
+                    ([f32::NEG_INFINITY, -0.0], 1),
+                    ([-1.0, 1.0], 1),
+                    ([f32::NAN, f32::NEG_INFINITY], 2),
+                    ([f32::INFINITY, f32::NEG_INFINITY], 2),
+                    ([f32::NAN, 1.0], 2),
+                    ([f32::INFINITY, 1.0], 2),
+                ] {
+                    let row = Array::from_slice(&entries, &[1, 2]).as_dtype(dtype)?;
+                    let result = ValueCheck::new(&row)?.validate();
+                    match expected {
+                        0 => assert!(matches!(
+                            result,
+                            Err(GenerationError::Sampling(SamplingError::EmptySupport))
+                        )),
+                        1 => result?,
+                        _ => assert!(matches!(
+                            result,
+                            Err(GenerationError::Sampling(SamplingError::InvalidLogitsValue))
+                        )),
+                    }
+                }
+            }
+            Ok(())
+        })?;
+    }
+    Ok(())
+}
