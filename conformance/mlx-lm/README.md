@@ -570,3 +570,27 @@ but its tokenizer loader does not read `chat_template.json`. Named template
 directories and processor templates are outside this fix's admitted profile.
 Regenerate twice with `--output-dir PATH` and compare the trees before replacing
 the committed fixtures; the generator checks the full pinned environment.
+
+## EmbeddingGemma 2 text embeddings
+
+`numpy_reference/embedding_gemma2.py` is an independent f32 NumPy encoder that
+imports no MLX. `numpy_reference/embedding_gemma2_fixture.py` writes the seeded
+(PCG64 1729) fixture in `embedding-fixtures/embedding-gemma2-text/`: three layers
+(two sliding with window 2, one full with a `per_layer_config` override), GQA,
+per-layer inputs, non-unit layer scalars, ignored media-tower tensors and a
+right-padded batch whose padded queries see no valid key. Before writing, it
+generates twice and compares hashes, requires each padded-batch row to match the
+text embedded alone, and requires each named reference mutation (no value norm,
+exclusive window, no layer scalar, pooling over padding) to exceed the tolerance.
+
+```sh
+conformance/.venv-mlx-lm/bin/python -B conformance/mlx-lm/numpy_reference/embedding_gemma2_fixture.py
+conformance/.venv-mlx-lm/bin/python -B conformance/mlx-lm/numpy_reference/embedding_gemma2_fixture.py --check
+cargo test -p mlx-lm --features oracle-hooks --test parity embedding_gemma2 -- --test-threads=1
+```
+
+NumPy 2.2.6's Accelerate matmul can print spurious floating-point warnings; the
+generator rejects non-finite expectations. As provenance, not a gate: on
+2026-11-05 the reference agreed with mlx-vlm 3d87e884 on
+`mlx-community/embeddinggemma-2-bf16` (four texts, cosine ≥ 0.99989 against
+bf16 execution), and the Rust Metal embeddings were bit-identical to mlx-vlm's.
