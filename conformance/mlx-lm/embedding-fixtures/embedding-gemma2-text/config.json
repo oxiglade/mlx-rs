@@ -1,0 +1,47 @@
+{
+  "audio_token_id": 62,
+  "image_token_id": 61,
+  "model_type": "embedding_gemma2",
+  "text_config": {
+    "attention_bias": false,
+    "bos_token_id": 2,
+    "embedding_dim": 24,
+    "eos_token_id": 1,
+    "head_dim": 8,
+    "hidden_activation": "gelu_pytorch_tanh",
+    "hidden_size": 32,
+    "hidden_size_per_layer_input": 8,
+    "intermediate_size": 48,
+    "layer_types": [
+      "sliding_attention",
+      "sliding_attention",
+      "full_attention"
+    ],
+    "max_position_embeddings": 64,
+    "model_type": "embedding_gemma2_text",
+    "num_attention_heads": 4,
+    "num_hidden_layers": 3,
+    "num_key_value_heads": 2,
+    "pad_token_id": 0,
+    "per_layer_config": {
+      "02": {
+        "head_dim": 16,
+        "num_key_value_heads": 1
+      }
+    },
+    "rms_norm_eps": 1e-06,
+    "rope_parameters": {
+      "full_attention": {
+        "rope_theta": 1000000.0,
+        "rope_type": "default"
+      },
+      "sliding_attention": {
+        "rope_theta": 10000.0,
+        "rope_type": "default"
+      }
+    },
+    "sliding_window": 2,
+    "vocab_size": 64
+  },
+  "video_token_id": 63
+}

@@ -1,7 +1,7 @@
 # mlx-lm
 
 `mlx-lm` provides synchronous, single-request text generation for Llama and
-Qwen3 using MLX. It includes strict checkpoint loading, tokenization and textual
+Qwen3 using MLX, and EmbeddingGemma 2 text embeddings. It includes strict checkpoint loading, tokenization and textual
 chat templates, greedy and filtered sampling, streaming text, and model-bound KV
 caches with snapshots and exact-prefix reuse. The library and its separate
 [`mlx-lm` CLI](../mlx-lm-cli/README.md) are version 0.34.0 and remain
@@ -23,6 +23,7 @@ or consume the committed fixtures.
 | Hub, `Model::from_hub` | Behind `hf-hub`; resolves a repository/revision to a commit and downloads selected safetensors and JSON/tokenizer assets, then uses the local loader. No remote Python code or Hub GGUF loading. |
 | Generation | One synchronous iterator for text or token-ID prompts, chunked prefill, temperature/top-k/top-p/min-p sampling, repetition/presence/frequency penalties, token and text stops. |
 | Cache | Full and rotating KV storage, model-bound snapshots, exact-prefix reuse. Snapshots exclude RNG, decoder and iterator state. |
+| Text embeddings, `Embedder::from_dir` | EmbeddingGemma 2 (`model_type: embedding_gemma2`) MLX-layout checkpoints such as `mlx-community/embeddinggemma-2-bf16`: floating text-encoder weights only, with vision and audio tensors ignored. `embed` tokenizes with `<bos>`/`<eos>`, right-pads, runs the bidirectional encoder, mean-pools in `f32` and L2-normalizes. Task prompts (`task: search result \| query: `) are part of the caller's text; Matryoshka truncation is the caller's slice and renormalization. Texts containing media placeholder tokens are rejected. |
 
 The GGUF affine layouts have group size 32, 4 or 8 bits, and F16 scales and
 biases. Admission examines the arrays after core conversion. Other original
@@ -44,6 +45,11 @@ The [conformance schema](../conformance/mlx-lm/SCHEMA.md),
 [support decisions](SUPPORT.md) distinguish these evidence sources.
 [SKELETON.md](SKELETON.md#evidence-and-report-locations) records historical host
 results; current bump admission requires fresh executed configuration reports.
+
+The embedder's oracle is an independent f32 NumPy encoder,
+[`numpy_reference/embedding_gemma2.py`](../conformance/mlx-lm/numpy_reference/embedding_gemma2.py),
+checked against a seeded fixture on CPU and Metal. The PyTorch-layout
+`google/embeddinggemma-2` checkpoint does not load; the loader only accepts MLX names.
 
 ## GGUF tokenizer pairing
 
@@ -158,6 +164,7 @@ non-exhaustive, so callers should include a fallback match arm.
 | `CacheError` | Cache layout, policy, model identity, transaction or restoration. |
 | `SamplingError` | Invalid sampling/penalty options, logits or empty candidate support. |
 | `InferenceError` | Architecture execution and cache/native failures. |
+| `EmbeddingError` | Empty batches, over-long texts, out-of-vocabulary or media placeholder tokens; wraps tokenizer failures. Runtime evaluation exceptions remain `EmbeddingError::Exception`. |
 | `GenerationError` | Prompt/stop validation, reuse and sequence limits; wraps tokenizer, sampling, cache and inference failures. Runtime evaluation exceptions remain `GenerationError::Exception`. |
 | `HubError` | Repository/revision, missing assets, unsafe paths, receipt integrity, offline miss, transport or wrapped local loading. The type exists in base builds; its API-error variant requires `hf-hub`. |
 

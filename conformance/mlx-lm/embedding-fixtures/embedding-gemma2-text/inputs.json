@@ -1,0 +1,58 @@
+{
+  "seed": 1729,
+  "texts": [
+    "task search result query planet mars",
+    "the quick red fox jumps over the slow dog near the old stone house",
+    "one",
+    "title none text a bright star over the dark river"
+  ],
+  "token_ids": [
+    [
+      2,
+      43,
+      48,
+      49,
+      44,
+      38,
+      39,
+      1
+    ],
+    [
+      2,
+      4,
+      27,
+      8,
+      11,
+      16,
+      18,
+      4,
+      28,
+      12,
+      20,
+      4,
+      31,
+      24,
+      25,
+      1
+    ],
+    [
+      2,
+      33,
+      1
+    ],
+    [
+      2,
+      46,
+      47,
+      45,
+      5,
+      29,
+      40,
+      18,
+      4,
+      30,
+      22,
+      1
+    ]
+  ]
+}

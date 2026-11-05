@@ -1,5 +1,7 @@
 #[path = "parity/comparator.rs"]
 mod comparator;
+#[path = "parity/embedding.rs"]
+mod embedding;
 #[path = "parity/gguf.rs"]
 mod gguf;
 #[path = "parity/mutations.rs"]
@@ -61,6 +63,16 @@ fn gguf_models_cpu() -> Result<()> {
 #[test]
 fn gguf_models_metal() -> Result<()> {
     gguf::run_all(mlx_rs::Device::gpu())
+}
+
+#[test]
+fn embedding_gemma2_text_cpu() -> Result<()> {
+    embedding::run(mlx_rs::Device::cpu())
+}
+
+#[test]
+fn embedding_gemma2_text_metal() -> Result<()> {
+    embedding::run(mlx_rs::Device::gpu())
 }
 
 #[test]
