@@ -217,12 +217,13 @@ The required graph is:
 | `configurations (macos-arm64-cpu-only, stable)` | Qualified CPU/Accelerate debug tests and doctests. |
 | `configurations (macos-arm64-cpu-only-release, stable)` | Qualified CPU/Accelerate release tests and doctests. |
 | `configurations (macos-arm64-metal-jit, stable)` | Qualified Metal JIT workspace tests and doctests. |
-| `admission` | Require successful `dependencies`, `checks`, `ffi-gate` and every `configurations` matrix leg. |
+| `prebuilt` | Build and test the workspace against the pinned `mlx-metal` wheel with Command Line Tools selected; require `metal` and `metallib` invocations to fail before building. |
+| `admission` | Require successful `dependencies`, `checks`, `ffi-gate`, `prebuilt` and every `configurations` matrix leg. |
 
 `validate.yml` calls this same graph with `ordinary: true` on ordinary PRs and main pushes.
-That mode omits checkpoint provisioning and uses leak-only calibration on PRs; main pushes still
-run Guard Malloc. It is ordinary validation, not bump admission. A gitlink-changing PR also starts
-the full bump workflow. No result from a separate workflow run is imported for admission, and a
+Both modes require the prebuilt lane on `macos-26`. Ordinary mode omits checkpoint provisioning
+and uses leak-only calibration on PRs; main pushes still run Guard Malloc. It is ordinary
+validation, not bump admission. A gitlink-changing PR also starts the full bump workflow. No result from a separate workflow run is imported for admission, and a
 manual bump dispatch runs the whole graph without needing a concurrent `validate.yml` run.
 
 Every build job downloads the one product lockfile. Product Cargo commands use `--locked`,
@@ -239,8 +240,8 @@ the link/version canary against Cargo's archives. `verify-ffi` owns instrumentat
 and inventory completeness. Each command's exit status controls its job.
 
 `verify-bump` is a small failing command for checks that remain outside those execution commands:
-the current immutable mlx-c/MLX tuple and its classification endpoints, the named error-registration
-concurrency regression, sentinel fixture digests,
+the current immutable mlx-c/MLX tuple and its classification endpoints, the prebuilt wheel
+version against mlx-c's MLX pin, the named error-registration concurrency regression, sentinel fixture digests,
 and strict exact-target replay coverage, provenance and deterministic double-run hashes. It does
 not aggregate an admission verdict or rerun the semantic suites. Replay generation and its
 committed numerical artifacts retain their existing contract.
@@ -258,7 +259,16 @@ The active comparison is mlx-c `c74db5307cc8ce122f48d97ef951b30578674e7f` to
 The prior classification is retained in
 `ledger/mlx-c-c74db5307cc8ce122f48d97ef951b30578674e7f-classification.json`.
 
-Run `cargo xtask verify-bump` against the target checkout. Prepare exact-target replay using
+Update the `mlx-metal` wheel URL and SHA-256 in
+`.github/workflows/bump-admission.yml` to the target MLX version. Use the wheel
+for the prebuilt lane's architecture and macOS version. Check its dylib's minimum
+OS version, which can be newer than the wheel tag. Keep the conformance wheel
+pins at the same MLX version in their separate oracle commit.
+Run `cargo xtask verify-bump` against the target checkout; it rejects a missing
+wheel pin or a wheel version that differs from mlx-c's MLX pin.
+Run the prebuilt workspace build and tests with Command Line Tools selected and
+confirm both `xcrun metal --version` and `xcrun metallib --version` fail.
+The prebuilt lane must succeed for bump admission. Prepare exact-target replay using
 [the replay procedure](conformance/README.md#exact-target-replay) when the target or replay inputs
 change. Keep oracle changes separate from implementation changes, and never regenerate away a
 semantic regression. The `checks` job runs the oracle boundary against the PR base, or `origin/main` for a manual

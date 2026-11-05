@@ -40,7 +40,9 @@ impl LayerCache for FullCache {
             .ok_or_else(|| invalid("position overflow"))?;
         self.reserve(end)?;
         let previous = self.buffer.as_ref().unwrap();
+        #[cfg(mlx_lm_kv_append)]
         let stream = mlx_rs::Stream::thread_local_or_default();
+        #[cfg(mlx_lm_kv_append)]
         let buffer = if matches!(stream.device()?.get_type()?, mlx_rs::DeviceType::Gpu) {
             Buffer {
                 keys: super::append::append(&previous.keys, &keys, self.processed_tokens, &stream)?,
@@ -54,6 +56,8 @@ impl LayerCache for FullCache {
         } else {
             previous.replace(self.processed_tokens, &keys, &values)?
         };
+        #[cfg(not(mlx_lm_kv_append))]
+        let buffer = previous.replace(self.processed_tokens, &keys, &values)?;
         let logical = buffer.slice(0..end)?;
         self.buffer = Some(buffer);
         self.processed_tokens = end;

@@ -9,6 +9,7 @@ use mlx_rs::{
 };
 use std::collections::BTreeMap;
 use std::{marker::PhantomData, num::NonZeroUsize, ops::Range, rc::Rc};
+#[cfg(mlx_lm_kv_append)]
 mod append;
 mod full;
 mod ledger;
@@ -63,7 +64,8 @@ pub enum CacheKind {
     Rotating,
 }
 /// Thread-bound decoder cache with transactional layer state.
-/// GPU full caches append in place; CPU and rotating caches use `slice_update`.
+/// GPU full caches append in place when building MLX from source.
+/// Prebuilt MLX, CPU and rotating caches use `slice_update`.
 /// On an M5 Max, decode throughput is level at 128 tokens, about 7% higher at ~4k
 /// and 0.4% lower at ~16k than `slice_update`.
 /// Abandoned steps preserve committed tokens and K/V prefixes; spare storage may change.
@@ -386,6 +388,7 @@ impl Cache {
         if let Some((end, stream)) = &self.last_submission {
             if offset < *end || *stream != mlx_rs::Stream::thread_local_or_default() {
                 // Rolled-back suffixes can still have attention readers in flight.
+                #[cfg(mlx_lm_kv_append)]
                 append::synchronize(stream).inspect_err(|_| self.invalidated = true)?;
                 self.last_submission = None;
             }
@@ -451,7 +454,7 @@ pub(crate) trait LayerCache: sealed::Sealed {
     #[cfg_attr(not(feature = "oracle-hooks"), allow(dead_code))]
     fn logical_arrays(&self) -> Result<(Array, Array), CacheError>;
 }
-/// Appends full caches in place and stages rotating caches on copied handles.
+/// Stages cache updates until evaluation and commit.
 /// Drop preserves committed lengths and prefixes. Failed evaluation invalidates the cache.
 pub(crate) struct CacheStep<'cache> {
     cache: &'cache mut Cache,

@@ -252,9 +252,51 @@ jobs:
           name: checkpoint-oracle
           path: ${{ runner.temp }}/bump-checkpoints/reports/
 
+  prebuilt:
+    needs: dependencies
+    runs-on: macos-26
+    env:
+      DEVELOPER_DIR: /Library/Developer/CommandLineTools
+      MLX_SYS_SYSTEM_SDK: "0"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: product-lockfile
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          cache: false
+          rustflags: ""
+          build-warnings: ""
+      - name: Require Command Line Tools without Metal compilers
+        run: |
+          xcrun --sdk macosx --find clang++
+          for tool in metal metallib; do
+            if xcrun --sdk macosx "$tool" --version; then
+              echo "The prebuilt lane must run without $tool" >&2
+              exit 1
+            fi
+          done
+      - name: Extract the pinned MLX wheel
+        run: |
+          curl --fail --location --retry 3 \
+            https://files.pythonhosted.org/packages/dd/cd/4e50bf325100e7165e13d025f264362bf0009196269f9eaf87f2c6e738a2/mlx_metal-0.32.2-py3-none-macosx_26_0_arm64.whl \
+            -o "$RUNNER_TEMP/mlx-metal.whl"
+          echo "e6abeac9ac5265830c9c1541b6f96e9be37a85c2446763a46ad466c63a3837ab  $RUNNER_TEMP/mlx-metal.whl" | shasum -a 256 --check
+          python3 -m zipfile -e "$RUNNER_TEMP/mlx-metal.whl" "$RUNNER_TEMP/mlx-metal"
+          {
+            echo "MLX_SYS_PREBUILT=$RUNNER_TEMP/mlx-metal/mlx"
+            echo "RUSTFLAGS=-C link-arg=-Wl,-rpath,$RUNNER_TEMP/mlx-metal/mlx/lib"
+            echo "RUSTDOCFLAGS=-C link-arg=-Wl,-rpath,$RUNNER_TEMP/mlx-metal/mlx/lib"
+          } >> "$GITHUB_ENV"
+      - run: cargo build --workspace --locked
+      - run: cargo test --workspace --locked -- --test-threads=1
+
   admission:
     if: always()
-    needs: [dependencies, checks, ffi-gate, configurations]
+    needs: [dependencies, checks, ffi-gate, configurations, prebuilt]
     runs-on: ubuntu-latest
     steps:
       - name: Require every job
@@ -266,6 +308,7 @@ jobs:
           import os
 
           results = json.loads(os.environ["RESULTS"])
-          required = {"dependencies", "checks", "ffi-gate", "configurations"}
-          if set(results) != required or any(job["result"] != "success" for job in results.values()):
+          required = {"dependencies", "checks", "ffi-gate", "configurations", "prebuilt"}
+          expected = {name: "success" for name in required}
+          if {name: job["result"] for name, job in results.items()} != expected:
               raise SystemExit(f"Required validation jobs did not all succeed: {results}")

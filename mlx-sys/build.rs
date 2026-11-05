@@ -84,8 +84,11 @@ fn system_sdk_enabled() -> bool {
         && env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos")
 }
 
-fn native_out_dir() -> PathBuf {
-    let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
+fn native_out_dir(prebuilt: bool) -> PathBuf {
+    let mut out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
+    if prebuilt {
+        out = out.join("prebuilt");
+    }
     if system_sdk_enabled() {
         out.join("system-sdk")
     } else {
@@ -125,7 +128,7 @@ fn xcode_path(command: &mut Command, missing: &str) -> Result<String, String> {
     Ok(path)
 }
 
-fn configure_macos(config: &mut Config) -> Result<(), String> {
+fn configure_macos(config: &mut Config, prebuilt: bool) -> Result<(), String> {
     println!("cargo:rerun-if-env-changed=MACOSX_DEPLOYMENT_TARGET");
     let developer = xcode_path(
         Command::new("/usr/bin/xcode-select")
@@ -153,10 +156,12 @@ fn configure_macos(config: &mut Config) -> Result<(), String> {
         "clang++ is missing from system Xcode",
     )?;
     #[cfg(feature = "metal")]
-    query(
-        &["metal", "--version"],
-        "Metal compiler is missing; select a full Xcode installation with the Metal toolchain",
-    )?;
+    if !prebuilt {
+        query(
+            &["metal", "--version"],
+            "Metal compiler is missing; select a full Xcode installation with the Metal toolchain",
+        )?;
+    }
     let mut paths = vec![PathBuf::from("/usr/bin")];
     paths.extend(env::split_paths(&env::var_os("PATH").unwrap_or_default()));
     config.env("PATH", env::join_paths(paths).map_err(|e| e.to_string())?);
@@ -165,7 +170,7 @@ fn configure_macos(config: &mut Config) -> Result<(), String> {
     if Path::new(&sdk).join("SDKSettings.json").is_file() {
         println!("cargo:rerun-if-changed={sdk}/SDKSettings.json");
     }
-    let out = native_out_dir();
+    let out = native_out_dir(prebuilt);
     let build = out.join("build");
     let target = deployment_target();
     if let Ok(cache) = fs::read_to_string(build.join("CMakeCache.txt")) {
@@ -183,7 +188,6 @@ fn configure_macos(config: &mut Config) -> Result<(), String> {
                 .map_err(|e| format!("cannot reset {}: {e}", build.display()))?;
         }
     }
-    config.out_dir(out);
     config.define("CMAKE_OSX_SYSROOT", &sdk);
     // Dependents replay compile_commands.json outside CMake's environment.
     config.define("CMAKE_C_COMPILER", &cc);
@@ -201,9 +205,27 @@ fn configure_macos(config: &mut Config) -> Result<(), String> {
 }
 
 fn build_and_link_mlx_c() {
+    println!("cargo:rerun-if-env-changed=MLX_SYS_PREBUILT");
+    let prebuilt = env::var_os("MLX_SYS_PREBUILT").filter(|value| !value.is_empty());
+    if let Some(prefix) = &prebuilt {
+        assert!(
+            Path::new(prefix).is_absolute(),
+            "MLX_SYS_PREBUILT must be an absolute path: {}",
+            Path::new(prefix).display()
+        );
+    }
+    if prebuilt.is_some() && !cfg!(feature = "metal") {
+        panic!("MLX_SYS_PREBUILT requires the metal feature; the prebuilt MLX has Metal enabled");
+    }
+    if prebuilt.is_some() && cfg!(feature = "metal-jit") {
+        panic!(
+            "MLX_SYS_PREBUILT does not support metal-jit; the prebuilt MLX uses compiled kernels"
+        );
+    }
     let mlx_c_root = Path::new("src/mlx-c");
     let mut config = Config::new(mlx_c_root);
     config.very_verbose(true);
+    config.out_dir(native_out_dir(prebuilt.is_some()));
     config.define("CMAKE_INSTALL_PREFIX", ".");
     config.define("CMAKE_EXPORT_COMPILE_COMMANDS", "ON");
 
@@ -211,7 +233,7 @@ fn build_and_link_mlx_c() {
     config.define("CMAKE_C_COMPILER", "/usr/bin/cc");
     config.define("CMAKE_CXX_COMPILER", "/usr/bin/c++");
     if system_sdk_enabled() {
-        if let Err(error) = configure_macos(&mut config) {
+        if let Err(error) = configure_macos(&mut config, prebuilt.is_some()) {
             eprintln!("mlx-sys: cannot configure the system SDK: {error}");
             std::process::exit(1);
         }
@@ -225,6 +247,11 @@ fn build_and_link_mlx_c() {
     #[cfg(not(debug_assertions))]
     {
         config.define("CMAKE_BUILD_TYPE", "Release");
+    }
+
+    if let Some(prefix) = prebuilt {
+        link_prebuilt_mlx(config, Path::new(&prefix), mlx_c_root);
+        return;
     }
 
     config.define("MLX_BUILD_METAL", "OFF");
@@ -315,19 +342,115 @@ fn publish_native_sources(dst: &Path, mlx_c_root: &Path) {
         dst.join("build/compile_commands.json").display()
     );
     println!("cargo::metadata=metal={}", cfg!(feature = "metal"));
-    let version = fs::read_to_string(mlx_c_root.join("CMakeLists.txt"))
-        .ok()
-        .and_then(|cmake| {
-            cmake.lines().find_map(|line| {
-                let tag = line.trim().strip_prefix("GIT_TAG v")?;
-                tag.split(|c: char| c == ')' || c.is_whitespace())
-                    .next()
-                    .map(str::to_owned)
-            })
-        });
-    if let Some(version) = version {
+    if let Some(version) = pinned_mlx_version(mlx_c_root) {
         println!("cargo::metadata=version={version}");
     }
+}
+
+fn pinned_mlx_version(mlx_c_root: &Path) -> Option<String> {
+    let cmake = fs::read_to_string(mlx_c_root.join("CMakeLists.txt")).ok()?;
+    cmake.lines().find_map(|line| {
+        let tag = line.trim().strip_prefix("GIT_TAG v")?;
+        tag.split(|c: char| c == ')' || c.is_whitespace())
+            .next()
+            .map(str::to_owned)
+    })
+}
+
+fn link_prebuilt_mlx(mut config: Config, prefix: &Path, mlx_c_root: &Path) {
+    let resolved = prefix.canonicalize().unwrap_or_else(|error| {
+        panic!(
+            "MLX_SYS_PREBUILT: cannot resolve {}: {error}",
+            prefix.display()
+        )
+    });
+    let lib_dir = prefix.join("lib");
+    for file in ["libmlx.dylib", "mlx.metallib"] {
+        assert!(
+            lib_dir.join(file).is_file(),
+            "MLX_SYS_PREBUILT: no {file} in {}",
+            lib_dir.display()
+        );
+    }
+    let cmake_dir = prefix.join("share").join("cmake").join("MLX");
+    let version = prebuilt_version(&cmake_dir)
+        .expect("MLX_SYS_PREBUILT: cannot read the MLX version from MLXConfigVersion.cmake");
+    let pinned = pinned_mlx_version(mlx_c_root)
+        .expect("MLX_SYS_PREBUILT: cannot read the MLX version pinned by mlx-c");
+    assert_eq!(
+        version, pinned,
+        "MLX_SYS_PREBUILT holds MLX {version}, but mlx-c requires MLX {pinned}"
+    );
+    for file in [
+        "lib/libmlx.dylib",
+        "lib/libjaccl.dylib",
+        "lib/mlx.metallib",
+        "include/mlx/version.h",
+        "share/cmake/MLX/MLXConfig.cmake",
+        "share/cmake/MLX/MLXConfigVersion.cmake",
+        "share/cmake/MLX/MLXTargets.cmake",
+        "share/cmake/MLX/MLXTargets-release.cmake",
+    ] {
+        let path = prefix.join(file);
+        if path.is_file() {
+            println!("cargo:rerun-if-changed={}", path.display());
+        }
+    }
+    // Wheel upgrades remove the old metadata even when library mtimes are preserved.
+    let metadata = prefix
+        .join("..")
+        .join(format!("mlx_metal-{version}.dist-info"));
+    for file in ["METADATA", "RECORD"] {
+        let path = metadata.join(file);
+        if path.is_file() {
+            println!("cargo:rerun-if-changed={}", path.display());
+        }
+    }
+    println!(
+        "cargo:rerun-if-changed={}",
+        mlx_c_root.join("CMakeLists.txt").display()
+    );
+    let prefix = resolved;
+    let lib_dir = prefix.join("lib");
+    let cmake_dir = prefix.join("share/cmake/MLX");
+    config.define("MLX_C_USE_SYSTEM_MLX", "ON");
+    config.define("MLX_DIR", &cmake_dir);
+    let dst = config.build();
+
+    let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+    let include = [
+        Some(prefix.join("include")),
+        cfg!(feature = "metal").then(|| prefix.join("include").join("metal_cpp")),
+        Some(manifest.join(mlx_c_root)),
+    ];
+    let include = env::join_paths(include.into_iter().flatten())
+        .expect("MLX include directories must not contain the path-list separator");
+    println!("cargo::metadata=include={}", include.display());
+    println!("cargo::metadata=defines=");
+    println!("cargo::metadata=metal=true");
+    println!("cargo::metadata=version={version}");
+    // Dependents must add their own rpath for the wheel's @rpath/libmlx.dylib.
+    println!("cargo::metadata=lib_dir={}", lib_dir.display());
+
+    println!("cargo:rustc-link-search=native={}/build/lib", dst.display());
+    println!("cargo:rustc-link-search=native={}", lib_dir.display());
+    println!("cargo:rustc-link-lib=static=mlxc");
+    println!("cargo:rustc-link-lib=dylib=mlx");
+    println!("cargo:rustc-link-lib=c++");
+    println!("cargo:rustc-link-lib=dylib=objc");
+    println!("cargo:rustc-link-lib=framework=Foundation");
+    if let Some(clang_rt_path) = native_link::find_clang_rt_path() {
+        println!("cargo:rustc-link-search={}", clang_rt_path);
+        println!("cargo:rustc-link-lib=static=clang_rt.osx");
+    }
+}
+
+fn prebuilt_version(cmake_dir: &Path) -> Option<String> {
+    let text = fs::read_to_string(cmake_dir.join("MLXConfigVersion.cmake")).ok()?;
+    text.lines().find_map(|line| {
+        let rest = line.trim().strip_prefix("set(PACKAGE_VERSION \"")?;
+        rest.split('"').next().map(str::to_owned)
+    })
 }
 
 fn main() {
