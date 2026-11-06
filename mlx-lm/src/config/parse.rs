@@ -5,6 +5,12 @@ use serde_json::Value;
 impl RawConfig {
     pub(crate) fn resolve(&self) -> Result<Config, ConfigError> {
         crate::arch::factory(&self.model_type)?;
+        if matches!(
+            self.model_type.as_str(),
+            "gemma4" | "gemma4_text" | "gemma4_unified"
+        ) {
+            return Ok(crate::arch::gemma4::parse_config(self)?.config);
+        }
         let quantization = self
             .fields
             .get("quantization")
