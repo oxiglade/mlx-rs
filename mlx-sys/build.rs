@@ -11,7 +11,15 @@ use std::{
 mod bindgen_config;
 
 #[path = "src/native_link.rs"]
+// CUDA builds link shared libraries, not the static archive list.
+#[cfg_attr(feature = "cuda", allow(dead_code))]
 mod native_link;
+
+#[cfg(all(feature = "cuda", any(feature = "metal", feature = "accelerate")))]
+compile_error!(
+    "mlx-sys: `cuda` cannot be combined with `metal` or `accelerate`; \
+     use `default-features = false, features = [\"cuda\"]`"
+);
 
 #[cfg(feature = "metal")]
 fn mlx_c_key(mlx_c_root: &Path) -> String {
@@ -76,6 +84,95 @@ fn configure_metallib(config: &mut Config, mlx_c_root: &Path) {
         "MLX_RS_METAL_BASE",
         PathBuf::from(home).join(".mlx").join("lib").join(key),
     );
+}
+
+/// `CUDA_HOME` or `CUDA_PATH`, with the variable's name.
+#[cfg(feature = "cuda")]
+fn cuda_root() -> Option<(&'static str, PathBuf)> {
+    ["CUDA_HOME", "CUDA_PATH"]
+        .into_iter()
+        .find_map(|name| env::var_os(name).map(|root| (name, PathBuf::from(root))))
+}
+
+/// The toolkit's nvcc from `CUDA_HOME` or `CUDA_PATH` when set, else `PATH`, else the default
+/// toolkit location.
+#[cfg(feature = "cuda")]
+fn find_nvcc() -> Result<PathBuf, String> {
+    if let Some((name, root)) = cuda_root() {
+        let nvcc = root.join("bin").join("nvcc");
+        return nvcc
+            .is_file()
+            .then_some(nvcc)
+            .ok_or_else(|| format!("{name}={} has no bin/nvcc", root.display()));
+    }
+    env::split_paths(&env::var_os("PATH").unwrap_or_default())
+        .chain([PathBuf::from("/usr/local/cuda/bin")])
+        .map(|dir| dir.join("nvcc"))
+        .find(|nvcc| nvcc.is_file())
+        .ok_or_else(|| "nvcc not found; install the CUDA toolkit or set CUDA_HOME".to_owned())
+}
+
+/// Settings shared by the CUDA source and prebuilt builds of mlx-c.
+#[cfg(feature = "cuda")]
+fn configure_mlx_c_cuda(config: &mut Config) -> Result<(), String> {
+    if env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("linux") {
+        return Err(format!(
+            "MLX's CUDA backend builds only for Linux targets, not {}",
+            env::var("TARGET").unwrap_or_default()
+        ));
+    }
+    config.define("MLX_C_BUILD_EXAMPLES", "OFF");
+    // mlx-c declares float16/bfloat16 functions only on aarch64.
+    let canonical = |path: &str| {
+        Path::new(path)
+            .canonicalize()
+            .map_err(|e| format!("cannot locate {path}: {e}"))
+    };
+    config.define("CMAKE_PROJECT_mlx.data_INCLUDE", canonical("cuda.cmake")?);
+    config.define("MLX_SYS_CUDA_HALF", canonical("src/cuda_half.h")?);
+    Ok(())
+}
+
+#[cfg(feature = "cuda")]
+fn configure_cuda(config: &mut Config) -> Result<(), String> {
+    configure_mlx_c_cuda(config)?;
+    config.define("MLX_BUILD_CUDA", "ON");
+    config.define("CMAKE_CUDA_COMPILER", find_nvcc()?);
+    // Unset: MLX queries the GPU of the build machine.
+    if let Some(architectures) = env::var_os("MLX_CUDA_ARCHITECTURES").filter(|a| !a.is_empty()) {
+        config.define("MLX_CUDA_ARCHITECTURES", architectures);
+    }
+    // Shared libmlx carries its CUDA, cuDNN and BLAS dependencies, and finds its JIT headers
+    // in the include directory beside its lib directory (both under build/).
+    config.define("BUILD_SHARED_LIBS", "ON");
+    config.define("CMAKE_INSTALL_LIBDIR", "lib");
+    config.define("CMAKE_INSTALL_RPATH", "$ORIGIN");
+    config.define("CMAKE_INSTALL_RPATH_USE_LINK_PATH", "ON");
+    Ok(())
+}
+
+/// A prebuilt CUDA MLX: mlx-c is built against it, statically, as with Metal.
+#[cfg(feature = "cuda")]
+fn configure_cuda_prebuilt(config: &mut Config) -> Result<(), String> {
+    configure_mlx_c_cuda(config)?;
+    // MLXConfig.cmake finds the CUDA toolkit and cuDNN that libmlx links.
+    if let Some((_, root)) = cuda_root() {
+        config.define("CUDAToolkit_ROOT", root);
+    }
+    config.define("CMAKE_POSITION_INDEPENDENT_CODE", "ON");
+    Ok(())
+}
+
+/// CUDA source builds link the installed shared libraries (`build/lib`).
+#[cfg(feature = "cuda")]
+fn link_shared(dst: &Path) {
+    let lib = dst.join("build").join("lib");
+    println!("cargo:rustc-link-search=native={}", lib.display());
+    println!("cargo:rustc-link-lib=dylib=mlxc");
+    println!("cargo:rustc-link-lib=dylib=mlx");
+    // Cargo applies link args to this crate's tests and examples only; dependents use DEP_MLX_LIB_DIR.
+    println!("cargo:rustc-link-arg=-Wl,-rpath,{}", lib.display());
+    println!("cargo::metadata=lib_dir={}", lib.display());
 }
 
 fn system_sdk_enabled() -> bool {
@@ -214,8 +311,10 @@ fn build_and_link_mlx_c() {
             Path::new(prefix).display()
         );
     }
-    if prebuilt.is_some() && !cfg!(feature = "metal") {
-        panic!("MLX_SYS_PREBUILT requires the metal feature; the prebuilt MLX has Metal enabled");
+    if prebuilt.is_some() && !cfg!(any(feature = "metal", feature = "cuda")) {
+        panic!(
+            "MLX_SYS_PREBUILT requires the metal or cuda feature, matching the prebuilt MLX's backend"
+        );
     }
     if prebuilt.is_some() && cfg!(feature = "metal-jit") {
         panic!(
@@ -270,11 +369,24 @@ fn build_and_link_mlx_c() {
         config.define("MLX_BUILD_ACCELERATE", "ON");
     }
 
+    #[cfg(feature = "cuda")]
+    if let Err(error) = configure_cuda(&mut config) {
+        eprintln!("mlx-sys: cannot configure the CUDA build: {error}");
+        std::process::exit(1);
+    }
+
     // build the mlx-c project
     let dst = config.build();
 
     publish_native_sources(&dst, mlx_c_root);
+    #[cfg(feature = "cuda")]
+    link_shared(&dst);
+    #[cfg(not(feature = "cuda"))]
+    link_static(&dst);
+}
 
+#[cfg(not(feature = "cuda"))]
+fn link_static(dst: &Path) {
     println!("cargo:rustc-link-search=native={}/build/lib", dst.display());
     // mlx's GGUF io depends on the vendored gguflib archive, which cmake leaves
     // in the mlx build tree instead of installing next to libmlx.
@@ -336,7 +448,13 @@ fn publish_native_sources(dst: &Path, mlx_c_root: &Path) {
     let include = env::join_paths(include.into_iter().flatten())
         .expect("MLX include directories must not contain the path-list separator");
     println!("cargo::metadata=include={}", include.display());
-    println!("cargo::metadata=defines=MLX_STATIC");
+    // CUDA builds a shared libmlx.
+    let defines = if cfg!(feature = "cuda") {
+        ""
+    } else {
+        "MLX_STATIC"
+    };
+    println!("cargo::metadata=defines={defines}");
     println!(
         "cargo::metadata=compile_commands={}",
         dst.join("build/compile_commands.json").display()
@@ -365,7 +483,12 @@ fn link_prebuilt_mlx(mut config: Config, prefix: &Path, mlx_c_root: &Path) {
         )
     });
     let lib_dir = prefix.join("lib");
-    for file in ["libmlx.dylib", "mlx.metallib"] {
+    let required: &[&str] = if cfg!(feature = "cuda") {
+        &["libmlx.so"]
+    } else {
+        &["libmlx.dylib", "mlx.metallib"]
+    };
+    for &file in required {
         assert!(
             lib_dir.join(file).is_file(),
             "MLX_SYS_PREBUILT: no {file} in {}",
@@ -381,7 +504,14 @@ fn link_prebuilt_mlx(mut config: Config, prefix: &Path, mlx_c_root: &Path) {
         version, pinned,
         "MLX_SYS_PREBUILT holds MLX {version}, but mlx-c requires MLX {pinned}"
     );
+    #[cfg(feature = "cuda")]
+    assert!(
+        prebuilt_has_cuda(&cmake_dir),
+        "MLX_SYS_PREBUILT: the MLX in {} was built without CUDA",
+        prefix.display()
+    );
     for file in [
+        "lib/libmlx.so",
         "lib/libmlx.dylib",
         "lib/libjaccl.dylib",
         "lib/mlx.metallib",
@@ -415,6 +545,11 @@ fn link_prebuilt_mlx(mut config: Config, prefix: &Path, mlx_c_root: &Path) {
     let cmake_dir = prefix.join("share/cmake/MLX");
     config.define("MLX_C_USE_SYSTEM_MLX", "ON");
     config.define("MLX_DIR", &cmake_dir);
+    #[cfg(feature = "cuda")]
+    if let Err(error) = configure_cuda_prebuilt(&mut config) {
+        eprintln!("mlx-sys: cannot configure the CUDA build: {error}");
+        std::process::exit(1);
+    }
     let dst = config.build();
 
     let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
@@ -427,15 +562,19 @@ fn link_prebuilt_mlx(mut config: Config, prefix: &Path, mlx_c_root: &Path) {
         .expect("MLX include directories must not contain the path-list separator");
     println!("cargo::metadata=include={}", include.display());
     println!("cargo::metadata=defines=");
-    println!("cargo::metadata=metal=true");
+    println!("cargo::metadata=metal={}", cfg!(feature = "metal"));
     println!("cargo::metadata=version={version}");
-    // Dependents must add their own rpath for the wheel's @rpath/libmlx.dylib.
+    // Dependents must add their own rpath for libmlx (the wheel's @rpath/libmlx.dylib).
     println!("cargo::metadata=lib_dir={}", lib_dir.display());
 
     println!("cargo:rustc-link-search=native={}/build/lib", dst.display());
     println!("cargo:rustc-link-search=native={}", lib_dir.display());
     println!("cargo:rustc-link-lib=static=mlxc");
     println!("cargo:rustc-link-lib=dylib=mlx");
+    if cfg!(feature = "cuda") {
+        println!("cargo:rustc-link-lib=stdc++");
+        return;
+    }
     println!("cargo:rustc-link-lib=c++");
     println!("cargo:rustc-link-lib=dylib=objc");
     println!("cargo:rustc-link-lib=framework=Foundation");
@@ -443,6 +582,18 @@ fn link_prebuilt_mlx(mut config: Config, prefix: &Path, mlx_c_root: &Path) {
         println!("cargo:rustc-link-search={}", clang_rt_path);
         println!("cargo:rustc-link-lib=static=clang_rt.osx");
     }
+}
+
+/// MLXConfig.cmake finds the CUDA toolkit only when MLX was built with `MLX_BUILD_CUDA`.
+#[cfg(feature = "cuda")]
+fn prebuilt_has_cuda(cmake_dir: &Path) -> bool {
+    let Ok(text) = fs::read_to_string(cmake_dir.join("MLXConfig.cmake")) else {
+        return false;
+    };
+    let lines: Vec<&str> = text.lines().map(str::trim).collect();
+    lines
+        .windows(2)
+        .any(|pair| pair[0] == "if(ON)" && pair[1].starts_with("find_dependency(CUDAToolkit"))
 }
 
 fn prebuilt_version(cmake_dir: &Path) -> Option<String> {
@@ -458,6 +609,14 @@ fn main() {
     println!("cargo:rerun-if-changed=native-libraries.txt");
     println!("cargo:rerun-if-changed=metallib.cmake");
     println!("cargo:rerun-if-changed=src/native_link.rs");
+    #[cfg(feature = "cuda")]
+    {
+        println!("cargo:rerun-if-changed=cuda.cmake");
+        println!("cargo:rerun-if-changed=src/cuda_half.h");
+        for var in ["MLX_CUDA_ARCHITECTURES", "CUDA_HOME", "CUDA_PATH"] {
+            println!("cargo:rerun-if-env-changed={var}");
+        }
+    }
     build_and_link_mlx_c();
 
     let mlx_c_root = PathBuf::from("src/mlx-c");
@@ -471,7 +630,10 @@ fn main() {
             mlx_c_root.join(relative).display()
         );
     }
-    let bindings = bindgen_config::builder(&mlx_c_root, &headers)
+    let builder = bindgen_config::builder(&mlx_c_root, &headers);
+    #[cfg(feature = "cuda")]
+    let builder = builder.clang_args(["-include", "src/cuda_half.h"]);
+    let bindings = builder
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .generate()
         .expect("Unable to generate bindings");
