@@ -9,6 +9,7 @@ authors.workspace = true
 default = ["accelerate", "metal"]
 accelerate = ["mlx-rs/accelerate", "mlx-sys/accelerate"]
 metal = ["mlx-rs/metal", "mlx-sys/metal"]
+cuda = ["mlx-rs/cuda", "mlx-sys/cuda"]
 
 [dependencies]
 

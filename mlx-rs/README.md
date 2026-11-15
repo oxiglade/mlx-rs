@@ -69,6 +69,8 @@ Use a [prebuilt MLX](../mlx-sys/README.md#a-prebuilt-mlx) to build with Command 
 
 * `metal` - enables metal (GPU) usage in MLX
 * `accelerate` - enables using the accelerate framework in MLX
+* `cuda` - enables MLX's CUDA backend (NVIDIA GPUs on Linux) and `fast::CudaKernel`; use with
+  `default-features = false`. See [mlx-sys CUDA](../mlx-sys/README.md#cuda-linux)
 
 ## Important Notes on Automatic Differentiation
 

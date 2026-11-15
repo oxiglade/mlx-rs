@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+Added
+
+- `fast::CudaKernel`: build and run custom CUDA kernels from source (the Rust
+  counterpart of `mx.fast.cuda_kernel`), with `CudaKernelOptions`, `CudaKernelOutput`
+  and `CudaKernelApplyOptions`, sharing `TemplateArg` with `MetalKernel`. Like
+  `MetalKernel::apply`, `apply` is unsafe, defaults to the GPU outside execution scopes,
+  and leaves input layouts unchanged unless `ensure_row_contiguous` is enabled.
+- The `cuda` feature builds `mlx-sys` with MLX's CUDA backend on Linux; use it with
+  `default-features = false` (#312).
+
 ## 0.34.0
 
 This release stays on MLX 0.32.2. `Array` is no longer `Send` and `Device::set_default`

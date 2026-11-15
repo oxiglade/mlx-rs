@@ -49,6 +49,8 @@ assert_not_impl_any!(GgufFile: Clone, Send, Sync);
 assert_not_impl_any!(transforms::Function: Clone, Send, Sync);
 #[cfg(feature = "metal")]
 assert_not_impl_any!(fast::MetalKernel: Clone, Send, Sync);
+#[cfg(feature = "cuda")]
+assert_not_impl_any!(fast::CudaKernel: Clone, Send, Sync);
 
 fn gguf_fixture() -> (tempfile::TempDir, std::path::PathBuf) {
     let directory = tempfile::tempdir().unwrap();
