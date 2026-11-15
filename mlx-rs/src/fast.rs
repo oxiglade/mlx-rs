@@ -8,11 +8,19 @@ use crate::utils::IntoOption;
 use crate::{Array, Stream};
 use mlx_internal_macros::generate_macro;
 
+#[cfg(feature = "cuda")]
+mod cuda_kernel;
+#[cfg(any(feature = "metal", feature = "cuda"))]
+mod custom_kernel;
 #[cfg(feature = "metal")]
 mod metal_kernel;
+#[cfg(feature = "cuda")]
+pub use cuda_kernel::{CudaKernel, CudaKernelApplyOptions, CudaKernelOptions, CudaKernelOutput};
+#[cfg(any(feature = "metal", feature = "cuda"))]
+pub use custom_kernel::TemplateArg;
 #[cfg(feature = "metal")]
 pub use metal_kernel::{
-    MetalKernel, MetalKernelApplyOptions, MetalKernelOptions, MetalKernelOutput, TemplateArg,
+    MetalKernel, MetalKernelApplyOptions, MetalKernelOptions, MetalKernelOutput,
 };
 
 /// Optimized implementation of `NN.RoPE`.

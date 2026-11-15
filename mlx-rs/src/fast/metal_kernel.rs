@@ -1,22 +1,8 @@
-use std::ffi::CString;
-
-use crate::error::{Exception, Result};
+use crate::error::Result;
 use crate::utils::{guard::Guarded, SUCCESS};
 use crate::{Array, Dtype, Stream};
 
-/// A compile-time template parameter for a [`MetalKernel`].
-///
-/// Each argument is emitted as a template parameter of the generated `[[kernel]]` function, so
-/// the kernel source can refer to it by name (for example `T`, `N` or `USE_BIAS`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TemplateArg {
-    /// A type parameter, emitted as the matching Metal type (for example `float`).
-    Dtype(Dtype),
-    /// An `int` parameter.
-    Int(i32),
-    /// A `bool` parameter.
-    Bool(bool),
-}
+use super::custom_kernel::{c_string, StringVector, TemplateArg};
 
 /// Construction options for [`MetalKernel::new`].
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -283,40 +269,6 @@ impl Drop for KernelConfig {
     fn drop(&mut self) {
         unsafe { mlx_sys::mlx_fast_metal_kernel_config_free(self.raw) };
     }
-}
-
-struct StringVector {
-    raw: mlx_sys::mlx_vector_string,
-}
-
-impl StringVector {
-    fn new(values: &[&str]) -> Result<Self> {
-        let owned = values
-            .iter()
-            .map(|value| c_string(value))
-            .collect::<Result<Vec<_>>>()?;
-        let mut pointers: Vec<_> = owned.iter().map(|value| value.as_ptr()).collect();
-        // mlx-c copies each string into the vector, so `owned` only needs to outlive this call.
-        let raw =
-            unsafe { mlx_sys::mlx_vector_string_new_data(pointers.as_mut_ptr(), pointers.len()) };
-        if raw.ctx.is_null() {
-            return Err(crate::error::exception_from_status(
-                SUCCESS + 1,
-                "creating an MLX string vector",
-            ));
-        }
-        Ok(Self { raw })
-    }
-}
-
-impl Drop for StringVector {
-    fn drop(&mut self) {
-        let _ = unsafe { mlx_sys::mlx_vector_string_free(self.raw) };
-    }
-}
-
-fn c_string(value: &str) -> Result<CString> {
-    CString::new(value).map_err(|error| Exception::custom(error.to_string()))
 }
 
 #[cfg(test)]
