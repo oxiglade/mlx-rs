@@ -256,6 +256,8 @@ static NEXT_COMPILE_ID: AtomicUsize = AtomicUsize::new(1);
 
 impl<F> CompiledState<F> {
     fn new(f: F, shapeless: bool) -> Self {
+        // MLX keys traces on the default stream, even before the first traced op uses it.
+        crate::Stream::new();
         Self {
             f,
             shapeless,
