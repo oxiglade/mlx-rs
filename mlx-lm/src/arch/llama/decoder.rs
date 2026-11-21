@@ -115,7 +115,7 @@ impl Matrix {
                     })?
                     / 32;
                 let dtype = float_dtype(weights, &scales_key)?;
-                let shape = [output, input / options.group_size.get()];
+                let shape = [output, input / options.group_size];
                 (
                     slot(weights, &weight_key, &[output, packed_width], Dtype::Uint32)?,
                     Some((
