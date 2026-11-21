@@ -1,0 +1,19 @@
+--- a/mlx/backend/metal/device.cpp
++++ b/mlx/backend/metal/device.cpp
+@@ -1,6 +1,7 @@
+ // Copyright © 2023-2024 Apple Inc.
+ 
+ #include <cstdlib>
++#include <pthread.h>
+ #include <sstream>
+ 
+ #include <fmt/format.h>
+@@ -957,7 +958,7 @@
+ }
+ 
+ std::unordered_map<int, CommandEncoder>& get_command_encoders() {
+-  if (is_main_thread()) {
++  if (pthread_main_np()) {
+     static auto* encoders = new std::unordered_map<int, CommandEncoder>();
+     return *encoders;
+   } else {
