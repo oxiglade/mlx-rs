@@ -456,7 +456,7 @@ pub fn run_matrix(manifest: &Value) -> Result<()> {
     ensure!(
         report["environment"] == manifest["python_environment"]
             && report["environment"]["mlx_lm"] == "0.31.3"
-            && report["environment"]["mlx"] == "0.32.2",
+            && report["environment"]["mlx"] == "0.32.4",
         "Python oracle pin mismatch"
     );
     run_every_case(

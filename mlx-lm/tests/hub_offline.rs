@@ -95,7 +95,7 @@ impl OfflineEnvironment {
         absent.sort();
         let files: Vec<_> = names.into_iter().map(|name| {
             let bytes = fs::read(snapshot.join(name)).unwrap();
-            serde_json::json!({"path":name,"size":bytes.len(),"sha256":format!("{:x}", Sha256::digest(bytes))})
+            serde_json::json!({"path":name,"size":bytes.len(),"sha256":hex::encode(Sha256::digest(bytes))})
         }).collect();
         let receipt = serde_json::json!({
             "schema_version":1,"repo":REPO,"commit":SHA,

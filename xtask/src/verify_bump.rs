@@ -5,9 +5,9 @@ use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 
-const OLD_COMMIT: &str = "c74db5307cc8ce122f48d97ef951b30578674e7f";
-const TARGET_COMMIT: &str = "a341b4925024b88b2c593468f16e12f5e17315da";
-const TARGET_MLX: &str = "0.32.2";
+const OLD_COMMIT: &str = "a341b4925024b88b2c593468f16e12f5e17315da";
+const TARGET_COMMIT: &str = "a26f2d584a14ec619ae8db9a09be03becd47598a";
+const TARGET_MLX: &str = "0.32.4";
 const ALLOWED_REPLAY_VERDICTS: &[&str] = &[
     "identical",
     "value_changed",

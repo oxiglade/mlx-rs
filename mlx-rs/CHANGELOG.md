@@ -9,6 +9,8 @@ indexing.
 
 Breaking
 
+- Update `mlx-sys` to 0.8.0: mlx-c `a26f2d58` (v0.8.0), MLX 0.32.4. Direct
+  `mlx-sys` callers of distributed rank/size or `mlx_gather_qmm` need changes.
 - `Device::set_default` is unsafe and returns `Result<()>`. Use `with_device` or
   `with_stream` for safe device selection (#437).
 - `Array` is no longer `Send`. MLX doesn't synchronize lazy graph state across

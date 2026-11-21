@@ -457,6 +457,7 @@ fn main() {
     println!("cargo:rerun-if-env-changed=MLX_RS_METAL_PATH");
     println!("cargo:rerun-if-changed=native-libraries.txt");
     println!("cargo:rerun-if-changed=metallib.cmake");
+    println!("cargo:rerun-if-changed=metal-worker-encoders.patch");
     println!("cargo:rerun-if-changed=src/native_link.rs");
     build_and_link_mlx_c();
 

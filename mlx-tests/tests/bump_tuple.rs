@@ -3,14 +3,14 @@ use std::ffi::CStr;
 use mlx_rs::{linalg::inv, with_stream, Array, Stream};
 
 #[test]
-fn linked_mlx_runtime_is_0_32_2() {
+fn linked_mlx_runtime_is_0_32_4() {
     unsafe {
         let mut version = mlx_sys::mlx_string_new();
         assert_eq!(mlx_sys::mlx_version(&mut version), 0);
         let version_text = CStr::from_ptr(mlx_sys::mlx_string_data(version))
             .to_str()
             .unwrap();
-        assert_eq!(version_text, "0.32.2");
+        assert_eq!(version_text, "0.32.4");
         assert_eq!(mlx_sys::mlx_string_free(version), 0);
     }
 }

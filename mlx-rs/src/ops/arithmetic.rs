@@ -2840,11 +2840,13 @@ mod tests {
 
     #[test]
     fn test_floor_divide_complex64() {
-        let val = complex64::new(1.0, 2.0);
-        let a = Array::from_complex(val);
-        let b = Array::from_slice(&[4.0, 5.0, 6.0], &[3]);
-        let c = a.floor_divide(&b);
-        assert!(c.is_err());
+        let a = Array::from_complex(complex64::new(-7.0, 5.0));
+        let b = Array::from_slice(&[2.0, -2.0], &[2]);
+        let c = a.floor_divide(&b).unwrap();
+        assert_eq!(
+            c.as_slice::<complex64>(),
+            &[complex64::new(-3.5, 2.5), complex64::new(3.5, -2.5)]
+        );
     }
 
     #[test]

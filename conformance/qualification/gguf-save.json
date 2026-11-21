@@ -4,7 +4,7 @@
   "artifact_sha256": null,
   "producer_revision": null,
   "python": "3.12.14",
-  "mlx": "0.32.2",
+  "mlx": "0.32.4",
   "compared_fields": [
     "array_keys",
     "metadata_kinds",

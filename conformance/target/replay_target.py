@@ -18,7 +18,7 @@ from pathlib import Path
 
 EXPECTED_PYTHON = (3, 12, 14)
 EXPECTED_ARCH = "arm64"
-EXPECTED_MLX = "0.32.2"
+EXPECTED_MLX = "0.32.4"
 EXPECTED_NUMPY = "2.2.6"
 TARGET = Path(__file__).resolve().parent
 CONFORMANCE = TARGET.parent
@@ -424,7 +424,7 @@ def check_environment():
     return mx, {
         "python": platform.python_version(),
         "architecture": platform.machine(),
-        "venv": "pinned",
+        "venv": "requirements.lock",
         **versions,
         "mlx_runtime": runtime,
         "device": "cpu",

@@ -76,7 +76,7 @@ impl CaseCache {
         for name in case["selected_files"].as_array().unwrap() {
             let name = name.as_str().unwrap();
             let bytes = fs::read(fixture(string(case, "fixture"), name)).unwrap();
-            let blob = cache.blobs.join(format!("{:x}", Sha256::digest(&bytes)));
+            let blob = cache.blobs.join(hex::encode(Sha256::digest(&bytes)));
             fs::write(&blob, bytes).unwrap();
             let path = cache.snapshot.join(name);
             fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -99,7 +99,7 @@ impl CaseCache {
                     identity["path"]
                 );
                 assert_eq!(
-                    json!(format!("{:x}", Sha256::digest(&bytes))),
+                    json!(hex::encode(Sha256::digest(&bytes))),
                     identity["sha256"],
                     "setup hash: {}",
                     identity["path"]

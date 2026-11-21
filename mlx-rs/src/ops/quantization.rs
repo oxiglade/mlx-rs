@@ -442,6 +442,7 @@ pub fn gather_qmm<'b>(
                 group_size,
                 bits,
                 options.mode.as_c_str().as_ptr(),
+                absent.as_ptr(),
                 sorted,
                 stream.as_ref().as_ptr(),
             )

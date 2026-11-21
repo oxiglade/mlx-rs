@@ -284,7 +284,7 @@ impl CacheLayout {
         Ok(FileIdentity {
             path: name.into(),
             size,
-            sha256: format!("{:x}", digest.finalize()),
+            sha256: hex::encode(digest.finalize()),
         })
     }
 

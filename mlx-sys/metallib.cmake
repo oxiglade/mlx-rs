@@ -1,4 +1,18 @@
 # project(mlx) runs after CMake loads the cache and any toolchain file.
+# Remove when the native pin includes ml-explore/mlx#4936.
+set(patch "${CMAKE_CURRENT_LIST_DIR}/metal-worker-encoders.patch")
+execute_process(COMMAND git apply --reverse --check "${patch}"
+                WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+                RESULT_VARIABLE needs_patch ERROR_QUIET)
+if(needs_patch)
+  if(FETCHCONTENT_SOURCE_DIR_MLX)
+    message(FATAL_ERROR "Apply ${patch} to the supplied MLX source tree first")
+  endif()
+  execute_process(COMMAND git apply "${patch}"
+                  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+                  COMMAND_ERROR_IS_FATAL ANY)
+endif()
+
 if(MLX_RS_METAL_BASE)
   set(target "${CMAKE_OSX_DEPLOYMENT_TARGET}")
   if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND target STREQUAL "")

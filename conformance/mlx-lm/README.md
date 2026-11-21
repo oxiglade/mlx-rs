@@ -1,6 +1,6 @@
 # Python mlx-lm oracle
 
-This oracle pins `mlx-lm==0.31.3` on MLX 0.32.2, Python 3.12.14, and macOS arm64.
+This oracle pins `mlx-lm==0.31.3` on MLX 0.32.4, Python 3.12.14, and macOS arm64.
 The interface is [SCHEMA.md](SCHEMA.md). Generation uses Python `mlx_lm` on CPU and
 does not read or execute Rust code or Cargo artifacts. MLX still requires an
 available Metal device during initialization on this macOS wheel.
@@ -440,7 +440,7 @@ Before running, write `$T4_RUN/context.json` with the actual build identities:
 ```json
 {
   "native_mlx": {
-    "version": "0.32.2",
+    "version": "0.32.4",
     "rust_source_commit": "FULL_NATIVE_MLX_COMMIT",
     "python_source_commit": "SAME_FULL_NATIVE_MLX_COMMIT",
     "rust_build": "path and identity of the native Rust-side build",

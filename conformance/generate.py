@@ -12,7 +12,7 @@ from pathlib import Path
 
 EXPECTED_PYTHON = (3, 12, 14)
 EXPECTED_ARCH = "arm64"
-EXPECTED_MLX = "0.32.2"
+EXPECTED_MLX = "0.32.4"
 EXPECTED_NUMPY = "2.2.6"
 CORPUS_SEED = "mlx-rs-committed-cpu-ops-v1"
 OP_SUITES = ("arithmetic", "dtypes", "errors", "execution", "fast", "indexing", "math", "quantization", "reductions", "shapes", "signal")
@@ -1237,7 +1237,7 @@ def generate_gguf(target, mx, np):
         "artifact_sha256": None,
         "producer_revision": None,
         "python": "3.12.14",
-        "mlx": "0.32.2",
+        "mlx": EXPECTED_MLX,
         "compared_fields": ["array_keys", "metadata_kinds", "dtypes", "shapes", "values"],
         "verdict": "pending",
     }

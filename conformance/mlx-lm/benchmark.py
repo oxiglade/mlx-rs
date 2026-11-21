@@ -188,7 +188,7 @@ def command_output(command):
 def run_context(path, runner):
     context = json.loads(path.read_text())
     native = context["native_mlx"]
-    if (native["version"] != "0.32.2" or not real.full_revision(native["rust_source_commit"]) or
+    if (native["version"] != "0.32.4" or not real.full_revision(native["rust_source_commit"]) or
             native["rust_source_commit"] != native["python_source_commit"]):
         raise ValueError("same pinned native MLX version/source commit required")
     for key in ("rust_build", "python_build"):

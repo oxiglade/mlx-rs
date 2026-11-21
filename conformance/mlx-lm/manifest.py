@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 UPSTREAM_COMMIT = "ed1fca4cef15a824c5f1702c80f70b4cffc8e4dd"
-EXPECTED = {"mlx-lm": "0.31.3", "mlx": "0.32.2", "mlx-metal": "0.32.2", "numpy": "2.2.6"}
+EXPECTED = {"mlx-lm": "0.31.3", "mlx": "0.32.4", "mlx-metal": "0.32.4", "numpy": "2.2.6"}
 
 
 def normalize(name):

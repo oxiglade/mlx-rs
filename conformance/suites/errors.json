@@ -107,7 +107,7 @@
         "reason": "take axis exceeds input rank",
         "python_exception": {
           "module": "builtins",
-          "type": "ValueError"
+          "type": "IndexError"
         },
         "control_case_id": "arithmetic.001",
         "diagnostic": "[take] Received invalid axis 2 for array with 1 dimensions."
@@ -216,7 +216,7 @@
         "reason": "diff axis exceeds input rank",
         "python_exception": {
           "module": "builtins",
-          "type": "ValueError"
+          "type": "IndexError"
         },
         "control_case_id": "math.009",
         "diagnostic": "[diff] Axis is out of bounds for the array."
@@ -479,7 +479,7 @@
         "reason": "unstack axis exceeds input rank",
         "python_exception": {
           "module": "builtins",
-          "type": "ValueError"
+          "type": "IndexError"
         },
         "control_case_id": "math.071",
         "diagnostic": "[unstack] Axis 3 is out of bounds for array with 2 dimensions."
@@ -513,7 +513,7 @@
         "reason": "unstack requires an array axis",
         "python_exception": {
           "module": "builtins",
-          "type": "ValueError"
+          "type": "IndexError"
         },
         "control_case_id": "math.071",
         "diagnostic": "[unstack] Axis 0 is out of bounds for array with 0 dimensions."
@@ -756,7 +756,7 @@
         "reason": "vecdot axis exceeds input rank",
         "python_exception": {
           "module": "builtins",
-          "type": "ValueError"
+          "type": "IndexError"
         },
         "control_case_id": "math.075",
         "diagnostic": "[vecdot] axis is out of bounds."

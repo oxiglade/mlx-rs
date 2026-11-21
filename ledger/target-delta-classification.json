@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "old_source_commit": "c74db5307cc8ce122f48d97ef951b30578674e7f",
-  "target_source_commit": "a341b4925024b88b2c593468f16e12f5e17315da",
+  "old_source_commit": "a341b4925024b88b2c593468f16e12f5e17315da",
+  "target_source_commit": "a26f2d584a14ec619ae8db9a09be03becd47598a",
   "behavioral_renames": [
     {
       "c_name": "mlx_concatenate_axis",
@@ -44,551 +44,218 @@
     {
       "change": "added",
       "kind": "function",
-      "name": "mlx_clear_streams",
+      "name": "mlx_distributed_clear_backends",
       "entry": {
         "kind": "function",
-        "name": "mlx_clear_streams",
-        "signature": "fn()->:: std :: os :: raw :: c_int"
-      },
-      "disposition": "intentionally_unexposed",
-      "rationale": "destroying current-thread streams can invalidate live Rust stream and array users without a representable lifetime boundary",
-      "evidence": [
-        "ffi:report:ledger/mlx-c-a341b49-abi-review.json#bump-a341b49-abi-review",
-        "api:report:rust-api-baseline"
-      ],
-      "revisit_trigger": "revisit only with an ownership design that proves every dependent handle and queued operation has ended"
-    },
-    {
-      "change": "added",
-      "kind": "function",
-      "name": "mlx_get_streams",
-      "entry": {
-        "kind": "function",
-        "name": "mlx_get_streams",
-        "signature": "fn(* mut mlx_vector_stream)->:: std :: os :: raw :: c_int"
-      },
-      "disposition": "deferred",
-      "rationale": "stream enumeration and its vector handle have no existing Rust caller and require a separately admitted ownership abstraction",
-      "evidence": [
-        "ffi:report:ledger/mlx-c-a341b49-abi-review.json#bump-a341b49-abi-review",
-        "api:report:rust-api-baseline"
-      ],
-      "revisit_trigger": "revisit for a concrete stream-enumeration use case with handle cleanup, element lifetime and concurrent registry evidence"
-    },
-    {
-      "change": "added",
-      "kind": "function",
-      "name": "mlx_stream_from_thread_local",
-      "entry": {
-        "kind": "function",
-        "name": "mlx_stream_from_thread_local",
-        "signature": "fn(* mut mlx_stream,mlx_stream_thread_local)->:: std :: os :: raw :: c_int"
-      },
-      "disposition": "deferred",
-      "rationale": "thread-local stream handles add a new capability requiring separate ownership and cross-thread admission under charter rule 13",
-      "evidence": [
-        "ffi:report:ledger/mlx-c-a341b49-abi-review.json#bump-a341b49-abi-review",
-        "api:report:rust-api-baseline"
-      ],
-      "revisit_trigger": "revisit as a thread-local stream cohort with CPU/Metal lifetime, clone/drop and per-thread encoder evidence"
-    },
-    {
-      "change": "added",
-      "kind": "function",
-      "name": "mlx_stream_thread_local_free",
-      "entry": {
-        "kind": "function",
-        "name": "mlx_stream_thread_local_free",
-        "signature": "fn(mlx_stream_thread_local)->:: std :: os :: raw :: c_int"
-      },
-      "disposition": "deferred",
-      "rationale": "thread-local stream handles add a new capability requiring separate ownership and cross-thread admission under charter rule 13",
-      "evidence": [
-        "ffi:report:ledger/mlx-c-a341b49-abi-review.json#bump-a341b49-abi-review",
-        "api:report:rust-api-baseline"
-      ],
-      "revisit_trigger": "revisit as a thread-local stream cohort with CPU/Metal lifetime, clone/drop and per-thread encoder evidence"
-    },
-    {
-      "change": "added",
-      "kind": "function",
-      "name": "mlx_stream_thread_local_new",
-      "entry": {
-        "kind": "function",
-        "name": "mlx_stream_thread_local_new",
-        "signature": "fn(mlx_device)->mlx_stream_thread_local"
-      },
-      "disposition": "deferred",
-      "rationale": "thread-local stream handles add a new capability requiring separate ownership and cross-thread admission under charter rule 13",
-      "evidence": [
-        "ffi:report:ledger/mlx-c-a341b49-abi-review.json#bump-a341b49-abi-review",
-        "api:report:rust-api-baseline"
-      ],
-      "revisit_trigger": "revisit as a thread-local stream cohort with CPU/Metal lifetime, clone/drop and per-thread encoder evidence"
-    },
-    {
-      "change": "added",
-      "kind": "function",
-      "name": "mlx_stream_thread_local_set",
-      "entry": {
-        "kind": "function",
-        "name": "mlx_stream_thread_local_set",
-        "signature": "fn(* mut mlx_stream_thread_local,mlx_stream_thread_local)->:: std :: os :: raw :: c_int"
-      },
-      "disposition": "deferred",
-      "rationale": "thread-local stream handles add a new capability requiring separate ownership and cross-thread admission under charter rule 13",
-      "evidence": [
-        "ffi:report:ledger/mlx-c-a341b49-abi-review.json#bump-a341b49-abi-review",
-        "api:report:rust-api-baseline"
-      ],
-      "revisit_trigger": "revisit as a thread-local stream cohort with CPU/Metal lifetime, clone/drop and per-thread encoder evidence"
-    },
-    {
-      "change": "added",
-      "kind": "function",
-      "name": "mlx_synchronize_default",
-      "entry": {
-        "kind": "function",
-        "name": "mlx_synchronize_default",
+        "name": "mlx_distributed_clear_backends",
         "signature": "fn()->:: std :: os :: raw :: c_int"
       },
       "disposition": "deferred",
-      "rationale": "default-stream synchronization adds a public capability that must be designed together with explicit-stream synchronization",
+      "rationale": "distributed remains a deferred subsystem under the charter, requiring ownership, backend and multi-process admission",
+      "revisit_trigger": "admit distributed as a subsystem with callback payload lifetime, failure cleanup, backend cache and multi-process evidence",
       "evidence": [
-        "ffi:report:ledger/mlx-c-a341b49-abi-review.json#bump-a341b49-abi-review",
+        "ffi:report:ledger/mlx-c-a26f2d58-abi-review.json#bump-a26f2d58-abi-review",
         "api:report:rust-api-baseline"
-      ],
-      "revisit_trigger": "revisit as a synchronization cohort with scoped-default, lazy execution and CPU/Metal completion evidence"
+      ]
     },
     {
       "change": "added",
       "kind": "function",
-      "name": "mlx_synchronize_thread_local",
+      "name": "mlx_distributed_group_get_rank",
       "entry": {
         "kind": "function",
-        "name": "mlx_synchronize_thread_local",
-        "signature": "fn(mlx_stream_thread_local)->:: std :: os :: raw :: c_int"
+        "name": "mlx_distributed_group_get_rank",
+        "signature": "fn(* mut :: std :: os :: raw :: c_int,mlx_distributed_group)->:: std :: os :: raw :: c_int"
       },
       "disposition": "deferred",
-      "rationale": "thread-local stream handles add a new capability requiring separate ownership and cross-thread admission under charter rule 13",
+      "rationale": "distributed remains a deferred subsystem under the charter, requiring ownership, backend and multi-process admission",
+      "revisit_trigger": "admit distributed as a subsystem with callback payload lifetime, failure cleanup, backend cache and multi-process evidence",
       "evidence": [
-        "ffi:report:ledger/mlx-c-a341b49-abi-review.json#bump-a341b49-abi-review",
+        "ffi:report:ledger/mlx-c-a26f2d58-abi-review.json#bump-a26f2d58-abi-review",
         "api:report:rust-api-baseline"
-      ],
-      "revisit_trigger": "revisit as a thread-local stream cohort with CPU/Metal lifetime, clone/drop and per-thread encoder evidence"
+      ]
     },
     {
       "change": "added",
       "kind": "function",
-      "name": "mlx_vector_stream_append_data",
+      "name": "mlx_distributed_group_get_size",
       "entry": {
         "kind": "function",
-        "name": "mlx_vector_stream_append_data",
-        "signature": "fn(mlx_vector_stream,* const mlx_stream,usize)->:: std :: os :: raw :: c_int"
+        "name": "mlx_distributed_group_get_size",
+        "signature": "fn(* mut :: std :: os :: raw :: c_int,mlx_distributed_group)->:: std :: os :: raw :: c_int"
       },
       "disposition": "deferred",
-      "rationale": "stream enumeration and its vector handle have no existing Rust caller and require a separately admitted ownership abstraction",
+      "rationale": "distributed remains a deferred subsystem under the charter, requiring ownership, backend and multi-process admission",
+      "revisit_trigger": "admit distributed as a subsystem with callback payload lifetime, failure cleanup, backend cache and multi-process evidence",
       "evidence": [
-        "ffi:report:ledger/mlx-c-a341b49-abi-review.json#bump-a341b49-abi-review",
+        "ffi:report:ledger/mlx-c-a26f2d58-abi-review.json#bump-a26f2d58-abi-review",
         "api:report:rust-api-baseline"
-      ],
-      "revisit_trigger": "revisit for a concrete stream-enumeration use case with handle cleanup, element lifetime and concurrent registry evidence"
+      ]
     },
     {
       "change": "added",
       "kind": "function",
-      "name": "mlx_vector_stream_append_value",
+      "name": "mlx_distributed_init_with_all_gather",
       "entry": {
         "kind": "function",
-        "name": "mlx_vector_stream_append_value",
-        "signature": "fn(mlx_vector_stream,mlx_stream)->:: std :: os :: raw :: c_int"
+        "name": "mlx_distributed_init_with_all_gather",
+        "signature": "fn(* mut mlx_distributed_group,bool,* const :: std :: os :: raw :: c_char,mlx_distributed_all_gather_fn,* mut :: std :: os :: raw :: c_void,:: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void) >)->:: std :: os :: raw :: c_int"
       },
       "disposition": "deferred",
-      "rationale": "stream enumeration and its vector handle have no existing Rust caller and require a separately admitted ownership abstraction",
+      "rationale": "distributed remains a deferred subsystem under the charter, requiring ownership, backend and multi-process admission",
+      "revisit_trigger": "admit distributed as a subsystem with callback payload lifetime, failure cleanup, backend cache and multi-process evidence",
       "evidence": [
-        "ffi:report:ledger/mlx-c-a341b49-abi-review.json#bump-a341b49-abi-review",
+        "ffi:report:ledger/mlx-c-a26f2d58-abi-review.json#bump-a26f2d58-abi-review",
         "api:report:rust-api-baseline"
-      ],
-      "revisit_trigger": "revisit for a concrete stream-enumeration use case with handle cleanup, element lifetime and concurrent registry evidence"
+      ]
     },
     {
       "change": "added",
       "kind": "function",
-      "name": "mlx_vector_stream_free",
+      "name": "mlx_fast_gated_delta_update",
       "entry": {
         "kind": "function",
-        "name": "mlx_vector_stream_free",
-        "signature": "fn(mlx_vector_stream)->:: std :: os :: raw :: c_int"
+        "name": "mlx_fast_gated_delta_update",
+        "signature": "fn(* mut mlx_vector_array,mlx_array,mlx_array,mlx_array,mlx_array,mlx_array,mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
       },
       "disposition": "deferred",
-      "rationale": "stream enumeration and its vector handle have no existing Rust caller and require a separately admitted ownership abstraction",
+      "rationale": "gated delta updates are a new capability, deferred under charter rule 13",
+      "revisit_trigger": "admit a model-backed cohort with state, gradient, mask and CPU/Metal parity evidence",
       "evidence": [
-        "ffi:report:ledger/mlx-c-a341b49-abi-review.json#bump-a341b49-abi-review",
+        "ffi:report:ledger/mlx-c-a26f2d58-abi-review.json#bump-a26f2d58-abi-review",
         "api:report:rust-api-baseline"
-      ],
-      "revisit_trigger": "revisit for a concrete stream-enumeration use case with handle cleanup, element lifetime and concurrent registry evidence"
+      ]
     },
     {
       "change": "added",
       "kind": "function",
-      "name": "mlx_vector_stream_get",
+      "name": "mlx_get_array_buffer_size",
       "entry": {
         "kind": "function",
-        "name": "mlx_vector_stream_get",
-        "signature": "fn(* mut mlx_stream,mlx_vector_stream,usize)->:: std :: os :: raw :: c_int"
+        "name": "mlx_get_array_buffer_size",
+        "signature": "fn(* mut usize,mlx_vector_array)->:: std :: os :: raw :: c_int"
       },
       "disposition": "deferred",
-      "rationale": "stream enumeration and its vector handle have no existing Rust caller and require a separately admitted ownership abstraction",
+      "rationale": "array buffer accounting is a new observer capability, deferred under charter rule 13",
+      "revisit_trigger": "admit with alias deduplication, lazy evaluation and buffer lifetime semantics",
       "evidence": [
-        "ffi:report:ledger/mlx-c-a341b49-abi-review.json#bump-a341b49-abi-review",
+        "ffi:report:ledger/mlx-c-a26f2d58-abi-review.json#bump-a26f2d58-abi-review",
         "api:report:rust-api-baseline"
-      ],
-      "revisit_trigger": "revisit for a concrete stream-enumeration use case with handle cleanup, element lifetime and concurrent registry evidence"
+      ]
     },
     {
       "change": "added",
       "kind": "function",
-      "name": "mlx_vector_stream_new",
+      "name": "mlx_matrix_transpose",
       "entry": {
         "kind": "function",
-        "name": "mlx_vector_stream_new",
-        "signature": "fn()->mlx_vector_stream"
+        "name": "mlx_matrix_transpose",
+        "signature": "fn(* mut mlx_array,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
       },
       "disposition": "deferred",
-      "rationale": "stream enumeration and its vector handle have no existing Rust caller and require a separately admitted ownership abstraction",
+      "rationale": "matrix transpose is a new convenience capability, deferred under charter rule 13; existing swap_axes remains supported",
+      "revisit_trigger": "admit separately with rank validation, batched shape and gradient evidence",
       "evidence": [
-        "ffi:report:ledger/mlx-c-a341b49-abi-review.json#bump-a341b49-abi-review",
+        "ffi:report:ledger/mlx-c-a26f2d58-abi-review.json#bump-a26f2d58-abi-review",
         "api:report:rust-api-baseline"
-      ],
-      "revisit_trigger": "revisit for a concrete stream-enumeration use case with handle cleanup, element lifetime and concurrent registry evidence"
+      ]
     },
     {
       "change": "added",
       "kind": "function",
-      "name": "mlx_vector_stream_new_data",
+      "name": "mlx_unique",
       "entry": {
         "kind": "function",
-        "name": "mlx_vector_stream_new_data",
-        "signature": "fn(* const mlx_stream,usize)->mlx_vector_stream"
+        "name": "mlx_unique",
+        "signature": "fn(* mut mlx_vector_array,mlx_array,:: std :: os :: raw :: c_int,bool,bool,bool,mlx_array,mlx_stream)->:: std :: os :: raw :: c_int"
       },
       "disposition": "deferred",
-      "rationale": "stream enumeration and its vector handle have no existing Rust caller and require a separately admitted ownership abstraction",
+      "rationale": "fixed-size unique is a new multi-output capability, deferred under charter rule 13",
+      "revisit_trigger": "admit separately with size, fill, ordering, index/inverse/count and dtype evidence",
       "evidence": [
-        "ffi:report:ledger/mlx-c-a341b49-abi-review.json#bump-a341b49-abi-review",
+        "ffi:report:ledger/mlx-c-a26f2d58-abi-review.json#bump-a26f2d58-abi-review",
         "api:report:rust-api-baseline"
-      ],
-      "revisit_trigger": "revisit for a concrete stream-enumeration use case with handle cleanup, element lifetime and concurrent registry evidence"
-    },
-    {
-      "change": "added",
-      "kind": "function",
-      "name": "mlx_vector_stream_new_value",
-      "entry": {
-        "kind": "function",
-        "name": "mlx_vector_stream_new_value",
-        "signature": "fn(mlx_stream)->mlx_vector_stream"
-      },
-      "disposition": "deferred",
-      "rationale": "stream enumeration and its vector handle have no existing Rust caller and require a separately admitted ownership abstraction",
-      "evidence": [
-        "ffi:report:ledger/mlx-c-a341b49-abi-review.json#bump-a341b49-abi-review",
-        "api:report:rust-api-baseline"
-      ],
-      "revisit_trigger": "revisit for a concrete stream-enumeration use case with handle cleanup, element lifetime and concurrent registry evidence"
-    },
-    {
-      "change": "added",
-      "kind": "function",
-      "name": "mlx_vector_stream_set",
-      "entry": {
-        "kind": "function",
-        "name": "mlx_vector_stream_set",
-        "signature": "fn(* mut mlx_vector_stream,mlx_vector_stream)->:: std :: os :: raw :: c_int"
-      },
-      "disposition": "deferred",
-      "rationale": "stream enumeration and its vector handle have no existing Rust caller and require a separately admitted ownership abstraction",
-      "evidence": [
-        "ffi:report:ledger/mlx-c-a341b49-abi-review.json#bump-a341b49-abi-review",
-        "api:report:rust-api-baseline"
-      ],
-      "revisit_trigger": "revisit for a concrete stream-enumeration use case with handle cleanup, element lifetime and concurrent registry evidence"
-    },
-    {
-      "change": "added",
-      "kind": "function",
-      "name": "mlx_vector_stream_set_data",
-      "entry": {
-        "kind": "function",
-        "name": "mlx_vector_stream_set_data",
-        "signature": "fn(* mut mlx_vector_stream,* const mlx_stream,usize)->:: std :: os :: raw :: c_int"
-      },
-      "disposition": "deferred",
-      "rationale": "stream enumeration and its vector handle have no existing Rust caller and require a separately admitted ownership abstraction",
-      "evidence": [
-        "ffi:report:ledger/mlx-c-a341b49-abi-review.json#bump-a341b49-abi-review",
-        "api:report:rust-api-baseline"
-      ],
-      "revisit_trigger": "revisit for a concrete stream-enumeration use case with handle cleanup, element lifetime and concurrent registry evidence"
-    },
-    {
-      "change": "added",
-      "kind": "function",
-      "name": "mlx_vector_stream_set_value",
-      "entry": {
-        "kind": "function",
-        "name": "mlx_vector_stream_set_value",
-        "signature": "fn(* mut mlx_vector_stream,mlx_stream)->:: std :: os :: raw :: c_int"
-      },
-      "disposition": "deferred",
-      "rationale": "stream enumeration and its vector handle have no existing Rust caller and require a separately admitted ownership abstraction",
-      "evidence": [
-        "ffi:report:ledger/mlx-c-a341b49-abi-review.json#bump-a341b49-abi-review",
-        "api:report:rust-api-baseline"
-      ],
-      "revisit_trigger": "revisit for a concrete stream-enumeration use case with handle cleanup, element lifetime and concurrent registry evidence"
-    },
-    {
-      "change": "added",
-      "kind": "function",
-      "name": "mlx_vector_stream_size",
-      "entry": {
-        "kind": "function",
-        "name": "mlx_vector_stream_size",
-        "signature": "fn(mlx_vector_stream)->usize"
-      },
-      "disposition": "deferred",
-      "rationale": "stream enumeration and its vector handle have no existing Rust caller and require a separately admitted ownership abstraction",
-      "evidence": [
-        "ffi:report:ledger/mlx-c-a341b49-abi-review.json#bump-a341b49-abi-review",
-        "api:report:rust-api-baseline"
-      ],
-      "revisit_trigger": "revisit for a concrete stream-enumeration use case with handle cleanup, element lifetime and concurrent registry evidence"
-    },
-    {
-      "change": "added",
-      "kind": "handle",
-      "name": "mlx_stream_thread_local",
-      "entry": {
-        "kind": "handle",
-        "name": "mlx_stream_thread_local",
-        "new": "mlx_stream_thread_local_new",
-        "free": "mlx_stream_thread_local_free"
-      },
-      "disposition": "deferred",
-      "rationale": "thread-local stream handles add a new capability requiring separate ownership and cross-thread admission under charter rule 13",
-      "evidence": [
-        "ffi:report:ledger/mlx-c-a341b49-abi-review.json#bump-a341b49-abi-review",
-        "api:report:rust-api-baseline"
-      ],
-      "revisit_trigger": "revisit as a thread-local stream cohort with CPU/Metal lifetime, clone/drop and per-thread encoder evidence",
-      "risk_class": "ownership",
-      "ownership": {
-        "model": "owned_handle",
-        "constructor": "mlx_stream_thread_local_new",
-        "destructor": "mlx_stream_thread_local_free",
-        "rust_status": "deferred"
-      }
-    },
-    {
-      "change": "added",
-      "kind": "handle",
-      "name": "mlx_vector_stream",
-      "entry": {
-        "kind": "handle",
-        "name": "mlx_vector_stream",
-        "new": "mlx_vector_stream_new",
-        "free": "mlx_vector_stream_free"
-      },
-      "disposition": "deferred",
-      "rationale": "stream enumeration and its vector handle have no existing Rust caller and require a separately admitted ownership abstraction",
-      "evidence": [
-        "ffi:report:ledger/mlx-c-a341b49-abi-review.json#bump-a341b49-abi-review",
-        "api:report:rust-api-baseline"
-      ],
-      "revisit_trigger": "revisit for a concrete stream-enumeration use case with handle cleanup, element lifetime and concurrent registry evidence",
-      "risk_class": "ownership",
-      "ownership": {
-        "model": "owned_handle",
-        "constructor": "mlx_vector_stream_new",
-        "destructor": "mlx_vector_stream_free",
-        "rust_status": "deferred"
-      }
-    },
-    {
-      "change": "added",
-      "kind": "struct",
-      "name": "mlx_stream_thread_local_",
-      "entry": {
-        "kind": "struct",
-        "name": "mlx_stream_thread_local_",
-        "fields": [
-          {
-            "name": "ctx",
-            "type": "* mut :: std :: os :: raw :: c_void"
-          }
-        ]
-      },
-      "disposition": "deferred",
-      "rationale": "thread-local stream handles add a new capability requiring separate ownership and cross-thread admission under charter rule 13",
-      "evidence": [
-        "ffi:report:ledger/mlx-c-a341b49-abi-review.json#bump-a341b49-abi-review",
-        "api:report:rust-api-baseline"
-      ],
-      "revisit_trigger": "revisit as a thread-local stream cohort with CPU/Metal lifetime, clone/drop and per-thread encoder evidence"
-    },
-    {
-      "change": "added",
-      "kind": "struct",
-      "name": "mlx_vector_stream_",
-      "entry": {
-        "kind": "struct",
-        "name": "mlx_vector_stream_",
-        "fields": [
-          {
-            "name": "ctx",
-            "type": "* mut :: std :: os :: raw :: c_void"
-          }
-        ]
-      },
-      "disposition": "deferred",
-      "rationale": "stream enumeration and its vector handle have no existing Rust caller and require a separately admitted ownership abstraction",
-      "evidence": [
-        "ffi:report:ledger/mlx-c-a341b49-abi-review.json#bump-a341b49-abi-review",
-        "api:report:rust-api-baseline"
-      ],
-      "revisit_trigger": "revisit for a concrete stream-enumeration use case with handle cleanup, element lifetime and concurrent registry evidence"
+      ]
     },
     {
       "change": "added",
       "kind": "type",
-      "name": "mlx_stream_thread_local",
+      "name": "mlx_distributed_all_gather_fn",
       "entry": {
         "kind": "type",
-        "name": "mlx_stream_thread_local",
-        "definition": "mlx_stream_thread_local_"
+        "name": "mlx_distributed_all_gather_fn",
+        "definition": ":: std :: option :: Option < unsafe extern \"C\" fn (rank : :: std :: os :: raw :: c_int , size : :: std :: os :: raw :: c_int , src : * const :: std :: os :: raw :: c_char , dst : * mut :: std :: os :: raw :: c_char , n_bytes : usize , payload : * mut :: std :: os :: raw :: c_void ,) -> :: std :: os :: raw :: c_int , >"
       },
       "disposition": "deferred",
-      "rationale": "thread-local stream handles add a new capability requiring separate ownership and cross-thread admission under charter rule 13",
+      "rationale": "distributed remains a deferred subsystem under the charter, requiring ownership, backend and multi-process admission",
+      "revisit_trigger": "admit distributed as a subsystem with callback payload lifetime, failure cleanup, backend cache and multi-process evidence",
       "evidence": [
-        "ffi:report:ledger/mlx-c-a341b49-abi-review.json#bump-a341b49-abi-review",
+        "ffi:report:ledger/mlx-c-a26f2d58-abi-review.json#bump-a26f2d58-abi-review",
         "api:report:rust-api-baseline"
-      ],
-      "revisit_trigger": "revisit as a thread-local stream cohort with CPU/Metal lifetime, clone/drop and per-thread encoder evidence"
+      ]
     },
     {
-      "change": "added",
-      "kind": "type",
-      "name": "mlx_vector_stream",
+      "change": "removed",
+      "kind": "function",
+      "name": "mlx_distributed_group_rank",
       "entry": {
-        "kind": "type",
-        "name": "mlx_vector_stream",
-        "definition": "mlx_vector_stream_"
+        "kind": "function",
+        "name": "mlx_distributed_group_rank",
+        "signature": "fn(mlx_distributed_group)->:: std :: os :: raw :: c_int"
       },
-      "disposition": "deferred",
-      "rationale": "stream enumeration and its vector handle have no existing Rust caller and require a separately admitted ownership abstraction",
+      "disposition": "removed",
+      "rationale": "distributed remains a deferred subsystem; mlx-rs has no caller, and rank/size now use status plus out-parameters",
+      "revisit_trigger": "admit distributed as a subsystem with callback payload lifetime, failure cleanup, backend cache and multi-process evidence",
       "evidence": [
-        "ffi:report:ledger/mlx-c-a341b49-abi-review.json#bump-a341b49-abi-review",
+        "ffi:report:ledger/mlx-c-a26f2d58-abi-review.json#bump-a26f2d58-abi-review",
         "api:report:rust-api-baseline"
-      ],
-      "revisit_trigger": "revisit for a concrete stream-enumeration use case with handle cleanup, element lifetime and concurrent registry evidence"
+      ]
+    },
+    {
+      "change": "removed",
+      "kind": "function",
+      "name": "mlx_distributed_group_size",
+      "entry": {
+        "kind": "function",
+        "name": "mlx_distributed_group_size",
+        "signature": "fn(mlx_distributed_group)->:: std :: os :: raw :: c_int"
+      },
+      "disposition": "removed",
+      "rationale": "distributed remains a deferred subsystem; mlx-rs has no caller, and rank/size now use status plus out-parameters",
+      "revisit_trigger": "admit distributed as a subsystem with callback payload lifetime, failure cleanup, backend cache and multi-process evidence",
+      "evidence": [
+        "ffi:report:ledger/mlx-c-a26f2d58-abi-review.json#bump-a26f2d58-abi-review",
+        "api:report:rust-api-baseline"
+      ]
     },
     {
       "change": "changed",
-      "kind": "struct",
-      "name": "mlx_io_vtable_",
+      "kind": "function",
+      "name": "mlx_gather_qmm",
       "before": {
-        "kind": "struct",
-        "name": "mlx_io_vtable_",
-        "fields": [
-          {
-            "name": "is_open",
-            "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void) -> bool >"
-          },
-          {
-            "name": "good",
-            "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void) -> bool >"
-          },
-          {
-            "name": "tell",
-            "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void) -> usize >"
-          },
-          {
-            "name": "seek",
-            "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void , off : i64 , whence : :: std :: os :: raw :: c_int ,) , >"
-          },
-          {
-            "name": "read",
-            "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void , data : * mut :: std :: os :: raw :: c_char , n : usize ,) , >"
-          },
-          {
-            "name": "read_at_offset",
-            "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void , data : * mut :: std :: os :: raw :: c_char , n : usize , off : usize ,) , >"
-          },
-          {
-            "name": "write",
-            "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void , data : * const :: std :: os :: raw :: c_char , n : usize ,) , >"
-          },
-          {
-            "name": "label",
-            "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void) -> * const :: std :: os :: raw :: c_char , >"
-          },
-          {
-            "name": "free",
-            "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void) >"
-          }
-        ]
+        "kind": "function",
+        "name": "mlx_gather_qmm",
+        "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,mlx_array,mlx_array,mlx_array,bool,mlx_optional_int,mlx_optional_int,* const :: std :: os :: raw :: c_char,bool,mlx_stream)->:: std :: os :: raw :: c_int"
       },
       "after": {
-        "kind": "struct",
-        "name": "mlx_io_vtable_",
-        "fields": [
-          {
-            "name": "is_open",
-            "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void) -> bool >"
-          },
-          {
-            "name": "good",
-            "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void) -> bool >"
-          },
-          {
-            "name": "tell",
-            "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void) -> usize >"
-          },
-          {
-            "name": "seek",
-            "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void , off : i64 , whence : :: std :: os :: raw :: c_int ,) -> :: std :: os :: raw :: c_int , >"
-          },
-          {
-            "name": "read",
-            "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void , data : * mut :: std :: os :: raw :: c_char , n : usize ,) -> usize , >"
-          },
-          {
-            "name": "read_at_offset",
-            "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void , data : * mut :: std :: os :: raw :: c_char , n : usize , off : usize ,) -> usize , >"
-          },
-          {
-            "name": "write",
-            "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void , data : * const :: std :: os :: raw :: c_char , n : usize ,) -> usize , >"
-          },
-          {
-            "name": "label",
-            "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void) -> * const :: std :: os :: raw :: c_char , >"
-          },
-          {
-            "name": "free",
-            "type": ":: std :: option :: Option < unsafe extern \"C\" fn (arg1 : * mut :: std :: os :: raw :: c_void) >"
-          }
-        ]
+        "kind": "function",
+        "name": "mlx_gather_qmm",
+        "signature": "fn(* mut mlx_array,mlx_array,mlx_array,mlx_array,mlx_array,mlx_array,mlx_array,bool,mlx_optional_int,mlx_optional_int,* const :: std :: os :: raw :: c_char,mlx_array,bool,mlx_stream)->:: std :: os :: raw :: c_int"
       },
       "old_pin_affected": false,
-      "bump_impact": "mlx-sys regenerates the callback return types; mlx-rs has no custom I/O vtable implementation to rebind",
-      "disposition": "deferred",
-      "rationale": "custom I/O callbacks are not wrapped by mlx-rs; seek now returns status and read/write callbacks return byte counts",
+      "bump_impact": "pass an absent global_scale handle to preserve existing gather_qmm behavior and its public signature",
+      "disposition": "wrapped",
+      "rust_path": "mlx_rs::ops::gather_qmm",
+      "python_name": "mlx.core.gather_qmm",
+      "semantic_op": "gather_qmm",
+      "rationale": "compatibility rebind only; global-scale controls remain private under charter rule 13",
+      "revisit_trigger": "admit global scales separately with mode-specific quantization and model parity evidence",
       "evidence": [
-        "ffi:report:ledger/mlx-c-a341b49-abi-review.json#bump-a341b49-abi-review",
-        "api:report:rust-api-baseline"
-      ],
-      "revisit_trigger": "admit custom Rust reader/writer adapters separately with short-I/O, seek failure, panic containment and lifetime evidence"
+        "ffi:report:ledger/mlx-c-a26f2d58-abi-review.json#bump-a26f2d58-abi-review",
+        "api:report:rust-api-baseline",
+        "api:path:mlx_rs::ops::gather_qmm",
+        "api:test:mlx-rs/src/ops/quantization.rs#test_gather_qmm"
+      ]
     }
   ]
 }
