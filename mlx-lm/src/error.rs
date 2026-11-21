@@ -357,6 +357,50 @@ pub enum InferenceError {
     Cache(#[from] CacheError),
 }
 
+/// Embedding input validation or encoder execution failed.
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
+pub enum EmbeddingError {
+    /// No texts were supplied.
+    #[error("embedding batch is empty")]
+    EmptyBatch,
+    /// A text encodes to more positions than the encoder admits.
+    #[error("input {input} has {length} tokens, exceeding {limit}")]
+    SequenceTooLong {
+        /// Zero-based index in the supplied batch.
+        input: usize,
+        /// Encoded length including special tokens.
+        length: usize,
+        /// Configured `max_position_embeddings`.
+        limit: usize,
+    },
+    /// A token is outside the encoder's embedding table.
+    #[error("input {input} token {token_id:?} is outside vocabulary {vocabulary_size}")]
+    TokenOutOfRange {
+        /// Zero-based index in the supplied batch.
+        input: usize,
+        /// Rejected token identifier.
+        token_id: crate::TokenId,
+        /// Rows in the embedding table.
+        vocabulary_size: usize,
+    },
+    /// A text contains an image, audio or video placeholder token, which requires
+    /// media features this text embedder does not compute.
+    #[error("input {input} contains media placeholder token {token_id:?}")]
+    MediaToken {
+        /// Zero-based index in the supplied batch.
+        input: usize,
+        /// Placeholder token identifier.
+        token_id: crate::TokenId,
+    },
+    /// Preserves the source diagnostic.
+    #[error(transparent)]
+    Tokenizer(#[from] TokenizerError),
+    /// Preserves the original exception from graph construction or evaluation.
+    #[error(transparent)]
+    Exception(#[from] Exception),
+}
+
 /// Prompt preparation or streaming generation failed.
 ///
 /// Construction validates sampler options, repetition/presence/frequency penalties,

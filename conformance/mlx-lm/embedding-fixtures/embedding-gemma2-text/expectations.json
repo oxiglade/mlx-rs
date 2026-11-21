@@ -1,0 +1,15 @@
+{
+  "mutations_detected": [
+    "no_v_norm",
+    "window_exclusive",
+    "no_layer_scalar",
+    "pool_padding"
+  ],
+  "provenance": "numpy 2.2.6 f32 reference, numpy_reference/embedding_gemma2.py",
+  "tolerances": {
+    "embeddings": {
+      "atol": 0.0002,
+      "rtol": 0.0002
+    }
+  }
+}

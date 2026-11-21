@@ -1,0 +1,214 @@
+{
+  "added_tokens": [
+    {
+      "content": "<pad>",
+      "id": 0,
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    {
+      "content": "<eos>",
+      "id": 1,
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    {
+      "content": "<bos>",
+      "id": 2,
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    {
+      "content": "<unk>",
+      "id": 3,
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    {
+      "content": "<|image|>",
+      "id": 61,
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    {
+      "content": "<|audio|>",
+      "id": 62,
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    {
+      "content": "<|video|>",
+      "id": 63,
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    }
+  ],
+  "decoder": null,
+  "model": {
+    "type": "WordLevel",
+    "unk_token": "<unk>",
+    "vocab": {
+      "<bos>": 2,
+      "<eos>": 1,
+      "<pad>": 0,
+      "<unk>": 3,
+      "<|audio|>": 62,
+      "<|image|>": 61,
+      "<|video|>": 63,
+      "a": 5,
+      "bird": 14,
+      "blue": 10,
+      "bright": 29,
+      "cat": 13,
+      "dark": 30,
+      "dog": 12,
+      "five": 37,
+      "four": 36,
+      "fox": 11,
+      "green": 9,
+      "hill": 21,
+      "house": 25,
+      "jumps": 16,
+      "large": 7,
+      "mars": 39,
+      "moon": 41,
+      "near": 20,
+      "new": 32,
+      "none": 47,
+      "old": 31,
+      "one": 33,
+      "over": 18,
+      "planet": 38,
+      "query": 44,
+      "quick": 27,
+      "red": 8,
+      "result": 49,
+      "river": 22,
+      "road": 26,
+      "runs": 15,
+      "search": 48,
+      "sleeps": 17,
+      "slow": 28,
+      "small": 6,
+      "star": 40,
+      "stone": 24,
+      "sun": 42,
+      "task": 43,
+      "text": 45,
+      "the": 4,
+      "three": 35,
+      "title": 46,
+      "tree": 23,
+      "two": 34,
+      "under": 19,
+      "w0": 50,
+      "w1": 51,
+      "w10": 60,
+      "w2": 52,
+      "w3": 53,
+      "w4": 54,
+      "w5": 55,
+      "w6": 56,
+      "w7": 57,
+      "w8": 58,
+      "w9": 59
+    }
+  },
+  "normalizer": null,
+  "padding": null,
+  "post_processor": {
+    "pair": [
+      {
+        "SpecialToken": {
+          "id": "<bos>",
+          "type_id": 0
+        }
+      },
+      {
+        "Sequence": {
+          "id": "A",
+          "type_id": 0
+        }
+      },
+      {
+        "Sequence": {
+          "id": "B",
+          "type_id": 1
+        }
+      },
+      {
+        "SpecialToken": {
+          "id": "<eos>",
+          "type_id": 0
+        }
+      }
+    ],
+    "single": [
+      {
+        "SpecialToken": {
+          "id": "<bos>",
+          "type_id": 0
+        }
+      },
+      {
+        "Sequence": {
+          "id": "A",
+          "type_id": 0
+        }
+      },
+      {
+        "SpecialToken": {
+          "id": "<eos>",
+          "type_id": 0
+        }
+      }
+    ],
+    "special_tokens": {
+      "<bos>": {
+        "id": "<bos>",
+        "ids": [
+          2
+        ],
+        "tokens": [
+          "<bos>"
+        ]
+      },
+      "<eos>": {
+        "id": "<eos>",
+        "ids": [
+          1
+        ],
+        "tokens": [
+          "<eos>"
+        ]
+      }
+    },
+    "type": "TemplateProcessing"
+  },
+  "pre_tokenizer": {
+    "type": "WhitespaceSplit"
+  },
+  "truncation": null,
+  "version": "1.0"
+}

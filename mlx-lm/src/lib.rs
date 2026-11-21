@@ -179,6 +179,7 @@
 mod arch;
 mod cache;
 mod config;
+mod embedding;
 mod error;
 mod model;
 mod sampling;
@@ -191,9 +192,10 @@ pub use config::{
     AffineQuantization, AttentionKind, Config, LayerQuantization, ModelType, ParameterPath,
     QuantizationConfig, RopeConfig, RopeScaling, TransformerDimensions,
 };
+pub use embedding::Embedder;
 pub use error::{
-    CacheError, ChatTemplateError, ConfigError, GenerationError, HubError, InferenceError,
-    LoadError, SamplingError, TokenizerError, WeightError,
+    CacheError, ChatTemplateError, ConfigError, EmbeddingError, GenerationError, HubError,
+    InferenceError, LoadError, SamplingError, TokenizerError, WeightError,
 };
 pub use model::{
     FinishReason, Generation, GenerationEvent, GenerationOptions, Model, Prompt,
@@ -223,6 +225,7 @@ macro_rules! assert_not_impl_any {
     };
 }
 assert_not_impl_any!(Model: Send, Sync);
+assert_not_impl_any!(Embedder: Send, Sync);
 assert_not_impl_any!(Generation<'static>: Send, Sync);
 assert_not_impl_any!(Cache: Send, Sync);
 assert_not_impl_any!(CacheSnapshot: Send, Sync);

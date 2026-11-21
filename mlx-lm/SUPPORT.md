@@ -4,6 +4,8 @@ The [capability table](README.md#capability-table) defines the supported Llama
 and Qwen3 profiles: strict local safetensors/shard/affine loading, the qualified
 GGUF subset, optional Hub loading, synchronous generation, and full/rotating KV
 caches. This is a supported subset of Python mlx-lm, not Python API equivalence.
+It also defines the EmbeddingGemma 2 embedder, a supported subset of mlx-vlm's
+`embedding_gemma2` checked against independent NumPy encoders.
 Public helpers and new cache policies require an admitted model or consumer use.
 
 ## Generation and cache contracts
