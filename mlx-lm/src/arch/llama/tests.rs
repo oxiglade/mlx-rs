@@ -77,6 +77,7 @@ fn pure_fixture_configs_match_resolved_facts() -> Result<(), Box<dyn std::error:
             .attention
             .iter()
             .map(|kind| match kind {
+                AttentionKind::Recurrent => json!("recurrent"),
                 AttentionKind::Full => json!("full"),
                 AttentionKind::Sliding { window } => json!({"sliding": window.get()}),
             })

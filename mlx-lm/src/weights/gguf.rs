@@ -419,6 +419,7 @@ mod tests {
         let config = match factory.parse_config(&raw)? {
             crate::arch::ParsedArchitecture::Llama(p) => p.config,
             crate::arch::ParsedArchitecture::Qwen3(p) => p.config,
+            crate::arch::ParsedArchitecture::Hybrid(config) => config,
         };
         Ok((weights, config, doc))
     }

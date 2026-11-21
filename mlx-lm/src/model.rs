@@ -55,7 +55,9 @@ impl Model {
             }
         })?;
         let raw = crate::config::RawConfig::from_bytes(&bytes)?;
-        raw.resolve()?;
+        if raw.model_type != "qwen3_5_moe" {
+            raw.resolve()?;
+        }
         let factory = crate::arch::factory(&raw.model_type)?;
         let tokenizer = Tokenizer::from_dir(path).map_err(|error| match error {
             crate::TokenizerError::Io(source) if source.kind() == std::io::ErrorKind::NotFound => {

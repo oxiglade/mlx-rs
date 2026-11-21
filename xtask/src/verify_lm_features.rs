@@ -48,7 +48,7 @@ fn quantization(q: QuantizationConfig, a: AttentionKind) {
         LayerQuantization::Unquantized => (),
         LayerQuantization::Affine(v) => { let _: AffineQuantization = v; }
     }
-    match a { AttentionKind::Full => (), AttentionKind::Sliding { window } => { let _: NonZeroUsize = window; } }
+    match a { AttentionKind::Full | AttentionKind::Recurrent => (), AttentionKind::Sliding { window } => { let _: NonZeroUsize = window; } }
 }
 fn generation_options(o: GenerationOptions) {
     let _: NonZeroUsize = o.max_tokens;
@@ -96,7 +96,7 @@ fn cache(c: &mut Cache, s: CacheSnapshot, o: CacheOptions, i: CacheInfo) {
     let _: usize = c.info().len();
     let _: (usize, usize, usize) = (i.layer, i.processed_tokens, i.capacity);
     let _: (Range<usize>, Range<usize>) = (i.retained_prefix, i.retained_positions);
-    match i.kind { CacheKind::Full | CacheKind::Rotating => () }
+    match i.kind { CacheKind::Full | CacheKind::Rotating | CacheKind::Recurrent => () }
     match o.policy {
         CachePolicy::ModelDefault | CachePolicy::Full => (),
         CachePolicy::Rotating { capacity, keep_prefix } => { let _: (NonZeroUsize, usize) = (capacity, keep_prefix); }
