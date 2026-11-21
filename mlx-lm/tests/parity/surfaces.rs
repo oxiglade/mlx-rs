@@ -63,6 +63,7 @@ pub(super) fn config(config: &Config) -> Value {
         .attention
         .iter()
         .map(|kind| match kind {
+            AttentionKind::Recurrent => json!("recurrent"),
             AttentionKind::Full => json!("full"),
             AttentionKind::Sliding { window } => json!({"sliding": window.get()}),
         })
