@@ -14,7 +14,7 @@ publish = false
 
 [features]
 default = []
-hf-hub = ["dep:hf-hub", "dep:sha2"]
+hf-hub = ["dep:hf-hub", "dep:sha2", "dep:hex"]
 oracle-hooks = []
 
 [dependencies]
@@ -29,6 +29,7 @@ minijinja = { version = "3", features = ["serde"] }
 minijinja-contrib = { version = "3", features = ["pycompat"] }
 hf-hub = { version = "0.4", optional = true, default-features = false, features = ["ureq"] }
 sha2 = { version = "0.11", optional = true }
+hex = { version = "0.4", optional = true }
 
 [build-dependencies]
 cc.workspace = true
