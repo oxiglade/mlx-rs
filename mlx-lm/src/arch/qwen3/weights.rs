@@ -238,13 +238,13 @@ impl Slots<'_> {
                     scales: Param::new(self.array(
                         group,
                         "scales",
-                        &[output, input / options.group_size.get()],
+                        &[output, input / options.group_size],
                         false,
                     )?),
                     biases: Param::new(self.array(
                         group,
                         "biases",
-                        &[output, input / options.group_size.get()],
+                        &[output, input / options.group_size],
                         false,
                     )?),
                     inner: nn::Linear {
