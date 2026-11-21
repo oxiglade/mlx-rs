@@ -224,6 +224,14 @@ impl WeightManifest {
     }
 
     fn affine_entries(&self, prefix: &str) -> Result<[&WeightEntry; 3], WeightError> {
+        self.affine_entries_rank(prefix, 2)
+    }
+
+    fn affine_entries_rank(
+        &self,
+        prefix: &str,
+        rank: usize,
+    ) -> Result<[&WeightEntry; 3], WeightError> {
         let weight_key = format!("{prefix}.weight");
         let scales_key = format!("{prefix}.scales");
         let biases_key = format!("{prefix}.biases");
@@ -240,17 +248,17 @@ impl WeightManifest {
         }
         validate_dtype(&biases_key, dtype, biases.dtype)?;
         for (key, entry) in [(&weight_key, weight), (&scales_key, scales)] {
-            if entry.shape.len() != 2 {
+            if entry.shape.len() != rank {
                 return Err(WeightError::UnsupportedFormat(format!(
-                    "affine tensor {key} must be a matrix"
+                    "affine tensor {key} must have rank {rank}"
                 )));
             }
         }
         validate_shape(&biases_key, &scales.shape, &biases.shape)?;
         validate_shape(
             &scales_key,
-            &[weight.shape[0], scales.shape[1]],
-            &scales.shape,
+            &weight.shape[..rank - 1],
+            &scales.shape[..rank - 1],
         )?;
         Ok([weight, scales, biases])
     }
@@ -351,13 +359,17 @@ impl WeightManifest {
                 validate_dtype(external, *dtype, entry.dtype)?;
             }
         }
-        let present = assignments.values().collect::<BTreeSet<_>>();
+        let present = assignments
+            .iter()
+            .map(|(key, external)| (external, key))
+            .collect::<BTreeMap<_, _>>();
         for prefix in self.affine_group_prefixes() {
-            if ["weight", "scales", "biases"]
+            if let Some(key) = ["weight", "scales", "biases"]
                 .iter()
-                .any(|suffix| present.contains(&format!("{prefix}.{suffix}")))
+                .find_map(|suffix| present.get(&format!("{prefix}.{suffix}")))
             {
-                self.affine_entries(&prefix)?;
+                let rank = expected[*key].as_ref().expect("assigned parameter").1.len();
+                self.affine_entries_rank(&prefix, if rank == 3 { 3 } else { 2 })?;
             }
         }
         Ok(assignments)

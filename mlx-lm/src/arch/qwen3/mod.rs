@@ -309,6 +309,11 @@ fn attention_mask(
     let queries = ops::arange::<_, i32>(Some(offset), end, None)?.reshape(&[length, 1])?;
     let causal = queries.ge(&keys)?;
     Ok(match attention {
+        AttentionKind::Recurrent => {
+            return Err(
+                CacheError::InvalidState("recurrent layer has no attention mask".into()).into(),
+            )
+        }
         AttentionKind::Full => causal,
         AttentionKind::Sliding { window } => {
             let window = i32::try_from(window.get())

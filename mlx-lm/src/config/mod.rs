@@ -2,6 +2,7 @@ pub use crate::error::ConfigError;
 use std::{collections::BTreeMap, num::NonZeroUsize};
 
 mod parse;
+pub(crate) use parse::parse_quantization;
 #[cfg(test)]
 mod tests;
 
@@ -56,6 +57,8 @@ pub struct TransformerDimensions {
 /// The attention visibility policy for one layer.
 #[derive(Debug, Clone, PartialEq)]
 pub enum AttentionKind {
+    /// Updates a fixed-size recurrent state rather than retaining token K/V pairs.
+    Recurrent,
     /// Attends to every previous token.
     Full,
     /// Attends within a bounded recent window.

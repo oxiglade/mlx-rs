@@ -215,7 +215,7 @@ fn parse_affine(value: &Value) -> Result<AffineQuantization, ConfigError> {
     Ok(affine)
 }
 
-fn parse_quantization(value: &Value) -> Result<QuantizationConfig, ConfigError> {
+pub(crate) fn parse_quantization(value: &Value) -> Result<QuantizationConfig, ConfigError> {
     let fields = value
         .as_object()
         .ok_or_else(|| ConfigError::UnsupportedQuantization(value.to_string()))?;

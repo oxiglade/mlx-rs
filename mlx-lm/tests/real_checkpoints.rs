@@ -313,6 +313,7 @@ pub fn config_value(config: &Config) -> Value {
         .attention
         .iter()
         .map(|a| match a {
+            AttentionKind::Recurrent => json!({"type": "recurrent"}),
             AttentionKind::Full => json!({"type": "full"}),
             AttentionKind::Sliding { window } => json!({"type": "sliding", "window": window.get()}),
         })
@@ -560,6 +561,46 @@ pub fn run_matrix(manifest: &Value) -> Result<()> {
             Err(error) => println!("FAIL: {name}/{device}: {error:#}"),
         },
     )
+}
+
+#[test]
+#[ignore = "requires MLX_LM_QWEN_HYBRID checkpoint and Metal"]
+fn hybrid_snapshot_excludes_the_queued_token() -> Result<()> {
+    refuse_ci()?;
+    let mut model = Model::from_dir(std::env::var("MLX_LM_QWEN_HYBRID")?)?;
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../conformance/mlx-lm/served-fixtures/Qwen3.6-35B-A3B-4bit.json"
+    ))?;
+    let prompt: Vec<u32> = serde_json::from_value(fixture["cases"][0]["prompt_ids"].clone())?;
+    let mut prompt: Vec<TokenId> = prompt.into_iter().map(Into::into).collect();
+    let mut cache = model.new_cache(Default::default())?;
+    let mut generation =
+        model.generate_with_cache(Prompt::Tokens(&prompt), options(12, 2048)?, &mut cache)?;
+    let mut sampled = Vec::new();
+    let mut snapshot = None;
+    while let Some(event) = generation.next() {
+        if let GenerationEvent::Token { token_id, .. } = event? {
+            sampled.push(token_id);
+            if sampled.len() == 3 {
+                snapshot = Some(generation.snapshot()?);
+            }
+        }
+    }
+    drop(generation);
+    ensure!(sampled.len() == 12);
+    cache.restore(snapshot.context("missing snapshot")?)?;
+    prompt.extend_from_slice(&sampled[..3]);
+    ensure!(cache.tokens()? == &prompt[..prompt.len() - 1]);
+    let mut resumed = Vec::new();
+    for event in
+        model.generate_with_cache(Prompt::Tokens(&prompt), options(9, 2048)?, &mut cache)?
+    {
+        if let GenerationEvent::Token { token_id, .. } = event? {
+            resumed.push(token_id);
+        }
+    }
+    ensure!(resumed == sampled[3..]);
+    Ok(())
 }
 
 #[test]

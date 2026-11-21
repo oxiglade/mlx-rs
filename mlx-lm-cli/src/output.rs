@@ -162,6 +162,7 @@ fn config_value(config: &Config) -> Value {
         .attention
         .iter()
         .map(|kind| match kind {
+            AttentionKind::Recurrent => json!({"kind":"recurrent"}),
             AttentionKind::Full => json!({"kind":"full"}),
             AttentionKind::Sliding { window } => json!({"kind":"sliding", "window":window.get()}),
         })

@@ -26,6 +26,7 @@ pub(crate) fn load(file: GgufFile, tokenizer: Tokenizer) -> Result<Model, LoadEr
         let config = match &parsed {
             ParsedArchitecture::Llama(parsed) => &parsed.config,
             ParsedArchitecture::Qwen3(parsed) => &parsed.config,
+            ParsedArchitecture::Hybrid(config) => config,
         };
         weights
             .validate_gguf_shapes(config)

@@ -14,6 +14,7 @@ mod append;
 mod full;
 mod ledger;
 use ledger::{PendingTokens, TokenLedger};
+mod recurrent;
 mod rotating;
 
 /// Per-request cache storage options.
@@ -58,6 +59,8 @@ pub struct CacheInfo {
 /// Admitted cache storage kinds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CacheKind {
+    /// Fixed-size convolution and recurrent state without positional K/V storage.
+    Recurrent,
     /// Storage retaining all processed positions.
     Full,
     /// Fixed-capacity rotating storage.
@@ -123,6 +126,10 @@ impl Cache {
         let mut layers: Vec<Box<dyn LayerCache>> = Vec::with_capacity(layout.len());
         for spec in layout {
             let policy = resolve_policy(spec, &options.policy)?;
+            if spec.attention == crate::AttentionKind::Recurrent {
+                layers.push(Box::new(recurrent::Recurrent::new(spec)?));
+                continue;
+            }
             layers.push(match policy {
                 None => Box::new(full::FullCache::new(
                     spec,
@@ -180,6 +187,9 @@ impl Cache {
             .map(|layer| {
                 let state = layer.fingerprint();
                 Ok(match state.kind {
+                    CacheKind::Recurrent => {
+                        Box::new(recurrent::Recurrent::new(&state.spec)?) as Box<dyn LayerCache>
+                    }
                     CacheKind::Full => Box::new(full::FullCache::new(&state.spec, state.capacity)?)
                         as Box<dyn LayerCache>,
                     CacheKind::Rotating => Box::new(rotating::RotatingCache::new(
@@ -206,6 +216,9 @@ impl Cache {
         let mut views = Vec::with_capacity(self.layers.len());
         for (layer, cache) in self.layers.iter().enumerate() {
             let info = cache.info(layer);
+            if info.kind == CacheKind::Recurrent {
+                continue;
+            }
             let (keys, values) = cache.logical_arrays()?;
             let prefix = info.retained_prefix.len();
             if prefix > 0 {
@@ -330,7 +343,7 @@ impl Cache {
     pub(crate) fn supports_pipeline(&self) -> bool {
         self.layers
             .iter()
-            .all(|layer| layer.info(0).kind == CacheKind::Full)
+            .all(|layer| layer.info(0).kind != CacheKind::Rotating)
     }
 
     pub(crate) fn speculative_step(&mut self, offset: usize) -> Result<CacheStep<'_>, CacheError> {
@@ -423,6 +436,9 @@ mod sealed {
 }
 /// Sealed layer storage returning K/V in logical attention order.
 pub(crate) trait LayerCache: sealed::Sealed {
+    fn recurrent_mut(&mut self) -> Option<&mut recurrent::Recurrent> {
+        None
+    }
     fn update_and_fetch(
         &mut self,
         keys: Array,
@@ -519,6 +535,14 @@ impl<'cache> CacheStep<'cache> {
         self.prepare_evaluation()?;
         mlx_rs::transforms::async_eval(outputs.iter().copied())
             .inspect_err(|_| self.cache.invalidate())?;
+        for (layer, staged) in self.cache.layers.iter_mut().zip(&mut self.staged) {
+            if let Some(state) = staged.recurrent_mut() {
+                layer
+                    .recurrent_mut()
+                    .expect("staged from recurrent layer")
+                    .submitted(state);
+            }
+        }
         Ok(())
     }
     fn prepare_evaluation(&mut self) -> Result<(), mlx_rs::error::Exception> {
@@ -567,6 +591,23 @@ impl<'cache> CacheStep<'cache> {
             .get(layer)
             .map(|cache| cache.info(layer))
             .ok_or_else(|| invalid("layer index out of range"))
+    }
+    pub(crate) fn recurrent(
+        &mut self,
+        layer: usize,
+        count: usize,
+        advance: impl FnOnce((Array, Array)) -> Result<((Array, Array), Array), crate::InferenceError>,
+    ) -> Result<Array, crate::InferenceError> {
+        let state = self.staged[layer]
+            .recurrent_mut()
+            .ok_or_else(|| invalid("expected recurrent layer"))?;
+        if self.updated[layer] {
+            return Err(invalid("layer already updated in this step").into());
+        }
+        let (next, output) = advance(state.arrays()?)?;
+        state.advance(next, count)?;
+        self.updated[layer] = true;
+        Ok(output)
     }
     pub(crate) fn update_and_fetch(
         &mut self,
@@ -781,10 +822,19 @@ fn resolve_policy(
     spec: &LayerCacheSpec,
     policy: &CachePolicy,
 ) -> Result<Option<(usize, usize)>, CacheError> {
+    if spec.attention == crate::AttentionKind::Recurrent {
+        return if matches!(policy, CachePolicy::Rotating { .. }) {
+            Err(CacheError::UnsupportedPolicy(
+                "recurrent state cannot rotate".into(),
+            ))
+        } else {
+            Ok(None)
+        };
+    }
     let resolved = match policy {
         CachePolicy::Full => None,
         CachePolicy::ModelDefault => match spec.attention {
-            crate::AttentionKind::Full => None,
+            crate::AttentionKind::Full | crate::AttentionKind::Recurrent => None,
             crate::AttentionKind::Sliding { window } => Some((window.get(), 0)),
         },
         CachePolicy::Rotating {
@@ -864,7 +914,7 @@ fn validate_policy(
 ) -> Result<(), CacheError> {
     let expected = resolve_policy(spec, policy)?;
     let actual = match fingerprint.kind {
-        CacheKind::Full => None,
+        CacheKind::Full | CacheKind::Recurrent => None,
         CacheKind::Rotating => Some((fingerprint.capacity, fingerprint.keep_prefix)),
     };
     if actual != expected {

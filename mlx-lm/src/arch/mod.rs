@@ -10,6 +10,7 @@ mod attention;
 pub(crate) mod gguf;
 pub(crate) mod llama;
 pub(crate) mod qwen3;
+mod qwen3_5_moe;
 
 /// Architecture-owned interpretation and construction hooks.
 pub(crate) trait ArchitectureFactory {
@@ -56,6 +57,7 @@ pub(crate) trait DecoderModel {
 pub(crate) enum ParsedArchitecture {
     Llama(llama::ParsedConfig),
     Qwen3(qwen3::ParsedConfig),
+    Hybrid(Config),
 }
 macro_rules! architectures {
     ($($module:ident::$factory:ident),+ $(,)?) => {
@@ -70,4 +72,5 @@ macro_rules! architectures {
 architectures! {
     llama::Factory,
     qwen3::Factory,
+    qwen3_5_moe::Factory,
 }

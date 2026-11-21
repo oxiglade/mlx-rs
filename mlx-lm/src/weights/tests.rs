@@ -262,6 +262,34 @@ mod pure {
     }
 
     #[test]
+    fn stacked_affine_matrices_preserve_the_expert_axis() -> Result<(), WeightError> {
+        let mut manifest = WeightManifest::discover(&fixture("llama-quant4"))?;
+        let mut slots = expected(&manifest)?;
+        for suffix in ["weight", "scales", "biases"] {
+            let key = format!("lm_head.{suffix}");
+            manifest.tensors.get_mut(&key).unwrap().shape.insert(0, 3);
+            slots
+                .get_mut(&key)
+                .unwrap()
+                .as_mut()
+                .unwrap()
+                .1
+                .insert(0, 3);
+        }
+        manifest.plan(&slots, assign)?;
+        for suffix in ["scales", "biases"] {
+            let key = format!("lm_head.{suffix}");
+            manifest.tensors.get_mut(&key).unwrap().shape[0] = 2;
+            slots.get_mut(&key).unwrap().as_mut().unwrap().1[0] = 2;
+        }
+        assert!(matches!(
+            manifest.plan(&slots, assign),
+            Err(WeightError::ShapeMismatch { .. })
+        ));
+        Ok(())
+    }
+
+    #[test]
     fn missing_shard_mutation() -> Result<(), WeightError> {
         let copy = copy_fixture("llama-sharded")?;
         fs::remove_file(copy.path().join("model-00002-of-00002.safetensors"))?;

@@ -446,6 +446,7 @@ pub(super) fn mask_data(
             positions.iter().map(move |&key| {
                 key <= query
                     && match attention {
+                        AttentionKind::Recurrent => unreachable!("validated llama attention"),
                         AttentionKind::Full => true,
                         AttentionKind::Sliding { window } => query - key < window.get(),
                     }
