@@ -309,13 +309,21 @@ fn build_provenance(root: &Path, build: &Path) -> Result<Value, String> {
     let git = |source: &Path, args: &[&str]| -> Result<String, String> {
         output(Command::new("git").args(args).current_dir(source)).map(|s| s.trim().to_owned())
     };
+    let metal = cache.get("MLX_BUILD_METAL").is_some_and(|v| v == "ON");
+    let patch = root.join("mlx-sys/metal-worker-encoders.patch");
     for source in [&native, &mlx] {
-        if !git(
+        let status = git(
             source,
             &["status", "--porcelain", "--untracked-files=normal"],
-        )?
-        .is_empty()
-        {
+        )?;
+        if source == &mlx && metal {
+            if status != "M mlx/backend/metal/device.cpp"
+                || git(source, &["diff", "--full-index", "--no-ext-diff", "HEAD"])?
+                    != read(&patch)?.trim_end()
+            {
+                return Err("native Metal source differs from the pinned backport".into());
+            }
+        } else if !status.is_empty() {
             return Err("dirty native build source".into());
         }
     }
@@ -332,6 +340,7 @@ fn build_provenance(root: &Path, build: &Path) -> Result<Value, String> {
     }
     Ok(
         json!({"mlx_c_source": native, "mlx_source": mlx, "mlx_commit": mlx_commit,
+        "mlx_patch_sha256": if metal { Some(crate::checkpoints::hash(&patch)?) } else { None },
         "cmake_cache_sha256": crate::checkpoints::hash(&build.join("CMakeCache.txt"))?}),
     )
 }
