@@ -93,6 +93,21 @@ pub struct CacheSnapshot {
     layers: BTreeMap<usize, Box<dyn LayerCache>>,
     _thread_bound: PhantomData<Rc<()>>,
 }
+/// Thread-bound state for rewinding a cache to the tokens it was taken at.
+/// Holds the recurrent and rotating layers, which keep no history to rewind through,
+/// and shares their arrays with the cache. Full layers are not stored.
+pub struct CacheCheckpoint {
+    architecture: crate::ModelType,
+    model_identity: Rc<()>,
+    ledger: TokenLedger,
+    layers: BTreeMap<usize, Box<dyn LayerCache>>,
+}
+impl CacheCheckpoint {
+    /// Token IDs the cache represented when the checkpoint was taken.
+    pub fn tokens(&self) -> &[crate::TokenId] {
+        self.ledger.tokens()
+    }
+}
 /// Contiguous K/V for one uninterrupted range of absolute positions.
 #[cfg_attr(not(feature = "oracle-hooks"), allow(dead_code))]
 pub(crate) struct LogicalLayerView {
@@ -299,6 +314,69 @@ impl Cache {
         self.ledger = snapshot.ledger;
         self.model_identity = snapshot.model_identity;
         self.last_submission = None;
+        Ok(())
+    }
+    /// Evaluates the recurrent and rotating layers and keeps their arrays without copying.
+    /// An evaluation failure invalidates this cache.
+    pub fn checkpoint(&mut self) -> Result<CacheCheckpoint, CacheError> {
+        self.validate_ledger()?;
+        let layers = self
+            .layers
+            .iter()
+            .enumerate()
+            .filter(|(i, layer)| layer.info(*i).kind != CacheKind::Full)
+            .map(|(i, layer)| Ok((i, layer.snapshot_box()?)))
+            .collect::<Result<BTreeMap<_, _>, CacheError>>()?;
+        let arrays = layers
+            .values()
+            .map(|layer| layer.arrays().map(|(keys, values)| [keys, values]))
+            .collect::<Result<Vec<_>, _>>()?;
+        mlx_rs::transforms::eval(arrays.iter().flatten()).inspect_err(|_| self.invalidate())?;
+        Ok(CacheCheckpoint {
+            architecture: self.architecture.clone(),
+            model_identity: Rc::clone(&self.model_identity),
+            ledger: self.ledger.clone(),
+            layers,
+        })
+    }
+    /// Drops every token after the checkpoint, which stays usable. Full layers shorten
+    /// in place; the other layers take the checkpoint's arrays.
+    /// The checkpoint's tokens must be a prefix of this cache's tokens. Tokens do not
+    /// identify image content: after a vision prompt, use only checkpoints of that prefill.
+    pub fn rewind(&mut self, checkpoint: &CacheCheckpoint) -> Result<(), CacheError> {
+        self.validate_ledger()?;
+        if !Rc::ptr_eq(&self.model_identity, &checkpoint.model_identity)
+            || self.architecture != checkpoint.architecture
+            || !self
+                .layers
+                .iter()
+                .enumerate()
+                .all(|(i, layer)| match checkpoint.layers.get(&i) {
+                    Some(saved) => layer.fingerprint().compatible(&saved.fingerprint()),
+                    None => layer.info(i).kind == CacheKind::Full,
+                })
+        {
+            return Err(CacheError::FingerprintMismatch);
+        }
+        let tokens = checkpoint.tokens();
+        if !self.ledger.tokens().starts_with(tokens) {
+            return Err(invalid("checkpoint tokens are not a prefix of this cache"));
+        }
+        for (i, layer) in self.layers.iter_mut().enumerate() {
+            match checkpoint.layers.get(&i) {
+                Some(saved) => *layer = saved.clone_box(),
+                None => {
+                    let info = layer.info(i);
+                    layer.set_length(tokens.len())?;
+                    // A snapshot shares a full layer's storage when it has no spare
+                    // capacity, and the shortened layer would append into it in place.
+                    if info.processed_tokens == info.capacity {
+                        *layer = layer.snapshot_box()?;
+                    }
+                }
+            }
+        }
+        self.ledger = checkpoint.ledger.clone();
         Ok(())
     }
     pub(crate) fn validate_reuse(

@@ -881,6 +881,48 @@ fn reuse_strict_extension_matches_fresh_generation() -> TestResult {
     })
 }
 #[test]
+fn rewind_to_a_prefill_checkpoint_matches_fresh_generation() -> TestResult {
+    with_device(Device::cpu(), || {
+        for name in FIXTURES {
+            let expected = read_json(fixture(name).join("expectations.json"))?;
+            let prompt = ids(&expected["prefill"]["token_ids"]);
+            for policy in [crate::CachePolicy::ModelDefault, crate::CachePolicy::Full] {
+                let mut model = Model::from_dir(fixture(name))?;
+                let mut options = length_options(4);
+                options.cache.policy = policy;
+                options.prefill_chunk_size = nz(1);
+                let mut cache = model.new_cache(options.cache.clone())?;
+                let mut generation = model.generate_with_cache(
+                    Prompt::Tokens(&prompt),
+                    options.clone(),
+                    &mut cache,
+                )?;
+                let mut checkpoint = None;
+                while let Some(event) = generation.next() {
+                    if matches!(event?, GenerationEvent::Prefill { processed: 2, .. }) {
+                        checkpoint = Some(generation.checkpoint()?);
+                    }
+                }
+                drop(generation);
+                let checkpoint = checkpoint.unwrap();
+                assert_eq!(checkpoint.tokens(), &prompt[..2]);
+                cache.rewind(&checkpoint)?;
+                let mut branch = prompt[..2].to_vec();
+                branch.extend([TokenId::from(12), TokenId::from(13)]);
+                let fresh =
+                    collect_tokens(&mut model.generate(Prompt::Tokens(&branch), options.clone())?)?;
+                let mut rewound = model.generate_with_cache(
+                    Prompt::Tokens(&branch),
+                    options.clone(),
+                    &mut cache,
+                )?;
+                assert_eq!(collect_tokens(&mut rewound)?, fresh, "{name}");
+            }
+        }
+        Ok(())
+    })
+}
+#[test]
 fn interleaved_seeded_generators_equal_isolated_runs() -> TestResult {
     with_device(Device::cpu(), || {
         let expected = read_json(fixture("llama-base").join("expectations.json"))?;

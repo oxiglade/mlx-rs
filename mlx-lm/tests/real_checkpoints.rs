@@ -1,6 +1,6 @@
 use anyhow::{bail, ensure, Context, Result};
 use mlx_lm::{
-    AttentionKind, CachePolicy, Config, FinishReason, GenerationEvent, GenerationOptions,
+    AttentionKind, Cache, CachePolicy, Config, FinishReason, GenerationEvent, GenerationOptions,
     LayerQuantization, Model, Prompt, RopeScaling, StopTokenPolicy, TokenId, Tokenizer,
 };
 use mlx_rs::{with_device, Device};
@@ -617,6 +617,83 @@ fn inkling_snapshot_resumes_past_the_sliding_window() -> Result<()> {
     let mut model = Model::from_dir(std::env::var("MLX_LM_INKLING")?)?;
     let prompt = (0..1100u32).map(|i| (1000 + i % 500).into()).collect();
     snapshot_resumes(&mut model, prompt, 512)
+}
+
+fn checkpoint_rewinds(model: &mut Model, prompt: Vec<TokenId>, chunk: usize) -> Result<()> {
+    let mut cache = model.new_cache(Default::default())?;
+    let mut generation =
+        model.generate_with_cache(Prompt::Tokens(&prompt), options(12, chunk)?, &mut cache)?;
+    let (mut in_prefill, mut in_decode) = (None, None);
+    let mut sampled = Vec::new();
+    while let Some(event) = generation.next() {
+        match event? {
+            GenerationEvent::Prefill { processed, .. } if processed == chunk => {
+                in_prefill = Some(generation.checkpoint()?);
+            }
+            GenerationEvent::Token { token_id, .. } => {
+                sampled.push(token_id);
+                if sampled.len() == 3 {
+                    in_decode = Some(generation.checkpoint()?);
+                }
+            }
+            _ => {}
+        }
+    }
+    drop(generation);
+    let mut generate = |prompt: &[TokenId], cache: Option<&mut Cache>| -> Result<Vec<TokenId>> {
+        let (prompt, options) = (Prompt::Tokens(prompt), options(9, chunk)?);
+        let generation = match cache {
+            Some(cache) => model.generate_with_cache(prompt, options, cache)?,
+            None => model.generate(prompt, options)?,
+        };
+        let mut tokens = Vec::new();
+        for event in generation {
+            if let GenerationEvent::Token { token_id, .. } = event? {
+                tokens.push(token_id);
+            }
+        }
+        Ok(tokens)
+    };
+
+    cache.rewind(&in_decode.context("missing decode checkpoint")?)?;
+    let mut resumed = prompt.clone();
+    resumed.extend_from_slice(&sampled[..3]);
+    ensure!(cache.tokens()? == &resumed[..resumed.len() - 1]);
+    ensure!(generate(&resumed, Some(&mut cache))? == sampled[3..]);
+
+    let in_prefill = in_prefill.context("missing prefill checkpoint")?;
+    ensure!(in_prefill.tokens() == &prompt[..chunk]);
+    cache.rewind(&in_prefill)?;
+    let mut branch = prompt[..chunk].to_vec();
+    branch.extend(prompt.iter().rev());
+    let rewound = generate(&branch, Some(&mut cache))?;
+    ensure!(rewound == generate(&branch, None)?);
+    Ok(())
+}
+
+#[test]
+#[ignore = "requires MLX_LM_QWEN_HYBRID checkpoint and Metal"]
+fn hybrid_rewinds_to_a_prefill_checkpoint() -> Result<()> {
+    refuse_ci()?;
+    let mut model = Model::from_dir(std::env::var("MLX_LM_QWEN_HYBRID")?)?;
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../conformance/mlx-lm/served-fixtures/Qwen3.6-35B-A3B-4bit.json"
+    ))?;
+    let prompt: Vec<u32> = serde_json::from_value(fixture["cases"][0]["prompt_ids"].clone())?;
+    checkpoint_rewinds(
+        &mut model,
+        prompt.into_iter().map(Into::into).collect(),
+        128,
+    )
+}
+
+#[test]
+#[ignore = "requires MLX_LM_INKLING checkpoint and Metal"]
+fn inkling_rewinds_behind_the_sliding_window() -> Result<()> {
+    refuse_ci()?;
+    let mut model = Model::from_dir(std::env::var("MLX_LM_INKLING")?)?;
+    let prompt = (0..1100u32).map(|i| (1000 + i % 500).into()).collect();
+    checkpoint_rewinds(&mut model, prompt, 512)
 }
 
 #[test]
