@@ -985,6 +985,42 @@ fn rewind_to_a_prefill_checkpoint_matches_fresh_generation() -> TestResult {
     })
 }
 #[test]
+fn saved_cache_resumes_in_a_reloaded_model() -> TestResult {
+    with_device(Device::cpu(), || {
+        let directory = tempfile::tempdir()?;
+        for name in FIXTURES {
+            let file = |part: &str| directory.path().join(format!("{name}-{part}.safetensors"));
+            let expected = read_json(fixture(name).join("expectations.json"))?;
+            let mut prompt = ids(&expected["prefill"]["token_ids"]);
+            let mut options = length_options(4);
+            options.cache.policy = crate::CachePolicy::Full;
+            let mut model = Model::from_dir(fixture(name))?;
+            let mut cache = model.new_cache(options.cache.clone())?;
+            let events = collect_tokens(&mut model.generate_with_cache(
+                Prompt::Tokens(&prompt),
+                options.clone(),
+                &mut cache,
+            )?)?;
+            cache.save_positions(0..3, file("head"))?;
+            cache.save_positions(3..cache.tokens()?.len(), file("tail"))?;
+            cache.checkpoint()?.save(file("checkpoint"))?;
+            drop((cache, model));
+
+            let mut model = Model::from_dir(fixture(name))?;
+            let checkpoint = model.load_checkpoint(file("checkpoint"))?;
+            let mut cache = model.load_cache(&checkpoint, &[file("head"), file("tail")])?;
+            prompt.extend(token_ids(&events));
+            prompt.extend([TokenId::from(12), TokenId::from(13)]);
+            let fresh =
+                collect_tokens(&mut model.generate(Prompt::Tokens(&prompt), options.clone())?)?;
+            let mut resumed =
+                model.generate_with_cache(Prompt::Tokens(&prompt), options, &mut cache)?;
+            assert_eq!(collect_tokens(&mut resumed)?, fresh, "{name}");
+        }
+        Ok(())
+    })
+}
+#[test]
 fn interleaved_seeded_generators_equal_isolated_runs() -> TestResult {
     with_device(Device::cpu(), || {
         let expected = read_json(fixture("llama-base").join("expectations.json"))?;

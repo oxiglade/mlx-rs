@@ -16,6 +16,7 @@ mod ledger;
 use ledger::{PendingTokens, TokenLedger};
 mod recurrent;
 mod rotating;
+mod save;
 
 /// Per-request cache storage options.
 #[derive(Debug, Clone, Default)]

@@ -25,6 +25,20 @@ impl FullCache {
             capacity,
         })
     }
+    pub(crate) fn from_arrays(
+        spec: &LayerCacheSpec,
+        keys: Array,
+        values: Array,
+    ) -> Result<Self, CacheError> {
+        let capacity = super::token_length(&keys)?;
+        Ok(Self {
+            spec: spec.clone(),
+            buffer: Some(Buffer { keys, values }),
+            growth: None,
+            processed_tokens: capacity,
+            capacity,
+        })
+    }
 }
 impl sealed::Sealed for FullCache {}
 impl LayerCache for FullCache {

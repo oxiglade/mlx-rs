@@ -707,6 +707,83 @@ fn inkling_rewinds_behind_the_sliding_window() -> Result<()> {
     checkpoint_rewinds(&mut model, prompt, 512, 700)
 }
 
+fn saved_cache_resumes(
+    directory: &str,
+    mut prompt: Vec<TokenId>,
+    split: usize,
+) -> Result<(Model, tempfile::TempDir)> {
+    let scratch = tempfile::tempdir()?;
+    let file = |name: &str| scratch.path().join(format!("{name}.safetensors"));
+    let mut model = Model::from_dir(directory)?;
+    let mut cache = model.new_cache(Default::default())?;
+    let mut generation =
+        model.generate_with_cache(Prompt::Tokens(&prompt), options(12, 512)?, &mut cache)?;
+    let mut sampled = Vec::new();
+    while let Some(event) = generation.next() {
+        if let GenerationEvent::Token { token_id, .. } = event? {
+            sampled.push(token_id);
+            if sampled.len() == 3 {
+                let cache = generation.cache()?;
+                cache.save_positions(0..split, file("head"))?;
+                cache.save_positions(split..cache.tokens()?.len(), file("tail"))?;
+                generation.checkpoint()?.save(file("checkpoint"))?;
+            }
+        }
+    }
+    drop(generation);
+    drop((cache, model));
+
+    let mut model = Model::from_dir(directory)?;
+    let checkpoint = model.load_checkpoint(file("checkpoint"))?;
+    let mut cache = model.load_cache(&checkpoint, &[file("head"), file("tail")])?;
+    prompt.extend_from_slice(&sampled[..3]);
+    ensure!(cache.tokens()? == &prompt[..prompt.len() - 1]);
+    let mut resumed = Vec::new();
+    for event in model.generate_with_cache(Prompt::Tokens(&prompt), options(9, 512)?, &mut cache)? {
+        if let GenerationEvent::Token { token_id, .. } = event? {
+            resumed.push(token_id);
+        }
+    }
+    ensure!(resumed == sampled[3..]);
+    Ok((model, scratch))
+}
+
+#[test]
+#[ignore = "requires MLX_LM_QWEN_HYBRID checkpoint and Metal"]
+fn hybrid_resumes_from_a_saved_cache() -> Result<()> {
+    refuse_ci()?;
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../conformance/mlx-lm/served-fixtures/Qwen3.6-35B-A3B-4bit.json"
+    ))?;
+    let prompt: Vec<u32> = serde_json::from_value(fixture["cases"][0]["prompt_ids"].clone())?;
+    saved_cache_resumes(
+        &std::env::var("MLX_LM_QWEN_HYBRID")?,
+        prompt.into_iter().map(Into::into).collect(),
+        100,
+    )?;
+    Ok(())
+}
+
+#[test]
+#[ignore = "requires MLX_LM_INKLING checkpoint and Metal"]
+fn inkling_resumes_from_a_saved_cache() -> Result<()> {
+    refuse_ci()?;
+    let prompt = (0..1100u32).map(|i| (1000 + i % 500).into()).collect();
+    let (model, scratch) = saved_cache_resumes(&std::env::var("MLX_LM_INKLING")?, prompt, 700)?;
+    let file = |name: &str| scratch.path().join(format!("{name}.safetensors"));
+    let (mut arrays, metadata) = mlx_rs::with_stream(&mlx_rs::Stream::cpu(), || {
+        mlx_rs::Array::load_safetensors_with_metadata(file("checkpoint"))
+    })?;
+    for name in ["0.0", "0.1"] {
+        ensure!(arrays[name].shape() == [1, 8, 1023, 128]);
+        let short = mlx_rs::ops::zeros_dtype(&[1, 8, 1022, 128], arrays[name].dtype())?;
+        arrays.insert(name.into(), short);
+    }
+    mlx_rs::Array::save_safetensors(arrays, &metadata, file("short"))?;
+    ensure!(model.load_checkpoint(file("short")).is_err());
+    Ok(())
+}
+
 #[test]
 #[ignore = "requires MLX_LM_INKLING checkpoint and Metal"]
 fn inkling_replays_the_image_fixture() -> Result<()> {

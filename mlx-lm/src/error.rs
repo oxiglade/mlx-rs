@@ -266,6 +266,9 @@ pub enum CacheError {
     /// The requested cache policy is not implemented.
     #[error("unsupported cache policy: {0}")]
     UnsupportedPolicy(String),
+    /// A saved cache file could not be written or read.
+    #[error(transparent)]
+    Io(#[from] mlx_rs::error::IoError),
     /// Preserves the source diagnostic.
     #[error(transparent)]
     Exception(#[from] Exception),

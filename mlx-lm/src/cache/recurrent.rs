@@ -9,19 +9,53 @@ pub(crate) struct Recurrent {
 }
 
 impl Recurrent {
+    /// A negative size in the layout's shape is an axis that holds the tokens seen, up to
+    /// that many.
     pub(super) fn new(spec: &LayerCacheSpec) -> Result<Self, CacheError> {
-        let [(first, first_dtype), (second, second_dtype)] = spec
+        let [first, second] = spec
             .recurrent_state
             .as_ref()
             .ok_or_else(|| invalid("recurrent layer without state shapes"))?;
+        let empty = |(shape, dtype): &(Vec<i32>, Dtype)| {
+            let shape: Vec<_> = shape.iter().map(|&size| size.max(0)).collect();
+            zeros_dtype(&shape, *dtype)
+        };
         Ok(Self {
             spec: spec.clone(),
             offset: 0,
             pending: Vec::new(),
-            state: (
-                zeros_dtype(first, *first_dtype)?,
-                zeros_dtype(second, *second_dtype)?,
-            ),
+            state: (empty(first)?, empty(second)?),
+        })
+    }
+    pub(super) fn from_state(
+        spec: &LayerCacheSpec,
+        offset: usize,
+        state: (Array, Array),
+    ) -> Result<Self, CacheError> {
+        let [first, second] = spec
+            .recurrent_state
+            .as_ref()
+            .ok_or_else(|| invalid("recurrent layer without state shapes"))?;
+        for (array, (shape, dtype)) in [(&state.0, first), (&state.1, second)] {
+            let held = dimension(offset)?;
+            let shaped = array.ndim() == shape.len()
+                && shape.iter().zip(array.shape()).all(|(&expected, &actual)| {
+                    actual
+                        == if expected < 0 {
+                            held.min(-expected)
+                        } else {
+                            expected
+                        }
+                });
+            if !shaped || array.dtype() != *dtype {
+                return Err(CacheError::FingerprintMismatch);
+            }
+        }
+        Ok(Self {
+            spec: spec.clone(),
+            offset,
+            state,
+            pending: Vec::new(),
         })
     }
     pub(super) fn advance(&mut self, next: (Array, Array), count: usize) -> Result<(), CacheError> {

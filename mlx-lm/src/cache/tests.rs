@@ -812,29 +812,51 @@ fn append_hybrid(cache: &mut Cache, ids: &[u32]) -> Result<(), Box<dyn std::erro
     let represented: Vec<_> = ids.iter().copied().map(crate::TokenId::from).collect();
     let data: Vec<_> = ids.iter().map(|&id| id as f32).collect();
     let mut step = cache.step_with_tokens(&represented)?;
-    step.update_and_fetch(0, tokens(&data)?, tokens(&data)?)?;
-    step.recurrent(1, ids.len(), |(mut state, unused)| {
+    step.update_and_fetch(
+        0,
+        tokens(&data)?,
+        tokens(&data.iter().map(|x| -x).collect::<Vec<_>>())?,
+    )?;
+    step.recurrent(1, ids.len(), |(mut state, count)| {
         for id in &data {
             state = state
                 .multiply(Array::from_f32(3.))?
                 .add(Array::from_f32(*id))?;
         }
-        Ok(((state, unused), ()))
+        Ok(((state, count.add(Array::from_f32(data.len() as f32))?), ()))
     })?;
     step.evaluate(&[])?.commit();
     Ok(())
 }
 
-#[test]
-fn rewind_to_checkpoint_matches_a_fresh_cache() -> Result<(), Box<dyn std::error::Error>> {
-    let layout = [
+fn hybrid_layout() -> [LayerCacheSpec; 2] {
+    [
         spec(),
         LayerCacheSpec {
             attention: crate::AttentionKind::Recurrent,
             recurrent_state: Some([(vec![1], Dtype::Float32), (vec![1], Dtype::Float32)]),
             ..spec()
         },
-    ];
+    ]
+}
+type HybridState = ([Vec<f32>; 4], Vec<crate::TokenId>);
+fn hybrid_state(cache: &Cache) -> Result<HybridState, CacheError> {
+    let (keys, values) = cache.layers[0].logical_arrays()?;
+    let (first, second) = cache.layers[1].arrays()?;
+    Ok((
+        [
+            contents(&keys)?,
+            contents(&values)?,
+            contents(&first)?,
+            contents(&second)?,
+        ],
+        cache.tokens()?.to_vec(),
+    ))
+}
+
+#[test]
+fn rewind_to_checkpoint_matches_a_fresh_cache() -> Result<(), Box<dyn std::error::Error>> {
+    let layout = hybrid_layout();
     let new = |identity: &Rc<()>| {
         Cache::new_for_model(
             crate::ModelType::new("llama"),
@@ -844,19 +866,10 @@ fn rewind_to_checkpoint_matches_a_fresh_cache() -> Result<(), Box<dyn std::error
             identity.clone(),
         )
     };
-    let state = |cache: &Cache| -> Result<_, CacheError> {
-        let (keys, _) = cache.layers[0].logical_arrays()?;
-        let (recurrent, _) = cache.layers[1].arrays()?;
-        Ok((
-            contents(&keys)?,
-            contents(&recurrent)?,
-            cache.tokens()?.to_vec(),
-        ))
-    };
     let identity = Rc::new(());
     let mut cache = new(&identity)?;
     append_hybrid(&mut cache, &[1, 2, 3])?;
-    let at_checkpoint = state(&cache)?;
+    let at_checkpoint = hybrid_state(&cache)?;
     let checkpoint = cache.checkpoint()?;
     assert_eq!(checkpoint.tokens(), cache.tokens()?);
     // Two f32 state scalars, beside 256 positions of f32 keys and values.
@@ -869,22 +882,22 @@ fn rewind_to_checkpoint_matches_a_fresh_cache() -> Result<(), Box<dyn std::error
     append_hybrid(&mut cache, &[4, 5])?;
     for suffix in [&[6][..], &[7, 8, 9][..]] {
         cache.rewind(&checkpoint)?;
-        assert_eq!(state(&cache)?, at_checkpoint);
+        assert_eq!(hybrid_state(&cache)?, at_checkpoint);
         append_hybrid(&mut cache, suffix)?;
         let mut fresh = new(&identity)?;
         append_hybrid(&mut fresh, &[1, 2, 3])?;
         append_hybrid(&mut fresh, suffix)?;
-        assert_eq!(state(&cache)?, state(&fresh)?);
+        assert_eq!(hybrid_state(&cache)?, hybrid_state(&fresh)?);
     }
 
     let mut diverged = new(&identity)?;
     append_hybrid(&mut diverged, &[1, 9, 3, 4])?;
-    let before = state(&diverged)?;
+    let before = hybrid_state(&diverged)?;
     assert!(matches!(
         diverged.rewind(&checkpoint),
         Err(CacheError::InvalidState(_))
     ));
-    assert_eq!(state(&diverged)?, before);
+    assert_eq!(hybrid_state(&diverged)?, before);
     let mut shorter = new(&identity)?;
     append_hybrid(&mut shorter, &[1, 2])?;
     assert!(matches!(
@@ -896,6 +909,157 @@ fn rewind_to_checkpoint_matches_a_fresh_cache() -> Result<(), Box<dyn std::error
     assert!(matches!(
         other_model.rewind(&checkpoint),
         Err(CacheError::FingerprintMismatch)
+    ));
+    Ok(())
+}
+
+#[test]
+fn saved_cache_loads_for_another_model_instance() -> Result<(), Box<dyn std::error::Error>> {
+    let layout = hybrid_layout();
+    let model_type = crate::ModelType::new("llama");
+    let new = |identity: &Rc<()>| {
+        Cache::new_for_model(
+            model_type.clone(),
+            &layout,
+            &CacheOptions::default(),
+            None,
+            identity.clone(),
+        )
+    };
+    let directory = tempfile::tempdir()?;
+    let file = |name: &str| directory.path().join(format!("{name}.safetensors"));
+
+    let mut cache = new(&Rc::new(()))?;
+    append_hybrid(&mut cache, &[1, 2, 3])?;
+    append_hybrid(&mut cache, &[4, 5])?;
+    cache.save_positions(0..2, file("head"))?;
+    cache.save_positions(2..5, file("tail"))?;
+    cache.checkpoint()?.save(file("checkpoint"))?;
+    append_hybrid(&mut cache, &[6])?;
+
+    let identity = Rc::new(());
+    let checkpoint =
+        CacheCheckpoint::load(&file("checkpoint"), &model_type, &layout, identity.clone())?;
+    let load = |blocks: &[std::path::PathBuf]| Cache::load(&checkpoint, blocks, &layout, &identity);
+    let mut loaded = mlx_rs::with_device(mlx_rs::Device::gpu(), || {
+        CacheCheckpoint::load(&file("checkpoint"), &model_type, &layout, identity.clone())?;
+        load(&[file("head"), file("tail")])
+    })?;
+    let mut fresh = new(&identity)?;
+    append_hybrid(&mut fresh, &[1, 2, 3, 4, 5])?;
+    assert_eq!(hybrid_state(&loaded)?, hybrid_state(&fresh)?);
+    for suffix in [&[7][..], &[8, 9][..]] {
+        append_hybrid(&mut loaded, suffix)?;
+        append_hybrid(&mut fresh, suffix)?;
+        assert_eq!(hybrid_state(&loaded)?, hybrid_state(&fresh)?);
+    }
+    loaded.rewind(&checkpoint)?;
+    assert_eq!(loaded.tokens()?, checkpoint.tokens());
+
+    cache.save_positions(1..5, file("overlap"))?;
+    for blocks in [
+        &[file("tail"), file("head")][..],
+        &[file("head")][..],
+        &[file("head"), file("overlap")][..],
+    ] {
+        assert!(matches!(load(blocks), Err(CacheError::InvalidState(_))));
+    }
+    assert!(matches!(
+        new(&identity)?.checkpoint()?.save(file("empty")),
+        Err(CacheError::InvalidState(_))
+    ));
+    let mut other = new(&Rc::new(()))?;
+    append_hybrid(&mut other, &[1, 9, 3, 4, 5])?;
+    other.save_positions(2..5, file("other"))?;
+    assert!(matches!(
+        load(&[file("head"), file("other")]),
+        Err(CacheError::InvalidState(_))
+    ));
+    assert!(matches!(
+        Cache::load(
+            &checkpoint,
+            &[file("head"), file("tail")],
+            &layout,
+            &Rc::new(())
+        ),
+        Err(CacheError::FingerprintMismatch)
+    ));
+    for (path, model_type) in [
+        (file("checkpoint"), crate::ModelType::new("qwen3")),
+        (file("head"), model_type.clone()),
+    ] {
+        assert!(matches!(
+            CacheCheckpoint::load(&path, &model_type, &layout, identity.clone()),
+            Err(CacheError::FingerprintMismatch)
+        ));
+    }
+    for positions in [3..3, 5..9] {
+        assert!(matches!(
+            cache.save_positions(positions, file("outside")),
+            Err(CacheError::InvalidState(_))
+        ));
+    }
+
+    let (mut ranked, metadata) = mlx_rs::with_device(mlx_rs::Device::cpu(), || {
+        Array::load_safetensors_with_metadata(file("head"))
+    })?;
+    ranked.insert("tokens".into(), ranked["tokens"].reshape(&[1, 2])?);
+    Array::save_safetensors(ranked, &metadata, file("ranked"))?;
+    assert!(matches!(
+        load(&[file("ranked"), file("tail")]),
+        Err(CacheError::FingerprintMismatch)
+    ));
+    let window = (vec![-2], Dtype::Float32);
+    let windowed = [LayerCacheSpec {
+        attention: crate::AttentionKind::Recurrent,
+        recurrent_state: Some([window.clone(), window]),
+        ..spec()
+    }];
+    for (seen, held, accepted) in [
+        (1, 1, true),
+        (1, 2, false),
+        (3, 2, true),
+        (3, 1, false),
+        (3, 3, false),
+    ] {
+        let state = Array::from_slice(&vec![0f32; held], &[held as i32]);
+        Array::save_safetensors(
+            [
+                (
+                    "tokens",
+                    Array::from_slice(&vec![7u32; seen], &[seen as i32]),
+                ),
+                ("0.0", state.clone()),
+                ("0.1", state),
+            ],
+            &metadata,
+            file("window"),
+        )?;
+        let loaded =
+            CacheCheckpoint::load(&file("window"), &model_type, &windowed, identity.clone());
+        assert_eq!(loaded.is_ok(), accepted, "{seen} tokens, {held} held");
+    }
+
+    let mut rotating = Cache::new_for_model(
+        model_type.clone(),
+        &[spec()],
+        &CacheOptions {
+            policy: CachePolicy::Rotating {
+                capacity: nonzero(5)?,
+                keep_prefix: 2,
+            },
+        },
+        None,
+        Rc::new(()),
+    )?;
+    append_ids(&mut rotating, &[1, 2])?;
+    assert!(matches!(
+        rotating.save_positions(0..1, file("rotating")),
+        Err(CacheError::UnsupportedPolicy(_))
+    ));
+    assert!(matches!(
+        rotating.checkpoint()?.save(file("rotating")),
+        Err(CacheError::UnsupportedPolicy(_))
     ));
     Ok(())
 }
