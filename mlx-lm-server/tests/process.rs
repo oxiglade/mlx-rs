@@ -83,9 +83,17 @@ impl Drop for Server {
 
 type Configure = fn(&mut GenerationOptions);
 
+fn tokens(prompt: &str) -> usize {
+    let model = Model::from_dir(fixture()).unwrap();
+    model.tokenizer().encode(prompt).unwrap().len()
+}
+
 /// What the library generates after `prompt`: the prompt's token count, the sampled
 /// tokens' count, their text and the finish reason.
-fn generated(prompt: &str, configure: Configure) -> (usize, usize, String, FinishReason) {
+fn generated(
+    prompt: &str,
+    configure: impl FnOnce(&mut GenerationOptions),
+) -> (usize, usize, String, FinishReason) {
     let mut model = Model::from_dir(fixture()).unwrap();
     let tokens = model.tokenizer().encode(prompt).unwrap();
     let mut options = GenerationOptions::default();
@@ -143,6 +151,8 @@ fn chat_completion_returns_what_the_library_generates() {
             },
         ),
     ];
+    // Every request after the first rewinds to the end of the user message.
+    let rewound = tokens(&format!("<|im_start|>user\n{PROMPT}<|im_end|>\n"));
     let mut finishes = Vec::new();
     for (mut body, configure) in cases {
         let model = body["model"].as_str().unwrap_or(id).to_owned();
@@ -161,15 +171,16 @@ fn chat_completion_returns_what_the_library_generates() {
             "{body}"
         );
         assert_eq!(choice["finish_reason"], finish, "{body}");
-        assert_eq!(
-            response["usage"],
+        let expected = |cached: usize| {
             json!({
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
                 "total_tokens": prompt_tokens + completion_tokens,
-            }),
-            "{body}"
-        );
+                "prompt_tokens_details": { "cached_tokens": cached },
+            })
+        };
+        let cached = if finishes.is_empty() { 0 } else { rewound };
+        assert_eq!(response["usage"], expected(cached), "{body}");
         assert_eq!(response["object"], "chat.completion");
         assert_eq!(response["model"], model);
         finishes.push(finish);
@@ -186,7 +197,7 @@ fn chat_completion_returns_what_the_library_generates() {
         let parse = |data: &String| serde_json::from_str::<Value>(data).unwrap();
         let (last, usage) = (parse(last), parse(usage));
         assert_eq!(usage["choices"], json!([]));
-        assert_eq!(usage["usage"], response["usage"], "{body}");
+        assert_eq!(usage["usage"], expected(rewound), "{body}");
         assert_eq!(
             last["choices"],
             json!([{ "index": 0, "finish_reason": finish, "delta": { "role": "assistant" } }]),
@@ -245,6 +256,95 @@ fn chat_completion_returns_what_the_library_generates() {
     }
     let (status, _) = server.chat(json!({ "messages": messages, "max_tokens": 1 }));
     assert_eq!(status, 200);
+}
+
+#[test]
+fn a_request_continues_from_the_longest_cached_state_it_extends() {
+    const ASSISTANT: &str = "<|im_start|>assistant\n";
+    let server = Server::start(&fixture());
+    let render = |messages: &[(&str, &str)]| -> String {
+        let turns = messages.iter();
+        let turns =
+            turns.map(|(role, content)| format!("<|im_start|>{role}\n{content}<|im_end|>\n"));
+        turns.collect()
+    };
+    let length = |messages: &[(&str, &str)]| tokens(&render(messages));
+    // Checks the reply against a run without a cache and returns it with the counts of
+    // cached and of sampled tokens.
+    let ask = |messages: &[(&str, &str)], max_tokens: usize| {
+        let sent = messages.iter();
+        let sent = sent.map(|(role, content)| json!({ "role": role, "content": content }));
+        let sent: Vec<_> = sent.collect();
+        let (status, response) = server.chat(json!({ "messages": sent, "max_tokens": max_tokens }));
+        assert_eq!(status, 200, "{response}");
+        let (prompt_tokens, sampled, text, _) =
+            generated(&(render(messages) + ASSISTANT), |options| {
+                options.max_tokens = max_tokens.try_into().unwrap()
+            });
+        assert_eq!(
+            response["choices"][0]["message"]["content"],
+            json!((!text.is_empty()).then_some(&text)),
+            "{messages:?}"
+        );
+        let usage = &response["usage"];
+        assert_eq!(usage["prompt_tokens"], prompt_tokens);
+        let cached = usage["prompt_tokens_details"]["cached_tokens"]
+            .as_u64()
+            .unwrap();
+        (text, cached as usize, sampled)
+    };
+    let prompt = |messages: &[(&str, &str)]| tokens(&(render(messages) + ASSISTANT));
+    let (system, user) = (("system", "be brief"), ("user", "hello the small fox"));
+    let (reply, cached, sampled) = ask(&[system, user], 4);
+    assert_eq!(cached, 0);
+
+    // The cache holds the prompt and every sampled token but the last.
+    let again = ("user", "runs over");
+    let follow_up = [system, user, ("assistant", reply.as_str()), again];
+    assert_eq!(ask(&follow_up, 1).1, prompt(&follow_up[..2]) + sampled - 1);
+    // After a reply of one token the cache ends where the prompt ends. A repeat has to
+    // prefill a token, so it rewinds to the user message's end and takes no second
+    // checkpoint there.
+    for _ in 0..2 {
+        assert_eq!(ask(&follow_up, 1).1, length(&follow_up));
+    }
+
+    // The first round differs from the follow-up after the first user message. Each later
+    // round extends the prompt before it.
+    let tool = ("tool", "a");
+    let mut rounds = vec![system, user];
+    let mut expected = length(&rounds);
+    for _ in 0..5 {
+        rounds.extend([("assistant", "b"), tool]);
+        assert_eq!(ask(&rounds, 1).1, expected);
+        expected = prompt(&rounds);
+    }
+    // A branch off the second round ends past the later rounds' ends, which a request
+    // that leaves the branch midway must not rewind to.
+    for answer in ["c c c c c c c c c c c c", "c c c c c c c c b"] {
+        let cached = ask(&[&rounds[..6], &[("assistant", answer), tool]].concat(), 4).1;
+        assert_eq!(cached, length(&rounds[..6]));
+    }
+    // Only the ends of the last four requests are kept, so the first round's is gone.
+    let branch = [("assistant", "c"), tool];
+    let cached = ask(&[&rounds[..4], &branch].concat(), 4).1;
+    assert_eq!(cached, length(&rounds[..2]));
+
+    // The system message's checkpoint is taken where the first message after it starts
+    // to differ from an empty user message.
+    let shared = tokens(&(render(&[system]) + "<|im_start|>user\n"));
+    let mut turns = vec![system, ("user", "world")];
+    let mut expected = shared;
+    for _ in 0..4 {
+        assert_eq!(ask(&turns, 1).1, expected);
+        expected = prompt(&turns);
+        turns.extend([("assistant", "b"), again]);
+    }
+    // Of the ends of user messages, the last three are kept beside the system message's.
+    let cached = ask(&[&turns[..2], &branch].concat(), 4).1;
+    assert_eq!(cached, shared);
+
+    assert_eq!(ask(&[("system", "answer yes"), user], 4).1, 0);
 }
 
 #[test]

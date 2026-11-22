@@ -244,11 +244,12 @@ fn finish_reason(finish: FinishReason, calls: &ToolCalls) -> &'static str {
         _ => "stop",
     }
 }
-fn usage(prompt_tokens: usize, completion_tokens: usize) -> Value {
+fn usage(prompt_tokens: usize, cached_tokens: usize, completion_tokens: usize) -> Value {
     json!({
         "prompt_tokens": prompt_tokens,
         "completion_tokens": completion_tokens,
         "total_tokens": prompt_tokens + completion_tokens,
+        "prompt_tokens_details": { "cached_tokens": cached_tokens },
     })
 }
 
@@ -322,12 +323,13 @@ async fn chat(State(app): State<App>, body: Result<Json<ChatRequest>, JsonReject
                 Ok(Update::Done {
                     finish,
                     prompt_tokens,
+                    cached_tokens,
                     completion_tokens,
                 }) => {
                     let mut events = vec![chunk(role(), Some(finish_reason(finish, &calls)))];
                     if include_usage {
                         let mut last = envelope("chat.completion.chunk", json!([]));
-                        last["usage"] = usage(prompt_tokens, completion_tokens);
+                        last["usage"] = usage(prompt_tokens, cached_tokens, completion_tokens);
                         events.push(Event::default().data(last.to_string()));
                     }
                     events.push(Event::default().data("[DONE]"));
@@ -350,6 +352,7 @@ async fn chat(State(app): State<App>, body: Result<Json<ChatRequest>, JsonReject
             Ok(Update::Done {
                 finish,
                 prompt_tokens,
+                cached_tokens,
                 completion_tokens,
             }) => {
                 let mut message = fields(parts, &mut calls, false);
@@ -361,7 +364,7 @@ async fn chat(State(app): State<App>, body: Result<Json<ChatRequest>, JsonReject
                     "message": message,
                 });
                 let mut completion = envelope("chat.completion", json!([choice]));
-                completion["usage"] = usage(prompt_tokens, completion_tokens);
+                completion["usage"] = usage(prompt_tokens, cached_tokens, completion_tokens);
                 return Json(completion).into_response();
             }
             Err(Failure::Request(message) | Failure::Generation(message)) => {
