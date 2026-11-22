@@ -46,11 +46,11 @@ The model runs on one thread and serves one request at a time; later requests
 wait their turn. A client that disconnects stops its generation at the next
 prefill step or token, or leaves the queue.
 
-Messages reach the template as sent. `mlx_lm.server` first joins a list of text
-parts into one string, reads a null `content` as empty and parses each tool call's
-`arguments` string into an object; this server does none of that yet, so a
-conversation that echoes tool calls back in the OpenAI wire format renders
-differently.
+Before the template reads a message, the server prepares it as `mlx_lm.server`
+does: a `content` list of text parts becomes one string, an absent or null
+`content` becomes empty, and a tool call's `arguments` sent as a JSON string
+becomes an object. A content part that is not text, or arguments that are not
+JSON, return status 400.
 
 Not supported: prompt caching between requests; images; penalties, `logprobs` and `chat_template_kwargs`; and Inkling's
 `reasoning_content` field name.

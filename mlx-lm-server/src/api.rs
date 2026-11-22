@@ -29,7 +29,7 @@ use crate::worker::{Failure, Job, Update};
 
 #[derive(Deserialize)]
 pub(crate) struct ChatRequest {
-    pub messages: Vec<TemplateValue>,
+    messages: Vec<TemplateValue>,
     pub tools: Option<Vec<TemplateValue>>,
     model: Option<String>,
     #[serde(default)]
@@ -56,7 +56,65 @@ enum Stop {
     Many(Vec<String>),
 }
 
+/// `map` with `key` set to `value`, in the key's place when it has one.
+fn with(map: &TemplateValue, key: &str, value: TemplateValue) -> TemplateValue {
+    let mut value = Some(value);
+    let mut pairs = Vec::new();
+    for name in map.try_iter().into_iter().flatten() {
+        let replaced = (name.as_str() == Some(key)).then(|| value.take()).flatten();
+        let item = replaced.or_else(|| map.get_item(&name).ok());
+        pairs.push((name, item.unwrap_or_default()));
+    }
+    pairs.extend(value.map(|value| (key.into(), value)));
+    TemplateValue::from_pairs(pairs)
+}
+
+fn prepared(message: &TemplateValue) -> Result<TemplateValue, String> {
+    let Ok(Value::Object(fields)) = serde_json::to_value(message) else {
+        return Ok(message.clone());
+    };
+    let mut message = message.clone();
+    match fields.get("content") {
+        Some(Value::Array(parts)) => {
+            let mut text = String::new();
+            for part in parts {
+                match (&part["type"], &part["text"]) {
+                    (Value::String(kind), Value::String(part)) if kind == "text" => text += part,
+                    _ => return Err("only text content parts are supported".into()),
+                }
+            }
+            message = with(&message, "content", text.into());
+        }
+        None | Some(Value::Null) => message = with(&message, "content", "".into()),
+        _ => {}
+    }
+    if fields.get("tool_calls").is_some_and(Value::is_array) {
+        let mut calls = Vec::new();
+        let sent = message.get_attr("tool_calls").unwrap_or_default();
+        for call in sent.try_iter().into_iter().flatten() {
+            let function = call.get_attr("function").unwrap_or_default();
+            let arguments = function.get_attr("arguments").unwrap_or_default();
+            calls.push(match arguments.as_str() {
+                Some(text) if !text.is_empty() => {
+                    let arguments = serde_json::from_str(text)
+                        .map_err(|error| format!("tool call arguments are not JSON: {error}"))?;
+                    with(&call, "function", with(&function, "arguments", arguments))
+                }
+                _ => call,
+            });
+        }
+        message = with(&message, "tool_calls", calls.into_iter().collect());
+    }
+    Ok(message)
+}
+
 impl ChatRequest {
+    /// The messages as `mlx_lm.server` hands them to the template: text parts joined into
+    /// one string, absent or null content empty, and tool-call arguments sent as a JSON
+    /// string parsed into an object.
+    pub fn messages(&self) -> Result<Vec<TemplateValue>, String> {
+        self.messages.iter().map(prepared).collect()
+    }
     /// Absent fields take `mlx_lm.server`'s defaults: 512 tokens, greedy, no filters. As
     /// there, a zero `top_p`, `top_k` or `min_p` and an empty `stop` string switch that
     /// setting off.
