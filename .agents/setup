@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+export PATH="$HOME/.nix-profile/bin:$PATH"
+
+echo "Installing devenv and direnv"
+for tool in devenv direnv; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+        nix profile add "nixpkgs#$tool"
+    fi
+done
+echo "Environment managers ready (${SECONDS}s)"
+
+echo "Initializing mlx-c and the development environment"
+git submodule update --init --recursive
+direnv allow
+direnv exec . true
+echo "Development environment ready (${SECONDS}s)"
+
+echo "Preparing Cargo dependencies and the ABI toolchain"
+if [[ ! -f Cargo.lock ]]; then
+    direnv exec . cargo generate-lockfile
+fi
+direnv exec . cargo fetch
+direnv exec . cargo fetch --locked --manifest-path xtask/Cargo.toml
+toolchain="$(direnv exec . python3 -c 'import json; print(json.load(open("ledger/abi-toolchain.json"))["rustc"].split()[1])')"
+direnv exec . rustup toolchain install "$toolchain" --profile minimal --component rustfmt
+
+"$repo_root/.agents/resume"
+echo "Orb setup finished (${SECONDS}s); native MLX builds and tests require a Mac satellite"

@@ -1,4 +1,4 @@
-use std::f32::consts::PI;
+use std::{cell::RefCell, f32::consts::PI};
 
 use crate::module::{Module, Param};
 use crate::ops::logsumexp_axis;
@@ -7,7 +7,7 @@ use crate::{
     error::{Exception, Result},
     ops::{abs, exp, maximum, minimum, multiply, select},
     transforms::compile::compile,
-    Array, Dtype,
+    Array, Dtype, Stream,
 };
 use mlx_internal_macros::{generate_builder, Buildable, Builder};
 use mlx_macros::ModuleParameters;
@@ -831,6 +831,28 @@ impl Module<&Array> for Selu {
 /*                        Compiled activation functions                       */
 /* -------------------------------------------------------------------------- */
 
+type UnaryActivation = dyn FnMut(&Array) -> Result<Array>;
+type BinaryActivation = dyn for<'a> FnMut((&'a Array, &'a Array)) -> Result<Array>;
+
+macro_rules! cached_activation {
+    ($activation:ty, $f:expr, $args:expr) => {{
+        thread_local! {
+            static CACHE: RefCell<Option<(Stream, Box<$activation>)>> = const { RefCell::new(None) };
+        }
+        let stream = Stream::thread_local_or_default();
+        CACHE.with_borrow_mut(|cached| {
+            // MLX's compile cache does not key on Rust's scoped stream.
+            if cached
+                .as_ref()
+                .is_none_or(|(previous, _)| *previous != stream)
+            {
+                *cached = Some((stream, Box::new(compile($f, true))));
+            }
+            cached.as_mut().unwrap().1($args)
+        })
+    }};
+}
+
 #[inline]
 fn compiled_leaky_relu(x: &Array, neg_slope: &Array) -> Result<Array> {
     let f = |(x_, neg_slope_): (&Array, &Array)| {
@@ -838,8 +860,7 @@ fn compiled_leaky_relu(x: &Array, neg_slope: &Array) -> Result<Array> {
         let a = multiply(neg_slope_, x_)?;
         maximum(&a, x_)
     };
-    let mut compiled = compile(f, true);
-    compiled((x, neg_slope))
+    cached_activation!(BinaryActivation, f, (x, neg_slope))
 }
 
 #[inline]
@@ -851,8 +872,7 @@ fn compiled_elu(x: &Array, alpha: &Array) -> Result<Array> {
             alpha_ * (exp(x_)? - array!(1).as_dtype(alpha_.dtype())?),
         )
     };
-    let mut compiled = compile(f, true);
-    compiled((x, alpha))
+    cached_activation!(BinaryActivation, f, (x, alpha))
 }
 
 #[inline]
@@ -864,15 +884,13 @@ fn compiled_relu6(x: &Array) -> Result<Array> {
             &array!(6.0).as_dtype(dtype)?,
         )
     };
-    let mut compiled = compile(f, true);
-    compiled(x)
+    cached_activation!(UnaryActivation, f, x)
 }
 
 #[inline]
 fn compiled_softsign(x: &Array) -> Result<Array> {
     let f = |x_: &Array| x_.divide(array!(1).as_dtype(x_.dtype())? + abs(x_)?);
-    let mut compiled = compile(f, true);
-    compiled(x)
+    cached_activation!(UnaryActivation, f, x)
 }
 
 #[inline]
@@ -883,22 +901,19 @@ fn compiled_celu(x: &Array, alpha: &Array) -> Result<Array> {
                 - array!(1).as_dtype(alpha_.dtype())?,
         )?)
     };
-    let mut compiled = compile(f, true);
-    compiled((x, alpha))
+    cached_activation!(BinaryActivation, f, (x, alpha))
 }
 
 #[inline]
 fn compiled_silu(x: &Array) -> Result<Array> {
     let f = |x_: &Array| x_.multiply(sigmoid(x_)?);
-    let mut compiled = compile(f, true);
-    compiled(x)
+    cached_activation!(UnaryActivation, f, x)
 }
 
 #[inline]
 fn compiled_log_sigmoid(x: &Array) -> Result<Array> {
     let f = |x_: &Array| Ok(-softplus(&(-x_))?);
-    let mut compiled = compile(f, true);
-    compiled(x)
+    cached_activation!(UnaryActivation, f, x)
 }
 
 #[inline]
@@ -911,8 +926,7 @@ fn compiled_gelu(x: &Array) -> Result<Array> {
         )?
         .divide(array!(2).as_dtype(dtype)?)
     };
-    let mut compiled = compile(f, true);
-    compiled(x)
+    cached_activation!(UnaryActivation, f, x)
 }
 
 #[inline]
@@ -931,8 +945,7 @@ fn compiled_gelu_approximate(x: &Array) -> Result<Array> {
             )?)?,
         )
     };
-    let mut compiled = compile(f, true);
-    compiled(x)
+    cached_activation!(UnaryActivation, f, x)
 }
 
 #[inline]
@@ -941,8 +954,7 @@ fn compiled_gelu_fast_approximate(x: &Array) -> Result<Array> {
         let dtype = activation_dtype(x_);
         x_.multiply(sigmoid(&(array!(1.702).as_dtype(dtype)? * x_))?)
     };
-    let mut compiled = compile(f, true);
-    compiled(x)
+    cached_activation!(UnaryActivation, f, x)
 }
 
 #[inline]
@@ -951,8 +963,7 @@ fn compiled_selu(x: &Array) -> Result<Array> {
         let y = elu(x_, 1.67326)?;
         y.multiply(array!(1.0507).as_dtype(y.dtype())?)
     };
-    let mut compiled = compile(f, true);
-    compiled(x)
+    cached_activation!(UnaryActivation, f, x)
 }
 
 #[inline]
@@ -961,8 +972,7 @@ fn compiled_prelu(x: &Array, alpha: &Array) -> Result<Array> {
         maximum(&array!(0).as_dtype(x_.dtype())?, x_)?
             .add(alpha_ * minimum(&array!(0).as_dtype(x_.dtype())?, x_)?)
     };
-    let mut compiled = compile(f, true);
-    compiled((x, alpha))
+    cached_activation!(BinaryActivation, f, (x, alpha))
 }
 
 #[inline]
@@ -970,8 +980,7 @@ fn compiled_mish(x: &Array) -> Result<Array> {
     use crate::ops::tanh;
 
     let f = |x_: &Array| x_.multiply(tanh(&softplus(x_)?)?);
-    let mut compiled = compile(f, true);
-    compiled(x)
+    cached_activation!(UnaryActivation, f, x)
 }
 
 #[inline]
@@ -984,8 +993,7 @@ fn compiled_hard_swish(x: &Array) -> Result<Array> {
         x_.multiply(minimum(&max_x_plus_3, &array!(6).as_dtype(x_.dtype())?)?)?
             .divide(&array!(6).as_dtype(x_.dtype())?)
     };
-    let mut compiled = compile(f, true);
-    compiled(x)
+    cached_activation!(UnaryActivation, f, x)
 }
 
 #[cfg(test)]
@@ -1275,6 +1283,58 @@ mod tests {
                 y.to_vec_exact::<f32>().unwrap(),
                 [-0.75, -0.25, 0.0, 1.0, 7.0]
             );
+        }
+    }
+
+    #[test]
+    fn compiled_activations_keep_parameters_dynamic() {
+        type Activation = fn(&Array, f32) -> Result<Array>;
+        type Formula = fn(f32, f32) -> f32;
+        let cases: [(Activation, Formula); 4] = [
+            (|x, a| leaky_relu(x, a), |x, a| (a * x).max(x)),
+            (
+                |x, a| elu(x, a),
+                |x, a| {
+                    if x > 0.0 {
+                        x
+                    } else {
+                        a * x.exp_m1()
+                    }
+                },
+            ),
+            (
+                |x, a| celu(x, a),
+                |x, a| {
+                    if x > 0.0 {
+                        x
+                    } else {
+                        a * (x / a).exp_m1()
+                    }
+                },
+            ),
+            (
+                |x, a| prelu(x, array!(a)),
+                |x, a| {
+                    if x > 0.0 {
+                        x
+                    } else {
+                        a * x
+                    }
+                },
+            ),
+        ];
+        for (activation, formula) in cases {
+            for length in [3, 5, 3] {
+                let values = [-2.0_f32, 0.5, -0.25, 3.0, -1.5];
+                let x = Array::from_slice(&values[..length], &[length as i32]);
+                for alpha in [0.25, 0.75, 0.125] {
+                    let y = activation(&x, alpha).unwrap();
+                    assert_eq!(y.shape(), x.shape());
+                    for (got, x) in y.to_vec_exact::<f32>().unwrap().into_iter().zip(values) {
+                        assert_float_eq!(got, formula(x, alpha), abs <= 1e-6);
+                    }
+                }
+            }
         }
     }
 

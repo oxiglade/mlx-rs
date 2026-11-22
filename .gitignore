@@ -34,3 +34,5 @@ devenv.local.nix
 conformance/.venv/
 conformance/.venv-target/
 conformance/.venv-mlx-lm/
+
+.amp/portals/
