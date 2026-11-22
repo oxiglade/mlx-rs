@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     convert::Infallible,
     future::ready,
     num::NonZeroUsize,
@@ -43,6 +44,8 @@ pub(crate) struct ChatRequest {
     min_p: Option<f32>,
     seed: Option<u64>,
     stop: Option<Stop>,
+    pub chat_template_kwargs: Option<BTreeMap<String, TemplateValue>>,
+    pub reasoning_effort: Option<TemplateValue>,
 }
 #[derive(Deserialize)]
 struct StreamOptions {
@@ -115,15 +118,13 @@ impl ChatRequest {
     pub fn messages(&self) -> Result<Vec<TemplateValue>, String> {
         self.messages.iter().map(prepared).collect()
     }
-    /// Absent fields take `mlx_lm.server`'s defaults: 512 tokens, greedy, no filters. As
-    /// there, a zero `top_p`, `top_k` or `min_p` and an empty `stop` string switch that
-    /// setting off.
-    pub fn options(&self) -> GenerationOptions {
+    /// A request without a limit gets `max_tokens`. Other absent fields take
+    /// `mlx_lm.server`'s defaults: greedy, no filters. As there, a zero `top_p`, `top_k` or
+    /// `min_p` and an empty `stop` string switch that setting off.
+    pub fn options(&self, max_tokens: NonZeroUsize) -> GenerationOptions {
         let mut options = GenerationOptions::default();
-        options.max_tokens = self
-            .max_completion_tokens
-            .or(self.max_tokens)
-            .unwrap_or(NonZeroUsize::new(512).unwrap());
+        let limit = self.max_completion_tokens.or(self.max_tokens);
+        options.max_tokens = limit.unwrap_or(max_tokens);
         if let Some(temperature) = self.temperature {
             options.sampling.temperature = temperature;
         }
@@ -149,16 +150,18 @@ impl ChatRequest {
 #[derive(Clone)]
 struct App {
     model: Arc<str>,
+    reasoning: Arc<str>,
     jobs: Sender<Job>,
 }
 
-pub(crate) fn router(model: String, jobs: Sender<Job>) -> Router {
+pub(crate) fn router(model: String, reasoning: String, jobs: Sender<Job>) -> Router {
     Router::new()
         .route("/health", get(health))
         .route("/v1/models", get(models))
         .route("/v1/chat/completions", post(chat))
         .with_state(App {
             model: model.into(),
+            reasoning: reasoning.into(),
             jobs,
         })
 }
@@ -198,12 +201,17 @@ struct ToolCalls {
 
 /// The content, reasoning and tool calls in `parts`, as the fields of a message or, with
 /// `stream`, of a delta.
-fn fields(parts: Vec<ResponsePart>, calls: &mut ToolCalls, stream: bool) -> Map<String, Value> {
-    let (mut content, mut reasoning) = (String::new(), String::new());
+fn fields(
+    parts: Vec<ResponsePart>,
+    calls: &mut ToolCalls,
+    stream: bool,
+    reasoning: &str,
+) -> Map<String, Value> {
+    let (mut content, mut thoughts) = (String::new(), String::new());
     let mut tool_calls = Vec::new();
     for part in parts {
         match part {
-            ResponsePart::Reasoning(text) => reasoning += &text,
+            ResponsePart::Reasoning(text) => thoughts += &text,
             ResponsePart::Content(text) => content += &text,
             ResponsePart::ToolCall(call) => {
                 let mut tool_call = json!({
@@ -227,7 +235,7 @@ fn fields(parts: Vec<ResponsePart>, calls: &mut ToolCalls, stream: bool) -> Map<
         }
     }
     let mut fields = Map::new();
-    for (name, text) in [("content", content), ("reasoning", reasoning)] {
+    for (name, text) in [("content", content), (reasoning, thoughts)] {
         if !text.is_empty() {
             fields.insert(name.into(), text.into());
         }
@@ -312,7 +320,7 @@ async fn chat(State(app): State<App>, body: Result<Json<ChatRequest>, JsonReject
                     vec![Event::default().comment(format!("keepalive {processed}/{total}"))]
                 }
                 Ok(Update::Parts(parts)) => {
-                    let mut delta = fields(parts, &mut calls, true);
+                    let mut delta = fields(parts, &mut calls, true, &app.reasoning);
                     if delta.is_empty() {
                         Vec::new()
                     } else {
@@ -355,7 +363,7 @@ async fn chat(State(app): State<App>, body: Result<Json<ChatRequest>, JsonReject
                 cached_tokens,
                 completion_tokens,
             }) => {
-                let mut message = fields(parts, &mut calls, false);
+                let mut message = fields(parts, &mut calls, false, &app.reasoning);
                 message.insert("role".into(), "assistant".into());
                 message.entry("content").or_insert(Value::Null);
                 let choice = json!({

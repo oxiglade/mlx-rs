@@ -84,6 +84,20 @@ impl Drop for Server {
 
 type Configure = fn(&mut GenerationOptions);
 
+/// A copy of the fixture model that renders chats with `template`.
+fn fixture_with_template(template: &str) -> tempfile::TempDir {
+    let model = tempfile::tempdir().unwrap();
+    for entry in fs::read_dir(fixture()).unwrap() {
+        let entry = entry.unwrap();
+        fs::copy(entry.path(), model.path().join(entry.file_name())).unwrap();
+    }
+    let path = model.path().join("tokenizer_config.json");
+    let mut config: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    config["chat_template"] = template.into();
+    fs::write(&path, config.to_string()).unwrap();
+    model
+}
+
 fn tokens(prompt: &str) -> usize {
     let model = Model::from_dir(fixture()).unwrap();
     model.tokenizer().encode(prompt).unwrap().len()
@@ -130,8 +144,10 @@ fn chat_completion_returns_what_the_library_generates() {
     let messages = json!([{ "role": "user", "content": PROMPT }]);
     let prompt = format!("<|im_start|>user\n{PROMPT}<|im_end|>\n<|im_start|>assistant\n");
     let cases: [(Value, Configure); 4] = [
+        // Without a limit the reply may fill the fixture's 128 positions after the 13 of
+        // the prompt.
         (json!({}), |options| {
-            options.max_tokens = 512.try_into().unwrap()
+            options.max_tokens = 115.try_into().unwrap()
         }),
         (
             json!({ "max_tokens": 8, "max_completion_tokens": 3, "model": "other" }),
@@ -222,6 +238,7 @@ fn chat_completion_returns_what_the_library_generates() {
     }
     assert_eq!(finishes, ["length", "length", "stop", "length"]);
 
+    let long = [PROMPT; 16].join(" ");
     for (body, diagnostic) in [
         (
             json!({ "messages": messages, "temperature": -1 }).to_string(),
@@ -246,6 +263,11 @@ fn chat_completion_returns_what_the_library_generates() {
             ] }] })
             .to_string(),
             "arguments",
+        ),
+        (
+            json!({ "max_tokens": 1, "messages": [{ "role": "user", "content": long }] })
+                .to_string(),
+            "context",
         ),
         ("{".to_owned(), "JSON"),
     ] {
@@ -412,23 +434,14 @@ fn conversations_keep_their_caches_while_they_fit_the_budget() {
 
 #[test]
 fn messages_reach_the_template_as_mlx_lm_server_prepares_them() {
-    let model = tempfile::tempdir().unwrap();
-    for entry in fs::read_dir(fixture()).unwrap() {
-        let entry = entry.unwrap();
-        fs::copy(entry.path(), model.path().join(entry.file_name())).unwrap();
-    }
-    let path = model.path().join("tokenizer_config.json");
-    let mut config: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
-    config["chat_template"] = concat!(
+    let model = fixture_with_template(concat!(
         "{%- for message in messages %}",
         "{{- '<|im_start|>' + message['role'] + '\n' + message['content'] }}",
         "{%- for call in message['tool_calls'] or [] %}",
         "{{- ' ' + call['function']['arguments']['word'] }}",
         "{%- endfor %}{{- '<|im_end|>\n' }}{%- endfor %}",
         "{%- if add_generation_prompt %}{{- '<|im_start|>assistant\n' }}{%- endif %}",
-    )
-    .into();
-    fs::write(&path, config.to_string()).unwrap();
+    ));
 
     let server = Server::start(model.path(), &[]);
     let call = |arguments: Value| json!({ "id": "1", "type": "function", "function": { "name": "lookup", "arguments": arguments } });
@@ -450,6 +463,95 @@ fn messages_reach_the_template_as_mlx_lm_server_prepares_them() {
     );
     assert_eq!(response["usage"]["prompt_tokens"], prompt_tokens);
     assert_eq!(response["choices"][0]["message"]["content"], text);
+}
+
+#[test]
+fn flags_set_what_a_request_leaves_out() {
+    let flags = [
+        "--max-tokens",
+        "3",
+        "--chat-template-args",
+        r#"{"enable_thinking": false}"#,
+    ];
+    let server = Server::start(&fixture(), &flags);
+    let open = format!("<|im_start|>user\n{PROMPT}<|im_end|>\n{ASSISTANT}");
+    let closed = format!("{open}<think>\n\n</think>\n\n");
+    let request = json!({ "max_tokens": 5, "chat_template_kwargs": { "enable_thinking": true } });
+    for (mut body, prompt, max_tokens) in [(json!({}), closed, 3), (request, open, 5)] {
+        body["messages"] = json!([{ "role": "user", "content": PROMPT }]);
+        let (status, response) = server.chat(body.clone());
+        assert_eq!(status, 200, "{response}");
+        let (prompt_tokens, _, text, _) = generated(&prompt, |options| {
+            options.max_tokens = max_tokens.try_into().unwrap()
+        });
+        assert_eq!(response["usage"]["prompt_tokens"], prompt_tokens, "{body}");
+        assert_eq!(response["usage"]["completion_tokens"], max_tokens, "{body}");
+        assert_eq!(response["choices"][0]["message"]["content"], text, "{body}");
+    }
+}
+
+#[test]
+fn reasoning_effort_reaches_the_template_and_reasoning_takes_the_named_field() {
+    let model = fixture_with_template(concat!(
+        "{{- '<|im_start|>user\n' + messages[0]['content'] + '<|im_end|>\n' }}",
+        "{{- '<|im_start|>assistant\n' + reasoning_effort + '\n' }}",
+        "{%- if enable_thinking %}{{- '<think>\n' }}{%- endif %}",
+    ));
+    let flags = [
+        "--reasoning-field",
+        "reasoning_content",
+        "--chat-template-args",
+        r#"{"reasoning_effort": "again", "enable_thinking": false}"#,
+    ];
+    let server = Server::start(model.path(), &flags);
+    let start = format!("<|im_start|>user\n{PROMPT}<|im_end|>\n{ASSISTANT}");
+    // The request's own `enable_thinking` stands; its `reasoning_effort` kwarg does not.
+    let kwargs = json!({ "enable_thinking": true, "reasoning_effort": "green hill" });
+    let thinks = json!({ "enable_thinking": true });
+    for (effort, kwargs, prompt, field) in [
+        (
+            json!("over"),
+            json!({}),
+            format!("{start}over\n<think>\n"),
+            "reasoning_content",
+        ),
+        (
+            json!("none"),
+            json!({}),
+            format!("{start}none\n"),
+            "content",
+        ),
+        (
+            json!("none"),
+            kwargs,
+            format!("{start}none\n<think>\n"),
+            "reasoning_content",
+        ),
+        (
+            Value::Null,
+            thinks,
+            format!("{start}again\n<think>\n"),
+            "reasoning_content",
+        ),
+    ] {
+        let body = json!({
+            "messages": [{ "role": "user", "content": PROMPT }],
+            "max_tokens": 3,
+            "reasoning_effort": effort,
+            "chat_template_kwargs": kwargs,
+        });
+        let (status, response) = server.chat(body.clone());
+        assert_eq!(status, 200, "{response}");
+        let (prompt_tokens, _, text, _) = generated(&prompt, |options| {
+            options.max_tokens = 3.try_into().unwrap()
+        });
+        assert_eq!(response["usage"]["prompt_tokens"], prompt_tokens, "{body}");
+        let mut message = json!({ "role": "assistant", "content": null });
+        message[field] = text.into();
+        assert_eq!(response["choices"][0]["message"], message, "{body}");
+        let (_, data) = server.stream(body);
+        assert!(data[0].contains(&format!("\"{field}\"")), "{data:?}");
+    }
 }
 
 #[test]
