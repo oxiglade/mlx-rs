@@ -619,15 +619,25 @@ fn inkling_snapshot_resumes_past_the_sliding_window() -> Result<()> {
     snapshot_resumes(&mut model, prompt, 512)
 }
 
-fn checkpoint_rewinds(model: &mut Model, prompt: Vec<TokenId>, chunk: usize) -> Result<()> {
+fn checkpoint_rewinds(
+    model: &mut Model,
+    prompt: Vec<TokenId>,
+    chunk: usize,
+    boundary: usize,
+) -> Result<()> {
+    let bounded = |count| -> Result<GenerationOptions> {
+        let mut options = options(count, chunk)?;
+        options.prefill_boundaries = vec![boundary];
+        Ok(options)
+    };
     let mut cache = model.new_cache(Default::default())?;
     let mut generation =
-        model.generate_with_cache(Prompt::Tokens(&prompt), options(12, chunk)?, &mut cache)?;
+        model.generate_with_cache(Prompt::Tokens(&prompt), bounded(12)?, &mut cache)?;
     let (mut in_prefill, mut in_decode) = (None, None);
     let mut sampled = Vec::new();
     while let Some(event) = generation.next() {
         match event? {
-            GenerationEvent::Prefill { processed, .. } if processed == chunk => {
+            GenerationEvent::Prefill { processed, .. } if processed == boundary => {
                 in_prefill = Some(generation.checkpoint()?);
             }
             GenerationEvent::Token { token_id, .. } => {
@@ -641,7 +651,7 @@ fn checkpoint_rewinds(model: &mut Model, prompt: Vec<TokenId>, chunk: usize) -> 
     }
     drop(generation);
     let mut generate = |prompt: &[TokenId], cache: Option<&mut Cache>| -> Result<Vec<TokenId>> {
-        let (prompt, options) = (Prompt::Tokens(prompt), options(9, chunk)?);
+        let (prompt, options) = (Prompt::Tokens(prompt), bounded(9)?);
         let generation = match cache {
             Some(cache) => model.generate_with_cache(prompt, options, cache)?,
             None => model.generate(prompt, options)?,
@@ -662,9 +672,9 @@ fn checkpoint_rewinds(model: &mut Model, prompt: Vec<TokenId>, chunk: usize) -> 
     ensure!(generate(&resumed, Some(&mut cache))? == sampled[3..]);
 
     let in_prefill = in_prefill.context("missing prefill checkpoint")?;
-    ensure!(in_prefill.tokens() == &prompt[..chunk]);
+    ensure!(in_prefill.tokens() == &prompt[..boundary]);
     cache.rewind(&in_prefill)?;
-    let mut branch = prompt[..chunk].to_vec();
+    let mut branch = prompt[..boundary].to_vec();
     branch.extend(prompt.iter().rev());
     let rewound = generate(&branch, Some(&mut cache))?;
     ensure!(rewound == generate(&branch, None)?);
@@ -683,7 +693,8 @@ fn hybrid_rewinds_to_a_prefill_checkpoint() -> Result<()> {
     checkpoint_rewinds(
         &mut model,
         prompt.into_iter().map(Into::into).collect(),
-        128,
+        2048,
+        100,
     )
 }
 
@@ -693,7 +704,7 @@ fn inkling_rewinds_behind_the_sliding_window() -> Result<()> {
     refuse_ci()?;
     let mut model = Model::from_dir(std::env::var("MLX_LM_INKLING")?)?;
     let prompt = (0..1100u32).map(|i| (1000 + i % 500).into()).collect();
-    checkpoint_rewinds(&mut model, prompt, 512)
+    checkpoint_rewinds(&mut model, prompt, 512, 700)
 }
 
 #[test]

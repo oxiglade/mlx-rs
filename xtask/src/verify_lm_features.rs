@@ -53,6 +53,7 @@ fn quantization(q: QuantizationConfig, a: AttentionKind) {
 fn generation_options(o: GenerationOptions) {
     let _: NonZeroUsize = o.max_tokens;
     let _: NonZeroUsize = o.prefill_chunk_size;
+    let _: Vec<usize> = o.prefill_boundaries;
     let _: Option<RepetitionPenaltyOptions> = o.repetition_penalty;
     let _: Option<AdditivePenaltyOptions> = o.presence_penalty;
     let _: Option<AdditivePenaltyOptions> = o.frequency_penalty;
