@@ -1,4 +1,6 @@
-use std::{error::Error, path::Path, sync::mpsc::SyncSender};
+use std::{
+    collections::BTreeMap, error::Error, num::NonZeroUsize, path::Path, sync::mpsc::SyncSender,
+};
 
 use mlx_lm::{
     Cache, CacheCheckpoint, CacheError, ChatContinuation, ChatTemplateOptions, FinishReason,
@@ -101,6 +103,8 @@ fn keep(checkpoints: &mut Vec<Checkpoint>, checkpoint: Checkpoint) {
 pub(crate) fn run(
     directory: &Path,
     budget: usize,
+    max_tokens: Option<NonZeroUsize>,
+    variables: &BTreeMap<String, TemplateValue>,
     mut jobs: Receiver<Job>,
     ready: SyncSender<Result<(), String>>,
 ) {
@@ -117,7 +121,15 @@ pub(crate) fn run(
     // Least recently used first.
     let mut conversations = Vec::new();
     while let Some(Job { request, reply }) = jobs.blocking_recv() {
-        if let Err(failure) = serve(&mut model, &mut conversations, &request, &reply) {
+        let served = serve(
+            &mut model,
+            &mut conversations,
+            max_tokens,
+            variables,
+            &request,
+            &reply,
+        );
+        if let Err(failure) = served {
             let _ = reply.blocking_send(Err(failure));
         }
         // A failed request can leave an empty or an invalidated cache.
@@ -144,6 +156,8 @@ fn has_role(message: &TemplateValue, role: &str) -> bool {
 fn serve(
     model: &mut Model,
     conversations: &mut Vec<Conversation>,
+    max_tokens: Option<NonZeroUsize>,
+    variables: &BTreeMap<String, TemplateValue>,
     request: &ChatRequest,
     reply: &Sender<Result<Update, Failure>>,
 ) -> Result<(), Failure> {
@@ -151,9 +165,21 @@ fn serve(
     let failed = |error: CacheError| Failure::Generation(chain(&error));
     let tools = request.tools.clone().unwrap_or_default();
     let tokenizer = model.tokenizer();
+    // The order of precedence is vLLM's.
+    let sent = request.chat_template_kwargs.clone().unwrap_or_default();
+    let mut variables = variables.clone();
+    if let Some(effort) = &request.reasoning_effort {
+        let thinks = effort.as_str() != Some("none");
+        variables.insert("enable_thinking".into(), thinks.into());
+    }
+    variables.extend(sent);
+    if let Some(effort) = &request.reasoning_effort {
+        variables.insert("reasoning_effort".into(), effort.clone());
+    }
     let template = |continuation| ChatTemplateOptions {
         continuation,
         tools: tools.clone(),
+        variables: variables.clone(),
         ..Default::default()
     };
     let messages = request.messages().map_err(Failure::Request)?;
@@ -191,7 +217,12 @@ fn serve(
     .filter_map(|(count, turn)| Some((count?, turn)))
     .collect();
 
-    let mut options = request.options();
+    let context = model.config().dimensions.max_positions;
+    // The library takes no sequence longer than this.
+    let context = context.unwrap_or(i32::MAX as usize);
+    let room = NonZeroUsize::new(context.saturating_sub(tokens.len()))
+        .ok_or_else(|| Failure::Request("the prompt fills the model's context".into()))?;
+    let mut options = request.options(max_tokens.unwrap_or(room));
     options.prefill_boundaries = boundaries.iter().map(|(count, _)| *count).collect();
     options
         .sampling

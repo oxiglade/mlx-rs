@@ -2,8 +2,10 @@ mod api;
 mod worker;
 
 use std::{
+    collections::BTreeMap,
     error::Error,
     net::{IpAddr, SocketAddr},
+    num::NonZeroUsize,
     path::PathBuf,
     process::ExitCode,
     sync::mpsc,
@@ -11,6 +13,7 @@ use std::{
 };
 
 use clap::Parser;
+use mlx_lm::TemplateValue;
 
 #[derive(Debug, Parser)]
 #[command(name = "mlx-lm-server", version, about)]
@@ -26,6 +29,21 @@ struct Cli {
     /// Bytes of prompt cache kept between requests; the last conversation always stays.
     #[arg(long, default_value_t = 8 << 30)]
     cache_bytes: usize,
+    /// Tokens generated for a request that sets no limit. Without it, such a request may
+    /// fill the model's context.
+    #[arg(long)]
+    max_tokens: Option<NonZeroUsize>,
+    /// JSON object of chat template variables; a request's `chat_template_kwargs` add to
+    /// and override them.
+    #[arg(long, default_value = "{}", value_parser = variables)]
+    chat_template_args: BTreeMap<String, TemplateValue>,
+    /// Name of the message field that carries reasoning text.
+    #[arg(long, default_value = "reasoning", value_parser = ["reasoning", "reasoning_content"])]
+    reasoning_field: String,
+}
+
+fn variables(json: &str) -> serde_json::Result<BTreeMap<String, TemplateValue>> {
+    serde_json::from_str(json)
 }
 
 fn main() -> ExitCode {
@@ -44,7 +62,16 @@ fn run(cli: Cli) -> Result<(), Box<dyn Error>> {
     let id = model.display().to_string();
     let (jobs, incoming) = tokio::sync::mpsc::channel(1);
     let (ready, started) = mpsc::sync_channel(0);
-    thread::spawn(move || worker::run(&model, cli.cache_bytes, incoming, ready));
+    thread::spawn(move || {
+        worker::run(
+            &model,
+            cli.cache_bytes,
+            cli.max_tokens,
+            &cli.chat_template_args,
+            incoming,
+            ready,
+        )
+    });
     started.recv()??;
 
     tokio::runtime::Builder::new_current_thread()
@@ -54,7 +81,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn Error>> {
             let listener =
                 tokio::net::TcpListener::bind(SocketAddr::new(cli.host, cli.port)).await?;
             println!("listening on http://{}", listener.local_addr()?);
-            axum::serve(listener, api::router(id, jobs)).await
+            axum::serve(listener, api::router(id, cli.reasoning_field, jobs)).await
         })?;
     Ok(())
 }

@@ -5,6 +5,7 @@ binary are `mlx-lm-server`.
 
 ```text
 mlx-lm-server --model DIR [--host ADDR] [--port PORT] [--cache-bytes N]
+              [--max-tokens N] [--chat-template-args JSON] [--reasoning-field NAME]
 ```
 
 It loads one local safetensors directory, prints `listening on http://ADDR` once
@@ -21,12 +22,22 @@ the process with status 1.
 A chat request renders `messages` and `tools` through the model's chat template,
 ending with the assistant prompt, and generates from the result. It reads
 `max_completion_tokens` before `max_tokens`, then `temperature`, `top_p`, `top_k`,
-`min_p`, `seed` and `stop` (a string or a list). Absent fields take
-`mlx_lm.server`'s defaults: 512 tokens, temperature zero and no filters, and a
-zero `top_p`, `top_k` or `min_p` switches that filter off. `model` is echoed and
-otherwise ignored, and other fields are ignored.
+`min_p`, `seed` and `stop` (a string or a list). A request without a limit gets
+`--max-tokens`, and without that flag its reply may fill the model's context, as in
+llama.cpp, vLLM and Ollama. A prompt that leaves no room in the context returns
+status 400. The other absent fields take `mlx_lm.server`'s
+defaults: temperature zero and no filters, and a zero `top_p`, `top_k` or `min_p`
+switches that filter off. `model` is echoed and otherwise ignored, and other fields
+are ignored.
 
-The reply's message carries `content`, `reasoning` when the model reasoned, and
+The template also sees the variables in `--chat-template-args`, a JSON object, and
+those in the request's `chat_template_kwargs`, which override them. A request's
+`reasoning_effort` reaches the template under that name, over any variable of that
+name, and sets `enable_thinking` to whether it is anything but `"none"`, unless
+`chat_template_kwargs` sets that too. This is vLLM's order of precedence.
+
+The reply's message carries `content`, `reasoning` when the model reasoned (named
+`reasoning_content` with `--reasoning-field reasoning_content`), and
 `tool_calls` with each call's arguments as a JSON string. `finish_reason` is
 `length`, `tool_calls` or `stop`, and `usage` counts prompt and completion tokens,
 with the prompt tokens taken from the cache in `prompt_tokens_details.cached_tokens`.
@@ -71,5 +82,4 @@ does: a `content` list of text parts becomes one string, an absent or null
 becomes an object. A content part that is not text, or arguments that are not
 JSON, return status 400.
 
-Not supported: images; penalties, `logprobs` and `chat_template_kwargs`; and Inkling's
-`reasoning_content` field name.
+Not supported: images, penalties and `logprobs`.
