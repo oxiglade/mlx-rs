@@ -659,6 +659,55 @@ fn inkling_replays_the_image_fixture() -> Result<()> {
 }
 
 #[test]
+#[ignore = "requires MLX_LM_SERVED_CHAT checkpoint"]
+fn served_chat_fixture_tokenizes() -> Result<()> {
+    #[derive(serde::Deserialize)]
+    struct Served {
+        cases: BTreeMap<String, Case>,
+    }
+    #[derive(serde::Deserialize)]
+    struct Case {
+        messages: Vec<mlx_lm::TemplateValue>,
+        #[serde(default)]
+        tools: Vec<mlx_lm::TemplateValue>,
+        variables: BTreeMap<String, mlx_lm::TemplateValue>,
+        continuation: String,
+        token_ids: Vec<u32>,
+    }
+    refuse_ci()?;
+    let directory = PathBuf::from(std::env::var("MLX_LM_SERVED_CHAT")?);
+    let name = directory
+        .file_name()
+        .and_then(|name| name.to_str())
+        .context("checkpoint directory has no name")?;
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!(
+        "../conformance/mlx-lm/served-fixtures/chat/{name}.json"
+    ));
+    let served: Served = serde_json::from_slice(&fs::read(fixture)?)?;
+    let tokenizer = Tokenizer::from_dir(&directory)?;
+    for (case, expected) in served.cases {
+        let continuation = match expected.continuation.as_str() {
+            "closed" => mlx_lm::ChatContinuation::Closed,
+            "start_assistant" => mlx_lm::ChatContinuation::StartAssistant,
+            "continue_last" => mlx_lm::ChatContinuation::ContinueLast,
+            other => bail!("unknown continuation {other}"),
+        };
+        let options = mlx_lm::ChatTemplateOptions {
+            continuation,
+            tools: expected.tools,
+            variables: expected.variables,
+            ..Default::default()
+        };
+        let rendered = tokenizer.render_chat(&expected.messages, options)?;
+        ensure!(
+            raw_ids(&tokenizer.encode(&rendered)?) == expected.token_ids,
+            "{case}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn real_checkpoints() -> Result<()> {
     let Some(path) = std::env::var_os("MLX_LM_REAL_CHECKPOINTS") else {
         println!("NOT RUN: local real-checkpoint manifest not supplied");

@@ -80,7 +80,7 @@ results in [SKELETON.md](SKELETON.md) do not establish execution at the current 
 
 The [demand-gated list](README.md#demand-gated-work) requires separate designs
 and fixtures, including batching, speculative decoding, persisted/quantized
-caches, structured tools/reasoning channels, adapters and checkpoint conversion.
+caches, tool-call and reasoning parsing, adapters and checkpoint conversion.
 XTC, logit bias and custom sampling callables need named uses and sampler fixtures.
 Model diagnostics need a public statistics contract; process-wide resource
 controls need an explicit design. Arbitrary chat-template resource exhaustion
