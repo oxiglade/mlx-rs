@@ -88,7 +88,7 @@ jobs:
         if: github.event_name == 'push'
       - run: cargo xtask verify-oracle-boundary --base origin/main
         if: github.event_name == 'workflow_dispatch'
-      - run: cargo xtask verify-oracle-boundary --base ${{ github.event.pull_request.base.sha }}
+      - run: cargo xtask verify-oracle-boundary --base HEAD^1
         if: github.event_name == 'pull_request'
       - run: cargo xtask verify-bump
 
