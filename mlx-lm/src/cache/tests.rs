@@ -859,6 +859,13 @@ fn rewind_to_checkpoint_matches_a_fresh_cache() -> Result<(), Box<dyn std::error
     let at_checkpoint = state(&cache)?;
     let checkpoint = cache.checkpoint()?;
     assert_eq!(checkpoint.tokens(), cache.tokens()?);
+    // Two f32 state scalars, beside 256 positions of f32 keys and values.
+    assert_eq!(checkpoint.nbytes()?, 8);
+    assert_eq!(cache.nbytes()?, 8 + 256 * 8);
+    append_hybrid(&mut cache, &(0..300).collect::<Vec<_>>())?;
+    // Growth adds 256-position blocks after the 3 positions already held.
+    assert_eq!(cache.nbytes()?, 8 + (3 + 2 * 256) * 8);
+    cache.rewind(&checkpoint)?;
     append_hybrid(&mut cache, &[4, 5])?;
     for suffix in [&[6][..], &[7, 8, 9][..]] {
         cache.rewind(&checkpoint)?;
@@ -916,6 +923,7 @@ fn rewind_restores_a_wrapped_rotating_cache() -> TestResult {
         append_ids(&mut cache, &[id])?;
     }
     let checkpoint = cache.checkpoint()?;
+    assert_eq!(checkpoint.nbytes()?, 2 * 5 * 8);
     for suffix in [&[21, 22, 23, 24][..], &[25][..]] {
         for id in 8..14 {
             append_ids(&mut cache, &[id])?;
@@ -1453,6 +1461,7 @@ fn assert_invalidated(cache: &mut Cache) -> TestResult {
     ));
     assert!(matches!(cache.snapshot(), Err(CacheError::Invalidated)));
     assert!(matches!(cache.checkpoint(), Err(CacheError::Invalidated)));
+    assert!(matches!(cache.nbytes(), Err(CacheError::Invalidated)));
     assert!(matches!(cache.step(), Err(CacheError::Invalidated)));
     assert!(matches!(
         cache.step_with_tokens(&[1.into()]),

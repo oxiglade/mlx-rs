@@ -92,10 +92,12 @@ fn events(e: GenerationEvent) {
 }
 fn cache(c: &mut Cache, s: CacheSnapshot, o: CacheOptions, i: CacheInfo) {
     let _: Result<&[TokenId], CacheError> = c.tokens();
+    let _: Result<usize, CacheError> = c.nbytes();
     let _: Result<CacheSnapshot, CacheError> = c.snapshot();
     let _: Result<(), CacheError> = c.restore(s);
     if let Ok(p) = c.checkpoint() {
         let _: &[TokenId] = p.tokens();
+        let _: Result<usize, CacheError> = p.nbytes();
         let _: Result<(), CacheError> = c.rewind(&p);
     }
     if let Ok(info) = c.info() { let _: usize = info.len(); }
