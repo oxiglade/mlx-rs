@@ -90,10 +90,10 @@ fn events(e: GenerationEvent) {
     }
 }
 fn cache(c: &mut Cache, s: CacheSnapshot, o: CacheOptions, i: CacheInfo) {
-    let _: &[TokenId] = c.tokens();
+    let _: Result<&[TokenId], CacheError> = c.tokens();
     let _: Result<CacheSnapshot, CacheError> = c.snapshot();
     let _: Result<(), CacheError> = c.restore(s);
-    let _: usize = c.info().len();
+    if let Ok(info) = c.info() { let _: usize = info.len(); }
     let _: (usize, usize, usize) = (i.layer, i.processed_tokens, i.capacity);
     let _: (Range<usize>, Range<usize>) = (i.retained_prefix, i.retained_positions);
     match i.kind { CacheKind::Full | CacheKind::Rotating | CacheKind::Recurrent => () }
@@ -130,7 +130,7 @@ fn model(m: &mut Model, c: &mut Cache) {
 }
 fn iterator(g: &mut Generation<'_>) {
     let _: Option<Result<GenerationEvent, GenerationError>> = g.next();
-    let _: &Cache = g.cache();
+    let _: Result<&Cache, CacheError> = g.cache();
     let _: Result<CacheSnapshot, CacheError> = g.snapshot();
 }
 fn paths() {
