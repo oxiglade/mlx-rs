@@ -1,0 +1,36 @@
+name: Test a supported configuration
+description: Run the ledger configuration with its own toolchain, native build and report.
+inputs:
+  configuration:
+    required: true
+    description: Configuration ID in the feature matrix
+  rust:
+    required: true
+    description: Rust toolchain for this configuration
+runs:
+  using: composite
+  steps:
+    - uses: actions-rust-lang/setup-rust-toolchain@v2
+      with:
+        cache: false
+        toolchain: ${{ inputs.rust }}
+        rustflags: ""
+        build-warnings: ""
+    - id: cache
+      shell: bash
+      run: echo "target=$(python3 -c 'import os; print(os.path.relpath(os.environ["RUNNER_TEMP"] + "/config-targets/${{ inputs.configuration }}"))')" >> "$GITHUB_OUTPUT"
+    - uses: Swatinem/rust-cache@v2
+      with:
+        key: ${{ inputs.configuration }}-${{ inputs.rust }}-${{ hashFiles('Cargo.toml', '*/Cargo.toml') }}
+        workspaces: . -> ${{ steps.cache.outputs.target }}
+        cache-directories: ${{ runner.temp }}/config-metallib/${{ inputs.configuration }}
+    - shell: bash
+      env:
+        CARGO_TARGET_DIR: ${{ runner.temp }}/config-targets/${{ inputs.configuration }}
+        MLX_RS_METAL_PATH: ${{ runner.temp }}/config-metallib/${{ inputs.configuration }}
+      run: cargo xtask config-report ${{ inputs.configuration }} --report "$RUNNER_TEMP/config-reports/${{ inputs.configuration }}/${{ inputs.configuration }}.json"
+    - uses: actions/upload-artifact@v7
+      if: always()
+      with:
+        name: config-report-${{ inputs.configuration }}
+        path: ${{ runner.temp }}/config-reports/${{ inputs.configuration }}/
