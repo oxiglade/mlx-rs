@@ -434,6 +434,30 @@ fn encoding_failure_keeps_the_tokenizers_error() -> Result<(), TokenizerError> {
 }
 
 #[test]
+fn generation_blocks_render_their_body() -> Result<(), ChatTemplateError> {
+    let mut env = environment();
+    env.add_template_owned(
+        "chat",
+        without_generation_blocks(
+            "{% for m in messages %}[ {%- generation -%} {{ m.content }} {% endgeneration %} ]{% endfor %}",
+        ),
+    )?;
+    let messages = [Message {
+        role: Role::Assistant,
+        content: "hi".into(),
+    }];
+    let rendered = render_chat(
+        &env,
+        &Default::default(),
+        &messages,
+        ChatTemplateOptions::default(),
+    )?;
+    assert_eq!(rendered, "[hi  ]");
+    assert_eq!(without_generation_blocks("{%}{% x"), "{%}{% x");
+    Ok(())
+}
+
+#[test]
 fn qwen3_template_fixture() -> Result<(), ChatTemplateError> {
     let config: Value = serde_json::from_str(include_str!(
         "../../tests/fixtures/qwen3/tokenizer_config.json"

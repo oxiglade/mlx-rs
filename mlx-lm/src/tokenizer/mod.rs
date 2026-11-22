@@ -56,7 +56,7 @@ impl Tokenizer {
         if let Some(template) = file_template.as_deref().or(template) {
             tokenizer
                 .env
-                .add_template_owned("chat", template.to_owned())
+                .add_template_owned("chat", without_generation_blocks(template))
                 .map_err(ChatTemplateError::from)?;
             tokenizer.has_template = true;
         }
@@ -266,6 +266,27 @@ fn environment() -> Environment<'static> {
         },
     );
     env
+}
+/// Transformers' `generation` block marks assistant text for training masks and renders its
+/// body unchanged. minijinja has no such tag, so the block becomes an always-true `if`.
+fn without_generation_blocks(template: &str) -> String {
+    let mut out = String::with_capacity(template.len());
+    let mut rest = template;
+    while let Some(start) = rest.find("{%") {
+        let Some(len) = rest[start + 2..].find("%}") else {
+            break;
+        };
+        let tag = &rest[start + 2..start + 2 + len];
+        let word = tag.trim_matches(|c: char| c == '-' || c == '+' || c.is_whitespace());
+        out.push_str(&rest[..start + 2]);
+        match word {
+            "generation" => out.push_str(&tag.replace(word, "if true")),
+            "endgeneration" => out.push_str(&tag.replace(word, "endif")),
+            _ => out.push_str(tag),
+        }
+        rest = &rest[start + 2 + len..];
+    }
+    out + rest
 }
 fn read_optional_json(path: &Path) -> Result<Value, TokenizerError> {
     match std::fs::read(path) {
