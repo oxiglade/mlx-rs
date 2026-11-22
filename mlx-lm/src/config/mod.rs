@@ -57,7 +57,7 @@ pub struct TransformerDimensions {
 /// The attention visibility policy for one layer.
 #[derive(Debug, Clone, PartialEq)]
 pub enum AttentionKind {
-    /// Updates a fixed-size recurrent state rather than retaining token K/V pairs.
+    /// Carries architecture-owned state between steps instead of positional K/V storage.
     Recurrent,
     /// Attends to every previous token.
     Full,

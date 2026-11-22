@@ -155,6 +155,7 @@ impl Decoder {
                 kv_heads: d.kv_heads,
                 head_dim: d.head_dim,
                 dtype: Dtype::from_promoting_types(layer.input_norm.dtype(), layer.k_proj.dtype()),
+                recurrent_state: None,
             })
             .collect();
         let rope = rope::Rope::new(&config.rope)?;

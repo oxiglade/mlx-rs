@@ -170,6 +170,7 @@ mod tests {
                     kv_heads: 1,
                     head_dim: 1,
                     dtype: mlx_rs::Dtype::Float32,
+                    recurrent_state: None,
                 };
                 let mut cache = Cache::new(
                     crate::ModelType::new("llama"),
@@ -224,6 +225,7 @@ mod tests {
                     kv_heads: 1,
                     head_dim: 1,
                     dtype: mlx_rs::Dtype::Float32,
+                    recurrent_state: None,
                 };
                 let mut cache = Cache::new(
                     crate::ModelType::new("llama"),
@@ -273,6 +275,7 @@ mod tests {
                         kv_heads: 1,
                         head_dim: 1,
                         dtype: mlx_rs::Dtype::Float32,
+                        recurrent_state: None,
                     };
                     let mut cache = Cache::new(
                         crate::ModelType::new("llama"),
@@ -334,6 +337,7 @@ mod tests {
                         kv_heads: 1,
                         head_dim: 1,
                         dtype: mlx_rs::Dtype::Float32,
+                        recurrent_state: None,
                     };
                     let mut cache = Cache::new(
                         crate::ModelType::new("llama"),

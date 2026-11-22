@@ -152,6 +152,12 @@ impl ArchitectureFactory for Factory {
                 kv_heads: 2,
                 head_dim: 256,
                 dtype: Dtype::Bfloat16,
+                recurrent_state: (*attention == AttentionKind::Recurrent).then(|| {
+                    [
+                        (vec![1, 3, 8192], Dtype::Bfloat16),
+                        (vec![32, 128, 128], Dtype::Float32),
+                    ]
+                }),
             })
             .collect();
         let mut decoder = Decoder {

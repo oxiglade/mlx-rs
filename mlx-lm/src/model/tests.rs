@@ -571,6 +571,7 @@ fn scripted(
             kv_heads: 1,
             head_dim: 1,
             dtype: Dtype::Float32,
+            recurrent_state: None,
         })
         .collect();
     Ok(Model {

@@ -10,13 +10,17 @@ pub(crate) struct Recurrent {
 
 impl Recurrent {
     pub(super) fn new(spec: &LayerCacheSpec) -> Result<Self, CacheError> {
+        let [(first, first_dtype), (second, second_dtype)] = spec
+            .recurrent_state
+            .as_ref()
+            .ok_or_else(|| invalid("recurrent layer without state shapes"))?;
         Ok(Self {
             spec: spec.clone(),
             offset: 0,
             pending: Vec::new(),
             state: (
-                zeros_dtype(&[1, 3, 8192], spec.dtype)?,
-                zeros_dtype(&[32, 128, 128], Dtype::Float32)?,
+                zeros_dtype(first, *first_dtype)?,
+                zeros_dtype(second, *second_dtype)?,
             ),
         })
     }

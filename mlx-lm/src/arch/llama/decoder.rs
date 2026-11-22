@@ -275,6 +275,7 @@ impl Decoder {
                     kv_heads: dims.kv_heads,
                     head_dim: dims.head_dim,
                     dtype: Dtype::from_promoting_types(norm.dtype(), projection_dtype),
+                    recurrent_state: None,
                 })
             })
             .collect::<Result<Vec<_>, WeightError>>()?;
