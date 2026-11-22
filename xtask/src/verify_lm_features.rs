@@ -11,7 +11,7 @@ use mlx_lm::{
     ParameterPath, QuantizationConfig, RopeConfig, RopeScaling, TransformerDimensions,
     CacheError, ChatTemplateError, ConfigError, GenerationError, HubError,
     InferenceError, LoadError, SamplingError, TokenizerError, WeightError,
-    FinishReason, Generation, GenerationEvent, GenerationOptions, Model, Prompt,
+    FinishReason, Generation, GenerationEvent, GenerationOptions, Image, Model, Prompt,
     RepetitionPenaltyOptions, StopPolicy, StopTokenPolicy, AdditivePenaltyOptions,
     MinPOptions, SamplerOptions, ChatContinuation, ChatTemplateOptions, Message,
     Role, TokenId, Tokenizer,
@@ -127,6 +127,9 @@ fn model(m: &mut Model, c: &mut Cache) {
     let _: Result<Cache, CacheError> = m.new_cache(CacheOptions::default());
     let _: Result<Generation<'_>, GenerationError> = m.generate(Prompt::Text(""), GenerationOptions::default());
     let _: Result<Generation<'_>, GenerationError> = m.generate_with_cache(Prompt::Tokens(&[]), GenerationOptions::default(), c);
+    let image = Image { width: 0usize, height: 0usize, rgb: &[0u8][..] };
+    let tokens: &[TokenId] = &[];
+    let _: Result<Generation<'_>, GenerationError> = m.generate(Prompt::Vision { tokens, images: &[image] }, GenerationOptions::default());
 }
 fn iterator(g: &mut Generation<'_>) {
     let _: Option<Result<GenerationEvent, GenerationError>> = g.next();
