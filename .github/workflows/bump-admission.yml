@@ -22,6 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       configurations: ${{ steps.configurations.outputs.matrix }}
+      prebuilt_configs: ${{ steps.configurations.outputs.prebuilt }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions-rust-lang/setup-rust-toolchain@v2
@@ -33,6 +34,8 @@ jobs:
       - run: cargo generate-lockfile
       - name: Select every required configuration
         id: configurations
+        env:
+          ORDINARY: ${{ inputs.ordinary }}
         shell: python3 {0}
         run: |
           import json
@@ -40,14 +43,24 @@ jobs:
           from pathlib import Path
 
           builds = json.loads(Path("ledger/supported-feature-matrix.json").read_text())["builds"]
-          # Queue the two long default suites first when macOS runners are scarce.
-          builds.sort(key=lambda build: not build["id"].startswith("macos-arm64-default"))
-          matrix = {"include": [{"configuration": build["id"], "rust": build["toolchain"]}
-                                for build in builds if build["required"]]}
-          if not matrix["include"]:
+          required = {b["id"]: b["toolchain"] for b in builds if b["required"]}
+          if not required:
               raise SystemExit("No required configurations")
+          prebuilt = {}
+          extra = {}
+          if os.environ["ORDINARY"] == "true":
+              # Two configuration jobs, prebuilt, checks and FFI fit five macOS slots.
+              for suffix in ("metal-jit", "cpu-only-release"):
+                  key = f"macos-arm64-{suffix}"
+                  prebuilt[key] = required.pop(key)
+              extra["macos-arm64-default"] = required.pop("macos-arm64-cpu-only")
+              if set(required) != {"macos-arm64-default", "macos-arm64-default-msrv"}:
+                  raise SystemExit("Assign every required configuration to a macOS lane")
+          matrix = {"include": [{"configuration": key, "rust": rust, "cpu_debug_rust": extra.get(key, "")}
+                                for key, rust in required.items()]}
           with open(os.environ["GITHUB_OUTPUT"], "a") as output:
               output.write(f"matrix={json.dumps(matrix)}\n")
+              output.write(f"prebuilt={json.dumps(prebuilt)}\n")
       - uses: actions/upload-artifact@v7
         with:
           name: product-lockfile
@@ -205,25 +218,6 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: product-lockfile
-      - name: Set configuration output paths
-        id: config-cache
-        run: |
-          {
-            echo "CARGO_TARGET_DIR=$RUNNER_TEMP/config-targets/${{ matrix.configuration }}"
-            echo "MLX_RS_METAL_PATH=$RUNNER_TEMP/config-metallib/${{ matrix.configuration }}"
-          } >> "$GITHUB_ENV"
-          echo "target=$(python3 -c 'import os; print(os.path.relpath(os.environ["RUNNER_TEMP"] + "/config-targets/${{ matrix.configuration }}"))')" >> "$GITHUB_OUTPUT"
-      - uses: actions-rust-lang/setup-rust-toolchain@v2
-        with:
-          cache: false
-          toolchain: ${{ matrix.rust }}
-          rustflags: ""
-          build-warnings: ""
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ matrix.configuration }}-${{ matrix.rust }}-${{ hashFiles('Cargo.toml', '*/Cargo.toml') }}
-          workspaces: . -> ${{ steps.config-cache.outputs.target }}
-          cache-directories: ${{ env.MLX_RS_METAL_PATH }}
       - name: Set checkpoint paths
         if: ${{ !inputs.ordinary && matrix.configuration == 'macos-arm64-default' }}
         run: |
@@ -257,12 +251,15 @@ jobs:
           df -h "$BUMP_ROOT"
           "$BUMP_PYTHON" -B xtask/provision_checkpoints.py --python "$BUMP_PYTHON" --cache "$BUMP_ROOT/checkpoints" --output "$BUMP_ROOT/reports/checkpoints"
           df -h "$BUMP_ROOT"
-      - run: cargo xtask config-report ${{ matrix.configuration }} --report "$RUNNER_TEMP/config-reports/${{ matrix.configuration }}.json"
-      - uses: actions/upload-artifact@v7
-        if: always()
+      - uses: ./.github/actions/configuration
         with:
-          name: config-report-${{ matrix.configuration }}
-          path: ${{ runner.temp }}/config-reports/
+          configuration: ${{ matrix.configuration }}
+          rust: ${{ matrix.rust }}
+      - uses: ./.github/actions/configuration
+        if: ${{ !cancelled() && matrix.cpu_debug_rust != '' }}
+        with:
+          configuration: macos-arm64-cpu-only
+          rust: ${{ matrix.cpu_debug_rust }}
       - uses: actions/upload-artifact@v7
         if: always() && !inputs.ordinary && matrix.configuration == 'macos-arm64-default'
         with:
@@ -273,8 +270,7 @@ jobs:
     needs: dependencies
     runs-on: macos-26
     env:
-      DEVELOPER_DIR: /Library/Developer/CommandLineTools
-      MLX_SYS_SYSTEM_SDK: "0"
+      GITHUB_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -282,6 +278,20 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: product-lockfile
+      - uses: ./.github/actions/configuration
+        if: inputs.ordinary
+        with:
+          configuration: macos-arm64-metal-jit
+          rust: ${{ fromJSON(needs.dependencies.outputs.prebuilt_configs)['macos-arm64-metal-jit'] }}
+      - uses: ./.github/actions/configuration
+        if: ${{ !cancelled() && inputs.ordinary }}
+        with:
+          configuration: macos-arm64-cpu-only-release
+          rust: ${{ fromJSON(needs.dependencies.outputs.prebuilt_configs)['macos-arm64-cpu-only-release'] }}
+      - name: Select Command Line Tools for the wheel build
+        run: |
+          echo 'DEVELOPER_DIR=/Library/Developer/CommandLineTools' >> "$GITHUB_ENV"
+          echo 'MLX_SYS_SYSTEM_SDK=0' >> "$GITHUB_ENV"
       - uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
           cache: false

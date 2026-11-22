@@ -221,7 +221,10 @@ The required graph is:
 | `prebuilt` | Build and test the workspace against the pinned `mlx-metal` wheel with Command Line Tools selected; require `metal` and `metallib` invocations to fail before building. |
 | `admission` | Require successful `dependencies`, `tooling`, `checks`, `ffi-gate`, `prebuilt` and every `configurations` matrix leg. |
 
-`validate.yml` calls this same graph with `ordinary: true` on ordinary PRs and main pushes.
+`validate.yml` calls this workflow with `ordinary: true` on ordinary PRs and main pushes.
+Ordinary validation uses five macOS jobs: `checks`, `ffi-gate`, default followed by CPU debug,
+MSRV, and Metal JIT followed by CPU release and the prebuilt wheel. Each configuration still
+uploads its own report. Full bump admission keeps the separate configuration jobs listed above.
 Both modes require the prebuilt lane on `macos-26`. Ordinary mode omits checkpoint provisioning
 and uses leak-only calibration on PRs; main pushes still run Guard Malloc. It is ordinary
 validation, not bump admission. A gitlink-changing PR also starts the full bump workflow. No result from a separate workflow run is imported for admission, and a
