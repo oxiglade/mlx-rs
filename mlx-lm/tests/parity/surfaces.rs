@@ -190,6 +190,7 @@ fn chat(model: &Model, fixture: &Fixture) -> Result<Value> {
             ChatTemplateOptions {
                 continuation,
                 enable_thinking: case["template_options"]["enable_thinking"].as_bool(),
+                ..Default::default()
             },
         )?;
         let hex: String = rendered
