@@ -43,8 +43,8 @@ fn chain(error: &dyn Error) -> String {
 /// How many checkpoints of each kind a conversation keeps.
 const KEPT: usize = 4;
 
-/// The cache of the latest request and the checkpoints it can rewind to, each a prefix
-/// of the cache's tokens, shortest first.
+/// A cache and the checkpoints it can rewind to, each a prefix of the cache's tokens,
+/// shortest first.
 struct Conversation {
     cache: Cache,
     checkpoints: Vec<Checkpoint>,
@@ -61,31 +61,29 @@ impl Checkpoint {
     }
 }
 impl Conversation {
-    /// Brings the cache to the longest state it holds that `tokens` continues and returns
-    /// that state's token count.
-    fn reuse(&mut self, tokens: &[TokenId]) -> Result<usize, CacheError> {
+    /// The longest state this cache can be brought to that `tokens` continues: its token
+    /// count and, unless the cache is in that state, the index of its checkpoint. None
+    /// when that would drop more than half of the cache, llama.cpp's rule: a new chat that
+    /// shares a system prompt must not cost this one its history.
+    fn longest(&self, tokens: &[TokenId]) -> Option<(usize, Option<usize>)> {
         // Generation needs at least one token to prefill.
         let reusable = &tokens[..tokens.len().saturating_sub(1)];
-        let common = match self.cache.tokens() {
-            Ok(cached) => {
-                let same = cached.iter().zip(reusable).take_while(|(a, b)| a == b);
-                let common = same.count();
-                if common == cached.len() {
-                    return Ok(common);
-                }
-                common
-            }
-            Err(_) => 0,
-        };
+        let cached = self.cache.tokens().ok()?;
+        let same = cached.iter().zip(reusable).take_while(|(a, b)| a == b);
+        let common = same.count();
+        if common == cached.len() {
+            return Some((common, None));
+        }
         let within = |checkpoint: &Checkpoint| checkpoint.len() <= common;
-        let Some(index) = self.checkpoints.iter().rposition(within) else {
-            self.checkpoints.clear();
-            self.cache.reset()?;
-            return Ok(0);
-        };
-        self.cache.rewind(&self.checkpoints[index].state)?;
-        self.checkpoints.truncate(index + 1);
-        Ok(self.checkpoints[index].len())
+        let index = self.checkpoints.iter().rposition(within)?;
+        let count = self.checkpoints[index].len();
+        (2 * count >= cached.len()).then_some((count, Some(index)))
+    }
+    fn nbytes(&self) -> usize {
+        let checkpoints = self.checkpoints.iter();
+        let sizes = checkpoints.map(|checkpoint| checkpoint.state.nbytes());
+        let sizes = sizes.chain([self.cache.nbytes()]);
+        sizes.sum::<Result<usize, _>>().unwrap_or(usize::MAX)
     }
 }
 fn keep(checkpoints: &mut Vec<Checkpoint>, checkpoint: Checkpoint) {
@@ -102,32 +100,38 @@ fn keep(checkpoints: &mut Vec<Checkpoint>, checkpoint: Checkpoint) {
 /// Loads the model and serves jobs one at a time; `Model` cannot leave its thread.
 pub(crate) fn run(
     directory: &Path,
+    budget: usize,
     mut jobs: Receiver<Job>,
     ready: SyncSender<Result<(), String>>,
 ) {
-    let load = || {
-        let model = Model::from_dir(directory).map_err(|error| chain(&error))?;
-        let cache = model.new_cache(Default::default());
-        Ok((model, cache.map_err(|error| chain(&error))?))
-    };
-    let (mut model, cache) = match load() {
-        Ok(loaded) => loaded,
-        Err(message) => {
-            let _ = ready.send(Err(message));
+    let mut model = match Model::from_dir(directory) {
+        Ok(model) => model,
+        Err(error) => {
+            let _ = ready.send(Err(chain(&error)));
             return;
         }
-    };
-    let mut conversation = Conversation {
-        cache,
-        checkpoints: Vec::new(),
     };
     if ready.send(Ok(())).is_err() {
         return;
     }
+    // Least recently used first.
+    let mut conversations = Vec::new();
     while let Some(Job { request, reply }) = jobs.blocking_recv() {
-        if let Err(failure) = serve(&mut model, &mut conversation, &request, &reply) {
+        if let Err(failure) = serve(&mut model, &mut conversations, &request, &reply) {
             let _ = reply.blocking_send(Err(failure));
         }
+        // A failed request can leave an empty or an invalidated cache.
+        conversations.retain(|conversation| {
+            let tokens = conversation.cache.tokens();
+            tokens.is_ok_and(|tokens| !tokens.is_empty())
+        });
+        let mut total = 0usize;
+        let fits = conversations.iter().rev().take_while(|conversation| {
+            total = total.saturating_add(conversation.nbytes());
+            total <= budget
+        });
+        let kept = fits.count().max(1);
+        conversations.drain(..conversations.len().saturating_sub(kept));
     }
 }
 
@@ -139,7 +143,7 @@ fn has_role(message: &TemplateValue, role: &str) -> bool {
 /// Stops early once the reply's receiver is gone, which is a client that stopped waiting.
 fn serve(
     model: &mut Model,
-    conversation: &mut Conversation,
+    conversations: &mut Vec<Conversation>,
     request: &ChatRequest,
     reply: &Sender<Result<Update, Failure>>,
 ) -> Result<(), Failure> {
@@ -193,8 +197,31 @@ fn serve(
         .sampling
         .validate(model.config().dimensions.vocabulary_size)
         .map_err(|error| invalid(&GenerationError::from(error)))?;
-    let cached_tokens = conversation.reuse(&tokens).map_err(failed)?;
-    let Conversation { cache, checkpoints } = conversation;
+    let states = conversations.iter().enumerate();
+    let states =
+        states.filter_map(|(index, conversation)| Some((conversation.longest(&tokens)?, index)));
+    // Of two that hold as much, the one that needs no rewind loses nothing.
+    let best =
+        states.max_by_key(|((count, checkpoint), index)| (*count, checkpoint.is_none(), *index));
+    let (cached_tokens, conversation) = match best {
+        Some(((count, checkpoint), index)) => {
+            let mut conversation = conversations.remove(index);
+            if let Some(index) = checkpoint {
+                let state = &conversation.checkpoints[index].state;
+                conversation.cache.rewind(state).map_err(failed)?;
+                conversation.checkpoints.truncate(index + 1);
+            }
+            (count, conversation)
+        }
+        None => {
+            let cache = model.new_cache(Default::default()).map_err(failed)?;
+            let checkpoints = Vec::new();
+            (0, Conversation { cache, checkpoints })
+        }
+    };
+    let last = conversations.len();
+    conversations.push(conversation);
+    let Conversation { cache, checkpoints } = &mut conversations[last];
     let mut generation = model
         .generate_with_cache(Prompt::Tokens(&tokens), options, cache)
         .map_err(|error| invalid(&error))?;

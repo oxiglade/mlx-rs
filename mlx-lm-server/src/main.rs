@@ -23,6 +23,9 @@ struct Cli {
     /// Zero picks a free port.
     #[arg(long, default_value_t = 8080)]
     port: u16,
+    /// Bytes of prompt cache kept between requests; the last conversation always stays.
+    #[arg(long, default_value_t = 8 << 30)]
+    cache_bytes: usize,
 }
 
 fn main() -> ExitCode {
@@ -41,7 +44,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn Error>> {
     let id = model.display().to_string();
     let (jobs, incoming) = tokio::sync::mpsc::channel(1);
     let (ready, started) = mpsc::sync_channel(0);
-    thread::spawn(move || worker::run(&model, incoming, ready));
+    thread::spawn(move || worker::run(&model, cli.cache_bytes, incoming, ready));
     started.recv()??;
 
     tokio::runtime::Builder::new_current_thread()
