@@ -1,0 +1,32 @@
+name: Share the native MLX build
+description: Build MLX once per profile and feature set in this job, starting from the tree the job saved on main.
+inputs:
+  job:
+    required: true
+    description: Name that keeps this job's tree apart from other jobs
+runs:
+  using: composite
+  steps:
+    - id: key
+      shell: bash
+      env:
+        INPUTS: ${{ hashFiles('mlx-sys/build.rs', 'mlx-sys/metallib.cmake', 'mlx-sys/metal-worker-encoders.patch') }}
+      run: |
+        # A CMake tree cannot move, and Make cannot see a new compiler, SDK or host version.
+        host="$RUNNER_TEMP $(sw_vers -productVersion) $(xcrun --sdk macosx --show-sdk-version) $(cc --version | head -1)"
+        echo "key=mlx-native-${{ inputs.job }}-$(git -C mlx-sys/src/mlx-c rev-parse HEAD)-$INPUTS-$(printf %s "$host" | shasum -a 256 | cut -c1-16)" >> "$GITHUB_OUTPUT"
+        {
+          echo "MLX_SYS_BUILD_DIR=$RUNNER_TEMP/mlx/build"
+          echo "MLX_RS_METAL_PATH=$RUNNER_TEMP/mlx/metallib"
+        } >> "$GITHUB_ENV"
+    # A cache saved from a pull request is restored only by that pull request, so only main saves.
+    - uses: actions/cache@v6
+      if: github.event_name == 'push'
+      with:
+        path: ${{ runner.temp }}/mlx
+        key: ${{ steps.key.outputs.key }}
+    - uses: actions/cache/restore@v6
+      if: github.event_name != 'push'
+      with:
+        path: ${{ runner.temp }}/mlx
+        key: ${{ steps.key.outputs.key }}

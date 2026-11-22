@@ -23,11 +23,11 @@ runs:
       with:
         key: ${{ inputs.configuration }}-${{ inputs.rust }}-${{ hashFiles('Cargo.toml', '*/Cargo.toml') }}
         workspaces: . -> ${{ steps.cache.outputs.target }}
-        cache-directories: ${{ runner.temp }}/config-metallib/${{ inputs.configuration }}
+        save-if: ${{ github.event_name == 'push' }}
     - shell: bash
       env:
         CARGO_TARGET_DIR: ${{ runner.temp }}/config-targets/${{ inputs.configuration }}
-        MLX_RS_METAL_PATH: ${{ runner.temp }}/config-metallib/${{ inputs.configuration }}
+        MLX_RS_METAL_PATH: ${{ runner.temp }}/mlx/metallib/${{ inputs.configuration }}
       run: cargo xtask config-report ${{ inputs.configuration }} --report "$RUNNER_TEMP/config-reports/${{ inputs.configuration }}/${{ inputs.configuration }}.json"
     - uses: actions/upload-artifact@v7
       if: always()

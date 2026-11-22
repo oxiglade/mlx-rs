@@ -108,6 +108,10 @@ jobs:
           components: rustfmt, clippy
           build-warnings: ""
           rustflags: "-D warnings"
+          cache-save-if: ${{ github.event_name == 'push' }}
+      - uses: ./.github/actions/native-build
+        with:
+          job: checks
       - run: cargo --version
       - name: Install the ABI extraction toolchain
         run: |
@@ -120,7 +124,6 @@ jobs:
         env:
           MLX_RS_ABI_OUTPUT_DIR: ${{ runner.temp }}/abi-inventory
           MLX_RS_API_TARGET_DIR: ${{ runner.temp }}/api-inventory
-          MLX_RS_METAL_PATH: ${{ runner.temp }}/api-inventory/metallib
         run: |
           rustup toolchain install "$(cat xtask/api-nightly.txt)" --profile minimal
           cargo xtask verify-ledger
@@ -160,7 +163,6 @@ jobs:
         run: |
           {
             echo "CARGO_TARGET_DIR=$RUNNER_TEMP/guard-malloc/target"
-            echo "MLX_RS_METAL_PATH=$RUNNER_TEMP/guard-malloc/metallib"
             echo "TMPDIR=$RUNNER_TEMP"
           } >> "$GITHUB_ENV"
       - uses: actions-rust-lang/setup-rust-toolchain@v2
@@ -168,6 +170,9 @@ jobs:
           cache: false
           rustflags: ""
           build-warnings: ""
+      - uses: ./.github/actions/native-build
+        with:
+          job: ffi-gate
       - name: Locate build cache
         id: ffi-cache
         run: echo "target=$(python3 -c 'import os; print(os.path.relpath(os.environ["CARGO_TARGET_DIR"]))')" >> "$GITHUB_OUTPUT"
@@ -175,7 +180,7 @@ jobs:
         with:
           key: ffi-gate-${{ hashFiles('Cargo.toml', '*/Cargo.toml') }}
           workspaces: . -> ${{ steps.ffi-cache.outputs.target }}
-          cache-directories: ${{ runner.temp }}/guard-malloc/metallib
+          save-if: ${{ github.event_name == 'push' }}
       - name: Run qualified FFI gate
         env:
           BUMP_RUN: ${{ !inputs.ordinary }}
@@ -251,6 +256,9 @@ jobs:
           df -h "$BUMP_ROOT"
           "$BUMP_PYTHON" -B xtask/provision_checkpoints.py --python "$BUMP_PYTHON" --cache "$BUMP_ROOT/checkpoints" --output "$BUMP_ROOT/reports/checkpoints"
           df -h "$BUMP_ROOT"
+      - uses: ./.github/actions/native-build
+        with:
+          job: ${{ matrix.configuration }}
       - uses: ./.github/actions/configuration
         with:
           configuration: ${{ matrix.configuration }}
@@ -278,6 +286,10 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: product-lockfile
+      - uses: ./.github/actions/native-build
+        if: inputs.ordinary
+        with:
+          job: prebuilt
       - uses: ./.github/actions/configuration
         if: inputs.ordinary
         with:
@@ -292,6 +304,7 @@ jobs:
         run: |
           echo 'DEVELOPER_DIR=/Library/Developer/CommandLineTools' >> "$GITHUB_ENV"
           echo 'MLX_SYS_SYSTEM_SDK=0' >> "$GITHUB_ENV"
+          echo 'MLX_SYS_BUILD_DIR=' >> "$GITHUB_ENV"
       - uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
           cache: false
