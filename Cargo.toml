@@ -21,6 +21,7 @@ members = [
     "mlx-internal-macros",
     "mlx-lm",
     "mlx-lm-cli",
+    "mlx-lm-server",
     "mlx-tests",
 ]
 

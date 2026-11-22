@@ -1,0 +1,23 @@
+[package]
+name = "mlx-lm-server"
+version = "0.34.0"
+edition = "2021"
+rust-version = "1.88"
+license = "MIT OR Apache-2.0"
+description = "OpenAI-compatible HTTP server for mlx-lm"
+publish = false
+
+# The configuration report fails a test target that runs no tests.
+[[bin]]
+name = "mlx-lm-server"
+path = "src/main.rs"
+test = false
+
+[dependencies]
+mlx-lm = { path = "../mlx-lm", version = "0.34", default-features = false }
+axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio"] }
+clap = { version = "4", features = ["derive"] }
+futures-util = { version = "0.3", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["net", "rt", "sync"] }
