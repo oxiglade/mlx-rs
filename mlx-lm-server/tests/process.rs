@@ -734,5 +734,9 @@ fn a_model_that_does_not_load_ends_the_process() {
         .unwrap();
     assert_eq!(output.status.code(), Some(1));
     assert!(output.stdout.is_empty());
-    assert!(String::from_utf8_lossy(&output.stderr).starts_with("mlx-lm-server: "));
+    // Under Guard Malloc the server's stderr begins with libgmalloc's banner.
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr
+        .lines()
+        .any(|line| line.starts_with("mlx-lm-server: ")));
 }
