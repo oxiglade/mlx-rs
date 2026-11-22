@@ -190,7 +190,7 @@ pub(super) struct Weights(
     pub(super) fast::MetalKernel,
 );
 impl Weights {
-    fn tensor(&self, name: &str) -> Result<&Array> {
+    pub(super) fn tensor(&self, name: &str) -> Result<&Array> {
         self.0
             .get(name)
             .ok_or_else(|| Exception::custom(format!("missing {name}")).into())
@@ -450,7 +450,12 @@ impl Weights {
         }
         run(&COMBINE, &[out.reshape(&[1, n, 8, 2304])?, s])
     }
-    pub(super) fn forward(&self, ids: &Array, cache: &mut CacheStep<'_>) -> Result<Array> {
+    pub(super) fn forward(
+        &self,
+        ids: &Array,
+        images: Option<&Array>,
+        cache: &mut CacheStep<'_>,
+    ) -> Result<Array> {
         let &[1, n] = ids.shape() else {
             return Err(CacheError::InvalidState("expected one sequence".into()).into());
         };
@@ -459,6 +464,23 @@ impl Weights {
             Some(self.tensor("model.llm.embed_norm.weight")?),
         )?;
         let dtype = x.dtype();
+        if let Some(rows) = images {
+            let slots = ids.eq(Array::from_int(super::IMAGE_TOKEN as i32))?;
+            let row = ops::maximum(
+                slots
+                    .as_dtype(Dtype::Int32)?
+                    .cumsum(-1, None, None)?
+                    .subtract(Array::from_int(1))?,
+                Array::from_int(0),
+            )?;
+            x = ops::select(
+                slots.expand_dims(-1)?,
+                rows.take_axis(row.reshape(&[-1])?, 0)?
+                    .reshape(x.shape())?
+                    .as_dtype(dtype)?,
+                &x,
+            )?;
+        }
         let mut blocks = Vec::new();
         let mut prelude: Option<(Array, Vec<Array>)> = None;
         let mut bank = None;

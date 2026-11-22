@@ -53,6 +53,23 @@ pub(crate) trait DecoderModel {
     ) -> Result<Array, InferenceError>;
     /// Projects every parameter into strict keyed mutable state.
     fn weight_projection(&mut self) -> Result<StateProjection<'_>, WeightError>;
+    /// The prompt token that stands for one row of an image, when the model reads images.
+    fn image_token(&self) -> Option<crate::TokenId> {
+        None
+    }
+    /// Embeds one image as the rows that replace its image tokens.
+    fn encode_image(&mut self, _: &crate::Image<'_>) -> Result<Array, InferenceError> {
+        Err(InferenceError::UnsupportedArchitecture("images".into()))
+    }
+    /// As [`Self::forward`], with `rows` replacing the image tokens in `tokens`, in order.
+    fn forward_with_images(
+        &mut self,
+        _tokens: &Array,
+        _rows: &Array,
+        _cache: &mut CacheStep<'_>,
+    ) -> Result<Array, InferenceError> {
+        Err(InferenceError::UnsupportedArchitecture("images".into()))
+    }
 }
 /// Resolved public facts paired with architecture-private validated details.
 pub(crate) enum ParsedArchitecture {

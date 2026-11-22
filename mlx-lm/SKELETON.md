@@ -70,10 +70,11 @@ alive; committed lengths, RNG and text advance only when a token is accepted.
 CPU and rotating-cache decode remain synchronous. This measurement does not
 establish CPU throughput parity or the full real-checkpoint matrix.
 
-The [demand-gated list](README.md#demand-gated-work) remains open: vision/audio
-and other multimodal input, LoRA/training/adapters, distributed execution,
-batching, speculative decoding, a server, async generation, additional
-architectures and the other listed cache/conversion/sampling capabilities.
+The [demand-gated list](README.md#demand-gated-work) remains open: audio and
+other multimodal input, images for models other than Inkling 2 Mini,
+LoRA/training/adapters, distributed execution, batching, speculative decoding,
+a server, async generation, additional architectures and the other listed
+cache/conversion/sampling capabilities.
 Arbitrary chat templates retain the unresolved resource-exhaustion limitation.
 
 These historical host reports do not establish qualification at the current

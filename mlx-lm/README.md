@@ -21,7 +21,7 @@ or consume the committed fixtures.
 | Local safetensors, `Model::from_dir` | Llama and Qwen3; single files and indexed shards; floating weights (including BF16) and affine quantization with strict key, shape and dtype validation. Local configuration supports full/sliding attention and none, linear or Llama3 RoPE scaling within each architecture's validated profile. |
 | GGUF, `Model::from_gguf` | Llama and Qwen3; F32, F16, and Q4_0/Q4_1/Q8_0 converted affine forms. Dense, biasless models with full causal attention, full-head RoPE, and absent/none or linear scaling. No frequency-factor tensors. |
 | Hub, `Model::from_hub` | Behind `hf-hub`; resolves a repository/revision to a commit and downloads selected safetensors and JSON/tokenizer assets, then uses the local loader. No remote Python code or Hub GGUF loading. |
-| Generation | One synchronous iterator for text or token-ID prompts, chunked prefill, temperature/top-k/top-p/min-p sampling, repetition/presence/frequency penalties, token and text stops. |
+| Generation | One synchronous iterator for text or token-ID prompts, and token-ID prompts with RGB images for Inkling 2 Mini, chunked prefill, temperature/top-k/top-p/min-p sampling, repetition/presence/frequency penalties, token and text stops. |
 | Cache | Full and rotating KV storage, model-bound snapshots, exact-prefix reuse. Snapshots exclude RNG, decoder and iterator state. |
 
 The GGUF affine layouts have group size 32, 4 or 8 bits, and F16 scales and
@@ -194,7 +194,7 @@ establish CPU throughput parity or the full real-checkpoint matrix.
 
 These capabilities require a separate approved design and qualification:
 
-- Vision, images, audio and other multimodal inputs.
+- Audio and other multimodal inputs; images for models other than Inkling 2 Mini.
 - Training, adapters, LoRA and distributed execution.
 - Batching, continuous generation and speculative decoding.
 - A server, async generation or arbitrary custom architecture registration.

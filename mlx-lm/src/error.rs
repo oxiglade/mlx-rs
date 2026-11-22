@@ -405,6 +405,17 @@ pub enum GenerationError {
     /// The full prompt is already represented and has no suffix to prefill.
     #[error("prompt has no uncached tokens")]
     NoUncachedTokens,
+    /// The prompt's image tokens do not match the supplied images.
+    #[error("prompt has {tokens} image tokens for {images} images")]
+    ImageCountMismatch {
+        /// Image tokens in the prompt.
+        tokens: usize,
+        /// Images supplied with it.
+        images: usize,
+    },
+    /// A prompt with images cannot continue a cache that already holds tokens.
+    #[error("a prompt with images needs an empty cache")]
+    ImagesWithCachedPrefix,
     /// Adding the prompt length and sample limit overflows `usize`.
     #[error("generation length overflow")]
     LengthOverflow,
