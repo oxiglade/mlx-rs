@@ -416,12 +416,11 @@ fn build_evidence(log: &str, metadata: &Value) -> Result<BuildEvidence, String> 
             }
         }
         if message["reason"] == "build-script-executed" && *name == "mlx-sys" {
-            let path = Path::new(
-                message["out_dir"]
-                    .as_str()
-                    .ok_or("missing native out_dir")?,
-            )
-            .join("build/CMakeCache.txt");
+            let lib = message["linked_paths"][0]
+                .as_str()
+                .ok_or("missing native library path")?;
+            let path = Path::new(lib.strip_prefix("native=").unwrap_or(lib))
+                .with_file_name("CMakeCache.txt");
             let cache =
                 fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
             for line in cache.lines() {

@@ -85,7 +85,27 @@ fn system_sdk_enabled() -> bool {
 }
 
 fn native_out_dir(prebuilt: bool) -> PathBuf {
-    let mut out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
+    let mut out = match env::var_os("MLX_SYS_BUILD_DIR").filter(|dir| !dir.is_empty()) {
+        Some(dir) => {
+            assert!(
+                Path::new(&dir).is_absolute(),
+                "MLX_SYS_BUILD_DIR must be an absolute path: {}",
+                Path::new(&dir).display()
+            );
+            let mut name = vec![if cfg!(debug_assertions) {
+                "debug"
+            } else {
+                "release"
+            }];
+            name.extend(cfg!(feature = "accelerate").then_some("accelerate"));
+            name.extend(cfg!(feature = "metal").then_some("metal"));
+            name.extend(cfg!(feature = "metal-jit").then_some("jit"));
+            PathBuf::from(dir)
+                .join(env::var("TARGET").unwrap())
+                .join(name.join("-"))
+        }
+        None => PathBuf::from(env::var_os("OUT_DIR").unwrap()),
+    };
     if prebuilt {
         out = out.join("prebuilt");
     }
@@ -455,6 +475,7 @@ fn prebuilt_version(cmake_dir: &Path) -> Option<String> {
 
 fn main() {
     println!("cargo:rerun-if-env-changed=MLX_RS_METAL_PATH");
+    println!("cargo:rerun-if-env-changed=MLX_SYS_BUILD_DIR");
     println!("cargo:rerun-if-changed=native-libraries.txt");
     println!("cargo:rerun-if-changed=metallib.cmake");
     println!("cargo:rerun-if-changed=metal-worker-encoders.patch");

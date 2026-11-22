@@ -10,6 +10,9 @@
   against that MLX and linked to its `libmlx.dylib`, so a machine without Xcode's Metal compiler
   can build. The prefix's `lib/` is published as `DEP_MLX_LIB_DIR`, for dependents' rpath
 
+- `MLX_SYS_BUILD_DIR` keeps MLX's CMake tree outside Cargo's `OUT_DIR`, so separate target
+  directories and CI caches can share one native build
+
 - Publish the native compilation database and Metal feature state as
   `DEP_MLX_COMPILE_COMMANDS` and `DEP_MLX_METAL`, so dependent build scripts can
   match MLX's compiler, SDK and target flags
