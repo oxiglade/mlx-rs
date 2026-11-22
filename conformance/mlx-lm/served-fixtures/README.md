@@ -31,3 +31,16 @@ PY
 target/release/examples/qwen_hybrid "$MODEL" "$(cat prompt-0.json)" 32 "$(cat prompt-1.json)" > actual.ids
 echo 'bfa4f60950bb3feaa39c40b22b3a98e7841b1353d1d9fb7f91242c96086bc38b  actual.ids' | shasum -a 256 -c -
 ```
+
+## Inkling 2 Mini
+
+The same example replays `Inkling-2-Mini.json` against the checkpoint whose file hashes it records:
+
+```bash
+set -e
+fixture=conformance/mlx-lm/served-fixtures/Inkling-2-Mini.json
+for i in 0 1; do
+  target/release/examples/qwen_hybrid "$MODEL" "$(jq -c ".cases[$i].prompt_ids" "$fixture")" 512 > actual.ids
+  diff -u <(jq -r ".cases[$i].output_ids[]" "$fixture") actual.ids
+done
+```
