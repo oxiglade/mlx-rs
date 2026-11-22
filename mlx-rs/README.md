@@ -1,5 +1,10 @@
 <div align="center">
-<h1><b>mlx-rs</b></h1>
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/oxiglade/mlx-rs/main/assets/mlx-rs-dark.png">
+    <img src="https://raw.githubusercontent.com/oxiglade/mlx-rs/main/assets/mlx-rs.png" alt="mlx-rs" width="400">
+  </picture>
+</h1>
 
 Rust bindings for Apple's mlx machine learning library.
 
