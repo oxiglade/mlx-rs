@@ -620,6 +620,45 @@ fn inkling_snapshot_resumes_past_the_sliding_window() -> Result<()> {
 }
 
 #[test]
+#[ignore = "requires MLX_LM_INKLING checkpoint and Metal"]
+fn inkling_replays_the_image_fixture() -> Result<()> {
+    refuse_ci()?;
+    let mut model = Model::from_dir(std::env::var("MLX_LM_INKLING")?)?;
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../conformance/mlx-lm/served-fixtures/Inkling-2-Mini-image.json"
+    ))?;
+    let case = &fixture["cases"][0];
+    let tokens: Vec<TokenId> = ids(&case["prompt_ids"])?
+        .into_iter()
+        .map(Into::into)
+        .collect();
+    let expected = ids(&case["output_ids"])?;
+    let rgb: Vec<u8> = (0..70u32)
+        .flat_map(|y| (0..100u32).flat_map(move |x| [5 * x + y, 7 * y, 3 * x + 2 * y]))
+        .map(|value| value as u8)
+        .collect();
+    let images = [mlx_lm::Image {
+        width: 100,
+        height: 70,
+        rgb: &rgb,
+    }];
+    let prompt = Prompt::Vision {
+        tokens: &tokens,
+        images: &images,
+    };
+    let mut options = GenerationOptions::default();
+    options.max_tokens = NonZeroUsize::new(expected.len()).context("empty fixture")?;
+    let mut generated = Vec::new();
+    for event in model.generate(prompt, options)? {
+        if let GenerationEvent::Token { token_id, .. } = event? {
+            generated.push(u32::from(token_id));
+        }
+    }
+    ensure!(generated == expected);
+    Ok(())
+}
+
+#[test]
 fn real_checkpoints() -> Result<()> {
     let Some(path) = std::env::var_os("MLX_LM_REAL_CHECKPOINTS") else {
         println!("NOT RUN: local real-checkpoint manifest not supplied");

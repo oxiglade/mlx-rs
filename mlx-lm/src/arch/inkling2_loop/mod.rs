@@ -5,6 +5,10 @@ use crate::{
 use mlx_rs::{fast, ops, Dtype};
 use std::{collections::HashMap, num::NonZeroUsize};
 mod forward;
+mod vision;
+
+/// `<|unused_200054|>`, the placeholder the chat template writes for an image.
+const IMAGE_TOKEN: u32 = 200054;
 
 pub(super) struct Factory;
 
@@ -25,12 +29,8 @@ const PROFILE: &str = r#"{"attn_res_normalize_values": true, "d_rel": 16,
 "vocab_size": 201024}"#;
 
 fn map_key(key: &str) -> WeightDisposition {
-    if key.starts_with("model.llm.") {
+    if key.starts_with("model.llm.") || key.starts_with("model.visual.") {
         WeightDisposition::Parameter(ParameterPath::new(key))
-    } else if key.starts_with("model.visual.") {
-        WeightDisposition::Ignore {
-            reason: "text-only decoder",
-        }
     } else {
         WeightDisposition::Reject
     }
@@ -122,6 +122,13 @@ impl ArchitectureFactory for Factory {
         let mut decoder = Decoder {
             config,
             layout,
+            resize: fast::MetalKernel::new(
+                "separable_interpolate",
+                &["x", "iy", "wy", "ix", "wx"],
+                &["out"],
+                include_str!("interpolate.metal"),
+                Default::default(),
+            )?,
             weights: forward::Weights(
                 slots()?,
                 fast::MetalKernel::new(
@@ -150,6 +157,7 @@ struct Decoder {
     config: Config,
     layout: Vec<LayerCacheSpec>,
     weights: forward::Weights,
+    resize: fast::MetalKernel,
 }
 impl DecoderModel for Decoder {
     fn config(&self) -> &Config {
@@ -163,7 +171,21 @@ impl DecoderModel for Decoder {
         tokens: &Array,
         cache: &mut CacheStep<'_>,
     ) -> Result<Array, InferenceError> {
-        self.weights.forward(tokens, cache)
+        self.weights.forward(tokens, None, cache)
+    }
+    fn image_token(&self) -> Option<crate::TokenId> {
+        Some(IMAGE_TOKEN.into())
+    }
+    fn encode_image(&mut self, image: &crate::Image<'_>) -> Result<Array, InferenceError> {
+        vision::encode(&self.weights, &self.resize, image)
+    }
+    fn forward_with_images(
+        &mut self,
+        tokens: &Array,
+        rows: &Array,
+        cache: &mut CacheStep<'_>,
+    ) -> Result<Array, InferenceError> {
+        self.weights.forward(tokens, Some(rows), cache)
     }
     fn weight_projection(&mut self) -> Result<StateProjection<'_>, WeightError> {
         let mut p = StateProjection::new();
@@ -196,6 +218,43 @@ fn slots() -> Result<HashMap<String, Array>, LoadError> {
         )?;
     }
     slot(format!("{root}.attn_res.output_query"), &[2304], F)?;
+    let visual = "model.visual";
+    slot(format!("{visual}.proj_in.weight"), &[4096, 4096], B)?;
+    slot(format!("{visual}.proj_out.weight"), &[2304, 4096], B)?;
+    for (name, shape) in [
+        ("embeddings.class_embedding", &[1024][..]),
+        ("embeddings.cls_position_embedding", &[1024]),
+        ("embeddings.patch_embedding.weight", &[1024, 1200]),
+        ("embeddings.position_embedding", &[1024, 1024]),
+        ("ln_pre.weight", &[1024]),
+        ("ln_pre.bias", &[1024]),
+    ] {
+        slot(format!("{visual}.backbone.{name}"), shape, B)?;
+    }
+    for i in 0..23 {
+        for (name, rows, columns) in [
+            ("self_attn.q_proj", 1024, 1024),
+            ("self_attn.k_proj", 1024, 1024),
+            ("self_attn.v_proj", 1024, 1024),
+            ("self_attn.out_proj", 1024, 1024),
+            ("mlp.c_fc", 4096, 1024),
+            ("mlp.c_proj", 1024, 4096),
+        ] {
+            let p = format!("{visual}.backbone.layers.{i}.{name}");
+            slot(format!("{p}.weight"), &[rows, columns], B)?;
+            slot(format!("{p}.bias"), &[rows], B)?;
+        }
+        for name in [
+            "ln_1.weight",
+            "ln_1.bias",
+            "ln_2.weight",
+            "ln_2.bias",
+            "ls_1.gamma",
+            "ls_2.gamma",
+        ] {
+            slot(format!("{visual}.backbone.layers.{i}.{name}"), &[1024], B)?;
+        }
+    }
     for i in 0..24 {
         let global = i % 6 == 5;
         if i > 0 {

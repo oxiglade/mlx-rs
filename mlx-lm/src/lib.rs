@@ -163,13 +163,13 @@
 //! CPU and rotating-cache decode remain synchronous. This measurement does not
 //! establish CPU throughput parity or the full real-checkpoint matrix.
 //!
-//! Demand-gated capabilities include vision/images/audio and other multimodal
-//! inputs; training, adapters, LoRA and distributed execution; batching, continuous
-//! generation and speculative decoding; a server and async generation; custom
-//! architecture registration; checkpoint conversion/upload; persisted prompt and
-//! quantized KV caches; MXFP4, BitNet, AWQ/GPTQ conversion and activation
-//! quantization; structured tool/document messages; XTC, logit bias and custom
-//! sampling callables.
+//! Demand-gated capabilities include audio and other multimodal inputs, and images
+//! for models other than Inkling 2 Mini; training, adapters, LoRA and distributed
+//! execution; batching, continuous generation and speculative decoding; a server and
+//! async generation; custom architecture registration; checkpoint conversion/upload;
+//! persisted prompt and quantized KV caches; MXFP4, BitNet, AWQ/GPTQ conversion and
+//! activation quantization; structured tool/document messages; XTC, logit bias and
+//! custom sampling callables.
 //!
 //! The repository's `mlx-lm/README.md` contains the capability table and credits;
 //! `mlx-lm/SKELETON.md` records completed tranches and historical host evidence.
@@ -196,7 +196,7 @@ pub use error::{
     LoadError, SamplingError, TokenizerError, WeightError,
 };
 pub use model::{
-    FinishReason, Generation, GenerationEvent, GenerationOptions, Model, Prompt,
+    FinishReason, Generation, GenerationEvent, GenerationOptions, Image, Model, Prompt,
     RepetitionPenaltyOptions, StopPolicy, StopTokenPolicy,
 };
 #[cfg(feature = "hf-hub")]

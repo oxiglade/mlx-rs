@@ -11,11 +11,11 @@ import mlx.core as mx
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('family', choices=('qwen', 'inkling'))
+    parser.add_argument('family', choices=('qwen', 'inkling', 'inkling-image'))
     parser.add_argument('checkpoint', type=Path)
     args = parser.parse_args()
     path = args.checkpoint
-    ink = args.family == 'inkling'
+    ink = args.family != 'qwen'
     mx.random.seed(0)
     if ink:
         from mlx_vlm import load, stream_generate
@@ -31,7 +31,17 @@ def main():
     tools = [{'type':'function','function':{'name':'lookup','parameters':{'type':'object','properties':{'ticket':{'type':'integer'}},'required':['ticket']}}}]
     messages = [{'role':'user','content':'Call lookup for ticket 413.'}]
     cases = []
-    for history in [messages, messages + [
+    if args.family == 'inkling-image':
+        import numpy as np
+        y, x = np.indices((70, 100))
+        pixels = np.stack([(x * 5 + y) % 256, (y * 7) % 256, (x * 3 + y * 2) % 256], -1).astype(np.uint8)
+        history = [{'role':'user','content':[{'type':'image'},{'type':'text','text':'Describe this image in one sentence.'}]}]
+        prompt = renderer.apply_chat_template(history, tokenize=False, add_generation_prompt=True, reasoning_effort='high')
+        inputs = renderer(images=[pixels], text=prompt)
+        for r in stream_generate(model, renderer, prompt=prompt, input_ids=inputs['input_ids'], pixel_values=inputs['pixel_values'], image_grid_thw=inputs['image_grid_thw'], max_tokens=512, temperature=0., prefill_step_size=512):
+            pass
+        cases.append(dict(messages=history, image=dict(width=100, height=70, rgb='[(5x+y)%256, 7y%256, (3x+2y)%256]'), prompt_ids=tok.encode(prompt, add_special_tokens=False), output_ids=r.token_ids, finish=r.finish_reason))
+    for history in [] if cases else [messages, messages + [
         {'role':'assistant','content':'','tool_calls':[{'type':'function','function':{'name':'lookup','arguments':{'ticket':413}}}]},
         {'role':'tool','name':'lookup','content':'LARCH-481'},
         {'role':'user','content':'Reply with just the lookup result.'},

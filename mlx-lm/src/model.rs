@@ -173,6 +173,7 @@ impl Model {
                 vocabulary_size,
             });
         }
+        let mut images = None;
         let prompt = match prompt {
             Prompt::Text(text) => self.tokenizer.encode_with_special_tokens(
                 text,
@@ -182,6 +183,40 @@ impl Model {
                     .is_some_and(|bos| text.starts_with(bos)),
             )?,
             Prompt::Tokens(ids) => ids.to_vec(),
+            Prompt::Vision {
+                tokens,
+                images: sources,
+            } => {
+                let token = self.decoder.image_token().ok_or_else(|| {
+                    crate::InferenceError::UnsupportedArchitecture("images".into())
+                })?;
+                let slots = tokens.iter().filter(|id| **id == token).count();
+                if slots != sources.len() {
+                    return Err(GenerationError::ImageCountMismatch {
+                        tokens: slots,
+                        images: sources.len(),
+                    });
+                }
+                let mut rows = Vec::with_capacity(slots);
+                let mut expanded = Vec::with_capacity(tokens.len());
+                for &id in tokens {
+                    if id != token {
+                        expanded.push(id);
+                        continue;
+                    }
+                    let encoded = self.decoder.encode_image(&sources[rows.len()])?;
+                    expanded.extend(std::iter::repeat_n(token, encoded.shape()[0] as usize));
+                    rows.push(encoded);
+                }
+                if slots > 0 {
+                    let rows =
+                        mlx_rs::ops::concatenate(&rows, 0).map_err(crate::InferenceError::from)?;
+                    // Prefill may run on another stream.
+                    rows.eval().map_err(crate::InferenceError::from)?;
+                    images = Some((token, rows));
+                }
+                expanded
+            }
         };
         let last = *prompt.last().ok_or(GenerationError::EmptyPrompt)?;
         if let Some((index, &token_id)) = prompt
@@ -205,6 +240,9 @@ impl Model {
             )?,
             None => 0,
         };
+        if images.is_some() && cached > 0 {
+            return Err(GenerationError::ImagesWithCachedPrefix);
+        }
         crate::cache::checked_capacity(prompt.len(), options.max_tokens)?;
         let cache = match cache {
             Some(cache) => GenerationCache::Borrowed(cache),
@@ -246,10 +284,11 @@ impl Model {
             first_logprobs: None,
             pipeline_stream,
             pending: None,
+            images,
         })
     }
 }
-/// Text or already-tokenized input for one request.
+/// Text, token IDs, or token IDs with images for one request.
 pub enum Prompt<'a> {
     /// Text encoded with the tokenizer's post-processor adding special tokens,
     /// unless the original string starts with the configured BOS token content.
@@ -258,6 +297,24 @@ pub enum Prompt<'a> {
     Text(&'a str),
     /// Token IDs supplied by the caller.
     Tokens(&'a [TokenId]),
+    /// Token IDs holding one image token per image, as a chat template renders them, with
+    /// the images in the same order. Needs an empty cache.
+    Vision {
+        /// The prompt before image tokens are repeated to each image's size.
+        tokens: &'a [TokenId],
+        /// One image per image token.
+        images: &'a [Image<'a>],
+    },
+}
+/// One decoded image.
+#[derive(Debug, Clone, Copy)]
+pub struct Image<'a> {
+    /// Pixels per row.
+    pub width: usize,
+    /// Rows.
+    pub height: usize,
+    /// Row-major 8-bit RGB, three bytes per pixel.
+    pub rgb: &'a [u8],
 }
 /// Reusable limits, sampling, stopping, and cache options.
 ///
@@ -463,6 +520,7 @@ pub struct Generation<'model> {
     first_logprobs: Option<Array>,
     pipeline_stream: Option<mlx_rs::Stream>,
     pending: Option<Result<crate::sampling::SamplePlan, GenerationError>>,
+    images: Option<(TokenId, Array)>,
 }
 impl<'model> Generation<'model> {
     /// Borrows the cache at the most recent completed event boundary.
@@ -561,7 +619,20 @@ impl<'model> Generation<'model> {
         let ids = &self.prompt[start..start + count];
         let tokens = token_array(ids)?;
         let mut step = self.cache.get_mut().step_with_tokens(ids)?;
-        let logits = self.decoder.forward(&tokens, &mut step)?;
+        let logits = match &mut self.images {
+            Some((token, rows)) if ids.contains(token) => {
+                let slots = ids.iter().filter(|id| *id == token).count() as i32;
+                let chunk = rows
+                    .try_index(..slots)
+                    .map_err(crate::InferenceError::from)?;
+                *rows = rows
+                    .try_index(slots..)
+                    .map_err(crate::InferenceError::from)?;
+                self.decoder
+                    .forward_with_images(&tokens, &chunk, &mut step)?
+            }
+            _ => self.decoder.forward(&tokens, &mut step)?,
+        };
         let row = if remaining == 1 {
             Some(last_row(&logits)?)
         } else {

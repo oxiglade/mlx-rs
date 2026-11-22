@@ -11,7 +11,7 @@ use mlx_lm::{
     ParameterPath, QuantizationConfig, RopeConfig, RopeScaling, TransformerDimensions,
     CacheError, ChatTemplateError, ConfigError, GenerationError, HubError,
     InferenceError, LoadError, SamplingError, TokenizerError, WeightError,
-    FinishReason, Generation, GenerationEvent, GenerationOptions, Model, Prompt,
+    FinishReason, Generation, GenerationEvent, GenerationOptions, Image, Model, Prompt,
     RepetitionPenaltyOptions, StopPolicy, StopTokenPolicy, AdditivePenaltyOptions,
     MinPOptions, SamplerOptions, ChatContinuation, ChatTemplateOptions, Message,
     Role, TokenId, Tokenizer,
@@ -90,10 +90,10 @@ fn events(e: GenerationEvent) {
     }
 }
 fn cache(c: &mut Cache, s: CacheSnapshot, o: CacheOptions, i: CacheInfo) {
-    let _: &[TokenId] = c.tokens();
+    let _: Result<&[TokenId], CacheError> = c.tokens();
     let _: Result<CacheSnapshot, CacheError> = c.snapshot();
     let _: Result<(), CacheError> = c.restore(s);
-    let _: usize = c.info().len();
+    if let Ok(info) = c.info() { let _: usize = info.len(); }
     let _: (usize, usize, usize) = (i.layer, i.processed_tokens, i.capacity);
     let _: (Range<usize>, Range<usize>) = (i.retained_prefix, i.retained_positions);
     match i.kind { CacheKind::Full | CacheKind::Rotating | CacheKind::Recurrent => () }
@@ -127,10 +127,13 @@ fn model(m: &mut Model, c: &mut Cache) {
     let _: Result<Cache, CacheError> = m.new_cache(CacheOptions::default());
     let _: Result<Generation<'_>, GenerationError> = m.generate(Prompt::Text(""), GenerationOptions::default());
     let _: Result<Generation<'_>, GenerationError> = m.generate_with_cache(Prompt::Tokens(&[]), GenerationOptions::default(), c);
+    let image = Image { width: 0usize, height: 0usize, rgb: &[0u8][..] };
+    let tokens: &[TokenId] = &[];
+    let _: Result<Generation<'_>, GenerationError> = m.generate(Prompt::Vision { tokens, images: &[image] }, GenerationOptions::default());
 }
 fn iterator(g: &mut Generation<'_>) {
     let _: Option<Result<GenerationEvent, GenerationError>> = g.next();
-    let _: &Cache = g.cache();
+    let _: Result<&Cache, CacheError> = g.cache();
     let _: Result<CacheSnapshot, CacheError> = g.snapshot();
 }
 fn paths() {
