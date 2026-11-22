@@ -40,6 +40,8 @@ jobs:
           from pathlib import Path
 
           builds = json.loads(Path("ledger/supported-feature-matrix.json").read_text())["builds"]
+          # Queue the two long default suites first when macOS runners are scarce.
+          builds.sort(key=lambda build: not build["id"].startswith("macos-arm64-default"))
           matrix = {"include": [{"configuration": build["id"], "rust": build["toolchain"]}
                                 for build in builds if build["required"]]}
           if not matrix["include"]:
@@ -51,6 +53,31 @@ jobs:
           name: product-lockfile
           path: Cargo.lock
           if-no-files-found: error
+
+  tooling:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+          fetch-depth: 0
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          components: rustfmt, clippy
+          build-warnings: ""
+          rustflags: "-D warnings"
+      - run: cargo fmt -- --check
+      - run: cargo fmt --manifest-path xtask/Cargo.toml -- --check
+      - run: cargo clippy --all-targets --locked --manifest-path xtask/Cargo.toml -- -D warnings
+      - run: |
+          cargo test --locked --manifest-path xtask/Cargo.toml -- --skip fingerprint:: --skip linked_exports::
+      - run: cargo xtask verify-oracle-boundary
+        if: github.event_name == 'push'
+      - run: cargo xtask verify-oracle-boundary --base origin/main
+        if: github.event_name == 'workflow_dispatch'
+      - run: cargo xtask verify-oracle-boundary --base ${{ github.event.pull_request.base.sha }}
+        if: github.event_name == 'pull_request'
+      - run: cargo xtask verify-bump
 
   checks:
     needs: dependencies
@@ -72,20 +99,10 @@ jobs:
       - name: Install the ABI extraction toolchain
         run: |
           rustup toolchain install "$(python3 -c 'import json; print(json.load(open("ledger/abi-toolchain.json"))["rustc"].split()[1])')" --profile minimal --component rustfmt
-      - name: Check xtask workspace
+      - name: Test native ABI and archive tooling
         run: |
-          cargo fmt --manifest-path xtask/Cargo.toml -- --check
-          cargo clippy --all-targets --locked --manifest-path xtask/Cargo.toml -- -D warnings
-          cargo test --locked --manifest-path xtask/Cargo.toml
-      - run: cargo fmt -- --check
+          cargo test --locked --manifest-path xtask/Cargo.toml -- fingerprint:: linked_exports::
       - run: cargo clippy --all-targets --locked --message-format=json-render-diagnostics -- -D warnings > "$RUNNER_TEMP/clippy-artifacts.json"
-      - run: cargo xtask verify-oracle-boundary
-        if: github.event_name == 'push'
-      - run: cargo xtask verify-oracle-boundary --base origin/main
-        if: github.event_name == 'workflow_dispatch'
-      - run: cargo xtask verify-oracle-boundary --base ${{ github.event.pull_request.base.sha }}
-        if: github.event_name == 'pull_request'
-      - run: cargo xtask verify-bump
       - name: Check compiled public API and ledger
         env:
           MLX_RS_ABI_OUTPUT_DIR: ${{ runner.temp }}/abi-inventory
@@ -296,7 +313,7 @@ jobs:
 
   admission:
     if: always()
-    needs: [dependencies, checks, ffi-gate, configurations, prebuilt]
+    needs: [dependencies, tooling, checks, ffi-gate, configurations, prebuilt]
     runs-on: ubuntu-latest
     steps:
       - name: Require every job
@@ -308,7 +325,7 @@ jobs:
           import os
 
           results = json.loads(os.environ["RESULTS"])
-          required = {"dependencies", "checks", "ffi-gate", "configurations", "prebuilt"}
+          required = {"dependencies", "tooling", "checks", "ffi-gate", "configurations", "prebuilt"}
           expected = {name: "success" for name in required}
           if {name: job["result"] for name, job in results.items()} != expected:
               raise SystemExit(f"Required validation jobs did not all succeed: {results}")

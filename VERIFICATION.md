@@ -210,7 +210,8 @@ The required graph is:
 | Job | Executable requirements |
 | --- | --- |
 | `dependencies` | Generate one product `Cargo.lock` with Rust 1.88.0, upload it, and select every required configuration from `ledger/supported-feature-matrix.json`. |
-| `checks` | Product and xtask fmt/clippy, xtask tests, oracle boundary, `verify-bump`, compiled API and ABI/ledger checks, and the Cargo-archive link/version canary. |
+| `tooling` | On Linux: product and xtask fmt, xtask clippy and portable tests, oracle boundary, and `verify-bump`. |
+| `checks` | On macOS: xtask fingerprint and linked-export tests, product clippy, compiled API and ABI/ledger checks, and the Cargo-archive link/version canary. |
 | `ffi-gate` | `verify-ffi --calibrate --guard-malloc`, including clean controls and deliberate leak, use-after-free and double-free detection. |
 | `configurations (macos-arm64-default, stable)` | Qualified workspace tests and doctests with `oracle-hooks`, including parity, sentinel, semantic/state packs and all twelve real-checkpoint case/device executions. |
 | `configurations (macos-arm64-default-msrv, 1.88.0)` | Qualified default workspace tests and doctests on MSRV. |
@@ -218,7 +219,7 @@ The required graph is:
 | `configurations (macos-arm64-cpu-only-release, stable)` | Qualified CPU/Accelerate release tests and doctests. |
 | `configurations (macos-arm64-metal-jit, stable)` | Qualified Metal JIT workspace tests and doctests. |
 | `prebuilt` | Build and test the workspace against the pinned `mlx-metal` wheel with Command Line Tools selected; require `metal` and `metallib` invocations to fail before building. |
-| `admission` | Require successful `dependencies`, `checks`, `ffi-gate`, `prebuilt` and every `configurations` matrix leg. |
+| `admission` | Require successful `dependencies`, `tooling`, `checks`, `ffi-gate`, `prebuilt` and every `configurations` matrix leg. |
 
 `validate.yml` calls this same graph with `ordinary: true` on ordinary PRs and main pushes.
 Both modes require the prebuilt lane on `macos-26`. Ordinary mode omits checkpoint provisioning

@@ -359,6 +359,7 @@ pub(crate) fn run(root_dir: &Path, args: &[String]) -> i32 {
         }) => {
             let report = verify(
                 root_dir,
+                discover_test_binaries(root_dir),
                 guard_malloc,
                 Timeouts {
                     leaks: leaks_timeout_seconds,
@@ -439,6 +440,22 @@ fn calibrate(
     let mlx_c_commit = git_head(&mlx_c_dir);
     let mlx_c_clean = git_clean(&mlx_c_dir);
     let leaks_timeout = Duration::from_secs(timeouts.leaks);
+    let discovery_started = Instant::now();
+    let inventory = discover_test_binaries(root_dir);
+    let discovery_duration = discovery_started.elapsed();
+    let calibration_binary = inventory
+        .as_ref()
+        .map_err(String::clone)
+        .and_then(|binaries| {
+            let mut matches = binaries
+                .iter()
+                .filter(|binary| binary.target == CALIBRATION_BINARY);
+            match (matches.next(), matches.next()) {
+                (Some(binary), None) => Ok(binary),
+                (None, _) => Err("cargo did not emit the calibration test executable".to_owned()),
+                _ => Err("cargo emitted multiple calibration test executables".to_owned()),
+            }
+        });
 
     // The probe child must allocate: a no-malloc process (e.g. /usr/bin/true)
     // yields no leaks summary and misreports a healthy runner as unparseable.
@@ -446,7 +463,7 @@ fn calibrate(
     // initializes the runtime, so it always produces a parseable report.
     eprintln!("probing leaks child inspection with the skipped calibration binary");
     let probe_started = Instant::now();
-    let environment_probe = match discover_calibration_binary(root_dir) {
+    let environment_probe = match &calibration_binary {
         Ok(binary) => {
             let mut probe_command = Command::new("leaks");
             probe_command.args(["--atExit", "--"]);
@@ -465,21 +482,22 @@ fn calibrate(
             result: None,
             tool_status: None,
             failure: Some("calibration_binary_discovery_failed".to_owned()),
-            error: Some(error),
+            error: Some(error.clone()),
         },
     };
 
-    let deliberate_leak_detection = run_deliberate_leak_calibration(root_dir, leaks_timeout);
+    let deliberate_leak_detection =
+        run_deliberate_leak_calibration(calibration_binary, leaks_timeout);
 
     let guard_qualification =
         guard_malloc.then(|| qualify_guard_malloc(Duration::from_secs(timeouts.guard_malloc)));
 
     eprintln!("running clean full verify-ffi gate");
     let clean_started = Instant::now();
-    let mut clean_report = verify(root_dir, guard_malloc, timeouts);
+    let mut clean_report = verify(root_dir, inventory, guard_malloc, timeouts);
     clean_report.source_clean &= source_clean;
     clean_report.mlx_c_clean &= mlx_c_clean && clean_report.mlx_c_commit == mlx_c_commit;
-    let clean_duration = clean_started.elapsed();
+    let clean_duration = discovery_duration + clean_started.elapsed();
     let clean_gate = CleanGatePhase {
         status: if clean_report.verdict == Verdict::Pass {
             Verdict::Pass
@@ -534,11 +552,11 @@ fn bind_qualification(phases: &mut CalibrationPhases, source_commit: &str) -> Ve
 }
 
 fn run_deliberate_leak_calibration(
-    root_dir: &Path,
+    binary: Result<&TestBinary, String>,
     leaks_timeout: Duration,
 ) -> CalibrationLeakPhase {
     let started = Instant::now();
-    let binary = match discover_calibration_binary(root_dir) {
+    let binary = match binary {
         Ok(binary) => binary,
         Err(error) => {
             return CalibrationLeakPhase {
@@ -570,49 +588,6 @@ fn run_deliberate_leak_calibration(
         capture_command(&mut command, leaks_timeout),
         started.elapsed(),
     )
-}
-
-fn discover_calibration_binary(root_dir: &Path) -> Result<TestBinary, String> {
-    eprintln!("discovering deliberate leak calibration executable");
-    let discovery = Command::new("cargo")
-        .args([
-            "test",
-            "--locked",
-            "-p",
-            "mlx-tests",
-            "--test",
-            CALIBRATION_BINARY,
-            "--no-run",
-            "--message-format=json",
-        ])
-        .current_dir(root_dir)
-        .output()
-        .map_err(|error| format!("failed to discover calibration binary: {error}"))?;
-    if !discovery.stderr.is_empty() {
-        eprint!("{}", String::from_utf8_lossy(&discovery.stderr));
-    }
-    if !discovery.status.success() {
-        return Err(format!(
-            "calibration binary discovery exited with {}",
-            discovery.status
-        ));
-    }
-    let messages = String::from_utf8(discovery.stdout)
-        .map_err(|error| format!("calibration discovery emitted non-UTF-8 JSON: {error}"))?;
-    let matches = parse_test_binaries(&messages)?
-        .into_iter()
-        .filter(|binary| binary.target == CALIBRATION_BINARY)
-        .collect::<Vec<_>>();
-    match matches.as_slice() {
-        [binary] => Ok(TestBinary {
-            package_id: binary.package_id.clone(),
-            target: binary.target.clone(),
-            target_kind: binary.target_kind.clone(),
-            path: binary.path.clone(),
-        }),
-        [] => Err("cargo did not emit the calibration test executable".to_owned()),
-        _ => Err("cargo emitted multiple calibration test executables".to_owned()),
-    }
 }
 
 fn capture_command(
@@ -1012,8 +987,13 @@ fn duration_ms(duration: Duration) -> u64 {
     duration.as_millis().min(u128::from(u64::MAX)) as u64
 }
 
-fn verify(root_dir: &Path, guard_malloc: bool, timeouts: Timeouts) -> VerifyFfiReport {
-    let binaries = match discover_test_binaries(root_dir) {
+fn verify(
+    root_dir: &Path,
+    inventory: Result<Vec<TestBinary>, String>,
+    guard_malloc: bool,
+    timeouts: Timeouts,
+) -> VerifyFfiReport {
+    let binaries = match inventory {
         Ok(binaries) => binaries,
         Err(error) => {
             return failed_report(root_dir, guard_malloc, timeouts, error);
