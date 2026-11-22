@@ -44,3 +44,9 @@ for i in 0 1; do
   diff -u <(jq -r ".cases[$i].output_ids[]" "$fixture") actual.ids
 done
 ```
+
+`Inkling-2-Mini-image.json` holds one prompt with a 100x70 image. The case's `image.rgb` gives the three bytes of the pixel at column `x` and row `y`, and `prompt_ids` holds one image token for it. Replay it with the checkpoint test:
+
+```bash
+MLX_LM_INKLING="$MODEL" cargo test --release --locked -p mlx-lm --test real_checkpoints -- --ignored --exact inkling_replays_the_image_fixture
+```
