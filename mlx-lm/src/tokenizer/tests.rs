@@ -600,15 +600,15 @@ fn tojson_rejects_what_it_would_render_differently() -> Result<(), ChatTemplateE
     let mut env = environment();
     env.add_template(
         "chat",
-        "{{ {'b': 1.0, 'a': 'é', 'c': none} | tojson(ensure_ascii=false, indent=none, sort_keys=true) }}",
+        "{{ {'b': 1.0, 'a': 'é', 'c': none} | tojson(ensure_ascii=false, indent=none, sort_keys=true) }}\
+         {{ 'é🙂\u{7f}\\n' | tojson(ensure_ascii=true) }}",
     )?;
     assert_eq!(
         render_chat::<Message>(&env, &Default::default(), &[], Default::default())?,
-        r#"{"a": "é", "b": 1.0, "c": null}"#
+        r#"{"a": "é", "b": 1.0, "c": null}"\u00e9\ud83d\ude42\u007f\n""#
     );
     for value in [
         "1 | tojson(indent=2)",
-        "1 | tojson(ensure_ascii=true)",
         "1 | tojson(separators=[','])",
         "missing | tojson",
         "[{'a': missing}] | tojson",
@@ -668,6 +668,108 @@ fn served_chat_template_oracles() -> Result<(), TokenizerError> {
         }
     }
     Ok(())
+}
+
+#[test]
+fn served_response_oracles() -> Result<(), TokenizerError> {
+    #[derive(Deserialize)]
+    struct Served {
+        cases: BTreeMap<String, ServedCase>,
+    }
+    #[derive(Deserialize)]
+    struct ServedCase {
+        prompt: String,
+        tools: Vec<TemplateValue>,
+        text: String,
+        finish: String,
+        #[serde(default)]
+        reasoning: String,
+        #[serde(default)]
+        content: String,
+        #[serde(default)]
+        tool_calls: Vec<BTreeMap<String, String>>,
+        /// Absent where the Python server raised on the call.
+        unparsed_calls: Option<usize>,
+    }
+    #[derive(Deserialize)]
+    struct Chat {
+        template: String,
+    }
+    for (name, vocabulary) in [
+        ("Qwen3.6-35B-A3B-4bit.json", &["<think>", "</think>"][..]),
+        (
+            "Inkling-2-Mini.json",
+            &[
+                "<|content_thinking|>",
+                "<|content_text|>",
+                "<|content_invoke_tool_json|>",
+            ][..],
+        ),
+    ] {
+        let served: Served = read_json(
+            &fixture_root()
+                .join("../served-fixtures/response")
+                .join(name),
+        )?;
+        let chat: Chat = read_json(&fixture_root().join("../served-fixtures/chat").join(name))?;
+        let format =
+            response::Format::infer(Some(&chat.template), |token| vocabulary.contains(&token));
+        for (case, expected) in served.cases {
+            let reason = match expected.finish.as_str() {
+                "stop" => crate::FinishReason::Stop,
+                _ => crate::FinishReason::Length,
+            };
+            let chars: Vec<char> = expected.text.chars().collect();
+            for size in [usize::MAX, 1, 7] {
+                let mut parser = ResponseParser::new(format, &expected.prompt, &expected.tools);
+                let mut parts = Vec::new();
+                for chunk in chars.chunks(size) {
+                    parts.extend(parser.push(&chunk.iter().collect::<String>()));
+                }
+                parts.extend(parser.finish(reason));
+                let (mut reasoning, mut content) = (String::new(), String::new());
+                let (mut calls, mut unparsed) = (Vec::new(), 0);
+                for part in parts {
+                    match part {
+                        ResponsePart::Reasoning(text) => reasoning += &text,
+                        ResponsePart::Content(text) => content += &text,
+                        ResponsePart::ToolCall(call) => calls.push(BTreeMap::from([
+                            ("name".to_owned(), call.name),
+                            ("arguments".to_owned(), call.arguments),
+                        ])),
+                        ResponsePart::InvalidToolCall(_) => unparsed += 1,
+                    }
+                }
+                assert_eq!(
+                    (reasoning, content, calls, unparsed),
+                    (
+                        expected.reasoning.clone(),
+                        expected.content.clone(),
+                        expected.tool_calls.clone(),
+                        expected.unparsed_calls.unwrap_or(1)
+                    ),
+                    "{name}/{case}/{size}"
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn response_parts_arrive_once_no_marker_can_claim_them() {
+    let format = response::Format::Tags {
+        think: true,
+        calls: true,
+    };
+    let mut parser = ResponseParser::new(format, "<think>", &[]);
+    assert_eq!(parser.push("Hm <"), [ResponsePart::Reasoning("Hm ".into())]);
+    assert_eq!(
+        parser.push("b</thi"),
+        [ResponsePart::Reasoning("<b".into())]
+    );
+    assert_eq!(parser.push("nk>Yes"), [ResponsePart::Content("Yes".into())]);
+    assert!(parser.finish(crate::FinishReason::Stop).is_empty());
 }
 
 #[test]

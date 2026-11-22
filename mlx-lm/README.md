@@ -22,7 +22,8 @@ or consume the committed fixtures.
 | GGUF, `Model::from_gguf` | Llama and Qwen3; F32, F16, and Q4_0/Q4_1/Q8_0 converted affine forms. Dense, biasless models with full causal attention, full-head RoPE, and absent/none or linear scaling. No frequency-factor tensors. |
 | Hub, `Model::from_hub` | Behind `hf-hub`; resolves a repository/revision to a commit and downloads selected safetensors and JSON/tokenizer assets, then uses the local loader. No remote Python code or Hub GGUF loading. |
 | Generation | One synchronous iterator for text or token-ID prompts, and token-ID prompts with RGB images for Inkling 2 Mini, chunked prefill, temperature/top-k/top-p/min-p sampling, repetition/presence/frequency penalties, token and text stops. |
-| Chat templates, `Tokenizer::render_chat` | The checkpoint's Jinja template, ending closed, at the assistant start or inside the last message. Messages are plain text or OpenAI-style objects with tool calls, tool results and reasoning; tool definitions and other template variables pass through `ChatTemplateOptions`. `tojson` follows Transformers for `separators` and `sort_keys`, not `indent` or `ensure_ascii=true`. |
+| Chat templates, `Tokenizer::render_chat` | The checkpoint's Jinja template, ending closed, at the assistant start or inside the last message. Messages are plain text or OpenAI-style objects with tool calls, tool results and reasoning; tool definitions and other template variables pass through `ChatTemplateOptions`. `tojson` follows Transformers for `separators`, `sort_keys` and `ensure_ascii`, not `indent`. |
+| Response parsing, `Tokenizer::response_parser` | Splits generated text into reasoning, content and tool calls as it streams. `<think>` blocks and `<tool_call>` blocks holding `<function=name>` follow mlx-lm 0.32.2's server, with each argument typed from the tool's parameter schema as its `qwen3_coder` parser types it. Where they differ: a Python-only literal such as a single-quoted string stays text, and an integer beyond 64 bits inside a list or object loses digits. Inkling 2 Mini output is split wherever the text of one of its channel tokens appears, with each tool call a JSON object. A call that cannot be read comes back as its text. |
 | Cache | Full and rotating KV storage, model-bound snapshots, exact-prefix reuse. Snapshots exclude RNG, decoder and iterator state. |
 
 The GGUF affine layouts have group size 32, 4 or 8 bits, and F16 scales and
@@ -201,7 +202,7 @@ These capabilities require a separate approved design and qualification:
 - A server, async generation or arbitrary custom architecture registration.
 - Checkpoint conversion/upload, persisted prompt caches and quantized KV caches.
 - MXFP4, BitNet, AWQ/GPTQ conversion and activation quantization.
-- Document chat messages, parsing tool calls and reasoning out of generated text, XTC, logit bias and custom sampling callables.
+- Document chat messages, reasoning and tool-call formats other than Qwen's and Inkling's, XTC, logit bias and custom sampling callables.
 
 See the [completed-wave status](SKELETON.md) for tranche deliveries, report
 locations and the limits of historical host qualification.

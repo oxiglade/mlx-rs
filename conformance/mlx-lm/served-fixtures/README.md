@@ -58,3 +58,11 @@ MLX_LM_INKLING="$MODEL" cargo test --release --locked -p mlx-lm --test real_chec
 ```bash
 MLX_LM_SERVED_CHAT="$MODEL" cargo test --locked -p mlx-lm --test real_checkpoints -- --ignored --exact served_chat_fixture_tokenizes
 ```
+
+## Response parsing
+
+`served_response_reference.py qwen|inkling "$MODEL"` prints a `response/` fixture. Each case holds generated text with the reasoning, content and tool calls a Python server makes of it: `mlx_lm.server` for Qwen, and for Inkling the channel-token loop the script carries. The script also replays the two served cases from the checkpoint's decode fixture one directory up. `unparsed_calls` counts calls the server dropped, and `raises` names the exception where it failed instead. The Qwen fixture needs `mlx-lm` installed. The `served_response_oracles` unit test parses every case's text. To decode the recorded IDs with a checkpoint's own tokenizer first, name its directory after the fixture and run:
+
+```bash
+MLX_LM_SERVED_CHAT="$MODEL" cargo test --locked -p mlx-lm --test real_checkpoints -- --ignored --exact served_response_fixture_parses
+```

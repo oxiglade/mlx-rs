@@ -14,7 +14,7 @@ use mlx_lm::{
     FinishReason, Generation, GenerationEvent, GenerationOptions, Image, Model, Prompt,
     RepetitionPenaltyOptions, StopPolicy, StopTokenPolicy, AdditivePenaltyOptions,
     MinPOptions, SamplerOptions, ChatContinuation, ChatTemplateOptions, Message,
-    Role, TemplateValue, TokenId, Tokenizer,
+    ResponseParser, ResponsePart, Role, TemplateValue, TokenId, ToolCall, Tokenizer,
 };
 use std::{collections::BTreeMap, num::NonZeroUsize, ops::Range, path::{Path, PathBuf}};
 fn config(c: Config) {
@@ -114,6 +114,15 @@ fn tokenizer(t: &Tokenizer, m: Message, o: ChatTemplateOptions) {
     let _: Result<Vec<TokenId>, TokenizerError> = t.encode_with_special_tokens("", true);
     let _: Result<String, TokenizerError> = t.decode(&[]);
     let _: Result<String, ChatTemplateError> = t.render_chat::<Message>(&[], o);
+    let mut parser: ResponseParser = t.response_parser("", &[]);
+    for part in parser.push("") {
+        match part {
+            ResponsePart::Reasoning(s) | ResponsePart::Content(s) | ResponsePart::InvalidToolCall(s) => { let _: String = s; }
+            ResponsePart::ToolCall(ToolCall { name, arguments, .. }) => { let _: (String, String) = (name, arguments); }
+            _ => (),
+        }
+    }
+    let _: Vec<ResponsePart> = parser.finish(FinishReason::Stop);
     let _: Result<Tokenizer, TokenizerError> = Tokenizer::from_dir(Path::new(""));
     let _: Result<Tokenizer, TokenizerError> = Tokenizer::from_file(Path::new(""));
     let _: Result<Tokenizer, TokenizerError> = Tokenizer::from_bytes(&[]);
