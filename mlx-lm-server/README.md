@@ -5,6 +5,7 @@ binary are `mlx-lm-server`.
 
 ```text
 mlx-lm-server --model DIR [--host ADDR] [--port PORT] [--cache-bytes N]
+              [--disk-cache DIR] [--disk-cache-bytes N] [--disk-cache-block N]
               [--max-tokens N] [--chat-template-args JSON] [--reasoning-field NAME]
 ```
 
@@ -75,6 +76,34 @@ user checkpoints, and the four newest of the others.
 A reply that used the cache can differ from the reply a fresh server gives to the
 same request. The cached tokens were prefilled in different steps, which rounds
 differently, and a near-tie between two tokens can then fall the other way.
+
+With `--disk-cache DIR` the caches also go to disk, where a later process with the
+same model finds them. Once the server has been idle for a second it writes the
+conversation of the last request: the K/V up to its first checkpoint and up to its
+newest, and those two checkpoints. A request that the files hold more of than any
+cache in memory does starts from the longest checkpoint its prompt continues.
+
+The files are in `DIR/NAME-DIGEST`, where the digest is a SHA-256 of a format
+number, the server's version, the block size, the bytes of the model's
+`config.json` and the paths, sizes and modification times of its weight files. One
+server at a time uses that subdirectory, and it leaves the subdirectories of other
+models, versions and block sizes as they are. A K/V file holds `--disk-cache-block`
+tokens, 2,048 by default, or what a checkpoint has of its last block. Its name is a
+SHA-256 of the name of the block before it and its own token IDs, followed by the
+count of tokens it ends after, so conversations that begin alike share files. A
+checkpoint file takes the name of its last K/V file. Every name ends in a CRC-32 of
+the file's bytes; a file that does not match it, or that the library refuses, is
+deleted, and the request starts from a shorter checkpoint or from its first token.
+Files are written under a temporary name, synced and renamed.
+
+A file's modification time is the end of the last request that used its state. When
+the subdirectory would pass `--disk-cache-bytes`, 64 GiB by default, the state used
+longest ago loses its checkpoint and then its K/V from the end, and no file of the
+conversation being written is dropped. A state too large to fit beside the rest of
+its conversation is not written. The budget also applies to the files a starting
+server finds.
+
+Weights replaced under the same paths, sizes and modification times are not noticed.
 
 Before the template reads a message, the server prepares it as `mlx_lm.server`
 does: a `content` list of text parts becomes one string, an absent or null
