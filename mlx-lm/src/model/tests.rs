@@ -5,6 +5,7 @@ fn public_surface_defaults() {
     let options = GenerationOptions::default();
     assert_eq!(options.max_tokens.get(), 256);
     assert_eq!(options.prefill_chunk_size.get(), 2048);
+    assert!(options.prefill_boundaries.is_empty());
     assert_eq!(options.sampling.temperature, 0.0);
     assert!(options.sampling.top_p.is_none());
     assert!(options.sampling.top_k.is_none());
@@ -485,6 +486,67 @@ fn fixture_prefill_progress_and_drop_boundaries() -> TestResult {
                 assert_eq!(cache.tokens()?, &prompt[..represented]);
             }
         }
+        Ok(())
+    })
+}
+
+fn prefill_ends(
+    model: &mut Model,
+    cache: &mut Cache,
+    prompt: &[TokenId],
+    chunk: usize,
+    boundaries: &[usize],
+) -> anyhow::Result<(Vec<usize>, Vec<GenerationEvent>)> {
+    let mut options = length_options(4);
+    options.prefill_chunk_size = nz(chunk);
+    options.prefill_boundaries = boundaries.to_vec();
+    let mut generation = model.generate_with_cache(Prompt::Tokens(prompt), options, cache)?;
+    let mut ends = vec![];
+    while !matches!(generation.state, GenerationState::FirstSample(_)) {
+        generation.next().transpose()?;
+        ends.push(generation.cache()?.tokens()?.len());
+    }
+    Ok((ends, collect_tokens(&mut generation)?))
+}
+
+#[test]
+fn prefill_steps_end_at_boundaries() -> TestResult {
+    with_device(Device::cpu(), || {
+        let expected = read_json(fixture("llama-base").join("expectations.json"))?;
+        let prompt = ids(&expected["prefill"]["token_ids"]);
+        let last = prompt.len() - 1;
+        assert!(last > 5);
+        let mut model = Model::from_dir(fixture("llama-base"))?;
+        let unbounded =
+            collect_tokens(&mut model.generate(Prompt::Tokens(&prompt), length_options(4))?)?;
+
+        let mut cache = model.new_cache(Default::default())?;
+        assert_eq!(
+            prefill_ends(&mut model, &mut cache, &prompt, 2048, &[5, 0, 2, last + 7])?,
+            (vec![0, 2, 5, last, last + 1], unbounded.clone())
+        );
+        let mut cache = model.new_cache(Default::default())?;
+        let ends = [0, 2]
+            .into_iter()
+            .chain((3..last).step_by(2))
+            .chain([last, last + 1])
+            .collect();
+        assert_eq!(
+            prefill_ends(&mut model, &mut cache, &prompt, 2, &[3, last, last + 1])?,
+            (ends, unbounded.clone())
+        );
+
+        let mut cache = model.new_cache(Default::default())?;
+        let mut options = length_options(1);
+        options.prefill_boundaries = vec![2];
+        let mut generation =
+            model.generate_with_cache(Prompt::Tokens(&prompt), options, &mut cache)?;
+        generation.nth(1).transpose()?;
+        drop(generation);
+        assert_eq!(
+            prefill_ends(&mut model, &mut cache, &prompt, 2048, &[1, 2, 4])?,
+            (vec![2, 4, last, last + 1], unbounded)
+        );
         Ok(())
     })
 }

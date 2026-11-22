@@ -269,6 +269,7 @@ impl Model {
             cached,
             processed: 0,
             chunk: options.prefill_chunk_size,
+            boundaries: options.prefill_boundaries,
             max_tokens: options.max_tokens,
             sampling,
             rng: None,
@@ -327,6 +328,11 @@ pub struct GenerationOptions {
     pub max_tokens: NonZeroUsize,
     /// Maximum number of prompt tokens per prefill step.
     pub prefill_chunk_size: NonZeroUsize,
+    /// Prompt token counts, cached prefix included, that no prefill step crosses. The
+    /// cache represents exactly that many tokens at the [`GenerationEvent::Prefill`]
+    /// ending there, so it can be checkpointed. Counts outside the uncached tokens
+    /// change nothing.
+    pub prefill_boundaries: Vec<usize>,
     /// Temperature and support-filter settings.
     pub sampling: SamplerOptions,
     /// Optional history-dependent repetition penalty.
@@ -345,6 +351,7 @@ impl Default for GenerationOptions {
         Self {
             max_tokens: NonZeroUsize::new(256).unwrap_or(NonZeroUsize::MIN),
             prefill_chunk_size: NonZeroUsize::new(2048).unwrap_or(NonZeroUsize::MIN),
+            prefill_boundaries: Vec::new(),
             sampling: SamplerOptions::default(),
             repetition_penalty: None,
             presence_penalty: None,
@@ -508,6 +515,7 @@ pub struct Generation<'model> {
     cached: usize,
     processed: usize,
     chunk: NonZeroUsize,
+    boundaries: Vec<usize>,
     max_tokens: NonZeroUsize,
     sampling: SamplingEngine,
     rng: Option<RandomState>,
@@ -615,12 +623,16 @@ impl<'model> Generation<'model> {
 
     fn prefill(&mut self, total: usize) -> Result<GenerationEvent, GenerationError> {
         let remaining = total - self.processed;
+        let start = self.cached + self.processed;
         let count = if remaining == 1 {
             1
         } else {
-            self.chunk.get().min(remaining - 1)
+            let boundary = self.boundaries.iter().filter(|end| **end > start).min();
+            self.chunk
+                .get()
+                .min(remaining - 1)
+                .min(boundary.map_or(usize::MAX, |end| end - start))
         };
-        let start = self.cached + self.processed;
         let ids = &self.prompt[start..start + count];
         let tokens = token_array(ids)?;
         let mut step = self.cache.get_mut().step_with_tokens(ids)?;
