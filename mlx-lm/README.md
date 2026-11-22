@@ -135,6 +135,9 @@ copies nothing. `Cache::rewind` shortens the full layers to that count and gives
 the other layers the checkpoint's arrays. A full layer without spare capacity is
 copied first, because a snapshot may share its storage. The checkpoint's tokens
 must be a prefix of the cache's tokens, and the checkpoint stays usable afterwards.
+`Cache::nbytes` and `CacheCheckpoint::nbytes` report the bytes of the arrays each
+holds; full and rotating layers count their whole capacity, and an array a
+checkpoint shares with a cache counts in both.
 
 With a source build on an M5 Max, in-place GPU append has level decode
 throughput at 128 tokens, about 7% higher at ~4k and 0.4% lower at ~16k, compared

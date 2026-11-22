@@ -107,6 +107,19 @@ impl CacheCheckpoint {
     pub fn tokens(&self) -> &[crate::TokenId] {
         self.ledger.tokens()
     }
+    /// Bytes of the arrays held. An array shared with a cache or another checkpoint
+    /// counts in each.
+    pub fn nbytes(&self) -> Result<usize, CacheError> {
+        nbytes(self.layers.values())
+    }
+}
+fn nbytes<'a>(layers: impl Iterator<Item = &'a Box<dyn LayerCache>>) -> Result<usize, CacheError> {
+    layers
+        .map(|layer| {
+            let (keys, values) = layer.arrays()?;
+            Ok(keys.nbytes() + values.nbytes())
+        })
+        .sum()
 }
 /// Contiguous K/V for one uninterrupted range of absolute positions.
 #[cfg_attr(not(feature = "oracle-hooks"), allow(dead_code))]
@@ -183,6 +196,12 @@ impl Cache {
             .iter()
             .enumerate()
             .map(|(layer, cache)| cache.info(layer)))
+    }
+    /// Bytes of every layer's arrays. Full and rotating layers count their whole
+    /// capacity, not only the positions in use.
+    pub fn nbytes(&self) -> Result<usize, CacheError> {
+        self.ensure_valid()?;
+        nbytes(self.layers.iter())
     }
     pub(crate) fn ensure_valid(&self) -> Result<(), CacheError> {
         if self.invalidated {
