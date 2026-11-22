@@ -1,14 +1,20 @@
 use std::{
-    collections::BTreeMap, error::Error, num::NonZeroUsize, path::Path, sync::mpsc::SyncSender,
+    collections::BTreeMap,
+    error::Error,
+    num::NonZeroUsize,
+    path::Path,
+    sync::mpsc::SyncSender,
+    thread,
+    time::{Duration, SystemTime},
 };
 
 use mlx_lm::{
     Cache, CacheCheckpoint, CacheError, ChatContinuation, ChatTemplateOptions, FinishReason,
     GenerationError, GenerationEvent, Model, Prompt, ResponsePart, TemplateValue, TokenId,
 };
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::{error::TryRecvError, Receiver, Sender};
 
-use crate::api::ChatRequest;
+use crate::{api::ChatRequest, disk::Disk};
 
 pub(crate) struct Job {
     pub request: ChatRequest,
@@ -44,6 +50,9 @@ fn chain(error: &dyn Error) -> String {
 
 /// How many checkpoints of each kind a conversation keeps.
 const KEPT: usize = 4;
+/// How long the server is idle before it writes to disk, so that a client between two
+/// tool calls does not wait for a write.
+const SETTLE: Duration = Duration::from_secs(1);
 
 /// A cache and the checkpoints it can rewind to, each a prefix of the cache's tokens,
 /// shortest first.
@@ -81,6 +90,14 @@ impl Conversation {
         let count = self.checkpoints[index].len();
         (2 * count >= cached.len()).then_some((count, Some(index)))
     }
+    /// Writes one file the disk lacks of the two states a later process resumes from:
+    /// the first, which a new conversation can share, and the newest.
+    fn save(&self, disk: &mut Disk, since: SystemTime) -> bool {
+        let ends = [self.checkpoints.first(), self.checkpoints.last()];
+        let ends = ends.into_iter().flatten();
+        let ends: Vec<_> = ends.map(|checkpoint| &checkpoint.state).collect();
+        disk.save(&self.cache, &ends, since)
+    }
     fn nbytes(&self) -> usize {
         let checkpoints = self.checkpoints.iter();
         let sizes = checkpoints.map(|checkpoint| checkpoint.state.nbytes());
@@ -103,6 +120,7 @@ fn keep(checkpoints: &mut Vec<Checkpoint>, checkpoint: Checkpoint) {
 pub(crate) fn run(
     directory: &Path,
     budget: usize,
+    mut disk: Option<Disk>,
     max_tokens: Option<NonZeroUsize>,
     variables: &BTreeMap<String, TemplateValue>,
     mut jobs: Receiver<Job>,
@@ -119,11 +137,32 @@ pub(crate) fn run(
         return;
     }
     // Least recently used first.
-    let mut conversations = Vec::new();
-    while let Some(Job { request, reply }) = jobs.blocking_recv() {
+    let mut conversations: Vec<Conversation> = Vec::new();
+    // When the last request ended, until the disk has its conversation.
+    let mut unsaved: Option<SystemTime> = None;
+    loop {
+        let job = match (jobs.try_recv(), &mut disk, unsaved) {
+            (Ok(job), ..) => Some(job),
+            (Err(TryRecvError::Empty), Some(disk), Some(since)) => {
+                if since.elapsed().is_ok_and(|idle| idle < SETTLE) {
+                    thread::sleep(Duration::from_millis(5));
+                } else if !conversations
+                    .last()
+                    .is_some_and(|last| last.save(disk, since))
+                {
+                    unsaved = None;
+                }
+                continue;
+            }
+            _ => jobs.blocking_recv(),
+        };
+        let Some(Job { request, reply }) = job else {
+            return;
+        };
         let served = serve(
             &mut model,
             &mut conversations,
+            disk.as_mut(),
             max_tokens,
             variables,
             &request,
@@ -144,6 +183,7 @@ pub(crate) fn run(
         });
         let kept = fits.count().max(1);
         conversations.drain(..conversations.len().saturating_sub(kept));
+        unsaved = Some(SystemTime::now());
     }
 }
 
@@ -156,6 +196,7 @@ fn has_role(message: &TemplateValue, role: &str) -> bool {
 fn serve(
     model: &mut Model,
     conversations: &mut Vec<Conversation>,
+    disk: Option<&mut Disk>,
     max_tokens: Option<NonZeroUsize>,
     variables: &BTreeMap<String, TemplateValue>,
     request: &ChatRequest,
@@ -234,8 +275,14 @@ fn serve(
     // Of two that hold as much, the one that needs no rewind loses nothing.
     let best =
         states.max_by_key(|((count, checkpoint), index)| (*count, checkpoint.is_none(), *index));
-    let (cached_tokens, conversation) = match best {
-        Some(((count, checkpoint), index)) => {
+    let held = best.map_or(0, |((count, _), _)| count);
+    let restored = disk.and_then(|disk| disk.restore(model, &tokens, held));
+    let (cached_tokens, conversation) = match (restored, best) {
+        (Some((cache, state)), _) => {
+            let checkpoints = vec![Checkpoint { state, turn: true }];
+            (checkpoints[0].len(), Conversation { cache, checkpoints })
+        }
+        (None, Some(((count, checkpoint), index))) => {
             let mut conversation = conversations.remove(index);
             if let Some(index) = checkpoint {
                 let state = &conversation.checkpoints[index].state;
@@ -244,7 +291,7 @@ fn serve(
             }
             (count, conversation)
         }
-        None => {
+        (None, None) => {
             let cache = model.new_cache(Default::default()).map_err(failed)?;
             let checkpoints = Vec::new();
             (0, Conversation { cache, checkpoints })

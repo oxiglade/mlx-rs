@@ -1,4 +1,5 @@
 mod api;
+mod disk;
 mod worker;
 
 use std::{
@@ -29,6 +30,15 @@ struct Cli {
     /// Bytes of prompt cache kept between requests; the last conversation always stays.
     #[arg(long, default_value_t = 8 << 30)]
     cache_bytes: usize,
+    /// Directory for prompt caches that outlast the process, in one subdirectory per model.
+    #[arg(long)]
+    disk_cache: Option<PathBuf>,
+    /// Bytes of prompt cache kept in this model's subdirectory of `--disk-cache`.
+    #[arg(long, default_value_t = 64 << 30)]
+    disk_cache_bytes: u64,
+    /// Tokens of K/V in one file of `--disk-cache`.
+    #[arg(long, default_value = "2048")]
+    disk_cache_block: NonZeroUsize,
     /// Tokens generated for a request that sets no limit. Without it, such a request may
     /// fill the model's context.
     #[arg(long)]
@@ -62,10 +72,15 @@ fn run(cli: Cli) -> Result<(), Box<dyn Error>> {
     let id = model.display().to_string();
     let (jobs, incoming) = tokio::sync::mpsc::channel(1);
     let (ready, started) = mpsc::sync_channel(0);
+    let block = cli.disk_cache_block.get();
+    let disk = cli.disk_cache.as_deref();
+    let disk = disk.map(|root| disk::Disk::open(root, &model, cli.disk_cache_bytes, block));
+    let disk = disk.transpose()?;
     thread::spawn(move || {
         worker::run(
             &model,
             cli.cache_bytes,
+            disk,
             cli.max_tokens,
             &cli.chat_template_args,
             incoming,

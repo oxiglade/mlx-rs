@@ -4,6 +4,8 @@ use std::{
     net::TcpStream,
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
+    thread,
+    time::{Duration, SystemTime},
 };
 
 use mlx_lm::{FinishReason, GenerationEvent, GenerationOptions, Model, Prompt};
@@ -85,12 +87,16 @@ impl Drop for Server {
 type Configure = fn(&mut GenerationOptions);
 
 /// A copy of the fixture model that renders chats with `template`.
-fn fixture_with_template(template: &str) -> tempfile::TempDir {
-    let model = tempfile::tempdir().unwrap();
+fn copy_fixture(to: &Path) {
+    fs::create_dir_all(to).unwrap();
     for entry in fs::read_dir(fixture()).unwrap() {
         let entry = entry.unwrap();
-        fs::copy(entry.path(), model.path().join(entry.file_name())).unwrap();
+        fs::copy(entry.path(), to.join(entry.file_name())).unwrap();
     }
+}
+fn fixture_with_template(template: &str) -> tempfile::TempDir {
+    let model = tempfile::tempdir().unwrap();
+    copy_fixture(model.path());
     let path = model.path().join("tokenizer_config.json");
     let mut config: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
     config["chat_template"] = template.into();
@@ -430,6 +436,171 @@ fn conversations_keep_their_caches_while_they_fit_the_budget() {
     assert_eq!(ask(&server, &other, 1).1, 0);
     let shared = tokens(&(render(&[system]) + "<|im_start|>user\n"));
     assert_eq!(ask(&server, &[&longer[..], &more].concat(), 1).1, shared);
+}
+
+fn files(root: &Path) -> Vec<PathBuf> {
+    let directories = fs::read_dir(root).unwrap();
+    let files = directories.flat_map(|model| fs::read_dir(model.unwrap().path()).unwrap());
+    files.map(|file| file.unwrap().path()).collect()
+}
+fn name(file: &Path) -> &str {
+    file.file_name().unwrap().to_str().unwrap()
+}
+/// Waits for the checkpoint of `count` tokens under `root`, the last file of its state.
+fn saved(root: &Path, count: usize) {
+    let state = format!("-{count}-state.");
+    for _ in 0..400 {
+        if files(root).iter().any(|file| name(file).contains(&state)) {
+            return;
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+    panic!("no checkpoint of {count} tokens");
+}
+
+#[test]
+fn a_later_process_continues_from_the_files_of_an_earlier_one() {
+    let system = ("system", PROMPT);
+    let chat = [system, ("user", "again the hill")];
+    let shared = tokens(&(render(&[system]) + "<|im_start|>user\n"));
+    let whole = tokens(&render(&chat));
+    // The system checkpoint ends one block, and the user checkpoint is partway into the
+    // next.
+    let root = tempfile::tempdir().unwrap();
+    let (directory, block) = (root.path().to_str().unwrap(), shared.to_string());
+    let flags = ["--disk-cache", directory, "--disk-cache-block", &block];
+
+    let server = Server::start(&fixture(), &flags);
+    assert_eq!(ask(&server, &chat, 3).1, 0);
+    saved(root.path(), whole);
+    drop(server);
+    let files = files(root.path());
+    let server = Server::start(&fixture(), &flags);
+    assert_eq!(ask(&server, &chat, 1).1, whole);
+    // The cache in memory now holds more of the chat than the files do.
+    let more = [&chat[..], &[("assistant", "b"), ("user", "again")]].concat();
+    assert_eq!(ask(&server, &more, 3).1, prompt(&chat));
+    assert_eq!(ask(&server, &[system, ("user", "world")], 3).1, shared);
+    drop(server);
+
+    // With a byte changed in the K/V after the first block, the request continues from
+    // the system checkpoint.
+    let last = files
+        .iter()
+        .find(|file| name(file).contains(&format!("-{whole}.")));
+    let last = last.unwrap();
+    let mut bytes = fs::read(last).unwrap();
+    *bytes.last_mut().unwrap() ^= 1;
+    fs::write(last, bytes).unwrap();
+    let server = Server::start(&fixture(), &flags);
+    assert_eq!(ask(&server, &chat, 3).1, shared);
+    assert!(!last.exists());
+}
+
+#[test]
+fn the_disk_cache_drops_the_end_of_the_state_used_longest_ago_to_stay_in_its_budget() {
+    let system = ("system", "be brief");
+    let first: &Messages = &[("user", PROMPT)];
+    let second: &Messages = &[system, ("user", "again the green hill")];
+    // The third chat's second block of four tokens has the tokens of the first chat's.
+    let third: &Messages = &[(
+        "user",
+        "world the small fox runs over green hill again again",
+    )];
+    let shared = tokens(&(render(&[system]) + "<|im_start|>user\n"));
+    let whole = [first, second, third].map(|chat| tokens(&render(chat)));
+    // The bytes written, and how much of each chat the last process finds.
+    let run = |budget: u64| {
+        let root = tempfile::tempdir().unwrap();
+        let budget = budget.to_string();
+        let flags = ["--disk-cache", root.path().to_str().unwrap()];
+        let flags = [&flags[..], &["--disk-cache-block", "4"]].concat();
+        let flags = [&flags[..], &["--disk-cache-bytes", &budget]].concat();
+        let server = Server::start(&fixture(), &flags);
+        for (chat, count) in [(first, whole[0]), (second, whole[1])] {
+            assert_eq!(ask(&server, chat, 1).1, 0);
+            saved(root.path(), count);
+        }
+        drop(server);
+        // Reading the first chat makes the second the one used longest ago.
+        let server = Server::start(&fixture(), &flags);
+        assert_eq!(ask(&server, first, 1).1, whole[0]);
+        drop(server);
+        let server = Server::start(&fixture(), &flags);
+        assert_eq!(ask(&server, third, 1).1, 0);
+        saved(root.path(), whole[2]);
+        drop(server);
+        let files = files(root.path());
+        let bytes = files.iter().map(|file| fs::metadata(file).unwrap().len());
+        let server = Server::start(&fixture(), &flags[..4]);
+        let found = [first, second, third].map(|chat| ask(&server, chat, 1).1);
+        (bytes.sum::<u64>(), found)
+    };
+    let (bytes, found) = run(u64::MAX);
+    assert_eq!(found, whole);
+    // One byte short, the second chat loses its user checkpoint and keeps its system
+    // checkpoint.
+    assert_eq!(run(bytes - 1).1, [whole[0], shared, whole[2]]);
+}
+
+#[test]
+fn a_conversation_the_disk_budget_cannot_hold_costs_the_others_nothing() {
+    let small: &Messages = &[("user", "hello")];
+    let large: &Messages = &[("user", PROMPT)];
+    let count = tokens(&render(small));
+    let root = tempfile::tempdir().unwrap();
+    let serve = |budget: u64| {
+        let budget = budget.to_string();
+        let flags = ["--disk-cache", root.path().to_str().unwrap()];
+        let flags = [&flags[..], &["--disk-cache-block", "4"]].concat();
+        let flags = [&flags[..], &["--disk-cache-bytes", &budget]].concat();
+        Server::start(&fixture(), &flags)
+    };
+    let server = serve(u64::MAX);
+    assert_eq!(ask(&server, small, 1).1, 0);
+    saved(root.path(), count);
+    drop(server);
+    let files = files(root.path());
+    let bytes = files.iter().map(|file| fs::metadata(file).unwrap().len());
+    let bytes = bytes.sum::<u64>();
+
+    // The budget holds the small chat and one more file, and the large chat needs four.
+    let server = serve(2 * bytes);
+    assert_eq!(ask(&server, large, 1).1, 0);
+    // The server writes once it has been idle for a second.
+    thread::sleep(Duration::from_secs(2));
+    drop(server);
+    let server = serve(2 * bytes);
+    assert_eq!(ask(&server, small, 1).1, count);
+    assert_eq!(ask(&server, large, 1).1, 0);
+    drop(server);
+
+    // A smaller budget applies to the files already there.
+    assert_eq!(ask(&serve(bytes - 1), small, 1).1, 0);
+}
+
+#[test]
+fn the_disk_cache_is_read_only_for_the_weights_that_wrote_it() {
+    let root = tempfile::tempdir().unwrap();
+    let cache = root.path().join("cache");
+    let flags = ["--disk-cache", cache.to_str().unwrap()];
+    let models = ["a", "b"].map(|parent| root.path().join(parent).join("model"));
+    models.iter().for_each(|model| copy_fixture(model));
+    let chat: &Messages = &[("user", PROMPT)];
+    let whole = tokens(&render(chat));
+    let cached = |model: &Path| ask(&Server::start(model, &flags), chat, 1).1;
+
+    let server = Server::start(&models[0], &flags);
+    assert_eq!(ask(&server, chat, 1).1, 0);
+    saved(&cache, whole);
+    drop(server);
+    assert_eq!(cached(&models[0]), whole);
+    // A copy under the same name, and the same directory once a weight file has changed.
+    assert_eq!(cached(&models[1]), 0);
+    let weights = models[0].join("model.safetensors");
+    let weights = fs::File::options().append(true).open(weights).unwrap();
+    weights.set_modified(SystemTime::now()).unwrap();
+    assert_eq!(cached(&models[0]), 0);
 }
 
 #[test]
