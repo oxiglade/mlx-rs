@@ -4,7 +4,7 @@ An unpublished HTTP server over the public `mlx-lm` API. The package and its
 binary are `mlx-lm-server`.
 
 ```text
-mlx-lm-server --model DIR [--host ADDR] [--port PORT]
+mlx-lm-server --model DIR [--host ADDR] [--port PORT] [--cache-bytes N]
 ```
 
 It loads one local safetensors directory, prints `listening on http://ADDR` once
@@ -47,14 +47,19 @@ The model runs on one thread and serves one request at a time; later requests
 wait their turn. A client that disconnects stops its generation at the next
 prefill step or token, or leaves the queue.
 
-The server keeps the prompt cache of the last request. A request whose prompt
-continues that cache prefills only the tokens after it. Any other request rewinds
-the cache to the newest checkpoint its prompt still begins with and prefills from
-there, or from the start when there is none. Checkpoints are taken during prefill
-in three places: where the system messages end, where the last user message ends,
-and where the messages end when the last one is not a user's. The server keeps the
-first and the three newest of the system and user checkpoints, and the four newest
-of the others.
+The server keeps the prompt caches of earlier conversations. A request uses the
+cache that holds the most of its prompt. When the prompt continues that cache, only
+the tokens after it are prefilled. Otherwise the cache rewinds to the newest
+checkpoint the prompt still begins with and prefills from there. A request that
+would drop more than half of a cache this way leaves it alone, as llama.cpp does,
+and a request no cache serves starts a new one from its first token. After each
+request the least recently used caches are dropped until the rest fit in
+`--cache-bytes`, 8 GiB by default; the last one used always stays.
+
+Checkpoints are taken during prefill in three places: where the system messages
+end, where the last user message ends, and where the messages end when the last
+one is not a user's. A cache keeps the first and the three newest of the system and
+user checkpoints, and the four newest of the others.
 
 A reply that used the cache can differ from the reply a fresh server gives to the
 same request. The cached tokens were prefilled in different steps, which rounds
@@ -66,5 +71,5 @@ does: a `content` list of text parts becomes one string, an absent or null
 becomes an object. A content part that is not text, or arguments that are not
 JSON, return status 400.
 
-Not supported: a cache for more than one conversation; images; penalties, `logprobs` and `chat_template_kwargs`; and Inkling's
+Not supported: images; penalties, `logprobs` and `chat_template_kwargs`; and Inkling's
 `reasoning_content` field name.

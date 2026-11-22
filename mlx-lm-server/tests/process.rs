@@ -20,10 +20,11 @@ struct Server {
     address: String,
 }
 impl Server {
-    fn start(model: &Path) -> Self {
+    fn start(model: &Path, flags: &[&str]) -> Self {
         let mut child = Command::new(env!("CARGO_BIN_EXE_mlx-lm-server"))
             .args(["--port", "0", "--model"])
             .arg(model)
+            .args(flags)
             .stdout(Stdio::piped())
             .spawn()
             .unwrap();
@@ -116,7 +117,7 @@ fn generated(
 
 #[test]
 fn chat_completion_returns_what_the_library_generates() {
-    let server = Server::start(&fixture());
+    let server = Server::start(&fixture(), &[]);
     assert_eq!(
         server.request("GET", "/health", ""),
         (200, json!({ "status": "ok" }))
@@ -151,8 +152,6 @@ fn chat_completion_returns_what_the_library_generates() {
             },
         ),
     ];
-    // Every request after the first rewinds to the end of the user message.
-    let rewound = tokens(&format!("<|im_start|>user\n{PROMPT}<|im_end|>\n"));
     let mut finishes = Vec::new();
     for (mut body, configure) in cases {
         let model = body["model"].as_str().unwrap_or(id).to_owned();
@@ -171,16 +170,17 @@ fn chat_completion_returns_what_the_library_generates() {
             "{body}"
         );
         assert_eq!(choice["finish_reason"], finish, "{body}");
-        let expected = |cached: usize| {
+        // The cache tests cover how many of the prompt's tokens were cached.
+        let expected = |usage: &Value| {
+            let cached = usage["prompt_tokens_details"]["cached_tokens"].as_u64();
             json!({
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
                 "total_tokens": prompt_tokens + completion_tokens,
-                "prompt_tokens_details": { "cached_tokens": cached },
+                "prompt_tokens_details": { "cached_tokens": cached.unwrap() },
             })
         };
-        let cached = if finishes.is_empty() { 0 } else { rewound };
-        assert_eq!(response["usage"], expected(cached), "{body}");
+        assert_eq!(response["usage"], expected(&response["usage"]), "{body}");
         assert_eq!(response["object"], "chat.completion");
         assert_eq!(response["model"], model);
         finishes.push(finish);
@@ -197,7 +197,7 @@ fn chat_completion_returns_what_the_library_generates() {
         let parse = |data: &String| serde_json::from_str::<Value>(data).unwrap();
         let (last, usage) = (parse(last), parse(usage));
         assert_eq!(usage["choices"], json!([]));
-        assert_eq!(usage["usage"], expected(rewound), "{body}");
+        assert_eq!(usage["usage"], expected(&usage["usage"]), "{body}");
         assert_eq!(
             last["choices"],
             json!([{ "index": 0, "finish_reason": finish, "delta": { "role": "assistant" } }]),
@@ -254,59 +254,79 @@ fn chat_completion_returns_what_the_library_generates() {
         let message = response["error"].as_str().unwrap();
         assert!(message.contains(diagnostic), "{message}");
     }
-    let (status, _) = server.chat(json!({ "messages": messages, "max_tokens": 1 }));
+    let body = json!({ "messages": messages, "max_tokens": 1 });
+    let (status, _) = server.chat(body.clone());
     assert_eq!(status, 200);
+    // A repeat rewinds to the end of the user message, streamed or not.
+    let mut body = body;
+    body["stream_options"] = json!({ "include_usage": true });
+    let (_, data) = server.stream(body);
+    let usage: Value = serde_json::from_str(&data[data.len() - 2]).unwrap();
+    assert_eq!(
+        usage["usage"]["prompt_tokens_details"]["cached_tokens"],
+        tokens(&format!("<|im_start|>user\n{PROMPT}<|im_end|>\n"))
+    );
+}
+
+const ASSISTANT: &str = "<|im_start|>assistant\n";
+
+type Messages<'a> = [(&'a str, &'a str)];
+
+fn render(messages: &Messages) -> String {
+    let turns = messages.iter();
+    let turns = turns.map(|(role, content)| format!("<|im_start|>{role}\n{content}<|im_end|>\n"));
+    turns.collect()
+}
+
+/// The token count of the prompt that asks for a reply to `messages`.
+fn prompt(messages: &Messages) -> usize {
+    tokens(&(render(messages) + ASSISTANT))
+}
+
+/// Checks the server's reply against a run without a cache and returns it with the counts
+/// of cached and of sampled tokens.
+fn ask(server: &Server, messages: &Messages, max_tokens: usize) -> (String, usize, usize) {
+    let sent = messages.iter();
+    let sent = sent.map(|(role, content)| json!({ "role": role, "content": content }));
+    let sent: Vec<_> = sent.collect();
+    let (status, response) = server.chat(json!({ "messages": sent, "max_tokens": max_tokens }));
+    assert_eq!(status, 200, "{response}");
+    let (prompt_tokens, sampled, text, _) = generated(&(render(messages) + ASSISTANT), |options| {
+        options.max_tokens = max_tokens.try_into().unwrap()
+    });
+    assert_eq!(
+        response["choices"][0]["message"]["content"],
+        json!((!text.is_empty()).then_some(&text)),
+        "{messages:?}"
+    );
+    let usage = &response["usage"];
+    assert_eq!(usage["prompt_tokens"], prompt_tokens);
+    let cached = usage["prompt_tokens_details"]["cached_tokens"].as_u64();
+    (text, cached.unwrap() as usize, sampled)
 }
 
 #[test]
 fn a_request_continues_from_the_longest_cached_state_it_extends() {
-    const ASSISTANT: &str = "<|im_start|>assistant\n";
-    let server = Server::start(&fixture());
-    let render = |messages: &[(&str, &str)]| -> String {
-        let turns = messages.iter();
-        let turns =
-            turns.map(|(role, content)| format!("<|im_start|>{role}\n{content}<|im_end|>\n"));
-        turns.collect()
-    };
-    let length = |messages: &[(&str, &str)]| tokens(&render(messages));
-    // Checks the reply against a run without a cache and returns it with the counts of
-    // cached and of sampled tokens.
-    let ask = |messages: &[(&str, &str)], max_tokens: usize| {
-        let sent = messages.iter();
-        let sent = sent.map(|(role, content)| json!({ "role": role, "content": content }));
-        let sent: Vec<_> = sent.collect();
-        let (status, response) = server.chat(json!({ "messages": sent, "max_tokens": max_tokens }));
-        assert_eq!(status, 200, "{response}");
-        let (prompt_tokens, sampled, text, _) =
-            generated(&(render(messages) + ASSISTANT), |options| {
-                options.max_tokens = max_tokens.try_into().unwrap()
-            });
-        assert_eq!(
-            response["choices"][0]["message"]["content"],
-            json!((!text.is_empty()).then_some(&text)),
-            "{messages:?}"
-        );
-        let usage = &response["usage"];
-        assert_eq!(usage["prompt_tokens"], prompt_tokens);
-        let cached = usage["prompt_tokens_details"]["cached_tokens"]
-            .as_u64()
-            .unwrap();
-        (text, cached as usize, sampled)
-    };
-    let prompt = |messages: &[(&str, &str)]| tokens(&(render(messages) + ASSISTANT));
-    let (system, user) = (("system", "be brief"), ("user", "hello the small fox"));
-    let (reply, cached, sampled) = ask(&[system, user], 4);
+    let server = Server::start(&fixture(), &[]);
+    let length = |messages: &Messages| tokens(&render(messages));
+    // Long enough that every request below keeps more than half of the cache it reuses.
+    let brief = ["be brief"; 20].join(" ");
+    let (system, user) = (("system", brief.as_str()), ("user", "hello the small fox"));
+    let (reply, cached, sampled) = ask(&server, &[system, user], 4);
     assert_eq!(cached, 0);
 
     // The cache holds the prompt and every sampled token but the last.
     let again = ("user", "runs over");
     let follow_up = [system, user, ("assistant", reply.as_str()), again];
-    assert_eq!(ask(&follow_up, 1).1, prompt(&follow_up[..2]) + sampled - 1);
+    assert_eq!(
+        ask(&server, &follow_up, 1).1,
+        prompt(&follow_up[..2]) + sampled - 1
+    );
     // After a reply of one token the cache ends where the prompt ends. A repeat has to
     // prefill a token, so it rewinds to the user message's end and takes no second
     // checkpoint there.
     for _ in 0..2 {
-        assert_eq!(ask(&follow_up, 1).1, length(&follow_up));
+        assert_eq!(ask(&server, &follow_up, 1).1, length(&follow_up));
     }
 
     // The first round differs from the follow-up after the first user message. Each later
@@ -316,18 +336,23 @@ fn a_request_continues_from_the_longest_cached_state_it_extends() {
     let mut expected = length(&rounds);
     for _ in 0..5 {
         rounds.extend([("assistant", "b"), tool]);
-        assert_eq!(ask(&rounds, 1).1, expected);
+        assert_eq!(ask(&server, &rounds, 1).1, expected);
         expected = prompt(&rounds);
     }
     // A branch off the second round ends past the later rounds' ends, which a request
     // that leaves the branch midway must not rewind to.
     for answer in ["c c c c c c c c c c c c", "c c c c c c c c b"] {
-        let cached = ask(&[&rounds[..6], &[("assistant", answer), tool]].concat(), 4).1;
+        let cached = ask(
+            &server,
+            &[&rounds[..6], &[("assistant", answer), tool]].concat(),
+            4,
+        )
+        .1;
         assert_eq!(cached, length(&rounds[..6]));
     }
     // Only the ends of the last four requests are kept, so the first round's is gone.
     let branch = [("assistant", "c"), tool];
-    let cached = ask(&[&rounds[..4], &branch].concat(), 4).1;
+    let cached = ask(&server, &[&rounds[..4], &branch].concat(), 4).1;
     assert_eq!(cached, length(&rounds[..2]));
 
     // The system message's checkpoint is taken where the first message after it starts
@@ -336,15 +361,53 @@ fn a_request_continues_from_the_longest_cached_state_it_extends() {
     let mut turns = vec![system, ("user", "world")];
     let mut expected = shared;
     for _ in 0..4 {
-        assert_eq!(ask(&turns, 1).1, expected);
+        assert_eq!(ask(&server, &turns, 1).1, expected);
         expected = prompt(&turns);
         turns.extend([("assistant", "b"), again]);
     }
     // Of the ends of user messages, the last three are kept beside the system message's.
-    let cached = ask(&[&turns[..2], &branch].concat(), 4).1;
+    let cached = ask(&server, &[&turns[..2], &branch].concat(), 4).1;
     assert_eq!(cached, shared);
 
-    assert_eq!(ask(&[("system", "answer yes"), user], 4).1, 0);
+    assert_eq!(ask(&server, &[("system", "answer yes"), user], 4).1, 0);
+}
+
+#[test]
+fn conversations_keep_their_caches_while_they_fit_the_budget() {
+    let system = ("system", "be brief");
+    let long = [
+        system,
+        ("user", "hello the small fox runs over green hill again"),
+    ];
+    let other = [system, ("user", "world")];
+    let more = [("assistant", "b"), ("user", "again")];
+
+    // The other chat shares only the system message with the long one. Continuing from
+    // there would drop most of the long one, so it starts its own cache and both go on.
+    let server = Server::start(&fixture(), &[]);
+    assert_eq!(ask(&server, &long, 1).1, 0);
+    assert_eq!(ask(&server, &other, 1).1, 0);
+    assert_eq!(
+        ask(&server, &[&long[..], &more].concat(), 1).1,
+        prompt(&long)
+    );
+    assert_eq!(
+        ask(&server, &[&other[..], &more].concat(), 1).1,
+        prompt(&other)
+    );
+
+    // Without a budget only the last chat's cache stays, and a request that fails is not
+    // a chat. The long chat's last request continues from the other chat's system
+    // message, which is more than half of that cache.
+    let server = Server::start(&fixture(), &["--cache-bytes", "0"]);
+    assert_eq!(ask(&server, &long, 1).1, 0);
+    let (status, _) = server.chat(json!({ "messages": [], "stop": [""] }));
+    assert_eq!(status, 400);
+    let longer = [&long[..], &more].concat();
+    assert_eq!(ask(&server, &longer, 1).1, prompt(&long));
+    assert_eq!(ask(&server, &other, 1).1, 0);
+    let shared = tokens(&(render(&[system]) + "<|im_start|>user\n"));
+    assert_eq!(ask(&server, &[&longer[..], &more].concat(), 1).1, shared);
 }
 
 #[test]
@@ -367,7 +430,7 @@ fn messages_reach_the_template_as_mlx_lm_server_prepares_them() {
     .into();
     fs::write(&path, config.to_string()).unwrap();
 
-    let server = Server::start(model.path());
+    let server = Server::start(model.path(), &[]);
     let call = |arguments: Value| json!({ "id": "1", "type": "function", "function": { "name": "lookup", "arguments": arguments } });
     let (status, response) = server.chat(json!({ "max_tokens": 4, "messages": [
         { "role": "user", "content": [
