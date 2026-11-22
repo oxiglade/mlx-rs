@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+marker="# mlx-rs orb development environment"
+
+# Amp snapshots preserve profile PATH entries, but discard other profile edits.
+if ! grep -Fqx "$marker" "$HOME/.bash_profile" 2>/dev/null; then
+    cat >> "$HOME/.bash_profile" <<EOF
+
+$marker
+if [[ "\${AMP_ORB:-}" == 1 && "\${DEVENV_ROOT:-}" != "$repo_root" ]] &&
+   [[ "\$PWD" == "$repo_root" || "\$PWD" == "$repo_root/"* ]]; then
+    export PATH="$HOME/.nix-profile/bin:\$PATH"
+    eval "\$(direnv export bash)"
+fi
+EOF
+fi
