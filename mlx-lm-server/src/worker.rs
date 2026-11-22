@@ -76,8 +76,9 @@ fn serve(
         tools: tools.clone(),
         ..Default::default()
     };
+    let messages = request.messages().map_err(Failure::Request)?;
     let prompt = tokenizer
-        .render_chat(&request.messages, template)
+        .render_chat(&messages, template)
         .map_err(|error| invalid(&error))?;
     let tokens = tokenizer.encode(&prompt).map_err(|error| invalid(&error))?;
     let mut parser = tokenizer.response_parser(&prompt, &tools);

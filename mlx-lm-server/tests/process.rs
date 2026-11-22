@@ -1,4 +1,5 @@
 use std::{
+    fs,
     io::{BufRead, BufReader, Read, Write},
     net::TcpStream,
     path::{Path, PathBuf},
@@ -19,10 +20,10 @@ struct Server {
     address: String,
 }
 impl Server {
-    fn start() -> Self {
+    fn start(model: &Path) -> Self {
         let mut child = Command::new(env!("CARGO_BIN_EXE_mlx-lm-server"))
             .args(["--port", "0", "--model"])
-            .arg(fixture())
+            .arg(model)
             .stdout(Stdio::piped())
             .spawn()
             .unwrap();
@@ -82,12 +83,11 @@ impl Drop for Server {
 
 type Configure = fn(&mut GenerationOptions);
 
-/// What the library generates after the fixture template's rendering of one user message:
-/// the prompt's token count, the sampled tokens' count, their text and the finish reason.
-fn generated(configure: Configure) -> (usize, usize, String, FinishReason) {
+/// What the library generates after `prompt`: the prompt's token count, the sampled
+/// tokens' count, their text and the finish reason.
+fn generated(prompt: &str, configure: Configure) -> (usize, usize, String, FinishReason) {
     let mut model = Model::from_dir(fixture()).unwrap();
-    let prompt = format!("<|im_start|>user\n{PROMPT}<|im_end|>\n<|im_start|>assistant\n");
-    let tokens = model.tokenizer().encode(&prompt).unwrap();
+    let tokens = model.tokenizer().encode(prompt).unwrap();
     let mut options = GenerationOptions::default();
     configure(&mut options);
     let (mut count, mut text, mut finish) = (0, String::new(), None);
@@ -108,7 +108,7 @@ fn generated(configure: Configure) -> (usize, usize, String, FinishReason) {
 
 #[test]
 fn chat_completion_returns_what_the_library_generates() {
-    let server = Server::start();
+    let server = Server::start(&fixture());
     assert_eq!(
         server.request("GET", "/health", ""),
         (200, json!({ "status": "ok" }))
@@ -119,6 +119,7 @@ fn chat_completion_returns_what_the_library_generates() {
     assert!(id.ends_with("/qwen3-base"), "{id}");
 
     let messages = json!([{ "role": "user", "content": PROMPT }]);
+    let prompt = format!("<|im_start|>user\n{PROMPT}<|im_end|>\n<|im_start|>assistant\n");
     let cases: [(Value, Configure); 4] = [
         (json!({}), |options| {
             options.max_tokens = 512.try_into().unwrap()
@@ -148,7 +149,7 @@ fn chat_completion_returns_what_the_library_generates() {
         body["messages"] = messages.clone();
         let (status, response) = server.chat(body.clone());
         assert_eq!(status, 200, "{response}");
-        let (prompt_tokens, completion_tokens, text, finish) = generated(configure);
+        let (prompt_tokens, completion_tokens, text, finish) = generated(&prompt, configure);
         let finish = match finish {
             FinishReason::Stop => "stop",
             _ => "length",
@@ -223,6 +224,18 @@ fn chat_completion_returns_what_the_library_generates() {
             json!({ "messages": messages, "max_tokens": 0 }).to_string(),
             "max_tokens",
         ),
+        (
+            json!({ "messages": [{ "role": "user", "content": [{ "type": "image_url" }] }] })
+                .to_string(),
+            "text content",
+        ),
+        (
+            json!({ "messages": [{ "role": "assistant", "tool_calls": [
+                { "function": { "name": "lookup", "arguments": "{" } },
+            ] }] })
+            .to_string(),
+            "arguments",
+        ),
         ("{".to_owned(), "JSON"),
     ] {
         let (status, response) = server.request("POST", "/v1/chat/completions", &body);
@@ -232,6 +245,48 @@ fn chat_completion_returns_what_the_library_generates() {
     }
     let (status, _) = server.chat(json!({ "messages": messages, "max_tokens": 1 }));
     assert_eq!(status, 200);
+}
+
+#[test]
+fn messages_reach_the_template_as_mlx_lm_server_prepares_them() {
+    let model = tempfile::tempdir().unwrap();
+    for entry in fs::read_dir(fixture()).unwrap() {
+        let entry = entry.unwrap();
+        fs::copy(entry.path(), model.path().join(entry.file_name())).unwrap();
+    }
+    let path = model.path().join("tokenizer_config.json");
+    let mut config: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    config["chat_template"] = concat!(
+        "{%- for message in messages %}",
+        "{{- '<|im_start|>' + message['role'] + '\n' + message['content'] }}",
+        "{%- for call in message['tool_calls'] or [] %}",
+        "{{- ' ' + call['function']['arguments']['word'] }}",
+        "{%- endfor %}{{- '<|im_end|>\n' }}{%- endfor %}",
+        "{%- if add_generation_prompt %}{{- '<|im_start|>assistant\n' }}{%- endif %}",
+    )
+    .into();
+    fs::write(&path, config.to_string()).unwrap();
+
+    let server = Server::start(model.path());
+    let call = |arguments: Value| json!({ "id": "1", "type": "function", "function": { "name": "lookup", "arguments": arguments } });
+    let (status, response) = server.chat(json!({ "max_tokens": 4, "messages": [
+        { "role": "user", "content": [
+            { "type": "text", "text": "hello the" },
+            { "type": "text", "text": " small fox" },
+        ] },
+        { "role": "assistant", "content": null, "tool_calls": [call(json!("{\"word\": \"hill\"}"))] },
+        { "role": "assistant", "tool_calls": [call(json!({ "word": "green" }))] },
+        { "role": "user", "content": "again" },
+    ] }));
+    assert_eq!(status, 200, "{response}");
+    let (prompt_tokens, _, text, _) = generated(
+        "<|im_start|>user\nhello the small fox<|im_end|>\n<|im_start|>assistant\n hill<|im_end|>\n\
+         <|im_start|>assistant\n green<|im_end|>\n<|im_start|>user\nagain<|im_end|>\n\
+         <|im_start|>assistant\n",
+        |options| options.max_tokens = 4.try_into().unwrap(),
+    );
+    assert_eq!(response["usage"]["prompt_tokens"], prompt_tokens);
+    assert_eq!(response["choices"][0]["message"]["content"], text);
 }
 
 #[test]
