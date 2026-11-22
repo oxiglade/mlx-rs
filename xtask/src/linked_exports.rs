@@ -364,7 +364,6 @@ fn cargo_build(root: &Path, messages: &Path) -> Result<PathBuf, String> {
         return Err("expected exactly one mlx-sys build-script artifact".into());
     }
     let record = builds[0];
-    let build = Path::new(record["out_dir"].as_str().ok_or("missing Cargo out_dir")?).join("build");
     let search: Vec<_> = record["linked_paths"]
         .as_array()
         .ok_or("missing Cargo library search paths")?
@@ -372,6 +371,11 @@ fn cargo_build(root: &Path, messages: &Path) -> Result<PathBuf, String> {
         .filter_map(|p| p.as_str())
         .map(|p| p.strip_prefix("native=").unwrap_or(p))
         .collect();
+    let build = search
+        .first()
+        .and_then(|lib| Path::new(lib).parent())
+        .ok_or("missing Cargo library search paths")?
+        .to_path_buf();
     let libraries: Vec<_> = record["linked_libs"]
         .as_array()
         .ok_or("missing Cargo libraries")?

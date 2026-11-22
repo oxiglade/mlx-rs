@@ -68,6 +68,19 @@ JIT builds append `-jit` to `<mlx-c-key>` to keep their libraries separate.
 `MLX_RS_METAL_PATH` is used as given, without any suffix, so use separate override
 directories for different platforms, deployment targets, SDKs, profiles and JIT modes.
 
+## Native build directory
+
+MLX's CMake tree lives in Cargo's `OUT_DIR`, so every Cargo target directory builds MLX again.
+Set `MLX_SYS_BUILD_DIR` to an absolute path to keep the tree there instead, in a subdirectory
+named after the target, the profile and the `accelerate`, `metal` and `metal-jit` features, such
+as `aarch64-apple-darwin/debug-accelerate-metal`. Builds with the same target, profile and
+features then share one tree across target directories and toolchains, and the directory can be
+saved and restored by a CI cache.
+
+Builds that share a tree must not run at the same time, and must agree on `MLX_RS_METAL_PATH`:
+MLX compiles the metallib location in, so a different one rebuilds it. `cargo clean` leaves this
+directory alone; delete it by hand where this page says `cargo clean -p mlx-sys`.
+
 ## A prebuilt MLX
 
 Building MLX with Metal from source requires Xcode's Metal compiler, including with `metal-jit`.

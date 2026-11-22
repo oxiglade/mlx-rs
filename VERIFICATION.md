@@ -235,6 +235,13 @@ including config tests, FFI discovery and nightly API extraction. xtask uses its
 lockfile. Each configuration has separate build and metallib directories. The jobs can run in
 parallel after dependency resolution; they do not rebuild MLX merely to reconcile artifacts.
 
+Each macOS job sets `MLX_SYS_BUILD_DIR`, so its builds with the same profile and `mlx-sys`
+features share one MLX build tree, and restores that directory from the cache the same job saved
+on main. The cache key covers the mlx-c commit, `mlx-sys/build.rs` and its CMake inputs, the
+runner's temp path, and the host macOS, SDK and compiler versions; any other change is left to
+CMake's own dependency checks. Only successful main pushes save. The prebuilt wheel build keeps
+Cargo's own build directory.
+
 `config-report` enforces the declared toolchain, features, profile, native settings and complete
 binary/doctest inventory before returning success. It also validates the default configuration's
 checkpoint contract and live oracle against actual case/device output. `verify-ledger` extracts
