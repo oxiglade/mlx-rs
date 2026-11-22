@@ -808,6 +808,164 @@ fn wrapped_snapshot_restores_exact_state_and_ledger() -> TestResult {
     Ok(())
 }
 
+fn append_hybrid(cache: &mut Cache, ids: &[u32]) -> Result<(), Box<dyn std::error::Error>> {
+    let represented: Vec<_> = ids.iter().copied().map(crate::TokenId::from).collect();
+    let data: Vec<_> = ids.iter().map(|&id| id as f32).collect();
+    let mut step = cache.step_with_tokens(&represented)?;
+    step.update_and_fetch(0, tokens(&data)?, tokens(&data)?)?;
+    step.recurrent(1, ids.len(), |(mut state, unused)| {
+        for id in &data {
+            state = state
+                .multiply(Array::from_f32(3.))?
+                .add(Array::from_f32(*id))?;
+        }
+        Ok(((state, unused), ()))
+    })?;
+    step.evaluate(&[])?.commit();
+    Ok(())
+}
+
+#[test]
+fn rewind_to_checkpoint_matches_a_fresh_cache() -> Result<(), Box<dyn std::error::Error>> {
+    let layout = [
+        spec(),
+        LayerCacheSpec {
+            attention: crate::AttentionKind::Recurrent,
+            recurrent_state: Some([(vec![1], Dtype::Float32), (vec![1], Dtype::Float32)]),
+            ..spec()
+        },
+    ];
+    let new = |identity: &Rc<()>| {
+        Cache::new_for_model(
+            crate::ModelType::new("llama"),
+            &layout,
+            &CacheOptions::default(),
+            None,
+            identity.clone(),
+        )
+    };
+    let state = |cache: &Cache| -> Result<_, CacheError> {
+        let (keys, _) = cache.layers[0].logical_arrays()?;
+        let (recurrent, _) = cache.layers[1].arrays()?;
+        Ok((
+            contents(&keys)?,
+            contents(&recurrent)?,
+            cache.tokens()?.to_vec(),
+        ))
+    };
+    let identity = Rc::new(());
+    let mut cache = new(&identity)?;
+    append_hybrid(&mut cache, &[1, 2, 3])?;
+    let at_checkpoint = state(&cache)?;
+    let checkpoint = cache.checkpoint()?;
+    assert_eq!(checkpoint.tokens(), cache.tokens()?);
+    append_hybrid(&mut cache, &[4, 5])?;
+    for suffix in [&[6][..], &[7, 8, 9][..]] {
+        cache.rewind(&checkpoint)?;
+        assert_eq!(state(&cache)?, at_checkpoint);
+        append_hybrid(&mut cache, suffix)?;
+        let mut fresh = new(&identity)?;
+        append_hybrid(&mut fresh, &[1, 2, 3])?;
+        append_hybrid(&mut fresh, suffix)?;
+        assert_eq!(state(&cache)?, state(&fresh)?);
+    }
+
+    let mut diverged = new(&identity)?;
+    append_hybrid(&mut diverged, &[1, 9, 3, 4])?;
+    let before = state(&diverged)?;
+    assert!(matches!(
+        diverged.rewind(&checkpoint),
+        Err(CacheError::InvalidState(_))
+    ));
+    assert_eq!(state(&diverged)?, before);
+    let mut shorter = new(&identity)?;
+    append_hybrid(&mut shorter, &[1, 2])?;
+    assert!(matches!(
+        shorter.rewind(&checkpoint),
+        Err(CacheError::InvalidState(_))
+    ));
+    let mut other_model = new(&Rc::new(()))?;
+    append_hybrid(&mut other_model, &[1, 2, 3, 4])?;
+    assert!(matches!(
+        other_model.rewind(&checkpoint),
+        Err(CacheError::FingerprintMismatch)
+    ));
+    Ok(())
+}
+
+#[test]
+fn rewind_restores_a_wrapped_rotating_cache() -> TestResult {
+    let options = CacheOptions {
+        policy: CachePolicy::Rotating {
+            capacity: nonzero(5)?,
+            keep_prefix: 2,
+        },
+    };
+    let identity = Rc::new(());
+    let new = || {
+        Cache::new_for_model(
+            crate::ModelType::new("llama"),
+            &[spec(), spec()],
+            &options,
+            None,
+            identity.clone(),
+        )
+    };
+    let mut cache = new()?;
+    for id in 0..8 {
+        append_ids(&mut cache, &[id])?;
+    }
+    let checkpoint = cache.checkpoint()?;
+    for suffix in [&[21, 22, 23, 24][..], &[25][..]] {
+        for id in 8..14 {
+            append_ids(&mut cache, &[id])?;
+        }
+        cache.rewind(&checkpoint)?;
+        append_ids(&mut cache, suffix)?;
+        let mut fresh = new()?;
+        for id in 0..8 {
+            append_ids(&mut fresh, &[id])?;
+        }
+        append_ids(&mut fresh, suffix)?;
+        assert_eq!(cache_state(&cache)?, cache_state(&fresh)?);
+        cache.rewind(&checkpoint)?;
+    }
+
+    let mut full = make_cache(CachePolicy::Full, 2, 16)?;
+    full.model_identity = identity.clone();
+    full.tracks_tokens = true;
+    for id in 0..9 {
+        append_ids(&mut full, &[id])?;
+    }
+    assert!(matches!(
+        full.rewind(&checkpoint),
+        Err(CacheError::FingerprintMismatch)
+    ));
+    Ok(())
+}
+
+#[test]
+fn rewind_does_not_write_into_snapshot_storage_on_metal() -> TestResult {
+    mlx_rs::with_device(mlx_rs::Device::gpu(), || -> TestResult {
+        let mut cache = Cache::new_for_model(
+            crate::ModelType::new("llama"),
+            &[spec()],
+            &CacheOptions::default(),
+            Some(nonzero(2)?),
+            Rc::new(()),
+        )?;
+        append_ids(&mut cache, &[1])?;
+        let checkpoint = cache.checkpoint()?;
+        append_ids(&mut cache, &[2])?;
+        let saved = cache.snapshot()?;
+        cache.rewind(&checkpoint)?;
+        append_ids(&mut cache, &[9])?;
+        cache.restore(saved)?;
+        assert_eq!(contents(&cache.layers[0].logical_arrays()?.0)?, [1., 2.]);
+        Ok(())
+    })
+}
+
 #[test]
 fn reuse_rejects_before_mutation_and_reserves_staged_growth() -> Result<(), crate::GenerationError>
 {
@@ -1294,6 +1452,7 @@ fn assert_invalidated(cache: &mut Cache) -> TestResult {
         Err(CacheError::Invalidated)
     ));
     assert!(matches!(cache.snapshot(), Err(CacheError::Invalidated)));
+    assert!(matches!(cache.checkpoint(), Err(CacheError::Invalidated)));
     assert!(matches!(cache.step(), Err(CacheError::Invalidated)));
     assert!(matches!(
         cache.step_with_tokens(&[1.into()]),

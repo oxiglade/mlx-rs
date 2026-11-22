@@ -24,7 +24,7 @@ or consume the committed fixtures.
 | Generation | One synchronous iterator for text or token-ID prompts, and token-ID prompts with RGB images for Inkling 2 Mini, chunked prefill, temperature/top-k/top-p/min-p sampling, repetition/presence/frequency penalties, token and text stops. |
 | Chat templates, `Tokenizer::render_chat` | The checkpoint's Jinja template, ending closed, at the assistant start or inside the last message. Messages are plain text or OpenAI-style objects with tool calls, tool results and reasoning; tool definitions and other template variables pass through `ChatTemplateOptions`. `tojson` follows Transformers for `separators`, `sort_keys` and `ensure_ascii`, not `indent`. |
 | Response parsing, `Tokenizer::response_parser` | Splits generated text into reasoning, content and tool calls as it streams. `<think>` blocks and `<tool_call>` blocks holding `<function=name>` follow mlx-lm 0.32.2's server, with each argument typed from the tool's parameter schema as its `qwen3_coder` parser types it. Where they differ: a Python-only literal such as a single-quoted string stays text, and an integer beyond 64 bits inside a list or object loses digits. Inkling 2 Mini output is split wherever the text of one of its channel tokens appears, with each tool call a JSON object. A call that cannot be read comes back as its text. |
-| Cache | Full and rotating KV storage, model-bound snapshots, exact-prefix reuse. Snapshots exclude RNG, decoder and iterator state. |
+| Cache | Full and rotating KV storage, model-bound snapshots, checkpoints that rewind a cache to an earlier token count, exact-prefix reuse. Snapshots and checkpoints exclude RNG, decoder and iterator state. |
 
 The GGUF affine layouts have group size 32, 4 or 8 bits, and F16 scales and
 biases. Admission examines the arrays after core conversion. Other original
@@ -86,7 +86,8 @@ also modify the receipt. Keep cache contents unchanged while loading.
 
 ## Ownership and generation
 
-`Model`, `Generation`, `Cache` and `CacheSnapshot` are `!Send` and `!Sync`.
+`Model`, `Generation`, `Cache`, `CacheSnapshot` and `CacheCheckpoint` are `!Send`
+and `!Sync`.
 Create, use and drop them on one OS thread, inside the chosen device/stream
 scope. `GenerationOptions` and `GenerationEvent` are owned, sendable values.
 For integration into an async application, send requests to an owning worker
@@ -128,13 +129,21 @@ without copying or evaluating it. CPU and rotating caches use `slice_update`.
 With a prebuilt MLX, full GPU caches also use `slice_update`, which handles
 pending readers without the append shim's explicit wait.
 
+A checkpoint keeps the arrays of the recurrent and rotating layers at one token
+count. It shares them with the cache, so taking one evaluates those arrays and
+copies nothing. `Cache::rewind` shortens the full layers to that count and gives
+the other layers the checkpoint's arrays. A full layer without spare capacity is
+copied first, because a snapshot may share its storage. The checkpoint's tokens
+must be a prefix of the cache's tokens, and the checkpoint stays usable afterwards.
+
 With a source build on an M5 Max, in-place GPU append has level decode
 throughput at 128 tokens, about 7% higher at ~4k and 0.4% lower at ~16k, compared
 with `slice_update`. These figures do not apply to prebuilt MLX.
 
 Failed evaluation or submission invalidates only the cache involved. This includes
 failed speculative submission even if generation stops at the preceding token.
-Reads, updates, snapshots, restores and reuse return `CacheError::Invalidated`.
+Reads, updates, snapshots, checkpoints, rewinds, restores and reuse return
+`CacheError::Invalidated`.
 Call `Cache::reset()` and prefill again. Reset discards all cached tokens and buffers.
 Existing snapshots and other caches restored from them remain valid.
 A sampling-only failure leaves an untouched cache valid. A snapshot copy failure

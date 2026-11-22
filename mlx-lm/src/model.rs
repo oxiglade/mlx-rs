@@ -4,8 +4,8 @@ mod hub;
 mod pipeline;
 pub use crate::error::GenerationError;
 use crate::{
-    arch::DecoderModel, AdditivePenaltyOptions, Cache, CacheError, CacheOptions, CacheSnapshot,
-    Config, LoadError, SamplerOptions, TokenId, Tokenizer,
+    arch::DecoderModel, AdditivePenaltyOptions, Cache, CacheCheckpoint, CacheError, CacheOptions,
+    CacheSnapshot, Config, LoadError, SamplerOptions, TokenId, Tokenizer,
 };
 use crate::{
     sampling::{PendingSample, SamplingEngine},
@@ -536,6 +536,11 @@ impl<'model> Generation<'model> {
     /// Source evaluation failure invalidates the cache; copy failure leaves it valid.
     pub fn snapshot(&mut self) -> Result<CacheSnapshot, CacheError> {
         self.cache.get_mut().snapshot()
+    }
+    /// Checkpoints the cache at the most recent completed event boundary.
+    /// An evaluation failure invalidates the cache.
+    pub fn checkpoint(&mut self) -> Result<CacheCheckpoint, CacheError> {
+        self.cache.get_mut().checkpoint()
     }
 
     #[cfg(feature = "oracle-hooks")]

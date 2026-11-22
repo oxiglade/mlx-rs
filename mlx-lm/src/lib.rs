@@ -68,7 +68,8 @@
 //!
 //! # Ownership
 //!
-//! [`Model`], [`Generation`], [`Cache`] and [`CacheSnapshot`] are `!Send` and `!Sync`.
+//! [`Model`], [`Generation`], [`Cache`], [`CacheSnapshot`] and [`CacheCheckpoint`] are
+//! `!Send` and `!Sync`.
 //! Create, use and drop them on one OS thread inside the chosen device/stream scope.
 //! [`GenerationOptions`] and [`GenerationEvent`] are owned, sendable values.
 //! The packaged `examples/worker.rs` shows a Metal worker with bounded request/event
@@ -103,9 +104,15 @@
 //! copy handles because they overwrite committed positions. Live snapshots can
 //! prevent buffer donation.
 //!
+//! A [`CacheCheckpoint`] shares the arrays of the recurrent and rotating layers at one
+//! token count. [`Cache::rewind`] shortens the full layers to that count and gives the
+//! other layers the checkpoint's arrays, when the checkpoint's tokens are a prefix of
+//! the cache's tokens.
+//!
 //! Failed evaluation or submission invalidates only the cache involved. This includes
 //! failed speculative submission even if generation stops at the preceding token.
-//! Reads, updates, snapshots, restores and reuse return `CacheError::Invalidated`.
+//! Reads, updates, snapshots, checkpoints, rewinds, restores and reuse return
+//! `CacheError::Invalidated`.
 //! Call `Cache::reset()` and prefill again. Reset discards all cached tokens and buffers.
 //! Existing snapshots and other caches restored from them remain valid.
 //! A sampling-only failure leaves an untouched cache valid.
@@ -186,7 +193,9 @@ mod stop;
 mod tokenizer;
 mod weights;
 
-pub use cache::{Cache, CacheInfo, CacheKind, CacheOptions, CachePolicy, CacheSnapshot};
+pub use cache::{
+    Cache, CacheCheckpoint, CacheInfo, CacheKind, CacheOptions, CachePolicy, CacheSnapshot,
+};
 pub use config::{
     AffineQuantization, AttentionKind, Config, LayerQuantization, ModelType, ParameterPath,
     QuantizationConfig, RopeConfig, RopeScaling, TransformerDimensions,
@@ -229,3 +238,4 @@ assert_not_impl_any!(Model: Send, Sync);
 assert_not_impl_any!(Generation<'static>: Send, Sync);
 assert_not_impl_any!(Cache: Send, Sync);
 assert_not_impl_any!(CacheSnapshot: Send, Sync);
+assert_not_impl_any!(CacheCheckpoint: Send, Sync);
