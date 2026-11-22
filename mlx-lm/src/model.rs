@@ -114,6 +114,34 @@ impl Model {
             Rc::clone(&self.identity),
         )
     }
+    /// Reads a checkpoint written by [`CacheCheckpoint::save`] for use with this model.
+    /// The file names the architecture, not the weights: load only files saved from
+    /// these weights.
+    pub fn load_checkpoint(&self, path: impl AsRef<Path>) -> Result<CacheCheckpoint, CacheError> {
+        CacheCheckpoint::load(
+            path.as_ref(),
+            &self.config.model_type,
+            self.decoder.cache_layout(),
+            Rc::clone(&self.identity),
+        )
+    }
+    /// Builds a cache at `checkpoint` from files written by [`Cache::save_positions`].
+    /// In order they must hold every position of the checkpoint's tokens, from the
+    /// first, each saved after those same tokens. Every layer saved becomes a full layer.
+    /// Tokens do not identify image content: after a vision prompt, load only files saved
+    /// from that prefill.
+    pub fn load_cache(
+        &self,
+        checkpoint: &CacheCheckpoint,
+        blocks: &[impl AsRef<Path>],
+    ) -> Result<Cache, CacheError> {
+        Cache::load(
+            checkpoint,
+            blocks,
+            self.decoder.cache_layout(),
+            &self.identity,
+        )
+    }
     /// Creates a synchronous single-request streaming generator.
     pub fn generate<'model>(
         &'model mut self,

@@ -24,7 +24,7 @@ or consume the committed fixtures.
 | Generation | One synchronous iterator for text or token-ID prompts, and token-ID prompts with RGB images for Inkling 2 Mini, chunked prefill with optional step boundaries, temperature/top-k/top-p/min-p sampling, repetition/presence/frequency penalties, token and text stops. |
 | Chat templates, `Tokenizer::render_chat` | The checkpoint's Jinja template, ending closed, at the assistant start or inside the last message. Messages are plain text or OpenAI-style objects with tool calls, tool results and reasoning; tool definitions and other template variables pass through `ChatTemplateOptions`. `tojson` follows Transformers for `separators`, `sort_keys` and `ensure_ascii`, not `indent`. |
 | Response parsing, `Tokenizer::response_parser` | Splits generated text into reasoning, content and tool calls as it streams. `<think>` blocks and `<tool_call>` blocks holding `<function=name>` follow mlx-lm 0.32.2's server, with each argument typed from the tool's parameter schema as its `qwen3_coder` parser types it. Where they differ: a Python-only literal such as a single-quoted string stays text, and an integer beyond 64 bits inside a list or object loses digits. Inkling 2 Mini output is split wherever the text of one of its channel tokens appears, with each tool call a JSON object. A call that cannot be read comes back as its text. |
-| Cache | Full and rotating KV storage, model-bound snapshots, checkpoints that rewind a cache to an earlier token count, exact-prefix reuse. Snapshots and checkpoints exclude RNG, decoder and iterator state. |
+| Cache | Full and rotating KV storage, model-bound snapshots, checkpoints that rewind a cache to an earlier token count, saving and loading full and recurrent layers as safetensors, exact-prefix reuse. Snapshots and checkpoints exclude RNG, decoder and iterator state. |
 
 The GGUF affine layouts have group size 32, 4 or 8 bits, and F16 scales and
 biases. Admission examines the arrays after core conversion. Other original
@@ -139,6 +139,15 @@ must be a prefix of the cache's tokens, and the checkpoint stays usable afterwar
 holds; full and rotating layers count their whole capacity, and an array a
 checkpoint shares with a cache counts in both.
 
+`Cache::save_positions` writes the full layers' K/V for a range of positions, and
+`CacheCheckpoint::save` writes a checkpoint, each to a safetensors file with the
+tokens it was computed after. `Model::load_checkpoint` and `Model::load_cache`
+read them back, in another process if need be: `load_cache` takes the position
+files in order from the first token and checks that each continues the
+checkpoint's tokens. Paths must end in `.safetensors`. The files name the
+architecture, not the weights, so keep the files of different weights apart.
+Rotating layers cannot be saved.
+
 With a source build on an M5 Max, in-place GPU append has level decode
 throughput at 128 tokens, about 7% higher at ~4k and 0.4% lower at ~16k, compared
 with `slice_update`. These figures do not apply to prebuilt MLX.
@@ -212,7 +221,7 @@ These capabilities require a separate approved design and qualification:
 - Training, adapters, LoRA and distributed execution.
 - Batching, continuous generation and speculative decoding.
 - A server, async generation or arbitrary custom architecture registration.
-- Checkpoint conversion/upload, persisted prompt caches and quantized KV caches.
+- Checkpoint conversion/upload, saving rotating caches and quantized KV caches.
 - MXFP4, BitNet, AWQ/GPTQ conversion and activation quantization.
 - Document chat messages, reasoning and tool-call formats other than Qwen's and Inkling's, XTC, logit bias and custom sampling callables.
 

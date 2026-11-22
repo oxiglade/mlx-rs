@@ -104,7 +104,7 @@ impl ArchitectureFactory for Factory {
         // Sliding windows are recurrent state: a rotating cache would turn off lookahead decoding.
         let layout = forward::visits()
             .flat_map(|i| {
-                let window = (i % 6 != 5).then(|| (vec![1, 8, 0, 128], Dtype::Bfloat16));
+                let window = (i % 6 != 5).then(|| (vec![1, 8, -1023, 128], Dtype::Bfloat16));
                 let conv = |width| Some((vec![1, 3, width], Dtype::Float32));
                 [window, conv(1024), conv(2304)].map(|state| LayerCacheSpec {
                     attention: match state {

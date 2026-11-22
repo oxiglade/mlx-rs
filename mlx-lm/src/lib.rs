@@ -107,7 +107,9 @@
 //! A [`CacheCheckpoint`] shares the arrays of the recurrent and rotating layers at one
 //! token count. [`Cache::rewind`] shortens the full layers to that count and gives the
 //! other layers the checkpoint's arrays, when the checkpoint's tokens are a prefix of
-//! the cache's tokens.
+//! the cache's tokens. [`Cache::save_positions`] and [`CacheCheckpoint::save`] write
+//! safetensors files that [`Model::load_cache`] and [`Model::load_checkpoint`] read back,
+//! in another process if need be. The files name the architecture, not the weights.
 //!
 //! Failed evaluation or submission invalidates only the cache involved. This includes
 //! failed speculative submission even if generation stops at the preceding token.
@@ -174,7 +176,7 @@
 //! for models other than Inkling 2 Mini; training, adapters, LoRA and distributed
 //! execution; batching, continuous generation and speculative decoding; a server and
 //! async generation; custom architecture registration; checkpoint conversion/upload;
-//! persisted prompt and quantized KV caches; MXFP4, BitNet, AWQ/GPTQ conversion and
+//! saving rotating caches and quantized KV caches; MXFP4, BitNet, AWQ/GPTQ conversion and
 //! activation quantization; document messages, and reasoning and tool-call formats
 //! other than Qwen's and Inkling's; XTC, logit bias and custom sampling callables.
 //!
