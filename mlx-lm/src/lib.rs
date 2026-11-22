@@ -168,8 +168,8 @@
 //! execution; batching, continuous generation and speculative decoding; a server and
 //! async generation; custom architecture registration; checkpoint conversion/upload;
 //! persisted prompt and quantized KV caches; MXFP4, BitNet, AWQ/GPTQ conversion and
-//! activation quantization; document messages and parsing tool calls or reasoning
-//! out of generated text; XTC, logit bias and custom sampling callables.
+//! activation quantization; document messages, and reasoning and tool-call formats
+//! other than Qwen's and Inkling's; XTC, logit bias and custom sampling callables.
 //!
 //! The repository's `mlx-lm/README.md` contains the capability table and credits;
 //! `mlx-lm/SKELETON.md` records completed tranches and historical host evidence.
@@ -203,7 +203,8 @@ pub use model::{
 pub use model::{HubOptions, HubProvenance};
 pub use sampling::{AdditivePenaltyOptions, MinPOptions, SamplerOptions};
 pub use tokenizer::{
-    ChatContinuation, ChatTemplateOptions, Message, Role, TemplateValue, TokenId, Tokenizer,
+    ChatContinuation, ChatTemplateOptions, Message, ResponseParser, ResponsePart, Role,
+    TemplateValue, TokenId, Tokenizer, ToolCall,
 };
 
 #[cfg(feature = "oracle-hooks")]

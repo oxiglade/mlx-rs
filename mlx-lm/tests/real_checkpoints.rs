@@ -708,6 +708,74 @@ fn served_chat_fixture_tokenizes() -> Result<()> {
 }
 
 #[test]
+#[ignore = "requires MLX_LM_SERVED_CHAT checkpoint"]
+fn served_response_fixture_parses() -> Result<()> {
+    #[derive(serde::Deserialize)]
+    struct Served {
+        cases: BTreeMap<String, Case>,
+    }
+    #[derive(serde::Deserialize)]
+    struct Case {
+        prompt: String,
+        tools: Vec<mlx_lm::TemplateValue>,
+        output_ids: Vec<u32>,
+        text: String,
+        finish: String,
+        #[serde(default)]
+        reasoning: String,
+        #[serde(default)]
+        content: String,
+        #[serde(default)]
+        tool_calls: Vec<BTreeMap<String, String>>,
+    }
+    refuse_ci()?;
+    let directory = PathBuf::from(std::env::var("MLX_LM_SERVED_CHAT")?);
+    let name = directory
+        .file_name()
+        .and_then(|name| name.to_str())
+        .context("checkpoint directory has no name")?;
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!(
+        "../conformance/mlx-lm/served-fixtures/response/{name}.json"
+    ));
+    let served: Served = serde_json::from_slice(&fs::read(fixture)?)?;
+    let tokenizer = Tokenizer::from_dir(&directory)?;
+    for (case, expected) in served.cases {
+        let ids: Vec<TokenId> = expected
+            .output_ids
+            .iter()
+            .copied()
+            .map(TokenId::from)
+            .collect();
+        let text = tokenizer.decode(&ids)?;
+        ensure!(text == expected.text, "{case}");
+        let mut parser = tokenizer.response_parser(&expected.prompt, &expected.tools);
+        let mut parts = parser.push(&text);
+        parts.extend(parser.finish(match expected.finish.as_str() {
+            "stop" => FinishReason::Stop,
+            _ => FinishReason::Length,
+        }));
+        let (mut reasoning, mut content, mut calls) = (String::new(), String::new(), Vec::new());
+        for part in parts {
+            match part {
+                mlx_lm::ResponsePart::Reasoning(text) => reasoning += &text,
+                mlx_lm::ResponsePart::Content(text) => content += &text,
+                mlx_lm::ResponsePart::ToolCall(call) => calls.push(BTreeMap::from([
+                    ("name".to_owned(), call.name),
+                    ("arguments".to_owned(), call.arguments),
+                ])),
+                _ => {}
+            }
+        }
+        ensure!(
+            (reasoning, content, calls)
+                == (expected.reasoning, expected.content, expected.tool_calls),
+            "{case}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn real_checkpoints() -> Result<()> {
     let Some(path) = std::env::var_os("MLX_LM_REAL_CHECKPOINTS") else {
         println!("NOT RUN: local real-checkpoint manifest not supplied");

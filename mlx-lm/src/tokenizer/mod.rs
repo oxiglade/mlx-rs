@@ -1,4 +1,5 @@
 mod gguf;
+mod response;
 pub use crate::error::{ChatTemplateError, TokenizerError};
 use minijinja::{
     context,
@@ -12,6 +13,7 @@ use std::{collections::BTreeMap, io, path::Path};
 
 /// A value passed to a chat template. Objects keep the key order they were built with.
 pub use minijinja::Value as TemplateValue;
+pub use response::{ResponseParser, ResponsePart, ToolCall};
 
 /// A token identifier in the model's vocabulary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -33,6 +35,7 @@ pub struct Tokenizer {
     eos: Vec<TokenId>,
     special_tokens: serde_json::Map<String, Value>,
     has_template: bool,
+    response: response::Format,
 }
 impl Tokenizer {
     /// Loads tokenizer assets with generation-config, model-config, then tokenizer EOS precedence.
@@ -61,7 +64,11 @@ impl Tokenizer {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
             Err(error) => return Err(error.into()),
         };
-        if let Some(template) = file_template.as_deref().or(template) {
+        let template = file_template.as_deref().or(template);
+        tokenizer.response = response::Format::infer(template, |token| {
+            tokenizer.inner.token_to_id(token).is_some()
+        });
+        if let Some(template) = template {
             tokenizer
                 .env
                 .add_template_owned("chat", without_generation_blocks(template))
@@ -130,8 +137,10 @@ impl Tokenizer {
     }
     /// Parses a tokenizer JSON document without a chat template or EOS overrides.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, TokenizerError> {
+        let inner = tokenizers::Tokenizer::from_bytes(bytes)?;
         Ok(Self {
-            inner: tokenizers::Tokenizer::from_bytes(bytes)?,
+            response: response::Format::infer(None, |token| inner.token_to_id(token).is_some()),
+            inner,
             env: environment(),
             eos: Vec::new(),
             special_tokens: Default::default(),
@@ -201,6 +210,12 @@ impl Tokenizer {
             return Err(ChatTemplateError::MissingTemplate);
         }
         render_chat(&self.env, &self.special_tokens, messages, options)
+    }
+    /// Starts splitting the text generated after `prompt` into reasoning, content and tool
+    /// calls. `tools` are the definitions the prompt was rendered with; a tool's parameter
+    /// types decide how its arguments are read.
+    pub fn response_parser(&self, prompt: &str, tools: &[TemplateValue]) -> ResponseParser {
+        ResponseParser::new(self.response, prompt, tools)
     }
     /// Borrows the resolved model EOS set.
     pub fn eos_tokens(&self) -> &[TokenId] {
@@ -290,6 +305,7 @@ fn environment() -> Environment<'static> {
 struct PythonJson<'a> {
     item: &'a str,
     key: &'a str,
+    ensure_ascii: bool,
 }
 impl serde_json::ser::Formatter for PythonJson<'_> {
     fn write_f64<W: ?Sized + io::Write>(&mut self, writer: &mut W, value: f64) -> io::Result<()> {
@@ -305,6 +321,22 @@ impl serde_json::ser::Formatter for PythonJson<'_> {
             }
             None => writer.write_all(text.as_bytes()),
         }
+    }
+    fn write_string_fragment<W: ?Sized + io::Write>(
+        &mut self,
+        writer: &mut W,
+        fragment: &str,
+    ) -> io::Result<()> {
+        if !self.ensure_ascii {
+            return writer.write_all(fragment.as_bytes());
+        }
+        for unit in fragment.encode_utf16() {
+            match u8::try_from(unit) {
+                Ok(byte @ b' '..=b'~') => writer.write_all(&[byte])?,
+                _ => write!(writer, "\\u{unit:04x}")?,
+            }
+        }
+        Ok(())
     }
     fn begin_array_value<W: ?Sized + io::Write>(
         &mut self,
@@ -324,19 +356,43 @@ impl serde_json::ser::Formatter for PythonJson<'_> {
         writer.write_all(self.key.as_bytes())
     }
 }
-fn has_undefined(value: &TemplateValue) -> bool {
+/// Whether `value`, or a value at any depth inside it, is one of `kinds`.
+pub(crate) fn holds(value: &TemplateValue, kinds: &[ValueKind]) -> bool {
     match value.kind() {
-        ValueKind::Undefined => true,
+        kind if kinds.contains(&kind) => true,
         ValueKind::Seq => value
             .try_iter()
-            .is_ok_and(|mut items| items.any(|item| has_undefined(&item))),
+            .is_ok_and(|mut items| items.any(|item| holds(&item, kinds))),
         ValueKind::Map => value.try_iter().is_ok_and(|mut keys| {
-            keys.any(|key| value.get_item(&key).is_ok_and(|item| has_undefined(&item)))
+            keys.any(|key| value.get_item(&key).is_ok_and(|item| holds(&item, kinds)))
         }),
         _ => false,
     }
 }
-/// Transformers' `tojson`: Python's `json.dumps` without ASCII escaping.
+/// Python's `json.dumps` with the given separators.
+pub(crate) fn python_json(
+    value: &TemplateValue,
+    (item, key): (&str, &str),
+    sort_keys: bool,
+    ensure_ascii: bool,
+) -> Result<String, serde_json::Error> {
+    let mut json = Vec::new();
+    let formatter = PythonJson {
+        item,
+        key,
+        ensure_ascii,
+    };
+    let mut serializer = serde_json::Serializer::with_formatter(&mut json, formatter);
+    if sort_keys {
+        let mut value = serde_json::to_value(value)?;
+        value.sort_all_objects();
+        value.serialize(&mut serializer)?;
+    } else {
+        value.serialize(&mut serializer)?;
+    }
+    Ok(String::from_utf8(json).expect("serde_json writes UTF-8"))
+}
+/// Transformers' `tojson`.
 fn tojson(value: &TemplateValue, options: Kwargs) -> Result<String, minijinja::Error> {
     let separators: Option<Vec<String>> = options.get("separators")?;
     let sort_keys: Option<bool> = options.get("sort_keys")?;
@@ -344,19 +400,19 @@ fn tojson(value: &TemplateValue, options: Kwargs) -> Result<String, minijinja::E
     let indent: Option<TemplateValue> = options.get("indent")?;
     options.assert_all_used()?;
     // Python refuses an undefined value at any depth; serializing one would print null.
-    if has_undefined(value) {
+    if holds(value, &[ValueKind::Undefined]) {
         return Err(minijinja::Error::new(
             minijinja::ErrorKind::UndefinedError,
             "tojson cannot serialize an undefined value",
         ));
     }
-    if ensure_ascii == Some(true) || indent.is_some() {
+    if indent.is_some() {
         return Err(minijinja::Error::new(
             minijinja::ErrorKind::InvalidOperation,
-            "tojson supports neither ensure_ascii=true nor indent",
+            "tojson does not support indent",
         ));
     }
-    let (item, key) = match separators.as_deref() {
+    let separators = match separators.as_deref() {
         None => (", ", ": "),
         Some([item, key]) => (item.as_str(), key.as_str()),
         Some(_) => {
@@ -366,25 +422,19 @@ fn tojson(value: &TemplateValue, options: Kwargs) -> Result<String, minijinja::E
             ))
         }
     };
-    let mut json = Vec::new();
-    let mut serializer =
-        serde_json::Serializer::with_formatter(&mut json, PythonJson { item, key });
-    if sort_keys == Some(true) {
-        serde_json::to_value(value).and_then(|mut value| {
-            value.sort_all_objects();
-            value.serialize(&mut serializer)
-        })
-    } else {
-        value.serialize(&mut serializer)
-    }
+    python_json(
+        value,
+        separators,
+        sort_keys == Some(true),
+        ensure_ascii == Some(true),
+    )
     .map_err(|error| {
         minijinja::Error::new(
             minijinja::ErrorKind::InvalidOperation,
             "cannot serialize to JSON",
         )
         .with_source(error)
-    })?;
-    Ok(String::from_utf8(json).expect("serde_json writes UTF-8"))
+    })
 }
 /// Transformers' `generation` block marks assistant text for training masks and renders its
 /// body unchanged. minijinja has no such tag, so the block becomes an always-true `if`.
