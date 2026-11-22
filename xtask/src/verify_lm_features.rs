@@ -6,7 +6,7 @@ use std::{fs, path::Path, process::Command};
 const COMMON: &str = r#"
 #![allow(dead_code, unused_imports, unreachable_patterns)]
 use mlx_lm::{
-    Cache, CacheInfo, CacheKind, CacheOptions, CachePolicy, CacheSnapshot,
+    Cache, CacheCheckpoint, CacheInfo, CacheKind, CacheOptions, CachePolicy, CacheSnapshot,
     AffineQuantization, AttentionKind, Config, LayerQuantization, ModelType,
     ParameterPath, QuantizationConfig, RopeConfig, RopeScaling, TransformerDimensions,
     CacheError, ChatTemplateError, ConfigError, GenerationError, HubError,
@@ -93,6 +93,10 @@ fn cache(c: &mut Cache, s: CacheSnapshot, o: CacheOptions, i: CacheInfo) {
     let _: Result<&[TokenId], CacheError> = c.tokens();
     let _: Result<CacheSnapshot, CacheError> = c.snapshot();
     let _: Result<(), CacheError> = c.restore(s);
+    if let Ok(p) = c.checkpoint() {
+        let _: &[TokenId] = p.tokens();
+        let _: Result<(), CacheError> = c.rewind(&p);
+    }
     if let Ok(info) = c.info() { let _: usize = info.len(); }
     let _: (usize, usize, usize) = (i.layer, i.processed_tokens, i.capacity);
     let _: (Range<usize>, Range<usize>) = (i.retained_prefix, i.retained_positions);
@@ -145,6 +149,7 @@ fn iterator(g: &mut Generation<'_>) {
     let _: Option<Result<GenerationEvent, GenerationError>> = g.next();
     let _: Result<&Cache, CacheError> = g.cache();
     let _: Result<CacheSnapshot, CacheError> = g.snapshot();
+    let _: Result<CacheCheckpoint, CacheError> = g.checkpoint();
 }
 fn paths() {
     let p = ParameterPath::new("model.layers.0");
