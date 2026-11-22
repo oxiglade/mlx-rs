@@ -14,7 +14,7 @@ use mlx_lm::{
     FinishReason, Generation, GenerationEvent, GenerationOptions, Image, Model, Prompt,
     RepetitionPenaltyOptions, StopPolicy, StopTokenPolicy, AdditivePenaltyOptions,
     MinPOptions, SamplerOptions, ChatContinuation, ChatTemplateOptions, Message,
-    Role, TokenId, Tokenizer,
+    Role, TemplateValue, TokenId, Tokenizer,
 };
 use std::{collections::BTreeMap, num::NonZeroUsize, ops::Range, path::{Path, PathBuf}};
 fn config(c: Config) {
@@ -107,12 +107,13 @@ fn tokenizer(t: &Tokenizer, m: Message, o: ChatTemplateOptions) {
     match m.role { Role::System | Role::User | Role::Assistant | Role::Tool => (), Role::Other(s) => { let _: String = s; }, _ => () }
     match o.continuation { ChatContinuation::Closed | ChatContinuation::StartAssistant | ChatContinuation::ContinueLast => () }
     let _: Option<bool> = o.enable_thinking;
+    let _: (&Vec<TemplateValue>, &BTreeMap<String, TemplateValue>) = (&o.tools, &o.variables);
     let _: Option<&str> = t.bos_token();
     let _: &[TokenId] = t.eos_tokens();
     let _: Result<Vec<TokenId>, TokenizerError> = t.encode("");
     let _: Result<Vec<TokenId>, TokenizerError> = t.encode_with_special_tokens("", true);
     let _: Result<String, TokenizerError> = t.decode(&[]);
-    let _: Result<String, ChatTemplateError> = t.render_chat(&[], o);
+    let _: Result<String, ChatTemplateError> = t.render_chat::<Message>(&[], o);
     let _: Result<Tokenizer, TokenizerError> = Tokenizer::from_dir(Path::new(""));
     let _: Result<Tokenizer, TokenizerError> = Tokenizer::from_file(Path::new(""));
     let _: Result<Tokenizer, TokenizerError> = Tokenizer::from_bytes(&[]);
