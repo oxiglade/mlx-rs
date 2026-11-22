@@ -1,6 +1,6 @@
 //! Synchronous, single-request text generation for Llama and Qwen3 with MLX.
 //!
-//! The crate provides strict loading, tokenization and textual chat templates,
+//! The crate provides strict loading, tokenization and chat templates,
 //! streaming generation, sampling and model-bound KV caches. It targets macOS on
 //! Apple silicon with native MLX; Rust 1.88 is the workspace minimum. Select CPU
 //! or Metal through `mlx-rs` on the owning thread. Features do not select devices,
@@ -168,8 +168,8 @@
 //! execution; batching, continuous generation and speculative decoding; a server and
 //! async generation; custom architecture registration; checkpoint conversion/upload;
 //! persisted prompt and quantized KV caches; MXFP4, BitNet, AWQ/GPTQ conversion and
-//! activation quantization; structured tool/document messages; XTC, logit bias and
-//! custom sampling callables.
+//! activation quantization; document messages and parsing tool calls or reasoning
+//! out of generated text; XTC, logit bias and custom sampling callables.
 //!
 //! The repository's `mlx-lm/README.md` contains the capability table and credits;
 //! `mlx-lm/SKELETON.md` records completed tranches and historical host evidence.
@@ -202,7 +202,9 @@ pub use model::{
 #[cfg(feature = "hf-hub")]
 pub use model::{HubOptions, HubProvenance};
 pub use sampling::{AdditivePenaltyOptions, MinPOptions, SamplerOptions};
-pub use tokenizer::{ChatContinuation, ChatTemplateOptions, Message, Role, TokenId, Tokenizer};
+pub use tokenizer::{
+    ChatContinuation, ChatTemplateOptions, Message, Role, TemplateValue, TokenId, Tokenizer,
+};
 
 #[cfg(feature = "oracle-hooks")]
 #[doc(hidden)]

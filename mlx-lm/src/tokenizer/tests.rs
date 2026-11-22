@@ -295,7 +295,7 @@ fn missing_invalid_and_raising_templates_are_typed() -> Result<(), TokenizerErro
         let directory = assets(json!({"chat_template": template}))?;
         let tokenizer = Tokenizer::from_dir(directory.path())?;
         assert!(matches!(
-            tokenizer.render_chat(&[], ChatTemplateOptions::default()),
+            tokenizer.render_chat::<Message>(&[], ChatTemplateOptions::default()),
             Err(ChatTemplateError::MissingTemplate)
         ));
     }
@@ -311,7 +311,8 @@ fn missing_invalid_and_raising_templates_are_typed() -> Result<(), TokenizerErro
         json!({"chat_template": "{{ raise_exception('rejected') }}"}),
     )?;
     assert!(matches!(
-        Tokenizer::from_dir(directory.path())?.render_chat(&[], ChatTemplateOptions::default()),
+        Tokenizer::from_dir(directory.path())?
+            .render_chat::<Message>(&[], ChatTemplateOptions::default()),
         Err(ChatTemplateError::Minijinja(_))
     ));
     Ok(())
@@ -342,7 +343,7 @@ fn continuation_spacing_repetition_empty_and_missing_content() -> Result<(), Cha
         );
     }
     assert!(matches!(
-        render_chat(&env, &Default::default(), &[], options.clone()),
+        render_chat::<Message>(&env, &Default::default(), &[], options.clone()),
         Err(ChatTemplateError::IncompatibleContinuation)
     ));
     let messages = [Message {
@@ -375,7 +376,7 @@ fn whitespace_undefined_and_thinking_options() -> Result<(), TokenizerError> {
         (Some(false), "quiet"),
     ] {
         assert_eq!(
-            tokenizer.render_chat(
+            tokenizer.render_chat::<Message>(
                 &[],
                 ChatTemplateOptions {
                     enable_thinking,
@@ -498,7 +499,7 @@ fn continuation_handles_trimmed_unicode_and_typed_failures() -> Result<(), ChatT
         "café"
     );
     assert!(matches!(
-        render_chat(&env, &Default::default(), &[], options.clone()),
+        render_chat::<Message>(&env, &Default::default(), &[], options.clone()),
         Err(ChatTemplateError::IncompatibleContinuation)
     ));
     env.add_template("chat", "removed")?;
@@ -540,6 +541,7 @@ fn check_chat_cases(
             ChatTemplateOptions {
                 continuation,
                 enable_thinking: case.template_options.enable_thinking,
+                ..Default::default()
             },
         )?;
         let hex: String = rendered
@@ -568,6 +570,102 @@ fn standalone_chat_template_oracles() -> Result<(), TokenizerError> {
         let expected: ChatExpectations = read_json(&directory.join("expectations.json"))?;
         let tokenizer = Tokenizer::from_dir(&directory)?;
         check_chat_cases(&tokenizer, expected.chat, &directory)?;
+    }
+    Ok(())
+}
+
+#[test]
+fn messages_drop_nulls_and_alias_reasoning() -> Result<(), ChatTemplateError> {
+    let mut env = environment();
+    env.add_template(
+        "chat",
+        "{% for m in messages %}[{% for key in m %}{{ key }}={{ m[key] }} {% endfor %}]{% endfor %}",
+    )?;
+    let messages = [
+        json!({"role": "assistant", "content": null, "reasoning": "r"}),
+        json!({"role": "assistant", "thinking": "t", "reasoning": "r", "reasoning_content": null}),
+        json!({"role": "user", "content": "hi", "thinking": null}),
+    ];
+    assert_eq!(
+        render_chat(&env, &Default::default(), &messages, Default::default())?,
+        "[thinking=r reasoning=r role=assistant reasoning_content=r ]\
+         [thinking=t reasoning=r role=assistant reasoning_content=t ]\
+         [content=hi role=user ]"
+    );
+    Ok(())
+}
+
+#[test]
+fn tojson_rejects_what_it_would_render_differently() -> Result<(), ChatTemplateError> {
+    let mut env = environment();
+    env.add_template(
+        "chat",
+        "{{ {'b': 1.0, 'a': 'é', 'c': none} | tojson(ensure_ascii=false, indent=none, sort_keys=true) }}",
+    )?;
+    assert_eq!(
+        render_chat::<Message>(&env, &Default::default(), &[], Default::default())?,
+        r#"{"a": "é", "b": 1.0, "c": null}"#
+    );
+    for value in [
+        "1 | tojson(indent=2)",
+        "1 | tojson(ensure_ascii=true)",
+        "1 | tojson(separators=[','])",
+        "missing | tojson",
+        "[{'a': missing}] | tojson",
+    ] {
+        env.add_template_owned("chat", format!("{{{{ {value} }}}}"))?;
+        assert!(matches!(
+            render_chat::<Message>(&env, &Default::default(), &[], Default::default()),
+            Err(ChatTemplateError::Minijinja(_))
+        ));
+    }
+    Ok(())
+}
+
+#[test]
+fn served_chat_template_oracles() -> Result<(), TokenizerError> {
+    #[derive(Deserialize)]
+    struct Served {
+        template: String,
+        cases: BTreeMap<String, ServedCase>,
+    }
+    #[derive(Deserialize)]
+    struct ServedCase {
+        messages: Vec<TemplateValue>,
+        #[serde(default)]
+        tools: Vec<TemplateValue>,
+        variables: BTreeMap<String, TemplateValue>,
+        continuation: String,
+        rendered: String,
+    }
+    for name in [
+        "Qwen3.6-35B-A3B-4bit.json",
+        "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-4bit.json",
+        "Inkling-2-Mini.json",
+    ] {
+        let served: Served = read_json(&fixture_root().join("../served-fixtures/chat").join(name))?;
+        let mut env = environment();
+        env.add_template_owned("chat", without_generation_blocks(&served.template))
+            .map_err(ChatTemplateError::from)?;
+        for (case, expected) in served.cases {
+            let continuation = match expected.continuation.as_str() {
+                "closed" => ChatContinuation::Closed,
+                "start_assistant" => ChatContinuation::StartAssistant,
+                "continue_last" => ChatContinuation::ContinueLast,
+                _ => return Err(ChatTemplateError::IncompatibleContinuation.into()),
+            };
+            let options = ChatTemplateOptions {
+                continuation,
+                tools: expected.tools,
+                variables: expected.variables,
+                ..Default::default()
+            };
+            assert_eq!(
+                render_chat(&env, &Default::default(), &expected.messages, options)?,
+                expected.rendered,
+                "{name}/{case}"
+            );
+        }
     }
     Ok(())
 }

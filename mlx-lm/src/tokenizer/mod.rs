@@ -1,9 +1,17 @@
 mod gguf;
 pub use crate::error::{ChatTemplateError, TokenizerError};
-use minijinja::{context, syntax::SyntaxConfig, value::Serde, Environment};
+use minijinja::{
+    context,
+    syntax::SyntaxConfig,
+    value::{Kwargs, Serde, ValueKind},
+    Environment,
+};
 use serde::Serialize;
 use serde_json::Value;
-use std::path::Path;
+use std::{collections::BTreeMap, io, path::Path};
+
+/// A value passed to a chat template. Objects keep the key order they were built with.
+pub use minijinja::Value as TemplateValue;
 
 /// A token identifier in the model's vocabulary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -178,9 +186,15 @@ impl Tokenizer {
         }
     }
     /// Renders the compiled model template with a typed continuation policy.
-    pub fn render_chat(
+    ///
+    /// Each message serializes to the object the template reads. [`Message`] covers plain
+    /// text. A conversation with tool calls, tool results or reasoning passes objects in the
+    /// OpenAI chat format, with each tool call's `arguments` as an object. Parse such JSON
+    /// straight into [`TemplateValue`]: `serde_json::Value` sorts object keys, which
+    /// reorders what a template prints.
+    pub fn render_chat<M: Serialize>(
         &self,
-        messages: &[Message],
+        messages: &[M],
         options: ChatTemplateOptions,
     ) -> Result<String, ChatTemplateError> {
         if !self.has_template {
@@ -238,13 +252,18 @@ pub enum ChatContinuation {
     /// Leaves the final message open for continuation.
     ContinueLast,
 }
-/// Options for rendering one textual conversation.
+/// Options for rendering one conversation.
 #[derive(Debug, Clone, Default)]
 pub struct ChatTemplateOptions {
     /// How the final message should be continued.
     pub continuation: ChatContinuation,
     /// `None` leaves the template variable undefined; a value overrides its thinking default.
     pub enable_thinking: Option<bool>,
+    /// Tool definitions the template reads as `tools`, usually OpenAI function schemas.
+    /// The template sees none when this is empty.
+    pub tools: Vec<TemplateValue>,
+    /// Further template variables, such as `reasoning_effort`.
+    pub variables: BTreeMap<String, TemplateValue>,
 }
 fn environment() -> Environment<'static> {
     let mut env = Environment::new();
@@ -265,7 +284,107 @@ fn environment() -> Environment<'static> {
             ))
         },
     );
+    env.add_filter("tojson", tojson);
     env
+}
+struct PythonJson<'a> {
+    item: &'a str,
+    key: &'a str,
+}
+impl serde_json::ser::Formatter for PythonJson<'_> {
+    fn write_f64<W: ?Sized + io::Write>(&mut self, writer: &mut W, value: f64) -> io::Result<()> {
+        let text = format!("{value:?}");
+        // Python signs every exponent and pads it to two digits.
+        match text.split_once('e') {
+            Some((mantissa, exponent)) => {
+                let (sign, digits) = match exponent.strip_prefix('-') {
+                    Some(digits) => ('-', digits),
+                    None => ('+', exponent),
+                };
+                write!(writer, "{mantissa}e{sign}{digits:0>2}")
+            }
+            None => writer.write_all(text.as_bytes()),
+        }
+    }
+    fn begin_array_value<W: ?Sized + io::Write>(
+        &mut self,
+        writer: &mut W,
+        first: bool,
+    ) -> io::Result<()> {
+        writer.write_all(if first { b"" } else { self.item.as_bytes() })
+    }
+    fn begin_object_key<W: ?Sized + io::Write>(
+        &mut self,
+        writer: &mut W,
+        first: bool,
+    ) -> io::Result<()> {
+        writer.write_all(if first { b"" } else { self.item.as_bytes() })
+    }
+    fn begin_object_value<W: ?Sized + io::Write>(&mut self, writer: &mut W) -> io::Result<()> {
+        writer.write_all(self.key.as_bytes())
+    }
+}
+fn has_undefined(value: &TemplateValue) -> bool {
+    match value.kind() {
+        ValueKind::Undefined => true,
+        ValueKind::Seq => value
+            .try_iter()
+            .is_ok_and(|mut items| items.any(|item| has_undefined(&item))),
+        ValueKind::Map => value.try_iter().is_ok_and(|mut keys| {
+            keys.any(|key| value.get_item(&key).is_ok_and(|item| has_undefined(&item)))
+        }),
+        _ => false,
+    }
+}
+/// Transformers' `tojson`: Python's `json.dumps` without ASCII escaping.
+fn tojson(value: &TemplateValue, options: Kwargs) -> Result<String, minijinja::Error> {
+    let separators: Option<Vec<String>> = options.get("separators")?;
+    let sort_keys: Option<bool> = options.get("sort_keys")?;
+    let ensure_ascii: Option<bool> = options.get("ensure_ascii")?;
+    let indent: Option<TemplateValue> = options.get("indent")?;
+    options.assert_all_used()?;
+    // Python refuses an undefined value at any depth; serializing one would print null.
+    if has_undefined(value) {
+        return Err(minijinja::Error::new(
+            minijinja::ErrorKind::UndefinedError,
+            "tojson cannot serialize an undefined value",
+        ));
+    }
+    if ensure_ascii == Some(true) || indent.is_some() {
+        return Err(minijinja::Error::new(
+            minijinja::ErrorKind::InvalidOperation,
+            "tojson supports neither ensure_ascii=true nor indent",
+        ));
+    }
+    let (item, key) = match separators.as_deref() {
+        None => (", ", ": "),
+        Some([item, key]) => (item.as_str(), key.as_str()),
+        Some(_) => {
+            return Err(minijinja::Error::new(
+                minijinja::ErrorKind::InvalidOperation,
+                "separators takes an item and a key separator",
+            ))
+        }
+    };
+    let mut json = Vec::new();
+    let mut serializer =
+        serde_json::Serializer::with_formatter(&mut json, PythonJson { item, key });
+    if sort_keys == Some(true) {
+        serde_json::to_value(value).and_then(|mut value| {
+            value.sort_all_objects();
+            value.serialize(&mut serializer)
+        })
+    } else {
+        value.serialize(&mut serializer)
+    }
+    .map_err(|error| {
+        minijinja::Error::new(
+            minijinja::ErrorKind::InvalidOperation,
+            "cannot serialize to JSON",
+        )
+        .with_source(error)
+    })?;
+    Ok(String::from_utf8(json).expect("serde_json writes UTF-8"))
 }
 /// Transformers' `generation` block marks assistant text for training masks and renders its
 /// body unchanged. minijinja has no such tag, so the block becomes an always-true `if`.
@@ -320,42 +439,83 @@ fn parse_eos(value: &Value) -> Result<Vec<TokenId>, TokenizerError> {
     ids.dedup();
     Ok(ids)
 }
-fn render_chat(
+/// Transformers drops a message's null fields and exposes its reasoning as both
+/// `reasoning_content` and `thinking`, whichever name it arrived under.
+fn transformers_message(message: TemplateValue) -> Result<TemplateValue, minijinja::Error> {
+    if message.kind() != ValueKind::Map {
+        return Ok(message);
+    }
+    let mut fields = Vec::new();
+    for key in message.try_iter()? {
+        let value = message.get_item(&key)?;
+        if !value.is_none() {
+            fields.push((key, value));
+        }
+    }
+    let reasoning = ["reasoning_content", "thinking", "reasoning"]
+        .into_iter()
+        .find_map(|name| {
+            let (_, value) = fields.iter().find(|(key, _)| key.as_str() == Some(name))?;
+            Some(value.clone())
+        });
+    let Some(reasoning) = reasoning else {
+        return Ok(TemplateValue::from_pairs(fields));
+    };
+    Ok(TemplateValue::from_pairs(
+        [("thinking".into(), reasoning.clone())]
+            .into_iter()
+            .chain(fields)
+            .chain([("reasoning_content".into(), reasoning)]),
+    ))
+}
+fn render_chat<M: Serialize>(
     env: &Environment<'_>,
     special_tokens: &serde_json::Map<String, Value>,
-    messages: &[Message],
+    messages: &[M],
     options: ChatTemplateOptions,
 ) -> Result<String, ChatTemplateError> {
     const CONTINUE_TAG: &str = "CONTINUE_FINAL_MESSAGE_TAG ";
-    let mut continued;
-    let (messages, final_message) =
-        if matches!(options.continuation, ChatContinuation::ContinueLast) {
-            let final_message = &messages
-                .last()
-                .ok_or(ChatTemplateError::IncompatibleContinuation)?
-                .content;
-            continued = messages.to_vec();
-            continued
-                .last_mut()
-                .ok_or(ChatTemplateError::IncompatibleContinuation)?
-                .content
-                .push_str(CONTINUE_TAG);
-            (continued.as_slice(), Some(final_message.as_str()))
-        } else {
-            (messages, None)
-        };
-    let mut variables = special_tokens.clone();
+    let mut messages = messages
+        .iter()
+        .map(|message| transformers_message(Serde(message).into()))
+        .collect::<Result<Vec<_>, _>>()?;
+    let final_message = if matches!(options.continuation, ChatContinuation::ContinueLast) {
+        let last = messages
+            .last_mut()
+            .ok_or(ChatTemplateError::IncompatibleContinuation)?;
+        let content = last.get_attr("content")?;
+        let content = content
+            .as_str()
+            .ok_or(ChatTemplateError::IncompatibleContinuation)?;
+        let tagged = TemplateValue::from_pairs(last.try_iter()?.map(|key| {
+            let value = if key.as_str() == Some("content") {
+                format!("{content}{CONTINUE_TAG}").into()
+            } else {
+                last.get_item(&key).unwrap_or_default()
+            };
+            (key, value)
+        }));
+        *last = tagged;
+        Some(content.to_owned())
+    } else {
+        None
+    };
+    let mut variables: BTreeMap<_, _> = special_tokens
+        .iter()
+        .map(|(name, value)| (name.clone(), TemplateValue::from(Serde(value))))
+        .collect();
+    variables.extend(options.variables);
     if let Some(enable_thinking) = options.enable_thinking {
         variables.insert("enable_thinking".into(), enable_thinking.into());
     }
     let mut rendered = env.get_template("chat")?.render(context! {
-        messages => Serde(messages),
-        tools => Option::<bool>::None,
+        messages,
+        tools => (!options.tools.is_empty()).then_some(options.tools),
         documents => Option::<bool>::None,
         add_generation_prompt => matches!(options.continuation, ChatContinuation::StartAssistant),
-        ..Serde(variables)
+        ..TemplateValue::from_pairs(variables)
     })?;
-    if let Some(message) = final_message {
+    if let Some(message) = &final_message {
         if !rendered.contains(message.trim()) {
             return Err(ChatTemplateError::FinalMessageNotFound);
         }

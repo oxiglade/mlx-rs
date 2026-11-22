@@ -22,6 +22,7 @@ or consume the committed fixtures.
 | GGUF, `Model::from_gguf` | Llama and Qwen3; F32, F16, and Q4_0/Q4_1/Q8_0 converted affine forms. Dense, biasless models with full causal attention, full-head RoPE, and absent/none or linear scaling. No frequency-factor tensors. |
 | Hub, `Model::from_hub` | Behind `hf-hub`; resolves a repository/revision to a commit and downloads selected safetensors and JSON/tokenizer assets, then uses the local loader. No remote Python code or Hub GGUF loading. |
 | Generation | One synchronous iterator for text or token-ID prompts, and token-ID prompts with RGB images for Inkling 2 Mini, chunked prefill, temperature/top-k/top-p/min-p sampling, repetition/presence/frequency penalties, token and text stops. |
+| Chat templates, `Tokenizer::render_chat` | The checkpoint's Jinja template, ending closed, at the assistant start or inside the last message. Messages are plain text or OpenAI-style objects with tool calls, tool results and reasoning; tool definitions and other template variables pass through `ChatTemplateOptions`. `tojson` follows Transformers for `separators` and `sort_keys`, not `indent` or `ensure_ascii=true`. |
 | Cache | Full and rotating KV storage, model-bound snapshots, exact-prefix reuse. Snapshots exclude RNG, decoder and iterator state. |
 
 The GGUF affine layouts have group size 32, 4 or 8 bits, and F16 scales and
@@ -200,7 +201,7 @@ These capabilities require a separate approved design and qualification:
 - A server, async generation or arbitrary custom architecture registration.
 - Checkpoint conversion/upload, persisted prompt caches and quantized KV caches.
 - MXFP4, BitNet, AWQ/GPTQ conversion and activation quantization.
-- Structured tool/document chat messages, XTC, logit bias and custom sampling callables.
+- Document chat messages, parsing tool calls and reasoning out of generated text, XTC, logit bias and custom sampling callables.
 
 See the [completed-wave status](SKELETON.md) for tranche deliveries, report
 locations and the limits of historical host qualification.

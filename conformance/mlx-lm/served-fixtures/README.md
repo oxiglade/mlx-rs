@@ -50,3 +50,11 @@ done
 ```bash
 MLX_LM_INKLING="$MODEL" cargo test --release --locked -p mlx-lm --test real_checkpoints -- --ignored --exact inkling_replays_the_image_fixture
 ```
+
+## Chat rendering
+
+`served_chat_reference.py qwen|inkling "$MODEL"` prints a `chat/` fixture: the checkpoint's template and, for each case, the messages, tools and template variables with the text Transformers renders and its token IDs. The `served_chat_template_oracles` unit test renders every case from the recorded template. To compare token IDs against a checkpoint's own tokenizer, name its directory after the fixture and run:
+
+```bash
+MLX_LM_SERVED_CHAT="$MODEL" cargo test --locked -p mlx-lm --test real_checkpoints -- --ignored --exact served_chat_fixture_tokenizes
+```
