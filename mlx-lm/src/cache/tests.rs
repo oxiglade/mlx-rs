@@ -11,6 +11,7 @@ fn spec() -> LayerCacheSpec {
         kv_heads: 1,
         head_dim: 1,
         dtype: Dtype::Float32,
+        recurrent_state: None,
     }
 }
 fn nonzero(n: usize) -> Result<NonZeroUsize, CacheError> {
@@ -508,6 +509,7 @@ fn committed_fixture_cache_arrays() -> TestResult {
                 kv_heads: dims[1] as usize,
                 head_dim: dims[3] as usize,
                 dtype: pre_keys.dtype(),
+                recurrent_state: None,
             };
             let prompt = token_length(&pre_keys)?;
             let total = prompt + 8;

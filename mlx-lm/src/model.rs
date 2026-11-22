@@ -55,7 +55,7 @@ impl Model {
             }
         })?;
         let raw = crate::config::RawConfig::from_bytes(&bytes)?;
-        if raw.model_type != "qwen3_5_moe" {
+        if !matches!(raw.model_type.as_str(), "qwen3_5_moe" | "inkling2_loop") {
             raw.resolve()?;
         }
         let factory = crate::arch::factory(&raw.model_type)?;

@@ -43,7 +43,7 @@ pub enum CachePolicy {
 /// Logical state and allocation information for one cache layer.
 #[derive(Debug, Clone)]
 pub struct CacheInfo {
-    /// Zero-based decoder layer index.
+    /// Zero-based cache layer index.
     pub layer: usize,
     /// Resolved storage kind.
     pub kind: CacheKind,
@@ -59,7 +59,7 @@ pub struct CacheInfo {
 /// Admitted cache storage kinds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CacheKind {
-    /// Fixed-size convolution and recurrent state without positional K/V storage.
+    /// Architecture-owned state replaced on every step; not addressable by position.
     Recurrent,
     /// Storage retaining all processed positions.
     Full,
@@ -422,7 +422,7 @@ impl Cache {
         })
     }
 }
-/// The resolved shape and attention policy for one decoder layer.
+/// The resolved shape and attention policy for one cache layer.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct LayerCacheSpec {
     pub(crate) attention: crate::AttentionKind,
@@ -430,6 +430,7 @@ pub(crate) struct LayerCacheSpec {
     pub(crate) kv_heads: usize,
     pub(crate) head_dim: usize,
     pub(crate) dtype: Dtype,
+    pub(crate) recurrent_state: Option<[(Vec<i32>, Dtype); 2]>,
 }
 mod sealed {
     pub trait Sealed {}
@@ -592,12 +593,12 @@ impl<'cache> CacheStep<'cache> {
             .map(|cache| cache.info(layer))
             .ok_or_else(|| invalid("layer index out of range"))
     }
-    pub(crate) fn recurrent(
+    pub(crate) fn recurrent<T>(
         &mut self,
         layer: usize,
         count: usize,
-        advance: impl FnOnce((Array, Array)) -> Result<((Array, Array), Array), crate::InferenceError>,
-    ) -> Result<Array, crate::InferenceError> {
+        advance: impl FnOnce((Array, Array)) -> Result<((Array, Array), T), crate::InferenceError>,
+    ) -> Result<T, crate::InferenceError> {
         let state = self.staged[layer]
             .recurrent_mut()
             .ok_or_else(|| invalid("expected recurrent layer"))?;

@@ -563,19 +563,10 @@ pub fn run_matrix(manifest: &Value) -> Result<()> {
     )
 }
 
-#[test]
-#[ignore = "requires MLX_LM_QWEN_HYBRID checkpoint and Metal"]
-fn hybrid_snapshot_excludes_the_queued_token() -> Result<()> {
-    refuse_ci()?;
-    let mut model = Model::from_dir(std::env::var("MLX_LM_QWEN_HYBRID")?)?;
-    let fixture: Value = serde_json::from_str(include_str!(
-        "../../conformance/mlx-lm/served-fixtures/Qwen3.6-35B-A3B-4bit.json"
-    ))?;
-    let prompt: Vec<u32> = serde_json::from_value(fixture["cases"][0]["prompt_ids"].clone())?;
-    let mut prompt: Vec<TokenId> = prompt.into_iter().map(Into::into).collect();
+fn snapshot_resumes(model: &mut Model, mut prompt: Vec<TokenId>, chunk: usize) -> Result<()> {
     let mut cache = model.new_cache(Default::default())?;
     let mut generation =
-        model.generate_with_cache(Prompt::Tokens(&prompt), options(12, 2048)?, &mut cache)?;
+        model.generate_with_cache(Prompt::Tokens(&prompt), options(12, chunk)?, &mut cache)?;
     let mut sampled = Vec::new();
     let mut snapshot = None;
     while let Some(event) = generation.next() {
@@ -593,7 +584,7 @@ fn hybrid_snapshot_excludes_the_queued_token() -> Result<()> {
     ensure!(cache.tokens()? == &prompt[..prompt.len() - 1]);
     let mut resumed = Vec::new();
     for event in
-        model.generate_with_cache(Prompt::Tokens(&prompt), options(9, 2048)?, &mut cache)?
+        model.generate_with_cache(Prompt::Tokens(&prompt), options(9, chunk)?, &mut cache)?
     {
         if let GenerationEvent::Token { token_id, .. } = event? {
             resumed.push(token_id);
@@ -601,6 +592,31 @@ fn hybrid_snapshot_excludes_the_queued_token() -> Result<()> {
     }
     ensure!(resumed == sampled[3..]);
     Ok(())
+}
+
+#[test]
+#[ignore = "requires MLX_LM_QWEN_HYBRID checkpoint and Metal"]
+fn hybrid_snapshot_excludes_the_queued_token() -> Result<()> {
+    refuse_ci()?;
+    let mut model = Model::from_dir(std::env::var("MLX_LM_QWEN_HYBRID")?)?;
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../conformance/mlx-lm/served-fixtures/Qwen3.6-35B-A3B-4bit.json"
+    ))?;
+    let prompt: Vec<u32> = serde_json::from_value(fixture["cases"][0]["prompt_ids"].clone())?;
+    snapshot_resumes(
+        &mut model,
+        prompt.into_iter().map(Into::into).collect(),
+        2048,
+    )
+}
+
+#[test]
+#[ignore = "requires MLX_LM_INKLING checkpoint and Metal"]
+fn inkling_snapshot_resumes_past_the_sliding_window() -> Result<()> {
+    refuse_ci()?;
+    let mut model = Model::from_dir(std::env::var("MLX_LM_INKLING")?)?;
+    let prompt = (0..1100u32).map(|i| (1000 + i % 500).into()).collect();
+    snapshot_resumes(&mut model, prompt, 512)
 }
 
 #[test]

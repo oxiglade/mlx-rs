@@ -8,6 +8,7 @@ use mlx_rs::{utils::StateProjection, Array};
 mod activation;
 mod attention;
 pub(crate) mod gguf;
+mod inkling2_loop;
 pub(crate) mod llama;
 pub(crate) mod qwen3;
 mod qwen3_5_moe;
@@ -70,6 +71,7 @@ macro_rules! architectures {
     };
 }
 architectures! {
+    inkling2_loop::Factory,
     llama::Factory,
     qwen3::Factory,
     qwen3_5_moe::Factory,

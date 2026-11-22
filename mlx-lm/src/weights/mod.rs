@@ -498,7 +498,8 @@ fn tensor_dtype(key: &str, dtype: safetensors::Dtype) -> Result<Dtype, WeightErr
     use safetensors::Dtype as Stored;
     Ok(match dtype {
         Stored::BOOL => Dtype::Bool,
-        Stored::U8 => Dtype::Uint8,
+        // MLX loads 8-bit floats as their raw bytes.
+        Stored::U8 | Stored::F8_E4M3 => Dtype::Uint8,
         Stored::I8 => Dtype::Int8,
         Stored::U16 => Dtype::Uint16,
         Stored::I16 => Dtype::Int16,
