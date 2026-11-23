@@ -267,6 +267,10 @@ fn serve(
         .ok_or_else(|| Failure::Request("the prompt fills the model's context".into()))?;
     let mut options = request.options(max_tokens.unwrap_or(room));
     options.prefill_boundaries = boundaries.iter().map(|(count, _)| *count).collect();
+    // A prefill step's attention scores take its rows times the context, so past 65,536 tokens
+    // the rows shrink to keep that product.
+    let rows = options.prefill_chunk_size.get() * 65_536 / tokens.len().max(65_536);
+    options.prefill_chunk_size = NonZeroUsize::new(rows).unwrap_or(NonZeroUsize::MIN);
     options
         .sampling
         .validate(model.config().dimensions.vocabulary_size)

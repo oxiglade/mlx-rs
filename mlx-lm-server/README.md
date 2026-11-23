@@ -57,7 +57,9 @@ stream has started sends `data: {"error": MESSAGE}` and ends it without `[DONE]`
 
 The model runs on one thread and serves one request at a time; later requests
 wait their turn. A client that disconnects stops its generation at the next
-prefill step or token, or leaves the queue.
+prefill step or token, or leaves the queue. A prefill step takes up to 2,048 tokens,
+and proportionally fewer once the prompt is longer than 65,536 tokens, so that a
+step's attention scores stop growing with the prompt.
 
 The server keeps the prompt caches of earlier conversations. A request uses the
 cache that holds the most of its prompt. When the prompt continues that cache, only
