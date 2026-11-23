@@ -143,8 +143,10 @@ pub(crate) fn run(
     loop {
         let job = match (jobs.try_recv(), &mut disk, unsaved) {
             (Ok(job), ..) => Some(job),
-            (Err(TryRecvError::Empty), Some(disk), Some(since)) => {
-                if since.elapsed().is_ok_and(|idle| idle < SETTLE) {
+            // A closed channel is a server that is stopping, which writes without the wait.
+            (Err(error), Some(disk), Some(since)) => {
+                let settling = since.elapsed().is_ok_and(|idle| idle < SETTLE);
+                if error == TryRecvError::Empty && settling {
                     thread::sleep(Duration::from_millis(5));
                 } else if !conversations
                     .last()

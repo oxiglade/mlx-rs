@@ -76,6 +76,12 @@ impl Server {
         };
         (lines(": "), lines("data: "))
     }
+    /// Sends the signal a supervisor stops a server with and waits for it to exit.
+    fn terminate(mut self) {
+        let id = self.child.id().to_string();
+        assert!(Command::new("kill").arg(id).status().unwrap().success());
+        self.child.wait().unwrap();
+    }
 }
 impl Drop for Server {
     fn drop(&mut self) {
@@ -495,6 +501,21 @@ fn a_later_process_continues_from_the_files_of_an_earlier_one() {
     let server = Server::start(&fixture(), &flags);
     assert_eq!(ask(&server, &chat, 3).1, shared);
     assert!(!last.exists());
+}
+
+#[test]
+fn a_terminated_server_first_writes_the_files_of_its_last_conversation() {
+    let chat = [("user", PROMPT)];
+    let root = tempfile::tempdir().unwrap();
+    let flags = ["--disk-cache", root.path().to_str().unwrap()];
+    let server = Server::start(&fixture(), &flags);
+    let message = json!({ "role": "user", "content": PROMPT });
+    let (status, _) = server.chat(json!({ "messages": [message], "max_tokens": 1 }));
+    assert_eq!(status, 200);
+    // Sooner than the second of idleness after which the server writes on its own.
+    server.terminate();
+    let server = Server::start(&fixture(), &flags);
+    assert_eq!(ask(&server, &chat, 1).1, tokens(&render(&chat)));
 }
 
 #[test]
