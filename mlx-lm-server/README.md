@@ -6,7 +6,8 @@ binary are `mlx-lm-server`.
 ```text
 mlx-lm-server --model DIR [--host ADDR] [--port PORT] [--cache-bytes N]
               [--disk-cache DIR] [--disk-cache-bytes N] [--disk-cache-block N]
-              [--max-tokens N] [--chat-template-args JSON] [--reasoning-field NAME]
+              [--max-tokens N] [--max-prompt-tokens N] [--chat-template-args JSON]
+              [--reasoning-field NAME]
 ```
 
 It loads one local safetensors directory, prints `listening on http://ADDR` once
@@ -26,7 +27,8 @@ ending with the assistant prompt, and generates from the result. It reads
 `min_p`, `seed` and `stop` (a string or a list). A request without a limit gets
 `--max-tokens`, and without that flag its reply may fill the model's context, as in
 llama.cpp, vLLM and Ollama. A prompt that leaves no room in the context returns
-status 400. The other absent fields take `mlx_lm.server`'s
+status 400, and so does one of more tokens than `--max-prompt-tokens`. The other
+absent fields take `mlx_lm.server`'s
 defaults: temperature zero and no filters, and a zero `top_p`, `top_k` or `min_p`
 switches that filter off. `model` is echoed and otherwise ignored, and other fields
 are ignored.
