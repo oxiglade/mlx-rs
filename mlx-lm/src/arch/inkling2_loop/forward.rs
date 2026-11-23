@@ -199,22 +199,9 @@ impl Weights {
         let w = &mut self.0;
         for i in 0..24 {
             let p = format!("model.llm.layers.{i}.mlp.experts");
-            for suffix in ["", "_scale"] {
-                // Gate and up rows are stored interleaved.
-                let rows = w[&format!("{p}.w13_weight{suffix}")].reshape(&[128, 1152, 2, -1])?;
-                for (j, name) in ["gate", "up"].into_iter().enumerate() {
-                    w.insert(
-                        format!("{p}.{name}{suffix}"),
-                        rows.index((.., .., j as i32, ..)).contiguous()?,
-                    );
-                }
-                w.remove(&format!("{p}.w13_weight{suffix}"));
-            }
-            for name in ["gate", "up", "w2_weight"] {
+            for name in ["w13_weight", "w2_weight"] {
                 let packed = w[&format!("{p}.{name}")].view::<u32>()?;
                 w.insert(format!("{p}.{name}"), packed);
-            }
-            for name in ["w13_weight", "w2_weight"] {
                 // Only the NVFP4 layers carry a per-expert maximum.
                 let Some(amax) = w.get(&format!("{p}.{name}_amax")) else {
                     continue;
@@ -251,7 +238,7 @@ impl Weights {
             }
         }
         mlx_rs::transforms::eval(w.values())?;
-        // The replaced tensors would otherwise sit in MLX's buffer cache, about 10 GB.
+        // The replaced tensors would otherwise sit in MLX's buffer cache.
         mlx_rs::memory::clear_cache()?;
         Ok(())
     }
@@ -429,21 +416,20 @@ impl Weights {
         } else {
             (x.reshape(&[1, n, 1, 1, 2304])?, ids, None)
         };
-        let expert = |x: &Array, name: &str, scale: &str| {
+        let expert = |x: &Array, name: &str| {
             gather_qmm(
                 x,
                 w(&format!("experts.{name}"))?,
                 w(&format!("experts.{name}_scale"))?,
                 &routes,
                 restore.is_some(),
-                self.0.get(&format!("{p}.experts.{scale}_global")),
+                self.0.get(&format!("{p}.experts.{name}_global")),
             )
         };
-        let gate_up = [
-            expert(&expanded, "gate", "w13_weight")?,
-            expert(&expanded, "up", "w13_weight")?,
-        ];
-        let mut out = expert(&run(&SWIGLU, &gate_up)?, "w2_weight", "w2_weight")?;
+        // Gate and up rows are stored interleaved.
+        let gate_up = ops::unflatten(expert(&expanded, "w13_weight")?, -1, &[1152, 2])?;
+        let gate_up = [gate_up.index((Ellipsis, 0)), gate_up.index((Ellipsis, 1))];
+        let mut out = expert(&run(&SWIGLU, &gate_up)?, "w2_weight")?;
         if let Some(order) = &restore {
             out = out.take_axis(order, 0)?;
         }
