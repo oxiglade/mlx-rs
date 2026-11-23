@@ -80,8 +80,10 @@ differently, and a near-tie between two tokens can then fall the other way.
 With `--disk-cache DIR` the caches also go to disk, where a later process with the
 same model finds them. Once the server has been idle for a second it writes the
 conversation of the last request: the K/V up to its first checkpoint and up to its
-newest, and those two checkpoints. A request that the files hold more of than any
-cache in memory does starts from the longest checkpoint its prompt continues.
+newest, and those two checkpoints. On SIGTERM it finishes the requests it has and
+then writes what is missing at once, and a supervisor must allow it the time for
+both. A request that the files hold more of than any cache in memory does starts
+from the longest checkpoint its prompt continues.
 
 The files are in `DIR/NAME-DIGEST`, where the digest is a SHA-256 of a format
 number, the server's version, the block size, the bytes of the model's

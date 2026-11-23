@@ -15,6 +15,7 @@ use std::{
 
 use clap::Parser;
 use mlx_lm::TemplateValue;
+use tokio::signal::unix::{signal, SignalKind};
 
 #[derive(Debug, Parser)]
 #[command(name = "mlx-lm-server", version, about)]
@@ -76,7 +77,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn Error>> {
     let disk = cli.disk_cache.as_deref();
     let disk = disk.map(|root| disk::Disk::open(root, &model, cli.disk_cache_bytes, block));
     let disk = disk.transpose()?;
-    thread::spawn(move || {
+    let worker = thread::spawn(move || {
         worker::run(
             &model,
             cli.cache_bytes,
@@ -96,7 +97,14 @@ fn run(cli: Cli) -> Result<(), Box<dyn Error>> {
             let listener =
                 tokio::net::TcpListener::bind(SocketAddr::new(cli.host, cli.port)).await?;
             println!("listening on http://{}", listener.local_addr()?);
-            axum::serve(listener, api::router(id, cli.reasoning_field, jobs)).await
+            let mut terminate = signal(SignalKind::terminate())?;
+            axum::serve(listener, api::router(id, cli.reasoning_field, jobs))
+                .with_graceful_shutdown(async move {
+                    terminate.recv().await;
+                })
+                .await
         })?;
+    // The worker ends once the router is gone, after it has written to disk.
+    let _ = worker.join();
     Ok(())
 }
