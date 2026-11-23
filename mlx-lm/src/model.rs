@@ -686,6 +686,8 @@ impl<'model> Generation<'model> {
         drop(logits);
         let outputs: Vec<_> = row.iter().collect();
         step.evaluate(&outputs).map_err(evaluation_error)?.commit();
+        // As the reference does, or the step's freed buffers stay in MLX's buffer cache.
+        mlx_rs::memory::clear_cache()?;
         self.processed += count;
         self.state = match row {
             Some(row) => GenerationState::FirstSample(row),
