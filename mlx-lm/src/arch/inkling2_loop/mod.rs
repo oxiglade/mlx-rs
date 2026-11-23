@@ -132,8 +132,8 @@ impl ArchitectureFactory for Factory {
             weights: forward::Weights(
                 slots()?,
                 fast::MetalKernel::new(
-                    "inkling_banded_mask_v2",
-                    &["rel", "proj", "kshape"],
+                    "inkling_banded_mask_v3",
+                    &["rel", "proj", "kshape", "sink"],
                     &["out"],
                     include_str!("mask.metal"),
                     Default::default(),

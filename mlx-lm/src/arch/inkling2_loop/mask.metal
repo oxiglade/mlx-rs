@@ -1,15 +1,18 @@
 const int B  = rel_shape[0];
 const int LQ = rel_shape[1];
 const int H  = rel_shape[2];
-const int S  = kshape_shape[2];
+const int S  = kshape_shape[2] - 1;
 uint j  = thread_position_in_grid.x;
 uint i  = thread_position_in_grid.y;
 uint bh = thread_position_in_grid.z;
-if ((int)i >= LQ || (int)j >= S || (int)bh >= B * H) return;
+if ((int)i >= LQ || (int)j > S || (int)bh >= B * H) return;
 uint b = bh / H, h = bh % H;
 int dist = ((int)i + (S - LQ)) - (int)j;
 T val;
-if (dist < 0) {
+if ((int)j == S) {
+    val = (T)sink[(size_t)b * sink_strides[0]
+        + (size_t)i * sink_strides[1] + (size_t)h * sink_strides[2]];
+} else if (dist < 0) {
     val = (T)(-1e30f);
 } else if (SLIDING > 0 && dist >= (int)SLIDING) {
     val = (T)(-1e30f);
@@ -25,4 +28,4 @@ if (dist < 0) {
 } else {
     val = (T)0;
 }
-out[(((size_t)b * H + h) * LQ + i) * S + j] = val;
+out[(((size_t)b * H + h) * LQ + i) * (S + 1) + j] = val;

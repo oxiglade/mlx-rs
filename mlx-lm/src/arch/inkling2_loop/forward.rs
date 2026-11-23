@@ -361,20 +361,23 @@ impl Weights {
         };
         let size = k.shape()[2] - 1;
         let up = |v: i32| (v + 7) / 8 * 8;
-        // SAFETY: each thread reads one row of `rel` and one column of the projection inside
-        // their shapes and writes its own element of the [1, 24, n, size] output.
-        let bias = unsafe {
+        // The kernel writes the sink column itself: appending it with MLX 0.32.4's concatenate
+        // writes out of bounds once the mask passes 2^31 elements (ml-explore/mlx#4758).
+        // SAFETY: each thread reads one row of `rel` and one column of the projection, or one
+        // sink element, inside their shapes and writes its own element of the output.
+        let mask = unsafe {
             self.1.apply(
                 &[
                     &rel,
                     w("rel_logits_proj.proj")?,
-                    &k.index((.., .., ..size, ..)),
+                    &k,
+                    &linear(x, "attn_sink_proj")?,
                 ],
                 &[MetalKernelOutput {
-                    shape: vec![1, 24, n, size],
+                    shape: vec![1, 24, n, size + 1],
                     dtype,
                 }],
-                (up(size), up(n), 24),
+                (up(size + 1), up(n), 24),
                 (8, 8, 1),
                 MetalKernelApplyOptions {
                     template_args: vec![
@@ -391,10 +394,6 @@ impl Weights {
             )?
         }
         .remove(0);
-        let sink = linear(x, "attn_sink_proj")?
-            .transpose_axes(&[0, 2, 1])?
-            .expand_dims(-1)?;
-        let mask = ops::concatenate(&[bias, sink], -1)?;
         let o = fast::scaled_dot_product_attention(
             q.transpose_axes(&[0, 2, 1, 3])?,
             k,
