@@ -719,6 +719,10 @@ impl<'model> Generation<'model> {
         text: String,
         reason: Option<FinishReason>,
     ) -> Result<GenerationEvent, GenerationError> {
+        // The reference's interval; decode's freed buffers otherwise stay in MLX's buffer cache.
+        if self.accepted.is_multiple_of(256) {
+            mlx_rs::memory::clear_cache()?;
+        }
         self.rng = sample.rng;
         if self.accepted == 0 {
             self.first_logprobs = sample.filtered_logprobs;
