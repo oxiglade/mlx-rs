@@ -116,12 +116,18 @@ fn keep(checkpoints: &mut Vec<Checkpoint>, checkpoint: Checkpoint) {
     }
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct Limits {
+    pub max_tokens: Option<NonZeroUsize>,
+    pub max_prompt_tokens: Option<usize>,
+}
+
 /// Loads the model and serves jobs one at a time; `Model` cannot leave its thread.
 pub(crate) fn run(
     directory: &Path,
     budget: usize,
     mut disk: Option<Disk>,
-    max_tokens: Option<NonZeroUsize>,
+    limits: Limits,
     variables: &BTreeMap<String, TemplateValue>,
     mut jobs: Receiver<Job>,
     ready: SyncSender<Result<(), String>>,
@@ -165,7 +171,7 @@ pub(crate) fn run(
             &mut model,
             &mut conversations,
             disk.as_mut(),
-            max_tokens,
+            limits,
             variables,
             &request,
             &reply,
@@ -199,7 +205,7 @@ fn serve(
     model: &mut Model,
     conversations: &mut Vec<Conversation>,
     disk: Option<&mut Disk>,
-    max_tokens: Option<NonZeroUsize>,
+    limits: Limits,
     variables: &BTreeMap<String, TemplateValue>,
     request: &ChatRequest,
     reply: &Sender<Result<Update, Failure>>,
@@ -230,6 +236,12 @@ fn serve(
         .render_chat(&messages, template(ChatContinuation::StartAssistant))
         .map_err(|error| invalid(&error))?;
     let tokens = tokenizer.encode(&prompt).map_err(|error| invalid(&error))?;
+    let count = tokens.len();
+    let exceeded = limits.max_prompt_tokens.filter(|limit| count > *limit);
+    if let Some(limit) = exceeded {
+        let message = format!("the prompt has {count} tokens and the server takes at most {limit}");
+        return Err(Failure::Request(message));
+    }
     let mut parser = tokenizer.response_parser(&prompt, &tools);
 
     let shared = |messages: &[TemplateValue]| {
@@ -265,7 +277,7 @@ fn serve(
     let context = context.unwrap_or(i32::MAX as usize);
     let room = NonZeroUsize::new(context.saturating_sub(tokens.len()))
         .ok_or_else(|| Failure::Request("the prompt fills the model's context".into()))?;
-    let mut options = request.options(max_tokens.unwrap_or(room));
+    let mut options = request.options(limits.max_tokens.unwrap_or(room));
     options.prefill_boundaries = boundaries.iter().map(|(count, _)| *count).collect();
     // A prefill step's attention scores take its rows times the context, so past 65,536 tokens
     // the rows shrink to keep that product.

@@ -44,6 +44,9 @@ struct Cli {
     /// fill the model's context.
     #[arg(long)]
     max_tokens: Option<NonZeroUsize>,
+    /// Prompt tokens a request may have; a longer prompt gets status 400.
+    #[arg(long)]
+    max_prompt_tokens: Option<usize>,
     /// JSON object of chat template variables; a request's `chat_template_kwargs` add to
     /// and override them.
     #[arg(long, default_value = "{}", value_parser = variables)]
@@ -82,7 +85,10 @@ fn run(cli: Cli) -> Result<(), Box<dyn Error>> {
             &model,
             cli.cache_bytes,
             disk,
-            cli.max_tokens,
+            worker::Limits {
+                max_tokens: cli.max_tokens,
+                max_prompt_tokens: cli.max_prompt_tokens,
+            },
             &cli.chat_template_args,
             incoming,
             ready,

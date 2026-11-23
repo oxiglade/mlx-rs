@@ -683,6 +683,19 @@ fn flags_set_what_a_request_leaves_out() {
 }
 
 #[test]
+fn a_prompt_of_more_tokens_than_the_flag_allows_is_refused() {
+    let longer = format!("{PROMPT} hello");
+    let (limit, over) = (prompt(&[("user", PROMPT)]), prompt(&[("user", &longer)]));
+    let server = Server::start(&fixture(), &["--max-prompt-tokens", &limit.to_string()]);
+    ask(&server, &[("user", PROMPT)], 1);
+    let messages = json!([{ "role": "user", "content": longer }]);
+    let (status, response) = server.chat(json!({ "max_tokens": 1, "messages": messages }));
+    assert_eq!(status, 400, "{response}");
+    let message = format!("the prompt has {over} tokens and the server takes at most {limit}");
+    assert_eq!(response["error"], message);
+}
+
+#[test]
 fn reasoning_effort_reaches_the_template_and_reasoning_takes_the_named_field() {
     let model = fixture_with_template(concat!(
         "{{- '<|im_start|>user\n' + messages[0]['content'] + '<|im_end|>\n' }}",
