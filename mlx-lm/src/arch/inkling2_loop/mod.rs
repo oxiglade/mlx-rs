@@ -4,6 +4,7 @@ use crate::{
 };
 use mlx_rs::{fast, ops, Dtype};
 use std::{collections::HashMap, num::NonZeroUsize};
+mod draft;
 mod forward;
 mod vision;
 
@@ -36,6 +37,18 @@ fn map_key(key: &str) -> WeightDisposition {
     }
 }
 
+fn supported(section: &str, found: &serde_json::Value, profile: &str) -> Result<(), ConfigError> {
+    let profile: serde_json::Value = serde_json::from_str(profile)?;
+    for (key, value) in profile.as_object().unwrap() {
+        if &found[key] != value {
+            return Err(ConfigError::UnsupportedArchitecture(format!(
+                "unsupported {section}.{key}"
+            )));
+        }
+    }
+    Ok(())
+}
+
 impl ArchitectureFactory for Factory {
     fn parse_config(&self, raw: &RawConfig) -> Result<ParsedArchitecture, ConfigError> {
         let t = raw
@@ -44,13 +57,9 @@ impl ArchitectureFactory for Factory {
             .ok_or_else(|| ConfigError::MissingField {
                 field: "text_config".into(),
             })?;
-        let profile: serde_json::Value = serde_json::from_str(PROFILE)?;
-        for (key, value) in profile.as_object().unwrap() {
-            if &t[key] != value {
-                return Err(ConfigError::UnsupportedArchitecture(format!(
-                    "unsupported text_config.{key}"
-                )));
-            }
+        supported("text_config", t, PROFILE)?;
+        if let Some(draft) = raw.fields.get("mtp_config") {
+            supported("mtp_config", draft, draft::PROFILE)?;
         }
         let config = Config {
             model_type: ModelType::new(raw.model_type.as_str()),
@@ -139,9 +148,24 @@ impl ArchitectureFactory for Factory {
                     Default::default(),
                 )?,
             ),
+            draft: None,
         };
         manifest.load_with(&mut decoder.weight_projection()?, map_key)?;
         decoder.weights.prepare()?;
+        // The drafter is not in the shard index, so it is found beside the shards.
+        if let Some(path) = manifest
+            .tensors
+            .values()
+            .find_map(|entry| match &entry.source {
+                crate::weights::WeightSource::Safetensors(shard) => {
+                    Some(shard.with_file_name("mtp.safetensors"))
+                }
+                crate::weights::WeightSource::Gguf(_) => None,
+            })
+            .filter(|path| path.is_file())
+        {
+            decoder.draft = Some(draft::Drafter::load(&path, &decoder.weights)?);
+        }
         Ok(Box::new(decoder))
     }
     #[cfg(test)]
@@ -153,11 +177,19 @@ impl ArchitectureFactory for Factory {
     }
 }
 
+impl Decoder {
+    fn drafter(&self) -> Result<&draft::Drafter, InferenceError> {
+        self.draft
+            .as_ref()
+            .ok_or_else(|| InferenceError::UnsupportedArchitecture("drafting".into()))
+    }
+}
 struct Decoder {
     config: Config,
     layout: Vec<LayerCacheSpec>,
     weights: forward::Weights,
     resize: fast::MetalKernel,
+    draft: Option<draft::Drafter>,
 }
 impl DecoderModel for Decoder {
     fn config(&self) -> &Config {
@@ -171,7 +203,7 @@ impl DecoderModel for Decoder {
         tokens: &Array,
         cache: &mut CacheStep<'_>,
     ) -> Result<Array, InferenceError> {
-        self.weights.forward(tokens, None, cache)
+        Ok(self.weights.forward(tokens, None, cache)?.0)
     }
     fn image_token(&self) -> Option<crate::TokenId> {
         Some(IMAGE_TOKEN.into())
@@ -185,7 +217,30 @@ impl DecoderModel for Decoder {
         rows: &Array,
         cache: &mut CacheStep<'_>,
     ) -> Result<Array, InferenceError> {
-        self.weights.forward(tokens, Some(rows), cache)
+        Ok(self.weights.forward(tokens, Some(rows), cache)?.0)
+    }
+    fn draft_block(&self) -> Option<usize> {
+        self.draft.as_ref().map(|_| draft::BLOCK)
+    }
+    fn forward_taps(
+        &mut self,
+        tokens: &Array,
+        rows: Option<&Array>,
+        cache: &mut CacheStep<'_>,
+    ) -> Result<(Array, Array), InferenceError> {
+        self.weights.forward(tokens, rows, cache)
+    }
+    fn observe(&self, context: &mut DraftContext, taps: &Array) -> Result<(), InferenceError> {
+        self.drafter()?.observe(context, taps)
+    }
+    fn propose(
+        &self,
+        context: &DraftContext,
+        anchor: crate::TokenId,
+        count: usize,
+    ) -> Result<Array, InferenceError> {
+        self.drafter()?
+            .propose(&self.weights, context, anchor, count)
     }
     fn weight_projection(&mut self) -> Result<StateProjection<'_>, WeightError> {
         let mut p = StateProjection::new();

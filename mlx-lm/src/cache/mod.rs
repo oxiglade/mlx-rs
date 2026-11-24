@@ -451,6 +451,7 @@ impl Cache {
         }
         self.prepare_append(offset)?;
         let mut step = self.begin_step()?;
+        step.per_row = true;
         for layer in &mut step.staged {
             layer.set_length(offset)?;
         }
@@ -517,6 +518,7 @@ impl Cache {
             failed: false,
             pending_tokens: None,
             token_count: None,
+            per_row: false,
         })
     }
 }
@@ -578,6 +580,7 @@ pub(crate) struct CacheStep<'cache> {
     failed: bool,
     pending_tokens: Option<PendingTokens>,
     token_count: Option<usize>,
+    per_row: bool,
 }
 /// Evaluated state held until fallible token and text preparation succeeds.
 pub(crate) struct EvaluatedCacheStep<'cache> {
@@ -691,11 +694,29 @@ impl<'cache> CacheStep<'cache> {
             .map(|cache| cache.info(layer))
             .ok_or_else(|| invalid("layer index out of range"))
     }
+    /// Whether the step's rows are committed one at a time, so that recurrent layers must
+    /// supply their state after every row.
+    pub(crate) fn per_row(&self) -> bool {
+        self.per_row
+    }
     pub(crate) fn recurrent<T>(
         &mut self,
         layer: usize,
         count: usize,
         advance: impl FnOnce((Array, Array)) -> Result<((Array, Array), T), crate::InferenceError>,
+    ) -> Result<T, crate::InferenceError> {
+        self.recurrent_rows(layer, count, |state| {
+            let (next, output) = advance(state)?;
+            Ok((vec![next], output))
+        })
+    }
+    /// As [`Self::recurrent`], with the states after the step's last rows, in order: every
+    /// row's when [`Self::per_row`], and always the last row's.
+    pub(crate) fn recurrent_rows<T>(
+        &mut self,
+        layer: usize,
+        count: usize,
+        advance: impl FnOnce((Array, Array)) -> Result<(Vec<(Array, Array)>, T), crate::InferenceError>,
     ) -> Result<T, crate::InferenceError> {
         let state = self.staged[layer]
             .recurrent_mut()
