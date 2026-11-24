@@ -1081,3 +1081,44 @@ fn pure_ulp_uses_dtype_magnitude_and_subnormal_spacing() -> Result<()> {
     ensure!(dtype_ulp("float16", 65536.0).is_err());
     Ok(())
 }
+
+#[test]
+#[ignore = "requires MLX_LM_INKLING checkpoint and Metal"]
+fn inkling_drafted_events_leave_their_token_out_of_the_cache() -> Result<()> {
+    refuse_ci()?;
+    let mut model = Model::from_dir(std::env::var("MLX_LM_INKLING")?)?;
+    // Past the sliding window, so a kept row's window differs from the last row's.
+    let mut held: Vec<TokenId> = (0..1100u32).map(|i| (1000 + i % 500).into()).collect();
+    let mut drafted = options(40, 512)?;
+    drafted.draft = true;
+    let mut cache = model.new_cache(Default::default())?;
+    let mut generation = model.generate_with_cache(Prompt::Tokens(&held), drafted, &mut cache)?;
+    let mut bursts = 0;
+    let mut last = std::time::Instant::now();
+    while let Some(event) = generation.next() {
+        if let GenerationEvent::Token { token_id, .. } = event? {
+            ensure!(generation.cache()?.tokens()? == &held[..]);
+            held.push(token_id);
+            // A pass publishes its tokens together.
+            bursts += usize::from(last.elapsed().as_millis() > 5);
+            last = std::time::Instant::now();
+        }
+    }
+    drop(generation);
+    ensure!(held.len() == 1140);
+    ensure!(bursts < 30, "{bursts} passes for 40 tokens");
+    // The rows kept from each pass must be the state serial decoding continues from: it
+    // goes on as it does from a cache that decoded the same tokens in one prefill.
+    let mut fresh = model.new_cache(Default::default())?;
+    let mut next = |cache: &mut mlx_lm::Cache| -> Result<Vec<TokenId>> {
+        let mut ids = Vec::new();
+        for event in model.generate_with_cache(Prompt::Tokens(&held), options(8, 512)?, cache)? {
+            if let GenerationEvent::Token { token_id, .. } = event? {
+                ids.push(token_id);
+            }
+        }
+        Ok(ids)
+    };
+    ensure!(next(&mut cache)? == next(&mut fresh)?);
+    Ok(())
+}

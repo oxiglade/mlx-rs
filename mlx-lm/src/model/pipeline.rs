@@ -59,7 +59,7 @@ impl Generation<'_> {
         plan: SamplePlan,
         input: Option<TokenId>,
     ) -> Result<GenerationEvent, GenerationError> {
-        if self.accepted + 1 < self.max_tokens.get() {
+        if self.drafting.is_none() && self.accepted + 1 < self.max_tokens.get() {
             if let Some(sample) = plan.candidate() {
                 let offset = self.cache.get().tokens()?.len() + usize::from(input.is_some());
                 self.pending = Some(self.build_ahead(sample, offset));

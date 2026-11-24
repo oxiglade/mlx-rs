@@ -97,13 +97,13 @@ thread_local! {
 fn run(chain: &'static LocalKey<Compiled>, args: &[Array]) -> Result<Array> {
     Ok(chain.with_borrow_mut(|f| f(args))?.remove(0))
 }
-fn f(x: &Array) -> Result<Array> {
+pub(super) fn f(x: &Array) -> Result<Array> {
     Ok(x.as_dtype(Dtype::Float32)?)
 }
-fn norm(x: &Array, w: Option<&Array>) -> Result<Array> {
+pub(super) fn norm(x: &Array, w: Option<&Array>) -> Result<Array> {
     Ok(fast::rms_norm(x, w, 1e-6)?)
 }
-fn proj(x: &Array, w: &Array) -> Result<Array> {
+pub(super) fn proj(x: &Array, w: &Array) -> Result<Array> {
     Ok(x.matmul(w.t())?)
 }
 fn clip(x: Array, scale: Option<&Array>, cap: f32) -> Result<Array> {

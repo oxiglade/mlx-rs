@@ -140,7 +140,7 @@ fn pipeline_matches_synchronous_events_rng_and_logprobs() -> TestResult {
     })
 }
 
-fn assert_scripted_prefix(cache: &Cache, expected: &[TokenId]) -> TestResult {
+pub(super) fn assert_scripted_prefix(cache: &Cache, expected: &[TokenId]) -> TestResult {
     assert_eq!(cache.tokens()?, expected);
     for layer in cache.logical_layers()? {
         assert_eq!(layer.positions, 0..expected.len());
