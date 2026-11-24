@@ -120,6 +120,7 @@ fn keep(checkpoints: &mut Vec<Checkpoint>, checkpoint: Checkpoint) {
 pub(crate) struct Limits {
     pub max_tokens: Option<NonZeroUsize>,
     pub max_prompt_tokens: Option<usize>,
+    pub draft: bool,
 }
 
 /// Loads the model and serves jobs one at a time; `Model` cannot leave its thread.
@@ -278,6 +279,7 @@ fn serve(
     let room = NonZeroUsize::new(context.saturating_sub(tokens.len()))
         .ok_or_else(|| Failure::Request("the prompt fills the model's context".into()))?;
     let mut options = request.options(limits.max_tokens.unwrap_or(room));
+    options.draft = limits.draft;
     options.prefill_boundaries = boundaries.iter().map(|(count, _)| *count).collect();
     // A prefill step's attention scores take its rows times the context, so past 65,536 tokens
     // the rows shrink to keep that product.

@@ -6,8 +6,8 @@ binary are `mlx-lm-server`.
 ```text
 mlx-lm-server --model DIR [--host ADDR] [--port PORT] [--cache-bytes N]
               [--disk-cache DIR] [--disk-cache-bytes N] [--disk-cache-block N]
-              [--max-tokens N] [--max-prompt-tokens N] [--chat-template-args JSON]
-              [--reasoning-field NAME]
+              [--max-tokens N] [--max-prompt-tokens N] [--draft]
+              [--chat-template-args JSON] [--reasoning-field NAME]
 ```
 
 It loads one local safetensors directory, prints `listening on http://ADDR` once

@@ -47,6 +47,10 @@ struct Cli {
     /// Prompt tokens a request may have; a longer prompt gets status 400.
     #[arg(long)]
     max_prompt_tokens: Option<usize>,
+    /// Decode greedy requests several tokens per pass with the drafter the model bundles.
+    /// Where two tokens are nearly tied, the reply can differ from one decoded without it.
+    #[arg(long)]
+    draft: bool,
     /// JSON object of chat template variables; a request's `chat_template_kwargs` add to
     /// and override them.
     #[arg(long, default_value = "{}", value_parser = variables)]
@@ -88,6 +92,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn Error>> {
             worker::Limits {
                 max_tokens: cli.max_tokens,
                 max_prompt_tokens: cli.max_prompt_tokens,
+                draft: cli.draft,
             },
             &cli.chat_template_args,
             incoming,
