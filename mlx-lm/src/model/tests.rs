@@ -1485,4 +1485,5 @@ fn oracle_logprobs_capture_uses_the_same_generation_stream() -> TestResult {
     })
 }
 
+mod draft;
 mod pipeline;

@@ -70,6 +70,44 @@ pub(crate) trait DecoderModel {
     ) -> Result<Array, InferenceError> {
         Err(InferenceError::UnsupportedArchitecture("images".into()))
     }
+    /// Rows of one drafted verification step, the anchor included, when the checkpoint
+    /// bundles a drafter.
+    fn draft_block(&self) -> Option<usize> {
+        None
+    }
+    /// As [`Self::forward`] or [`Self::forward_with_images`], with the hidden rows the
+    /// drafter reads. Evaluate them with the step: later steps overwrite what they read.
+    fn forward_taps(
+        &mut self,
+        _tokens: &Array,
+        _rows: Option<&Array>,
+        _cache: &mut CacheStep<'_>,
+    ) -> Result<(Array, Array), InferenceError> {
+        Err(InferenceError::UnsupportedArchitecture("drafting".into()))
+    }
+    /// Adds the taps of newly committed rows to the drafter's context.
+    fn observe(&self, _context: &mut DraftContext, _taps: &Array) -> Result<(), InferenceError> {
+        Err(InferenceError::UnsupportedArchitecture("drafting".into()))
+    }
+    /// Proposes the `count` tokens after `anchor`, the token that follows the context's rows.
+    fn propose(
+        &self,
+        _context: &DraftContext,
+        _anchor: crate::TokenId,
+        _count: usize,
+    ) -> Result<Array, InferenceError> {
+        Err(InferenceError::UnsupportedArchitecture("drafting".into()))
+    }
+}
+/// What a drafter keeps of one request's committed rows.
+#[derive(Default)]
+pub(crate) struct DraftContext {
+    /// Each drafter layer's keys and values over the rows it still attends to.
+    pub(crate) layers: Vec<(Array, Array)>,
+    /// Rows absorbed, which is the position of the next anchor.
+    pub(crate) seen: i32,
+    /// The newest row's taps.
+    pub(crate) last: Option<Array>,
 }
 /// Resolved public facts paired with architecture-private validated details.
 pub(crate) enum ParsedArchitecture {

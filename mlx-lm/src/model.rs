@@ -1,3 +1,4 @@
+mod draft;
 pub(crate) mod gguf;
 #[cfg(feature = "hf-hub")]
 mod hub;
@@ -174,6 +175,13 @@ impl Model {
             cache.ensure_valid()?;
         }
         let vocabulary_size = self.config.dimensions.vocabulary_size;
+        // Penalties and sampled tokens depend on the tokens before them, which a round verifies
+        // only afterwards.
+        let draft = options.draft
+            && options.sampling.temperature == 0.0
+            && options.repetition_penalty.is_none()
+            && options.presence_penalty.is_none()
+            && options.frequency_penalty.is_none();
         let sampling = SamplingEngine::new(
             options.sampling,
             vocabulary_size,
@@ -290,6 +298,11 @@ impl Model {
         } else {
             None
         };
+        let drafting = self
+            .decoder
+            .draft_block()
+            .filter(|_| draft && pipeline_stream.is_some())
+            .map(draft::Drafting::new);
         Ok(Generation {
             decoder: self.decoder.as_mut(),
             cache,
@@ -313,6 +326,7 @@ impl Model {
             first_logprobs: None,
             pipeline_stream,
             pending: None,
+            drafting,
             images,
         })
     }
@@ -373,6 +387,12 @@ pub struct GenerationOptions {
     pub stop: StopPolicy,
     /// Per-request cache policy.
     pub cache: CacheOptions,
+    /// Decodes several tokens per forward pass with the drafter the checkpoint bundles, when
+    /// it has one and the request is greedy without penalties, on the GPU with a full cache.
+    /// The drafter proposes tokens and the model verifies them in one pass, keeping those it
+    /// would have chosen itself; where two tokens are nearly tied the choice can differ from
+    /// undrafted decoding. The drafter is loaded with the model whether or not this is set.
+    pub draft: bool,
 }
 impl Default for GenerationOptions {
     fn default() -> Self {
@@ -386,6 +406,7 @@ impl Default for GenerationOptions {
             frequency_penalty: None,
             stop: StopPolicy::default(),
             cache: CacheOptions::default(),
+            draft: false,
         }
     }
 }
@@ -556,6 +577,7 @@ pub struct Generation<'model> {
     first_logprobs: Option<Array>,
     pipeline_stream: Option<mlx_rs::Stream>,
     pending: Option<Result<crate::sampling::SamplePlan, GenerationError>>,
+    drafting: Option<draft::Drafting>,
     images: Option<(TokenId, Array)>,
 }
 impl<'model> Generation<'model> {
@@ -604,6 +626,9 @@ impl<'model> Generation<'model> {
             },
             GenerationState::FirstSample(logits) if self.pipeline_stream.is_some() => {
                 self.first_pipelined(logits)
+            }
+            GenerationState::Decode(previous) if self.drafting.is_some() => {
+                self.next_drafted(previous)
             }
             GenerationState::Decode(previous) if self.pipeline_stream.is_some() => {
                 self.next_pipelined(previous)
@@ -664,7 +689,7 @@ impl<'model> Generation<'model> {
         let ids = &self.prompt[start..start + count];
         let tokens = token_array(ids)?;
         let mut step = self.cache.get_mut().step_with_tokens(ids)?;
-        let logits = match &mut self.images {
+        let images = match &mut self.images {
             Some((token, rows)) if ids.contains(token) => {
                 let slots = ids.iter().filter(|id| *id == token).count() as i32;
                 let chunk = rows
@@ -673,10 +698,22 @@ impl<'model> Generation<'model> {
                 *rows = rows
                     .try_index(slots..)
                     .map_err(crate::InferenceError::from)?;
-                self.decoder
-                    .forward_with_images(&tokens, &chunk, &mut step)?
+                Some(chunk)
             }
-            _ => self.decoder.forward(&tokens, &mut step)?,
+            _ => None,
+        };
+        let (logits, taps) = match (&self.drafting, &images) {
+            (Some(_), _) => {
+                let (logits, taps) =
+                    self.decoder
+                        .forward_taps(&tokens, images.as_ref(), &mut step)?;
+                (logits, Some(taps))
+            }
+            (None, Some(rows)) => (
+                self.decoder.forward_with_images(&tokens, rows, &mut step)?,
+                None,
+            ),
+            (None, None) => (self.decoder.forward(&tokens, &mut step)?, None),
         };
         let row = if remaining == 1 {
             Some(last_row(&logits)?)
@@ -684,8 +721,11 @@ impl<'model> Generation<'model> {
             None
         };
         drop(logits);
-        let outputs: Vec<_> = row.iter().collect();
+        let outputs: Vec<_> = row.iter().chain(&taps).collect();
         step.evaluate(&outputs).map_err(evaluation_error)?.commit();
+        if let (Some(drafting), Some(taps)) = (&mut self.drafting, &taps) {
+            drafting.observe(&*self.decoder, taps)?;
+        }
         // As the reference does, or the step's freed buffers stay in MLX's buffer cache.
         mlx_rs::memory::clear_cache()?;
         self.processed += count;
