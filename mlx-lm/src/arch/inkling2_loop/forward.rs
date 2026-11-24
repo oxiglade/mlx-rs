@@ -178,6 +178,16 @@ fn gather_qmm(
     // SAFETY: MLX initialized `out` when it reported success.
     Ok(unsafe { Array::from_ptr(out) })
 }
+/// The recurrent windows a step can leave behind: after each of its `n` rows from `first` on.
+/// `source` holds the old window and then the step's rows in its first `len` positions.
+fn windows(source: &Array, len: i32, n: i32, cap: i32, first: i32) -> Vec<Array> {
+    (first..=n)
+        .map(|row| {
+            let end = len - n + row;
+            source.index((Ellipsis, end - end.min(cap)..end, ..))
+        })
+        .collect()
+}
 fn mix(blocks: &[Array], x: &Array, q: &Array) -> Result<Array> {
     let rows: Vec<_> = blocks.iter().chain([x]).collect();
     let keys = norm(&f(&ops::stack(&rows, -2)?)?, None)?;
@@ -250,9 +260,11 @@ impl Weights {
         p: &str,
         window: Array,
         dynamic: Option<&Array>,
-    ) -> Result<(Array, Array)> {
+        first: i32,
+    ) -> Result<(Vec<Array>, Array)> {
+        let n = x.shape()[1];
         let ctx = ops::concatenate(&[window, f(x)?], 1)?;
-        let next = ctx.index((.., -3.., ..));
+        let next = windows(&ctx, 3 + n, n, 3, first);
         let out = if let Some(d) = dynamic {
             let args = [
                 ctx,
@@ -294,18 +306,20 @@ impl Weights {
             Some(w("rel_l2_clip.scale")?),
             8.,
         )?;
-        let (key, value) = cache.recurrent(slot + 1, n as usize, |(k_window, v_window)| {
+        let first = if cache.per_row() { 1 } else { n };
+        let (key, value) = cache.recurrent_rows(slot + 1, n as usize, |(k_window, v_window)| {
             let side = |j: usize, name: &str, window: Array| {
                 self.conv(
                     &linear(&parts[j], &format!("w{name}_dv"))?,
                     &format!("{p}.{name}_sconv"),
                     window,
                     (!local).then_some(&parts[j]),
+                    first,
                 )
             };
-            let (k_window, k) = side(1, "k", k_window)?;
-            let (v_window, v) = side(2, "v", v_window)?;
-            Ok(((k_window, v_window), (k, v)))
+            let (k_windows, k) = side(1, "k", k_window)?;
+            let (v_windows, v) = side(2, "v", v_window)?;
+            Ok((k_windows.into_iter().zip(v_windows).collect(), (k, v)))
         })?;
         let k =
             clip(key.reshape(&[1, n, 8, 128])?, None, QK_CLIP)?.transpose_axes(&[0, 2, 1, 3])?;
@@ -333,15 +347,14 @@ impl Weights {
         let zero = ops::zeros_dtype(&[1, 8, 1, 128], dtype)?;
         let with_sink = |rows: &[&Array]| Ok::<_, InferenceError>(ops::concatenate(rows, 2)?);
         let (k, v) = if local {
-            cache.recurrent(slot, n as usize, |(k_window, v_window)| {
+            cache.recurrent_rows(slot, n as usize, |(k_window, v_window)| {
                 let k = with_sink(&[&k_window, &k, &zero])?;
                 let v = with_sink(&[&v_window, &v, &zero])?;
-                let end = k.shape()[2] - 1;
-                let kept = end - end.min(1023)..end;
-                let next = (
-                    k.index((.., .., kept.clone(), ..)),
-                    v.index((.., .., kept, ..)),
-                );
+                let len = k.shape()[2] - 1;
+                let next = windows(&k, len, n, 1023, first)
+                    .into_iter()
+                    .zip(windows(&v, len, n, 1023, first))
+                    .collect();
                 Ok((next, (k, v)))
             })?
         } else {
@@ -555,9 +568,10 @@ impl Weights {
             // Three cache layers per visit, in the order the factory lays them out.
             let slot = number * 3;
             let attn = self.attention(&parts, &format!("{p}.attn"), local, cache, slot)?;
-            x = cache.recurrent(slot + 2, n as usize, |(attn_window, mlp_window)| {
-                let (attn_window, r) =
-                    self.conv(&attn, &format!("{p}.attn_sconv"), attn_window, None)?;
+            let first = if cache.per_row() { 1 } else { n };
+            x = cache.recurrent_rows(slot + 2, n as usize, |(attn_window, mlp_window)| {
+                let (attn_windows, r) =
+                    self.conv(&attn, &format!("{p}.attn_sconv"), attn_window, None, first)?;
                 let r = if i % 6 == 0 {
                     blocks.push(x.clone());
                     f(&r)?
@@ -576,9 +590,10 @@ impl Weights {
                 )?
                 .as_dtype(dtype)?;
                 let m = self.moe(&m, &format!("{p}.mlp"))?;
-                let (mlp_window, m) = self.conv(&m, &format!("{p}.mlp_sconv"), mlp_window, None)?;
+                let (mlp_windows, m) =
+                    self.conv(&m, &format!("{p}.mlp_sconv"), mlp_window, None, first)?;
                 Ok((
-                    (attn_window, mlp_window),
+                    attn_windows.into_iter().zip(mlp_windows).collect(),
                     run(&RESIDUAL, &[r, m])?.as_dtype(dtype)?,
                 ))
             })?;

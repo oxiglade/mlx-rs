@@ -5,6 +5,10 @@ pub(crate) struct Recurrent {
     spec: LayerCacheSpec,
     offset: usize,
     state: (Array, Array),
+    /// Where the staged step began.
+    start: usize,
+    /// The states after the staged step's earlier rows, when it may be committed row by row.
+    rows: Vec<(Array, Array)>,
     pending: Vec<(usize, (Array, Array))>,
 }
 
@@ -23,6 +27,8 @@ impl Recurrent {
         Ok(Self {
             spec: spec.clone(),
             offset: 0,
+            start: 0,
+            rows: Vec::new(),
             pending: Vec::new(),
             state: (empty(first)?, empty(second)?),
         })
@@ -55,20 +61,37 @@ impl Recurrent {
             spec: spec.clone(),
             offset,
             state,
+            start: offset,
+            rows: Vec::new(),
             pending: Vec::new(),
         })
     }
-    pub(super) fn advance(&mut self, next: (Array, Array), count: usize) -> Result<(), CacheError> {
+    /// `states` are those after the step's last rows, in order, ending with the last row's.
+    pub(super) fn advance(
+        &mut self,
+        mut states: Vec<(Array, Array)>,
+        count: usize,
+    ) -> Result<(), CacheError> {
+        self.start = self.offset;
         self.offset = self
             .offset
             .checked_add(count)
             .ok_or_else(|| invalid("position overflow"))?;
-        self.state = next;
+        self.state = states
+            .pop()
+            .filter(|_| states.len() < count)
+            .ok_or_else(|| {
+                invalid("recurrent step needs its last state and at most one per row")
+            })?;
+        self.rows = states;
         self.pending.clear();
         Ok(())
     }
     pub(super) fn submitted(&mut self, staged: &Self) {
-        self.pending.retain(|(end, _)| *end < staged.offset);
+        self.pending.retain(|(end, _)| *end <= staged.start);
+        let first = staged.offset - staged.rows.len();
+        self.pending
+            .extend((first..).zip(staged.rows.iter().cloned()));
         self.pending.push((staged.offset, staged.state.clone()));
     }
 }
@@ -102,6 +125,7 @@ impl LayerCache for Recurrent {
     }
     fn snapshot_box(&self) -> Result<Box<dyn LayerCache>, CacheError> {
         Ok(Box::new(Self {
+            rows: Vec::new(),
             pending: Vec::new(),
             ..self.clone()
         }))

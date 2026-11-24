@@ -855,6 +855,56 @@ fn hybrid_state(cache: &Cache) -> Result<HybridState, CacheError> {
 }
 
 #[test]
+fn a_speculative_step_commits_row_by_row() -> Result<(), Box<dyn std::error::Error>> {
+    let layout = hybrid_layout();
+    let new = || {
+        Cache::new_for_model(
+            crate::ModelType::new("llama"),
+            &layout,
+            &CacheOptions::default(),
+            None,
+            Rc::new(()),
+        )
+    };
+    let mut cache = new()?;
+    append_hybrid(&mut cache, &[1, 2, 3])?;
+    // Four rows in one step, of which the first two are kept; then a step from there.
+    for (rows, kept) in [(&[4., 5., 6., 7.][..], &[4u32, 5][..]), (&[8., 9.], &[8])] {
+        let mut step = cache.speculative_step(cache.tokens()?.len())?;
+        assert!(step.per_row());
+        let negated: Vec<_> = rows.iter().map(|x| -x).collect();
+        let (keys, _) = step.update_and_fetch(0, tokens(rows)?, tokens(&negated)?)?;
+        step.recurrent_rows(1, rows.len(), |(mut state, mut count)| {
+            let mut states = Vec::new();
+            for id in rows {
+                state = state
+                    .multiply(Array::from_f32(3.))?
+                    .add(Array::from_f32(*id))?;
+                count = count.add(Array::from_f32(1.))?;
+                states.push((state.clone(), count.clone()));
+            }
+            Ok((states, ()))
+        })?;
+        step.submit(&[&keys])?;
+        for id in kept {
+            cache.commit_input((*id).into())?;
+        }
+    }
+    let mut reference = new()?;
+    for ids in [&[1, 2, 3][..], &[4, 5], &[8]] {
+        append_hybrid(&mut reference, ids)?;
+    }
+    assert_eq!(hybrid_state(&cache)?, hybrid_state(&reference)?);
+    // A state for every row is what makes the step committable anywhere.
+    let mut step = cache.speculative_step(cache.tokens()?.len())?;
+    let (keys, _) = step.update_and_fetch(0, tokens(&[1., 2.])?, tokens(&[1., 2.])?)?;
+    step.recurrent(1, 2, |state| Ok((state, ())))?;
+    step.submit(&[&keys])?;
+    assert!(cache.commit_input(1.into()).is_err());
+    Ok(())
+}
+
+#[test]
 fn rewind_to_checkpoint_matches_a_fresh_cache() -> Result<(), Box<dyn std::error::Error>> {
     let layout = hybrid_layout();
     let new = |identity: &Rc<()>| {
