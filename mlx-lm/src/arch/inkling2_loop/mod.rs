@@ -171,7 +171,7 @@ impl DecoderModel for Decoder {
         tokens: &Array,
         cache: &mut CacheStep<'_>,
     ) -> Result<Array, InferenceError> {
-        self.weights.forward(tokens, None, cache)
+        Ok(self.weights.forward(tokens, None, cache)?.0)
     }
     fn image_token(&self) -> Option<crate::TokenId> {
         Some(IMAGE_TOKEN.into())
@@ -185,7 +185,7 @@ impl DecoderModel for Decoder {
         rows: &Array,
         cache: &mut CacheStep<'_>,
     ) -> Result<Array, InferenceError> {
-        self.weights.forward(tokens, Some(rows), cache)
+        Ok(self.weights.forward(tokens, Some(rows), cache)?.0)
     }
     fn weight_projection(&mut self) -> Result<StateProjection<'_>, WeightError> {
         let mut p = StateProjection::new();

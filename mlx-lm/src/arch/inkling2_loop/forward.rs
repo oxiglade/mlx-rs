@@ -15,6 +15,8 @@ use std::{cell::RefCell, collections::HashMap, thread::LocalKey};
 pub(super) fn visits() -> impl Iterator<Item = usize> {
     (0..18).chain(6..18).chain(6..24)
 }
+/// The visits whose input the drafter reads, next to the final state.
+const TAPS: [usize; 3] = [5, 23, 41];
 
 const QK_CLIP: f32 = 22.627417;
 
@@ -440,7 +442,7 @@ impl Weights {
         ids: &Array,
         images: Option<&Array>,
         cache: &mut CacheStep<'_>,
-    ) -> Result<Array> {
+    ) -> Result<(Array, Array)> {
         let &[1, n] = ids.shape() else {
             return Err(CacheError::InvalidState("expected one sequence".into()).into());
         };
@@ -469,6 +471,7 @@ impl Weights {
         let mut blocks = Vec::new();
         let mut prelude: Option<(Array, Vec<Array>)> = None;
         let mut bank = None;
+        let mut taps = Vec::with_capacity(4);
         for (number, i) in visits().enumerate() {
             if i == 6 {
                 if let Some((h, b)) = &prelude {
@@ -480,6 +483,9 @@ impl Weights {
                 } else {
                     prelude = Some((x.clone(), blocks.clone()));
                 }
+            }
+            if TAPS.contains(&number) {
+                taps.push(x.clone());
             }
             let p = format!("model.llm.layers.{i}");
             let local = i % 6 != 5;
@@ -585,8 +591,12 @@ impl Weights {
         ));
         let h = norm(&h, Some(self.tensor("model.llm.norm.weight")?))?.as_dtype(dtype)?;
         let logits = proj(&f(&h)?, self.tensor("model.llm.unembed.weight")?)?;
-        Ok(ops::tanh(logits.divide(Array::from_f32(30.))?)?
-            .multiply(Array::from_f32(30.))?
-            .index((.., .., ..200058)))
+        taps.push(h);
+        Ok((
+            ops::tanh(logits.divide(Array::from_f32(30.))?)?
+                .multiply(Array::from_f32(30.))?
+                .index((.., .., ..200058)),
+            ops::concatenate(&taps, -1)?,
+        ))
     }
 }
