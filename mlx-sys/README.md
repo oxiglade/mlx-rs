@@ -95,8 +95,9 @@ stops the build. The `mlx-metal` wheel is a zip archive with this prefix under
 Its `libmlx.dylib` requires macOS 26.2 or newer, despite the `26_0` tag.
 For older macOS, choose the matching `macosx_14_0` or `macosx_15_0` wheel of the
 same MLX version and check its library's minimum OS version.
-The library must have Metal enabled and JIT disabled. Builds without the `metal`
-feature or with `metal-jit` are rejected.
+The library must have Metal enabled and JIT disabled. Builds with `metal-jit`, or
+without the `metal` or `cuda` feature, are rejected. For CUDA, see
+[A prebuilt CUDA MLX](#a-prebuilt-cuda-mlx).
 
 MLX loads `mlx.metallib` from beside `libmlx.dylib`. The wheel determines kernel
 availability, including NAX. `MLX_RS_METAL_PATH` and the source build's deployment
@@ -141,6 +142,46 @@ Cargo watches the prefix's library, version and CMake files and the wheel's
 installation metadata. If a non-wheel prefix is replaced with files whose
 timestamps are preserved, run `cargo clean -p mlx-sys` before rebuilding.
 
+## CUDA (Linux)
+
+The `cuda` feature builds MLX's CUDA backend (`MLX_BUILD_CUDA`) for NVIDIA GPUs on Linux,
+with `libmlx` and `libmlxc` as shared libraries:
+
+```toml
+mlx-sys = { version = "0.7", default-features = false, features = ["cuda"] }
+mlx-rs = { version = "0.34", default-features = false }
+```
+
+It cannot be combined with `metal` or `accelerate`. The build needs the CUDA toolkit with
+cuDNN, and BLAS and LAPACK(E) for MLX's CPU side, where MLX's CMake finds them.
+
+- `MLX_CUDA_ARCHITECTURES` selects the GPU architectures to compile kernels for, such as `89`
+  for an L4. When unset, MLX uses the GPU of the build machine.
+- `CUDA_HOME` or `CUDA_PATH` selects the toolkit's `nvcc`. Otherwise `nvcc` comes from `PATH`,
+  then `/usr/local/cuda/bin`.
+
+The libraries are installed under `OUT_DIR/build/lib` with an `$ORIGIN` rpath, and published as
+`DEP_MLX_LIB_DIR`. Binaries need that directory in their rpath or `LD_LIBRARY_PATH`. At run
+time `libmlx` compiles its kernels with NVRTC. It finds MLX's kernel headers in the `include/`
+directory beside its `lib/` directory, and the CUDA headers under `CUDA_HOME`, by default
+`/usr/local/cuda`.
+
+On x86_64, mlx-c declares its `float16`/`bfloat16` functions only on aarch64. The build forces
+`src/cuda_half.h` into mlx-c and the bindings to declare them, as on aarch64.
+
+### A prebuilt CUDA MLX
+
+With `cuda`, `MLX_SYS_PREBUILT` takes the prefix of a CUDA build of MLX, with `include/`,
+`share/cmake/MLX/` and `lib/libmlx.so`, and builds mlx-c against it as with Metal. MLX's
+CMake build of the CUDA kernels is skipped, but CMake, a C++ compiler and the CUDA toolkit
+with cuDNN are still needed. `CUDA_HOME` or `CUDA_PATH`, when set, locates the toolkit.
+mlx-c is linked statically and `libmlx.so` dynamically. Its MLX version must match the one
+mlx-c pins, and its `MLXConfig.cmake` must have CUDA enabled.
+
+`OUT_DIR/build` of an earlier `cuda` source build is such a prefix. Copy its `lib/`,
+`include/` and `share/` to keep it, for example in a separate container build stage.
+`DEP_MLX_LIB_DIR` is the prefix's `lib/`.
+
 ## Build metadata for dependents
 
 `DEP_MLX_INCLUDE`, `DEP_MLX_DEFINES` and `DEP_MLX_VERSION` are emitted since 0.7.0.
@@ -153,16 +194,16 @@ packages that directly depend on `mlx-sys`:
 | Variable | Value |
 |---|---|
 | `DEP_MLX_INCLUDE` | every directory the include path needs, as a path list: the MLX source tree (`mlx/...`), metal-cpp with the `metal` feature, and mlx-c (`mlx/c/...`) |
-| `DEP_MLX_DEFINES` | common header definitions, currently `MLX_STATIC` |
+| `DEP_MLX_DEFINES` | common header definitions, currently `MLX_STATIC`; empty with `cuda`, whose MLX is a shared library |
 | `DEP_MLX_COMPILE_COMMANDS` | CMake compilation database with the native compiler, include paths, definitions, SDK and target flags |
 | `DEP_MLX_METAL` | `true` when the native build enables Metal, otherwise `false` |
 | `DEP_MLX_VERSION` | the MLX version mlx-c pins, when it can be read |
-| `DEP_MLX_LIB_DIR` | with `MLX_SYS_PREBUILT` only: the prefix's `lib/`, which holds `libmlx.dylib`, `libjaccl.dylib` and `mlx.metallib` in the wheel |
+| `DEP_MLX_LIB_DIR` | with `MLX_SYS_PREBUILT`: the prefix's `lib/`, which holds `libmlx.dylib`, `libjaccl.dylib` and `mlx.metallib` in the wheel; with `cuda`: the directory of `libmlx.so` |
 
 With `MLX_SYS_PREBUILT`, `DEP_MLX_INCLUDE` holds the prefix's `include/` (and `include/metal_cpp`
 with the `metal` feature) and mlx-c, `DEP_MLX_DEFINES` is empty, since MLX is then a shared library
 (no `MLX_STATIC`), and `DEP_MLX_VERSION` is the installed MLX's version. `DEP_MLX_METAL`
-is `true`. `DEP_MLX_COMPILE_COMMANDS` is absent: an installed MLX has no compilation database.
+is `true` with `metal`. `DEP_MLX_COMPILE_COMMANDS` is absent: an installed MLX has no compilation database.
 Dependents that compile against MLX internals must handle a missing
 `DEP_MLX_COMPILE_COMMANDS`. Cargo always sets it in source mode. A shared MLX
 exports only its public symbols; backend internals such as `copy_gpu_inplace`

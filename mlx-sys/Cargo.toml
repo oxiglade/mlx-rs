@@ -26,6 +26,8 @@ default = ["accelerate", "metal"]
 accelerate = []
 metal = []
 metal-jit = ["metal"]
+# MLX's CUDA backend on Linux; use with `default-features = false`.
+cuda = []
 
 [dependencies]
 

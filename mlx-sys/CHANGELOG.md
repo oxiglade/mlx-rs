@@ -6,6 +6,12 @@
   Distributed rank/size functions become status-returning getters, and
   `mlx_gather_qmm` gains an optional global-scale array.
 
+- Add the `cuda` feature, which builds MLX's CUDA backend on Linux for NVIDIA GPUs as shared
+  `libmlx` and `libmlxc`. `MLX_CUDA_ARCHITECTURES` selects the GPU architectures, and
+  `CUDA_HOME` or `CUDA_PATH` the toolkit. `MLX_SYS_PREBUILT` also accepts the prefix of a
+  CUDA MLX. With `cuda`, `DEP_MLX_DEFINES` is empty and `DEP_MLX_LIB_DIR` names the
+  directory of `libmlx.so`
+
 - Build against an installed MLX with `MLX_SYS_PREBUILT`, set to its prefix: mlx-c is built
   against that MLX and linked to its `libmlx.dylib`, so a machine without Xcode's Metal compiler
   can build. The prefix's `lib/` is published as `DEP_MLX_LIB_DIR`, for dependents' rpath
